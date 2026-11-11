@@ -39,6 +39,9 @@
 # Ignore CI service files.
 /.github
 
+# Ignore OpenCode project setup.
+/.opencode
+
 # Ignore Kamal files.
 /config/deploy*.yml
 /.kamal

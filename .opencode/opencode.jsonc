@@ -1,0 +1,4 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  // Project skills are discovered automatically from .opencode/skills.
+}
