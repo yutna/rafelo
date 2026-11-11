@@ -4,11 +4,22 @@
 # belong in git's global ignore instead:
 # `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment (commit .env.example only)
+/.env*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
+
 # Ignore bundler config.
 /.bundle
-
-# Ignore all environment files.
-/.env*
 
 # Ignore all logfiles and tempfiles.
 /log/*
@@ -32,4 +43,8 @@
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
+/config/credentials/*.key
 
+# Ignore logs outside log/.
+*.log
+logs/

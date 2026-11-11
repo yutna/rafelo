@@ -1,12 +1,27 @@
 version: 2
 updates:
-- package-ecosystem: bundler
-  directory: "/"
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-- package-ecosystem: github-actions
-  directory: "/"
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    labels: [dependencies]
+    assignees: [yutna]
+    commit-message:
+      prefix: chore
+      include: scope # -> "chore(deps): bump ...", which passes the PR title check
+
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      bundler:
+        update-types: [minor, patch]
+    labels: [dependencies]
+    assignees: [yutna]
+    commit-message:
+      prefix: chore
+      include: scope
