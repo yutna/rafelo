@@ -42,6 +42,7 @@ are all meant to be replaced.
   `pr-check`, `issue-check` and `release` callers from
   [yutna/oss-kit](https://github.com/yutna/oss-kit)
 - Community files and issue/pull request templates
+- A project-local OpenCode setup with the object-oriented design skills
 
 ## Requirements
 
@@ -95,6 +96,14 @@ bin/ci                  # the local CI suite
 check. System tests are commented out there by default; run them explicitly
 when a change touches browser behaviour.
 
+## AI-assisted development
+
+The repository includes a project-local OpenCode V2 setup and a vendored copy
+of the [object-oriented design skills](https://github.com/yutna/object-oriented-design-skills).
+The agent instructions live in [AGENTS.md](AGENTS.md); usage, provenance and
+update steps are in [docs/opencode.md](docs/opencode.md). The setup is optional:
+the Rails application does not depend on OpenCode.
+
 ## Deployment
 
 The production image uses the included Dockerfile, Thruster and a persistent
@@ -111,8 +120,10 @@ app/views           Hotwire pages, mailers and PWA files
 app/javascript      Stimulus controllers and Importmap entrypoints
 config/             environments, routes, deployment and Solid* settings
 db/                 schema, seeds and Solid* database schemas
-docs/               architecture, customization and deployment notes
+docs/               architecture, customization, deployment and OpenCode notes
+.opencode/          OpenCode config and vendored design skills
 test/               Minitest, integration and system tests
+AGENTS.md           project instructions loaded by OpenCode
 ```
 
 ## Documentation
@@ -120,6 +131,7 @@ test/               Minitest, integration and system tests
 - [Architecture](docs/architecture.md)
 - [Customizing the template](docs/customization.md)
 - [Deployment](docs/deployment.md)
+- [OpenCode setup](docs/opencode.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Support](SUPPORT.md)
