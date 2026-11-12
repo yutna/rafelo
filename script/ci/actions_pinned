@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "yaml"
 
 root = Dir.pwd
 OptionParser.new do |parser|
@@ -16,20 +17,48 @@ files = Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")] +
         Dir[File.join(root, ".github", "actions", "**", "action.{yml,yaml}")]
 abort "actions_pinned: no workflow or action files found" if files.empty?
 
+USES_LINE = /\buses\s*:\s*["']?([^"'\s#]+)["']?\s*(?:#\s*(.*))?/
+
+def comments_by_uses(raw)
+  raw.each_line.with_object({}) do |line, comments|
+    match = line.match(USES_LINE)
+    comments[match[1]] = match[2].to_s.strip if match
+  end
+end
+
+def walk_steps(steps, &block)
+  Array(steps).each do |step|
+    next unless step.is_a?(Hash)
+
+    block.call(step["uses"]) if step["uses"]
+  end
+end
+
 errors = []
 checks = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  File.readlines(path, chomp: true).each_with_index do |line, index|
-    next if line.lstrip.start_with?("#")
+  raw = File.read(path)
+  comments = comments_by_uses(raw)
+  data = YAML.load_file(path, aliases: true)
 
-    match = line.match(/uses:\s*([^\s#]+)(?:\s*#\s*(.*))?/)
-    next unless match
+  uses_values = []
+  if data["jobs"].is_a?(Hash)
+    data["jobs"].each do |_name, job|
+      next unless job.is_a?(Hash)
 
+      uses_values << job["uses"] if job["uses"]
+      walk_steps(job["steps"]) { |value| uses_values << value }
+    end
+  end
+  if data.dig("runs", "steps")
+    walk_steps(data.dig("runs", "steps")) { |value| uses_values << value }
+  end
+
+  uses_values.each do |reference|
     checks += 1
-    reference = match[1]
-    comment = match[2]
-    location = "#{relative}:#{index + 1}"
+    reference = reference.to_s
+    location = "#{relative} uses #{reference}"
     next if reference.start_with?("./")
 
     if reference.start_with?("docker://")
@@ -37,12 +66,12 @@ files.each do |path|
       next
     end
 
-    unless reference.match?(/@[0-9a-f]{40}\z/)
-      errors << "#{location}: #{reference} is not pinned to a full commit SHA"
-    end
-    errors << "#{location}: #{reference} has no version comment" if comment.to_s.strip.empty?
+    errors << "#{location}: not pinned to a full commit SHA" unless reference.match?(/@[0-9a-f]{40}\z/)
+    errors << "#{location}: has no version comment" if comments[reference].to_s.empty?
   end
 end
+
+abort "actions_pinned: inspected zero uses" if checks.zero?
 
 if errors.any?
   errors.each { |error| warn "actions_pinned: #{error}" }
