@@ -56,7 +56,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 26.13.0
-          cache: npm
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
 
       - name: Install npm dependencies
         run: npm ci
