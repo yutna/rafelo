@@ -84,6 +84,10 @@ files.each do |path|
 
     next unless privileged && job["steps"].is_a?(Array)
 
+    job_if = job["if"].to_s
+    guarded_release = job_if.include?("workflow_run.event == 'push'") &&
+                      job_if.include?("workflow_run.head_repository.full_name == github.repository")
+
     job["steps"].each do |step|
       next unless step.is_a?(Hash)
 
@@ -91,7 +95,10 @@ files.each do |path|
       if uses.start_with?("actions/checkout")
         ref = step.dig("with", "ref").to_s
         repository = step.dig("with", "repository").to_s
-        errors << "#{relative}: job #{name} checks out a pull request ref in a privileged workflow" unless ref.empty?
+        allowed_release_ref = guarded_release && ref.include?("github.event.workflow_run.head_sha")
+        unless ref.empty? || allowed_release_ref
+          errors << "#{relative}: job #{name} checks out a pull request ref in a privileged workflow"
+        end
         errors << "#{relative}: job #{name} checks out another repository in a privileged workflow" unless repository.empty?
       end
 
