@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/actions_pinned [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "actions_pinned: root does not exist: #{root}" unless Dir.exist?(root)
+
+files = Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")] +
+        Dir[File.join(root, ".github", "actions", "**", "action.{yml,yaml}")]
+abort "actions_pinned: no workflow or action files found" if files.empty?
+
+errors = []
+checks = 0
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  File.readlines(path, chomp: true).each_with_index do |line, index|
+    next if line.lstrip.start_with?("#")
+
+    match = line.match(/uses:\s*([^\s#]+)(?:\s*#\s*(.*))?/)
+    next unless match
+
+    checks += 1
+    reference = match[1]
+    comment = match[2]
+    location = "#{relative}:#{index + 1}"
+    next if reference.start_with?("./")
+
+    if reference.start_with?("docker://")
+      errors << "#{location}: docker image is not digest-pinned" unless reference.match?(/@sha256:[0-9a-f]{64}\z/)
+      next
+    end
+
+    unless reference.match?(/@[0-9a-f]{40}\z/)
+      errors << "#{location}: #{reference} is not pinned to a full commit SHA"
+    end
+    errors << "#{location}: #{reference} has no version comment" if comment.to_s.strip.empty?
+  end
+end
+
+if errors.any?
+  errors.each { |error| warn "actions_pinned: #{error}" }
+  warn "actions_pinned: checked #{checks} uses; errors=#{errors.length}"
+  exit 1
+end
+
+warn "actions_pinned: checked #{checks} uses; errors=0"

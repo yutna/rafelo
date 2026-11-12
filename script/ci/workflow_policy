@@ -1,0 +1,88 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/workflow_policy [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "workflow_policy: root does not exist: #{root}" unless Dir.exist?(root)
+
+files = Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")]
+abort "workflow_policy: no workflow files found" if files.empty?
+
+errors = []
+jobs_checked = 0
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  raw = File.read(path)
+  data = YAML.load_file(path, aliases: true)
+  permissions = data["permissions"]
+  unless permissions == { "contents" => "read" }
+    errors << "#{relative}: top-level permissions must be exactly contents: read"
+  end
+
+  jobs = data["jobs"] || {}
+  jobs.each do |name, job|
+    jobs_checked += 1
+    if job["uses"]
+      # A reusable workflow caller cannot declare timeout-minutes.
+    elsif job["steps"]
+      timeout = job["timeout-minutes"]
+      errors << "#{relative}: job #{name} has no timeout-minutes" unless timeout.is_a?(Integer) && timeout.positive?
+    end
+
+    job_permissions = job["permissions"]
+    next unless job_permissions
+
+    unless job_permissions.is_a?(Hash)
+      errors << "#{relative}: job #{name} permissions must be a mapping"
+      next
+    end
+    job_permissions.each do |scope, value|
+      unless %w[contents issues pull-requests actions checks packages].include?(scope)
+        errors << "#{relative}: job #{name} has unknown permission scope #{scope}"
+      end
+      errors << "#{relative}: job #{name} has unsupported permission #{scope}: #{value}" unless %w[read write none].include?(value)
+      if value == "write" && !%w[contents issues pull-requests].include?(scope)
+        errors << "#{relative}: job #{name} has write permission outside the allow-list: #{scope}"
+      end
+    end
+  end
+
+  aggregator = jobs["ci-ok"]
+  if aggregator
+    needs = Array(aggregator["needs"]).map(&:to_s)
+    expected = jobs.keys.map(&:to_s) - [ "ci-ok" ]
+    missing = expected - needs
+    errors << "#{relative}: ci-ok needs is missing #{missing.join(', ')}" if missing.any?
+  end
+
+  next unless raw.include?("pull_request_target:") || raw.include?("workflow_run:")
+
+  jobs.each do |name, job|
+    next unless job["steps"]
+
+    job["steps"].each do |step|
+      next unless step["uses"].to_s.start_with?("actions/checkout")
+
+      ref = step.dig("with", "ref").to_s
+      errors << "#{relative}: job #{name} checks out pull request code in a privileged workflow" if ref.include?("head.sha") || ref.include?("head_ref") || ref.include?("refs/pull/")
+      run = step["run"].to_s
+      errors << "#{relative}: job #{name} fetches pull request code in a privileged workflow" if run.include?("gh pr checkout") || run.include?("pull/")
+    end
+  end
+end
+
+if errors.any?
+  errors.each { |error| warn "workflow_policy: #{error}" }
+  warn "workflow_policy: checked #{files.length} workflows and #{jobs_checked} jobs; errors=#{errors.length}"
+  exit 1
+end
+
+warn "workflow_policy: checked #{files.length} workflows and #{jobs_checked} jobs; errors=0"
