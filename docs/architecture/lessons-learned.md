@@ -79,3 +79,28 @@ remain a non-blocking S3 item for `v0.20.0`/`v0.22.0`, tracked in Backlog.
 **Spec feedback.** CT-09 verification recipes should say which files are
 specification copies. WF-01 should say Evidence is required when an issue
 claims rule IDs. Related IDs: CT-09, WF-01.
+
+## 2026-11-12 — v0.4.0 — issue #32
+
+**What happened.** The gate audit applied WF-06's Renovate and peer-group rules
+to the template repository's own oss-kit Dependabot setup, then found that the
+new exact Gemfile pin broke the production Docker build because `.ruby-version`
+was copied too late. The Dev Container also used floating feature tags.
+
+**Root cause.** The milestone description claimed the whole of WF-06 even
+though owner decision 2 makes the WF rules govern the adopted app, not the
+template repository's own process. The Gemfile and Dockerfile changed in
+separate pull requests, so CI did not build the production image and missed
+the regression.
+
+**What changed.** Dependabot now updates one package per pull request; the
+adopted-app Renovate payload is deferred to the template milestone. Every gem
+is exact-pinned and Ruby comes from `.ruby-version`. Dev Container features are
+exact-versioned. The production Dockerfile copies `.ruby-version` before
+`bundle install`. The milestone description now says WF-06 runtime-pin
+checkpoint.
+
+**Spec feedback.** WF-06 should state explicitly whether it governs the
+template repository's own dependency bot or only the adopted app. OPS-09 should
+say that Dev Container feature tags need exact versions, not just the base and
+database images. Related IDs: WF-06, OPS-09.
