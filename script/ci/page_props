@@ -1,0 +1,40 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/page_props [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "page_props: root does not exist: #{root}" unless Dir.exist?(root)
+
+patterns = %W[
+  #{root}/app/frontend/**/*.ts
+  #{root}/app/frontend/**/*.tsx
+  #{root}/engines/*/app/frontend/**/*.ts
+  #{root}/engines/*/app/frontend/**/*.tsx
+]
+files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
+abort "page_props: no frontend files found under #{root}" if files.empty?
+
+findings = 0
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  File.readlines(path, chomp: true).each_with_index do |line, index|
+    next unless line.match?(/\b(?:only|except)\s*:/)
+
+    line.scan(/"([^"]+)"/).flatten.each do |key|
+      next unless key.include?(".")
+
+      puts "#{relative}:#{index + 1}: multi-word partial-reload key #{key.inspect}"
+      findings += 1
+    end
+  end
+end
+
+warn "page_props: checked #{files.length} files; findings=#{findings}"
+exit(findings.zero? ? 0 : 1)

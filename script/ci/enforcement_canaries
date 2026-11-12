@@ -13,7 +13,7 @@ end.parse!
 root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
-REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors].freeze
+REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
 CANARY_SCRIPTS = %w[affected_canary clones_canary fan_in_canary graph_canaries growth_canary].freeze
 
 config_ci = File.read(File.join(root, "config", "ci.rb"))
@@ -205,6 +205,26 @@ canaries = [
     bad_args: [ "--root", "ROOT" ],
     legal_args: [ "--root", "ROOT" ],
     expected: "save-exact"
+  },
+  {
+    check: "frontend_boundary",
+    name: "usePage outside layouts",
+    bad: "spec/enforcement/fixtures/frontend_boundary/bad",
+    legal: "spec/enforcement/fixtures/frontend_boundary/legal",
+    script: "script/ci/frontend_boundary",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "only allowed in layouts"
+  },
+  {
+    check: "page_props",
+    name: "multi-word partial key",
+    bad: "spec/enforcement/fixtures/page_props/bad",
+    legal: "spec/enforcement/fixtures/page_props/legal",
+    script: "script/ci/page_props",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "multi-word partial-reload key"
   }
 ]
 

@@ -1,16 +1,15 @@
 import { Head } from "@inertiajs/react";
 
 import { HomeScreen } from "../../screens/home/home_screen";
+import { pageSchema } from "./index.schema";
 
-type HomeIndexProps = {
-  message: string;
-};
+export default function HomeIndex(props: Record<string, unknown>) {
+  const page = pageSchema.parse(props);
 
-export default function HomeIndex({ message }: HomeIndexProps) {
   return (
     <>
       <Head title="Rafelo" />
-      <HomeScreen message={message} />
+      <HomeScreen message={page.data.message} />
     </>
   );
 }
