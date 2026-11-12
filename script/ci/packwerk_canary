@@ -8,8 +8,13 @@ require "tmpdir"
 
 root = File.expand_path(Dir.pwd)
 Dir.mktmpdir("packwerk-canary") do |tmp|
-  archive = "git -C #{Shellwords.escape(root)} archive HEAD | tar -x -C #{Shellwords.escape(tmp)}"
-  system("bash", "-lc", archive, exception: true)
+  system(
+    "rsync", "-a",
+    "--exclude=.git", "--exclude=node_modules", "--exclude=tmp",
+    "--exclude=log", "--exclude=storage", "--exclude=public/vite",
+    "--exclude=public/vite-dev", "--exclude=public/vite-test",
+    "#{root}/", "#{tmp}/", exception: true
+  )
 
   FileUtils.mkdir_p(File.join(tmp, "engines", "cycle_a"))
   FileUtils.mkdir_p(File.join(tmp, "engines", "cycle_b"))

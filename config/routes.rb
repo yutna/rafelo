@@ -9,5 +9,7 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  root "home#show"
+  scope ":locale", locale: Rafelo::Core::Locales.route_constraint do
+    root "home#show"
+  end
 end
