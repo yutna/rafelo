@@ -1,14 +1,17 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "types": ["vite/client", "node"]
-  },
-  "include": ["app/frontend/**/*.ts", "app/frontend/**/*.tsx", "vite.config.mts", "vitest.config.mts", "vitest.setup.ts"]
+  "files": [],
+  "references": [
+    {
+      "path": "engines/core"
+    },
+    {
+      "path": "engines/design_system"
+    },
+    {
+      "path": "app/frontend"
+    },
+    {
+      "path": "tsconfig.tooling.json"
+    }
+  ]
 }

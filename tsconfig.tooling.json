@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./tmp/tsc/tooling",
+    "tsBuildInfoFile": "./tmp/tsc/tooling.tsbuildinfo"
+  },
+  "include": [
+    "e2e/**/*",
+    "engines/*/e2e/**/*",
+    "script/**/*.ts",
+    "playwright.config.ts",
+    "vite.config.mts",
+    "vitest.config.mts",
+    "vitest.setup.ts",
+    "config/frontend_aliases.mts",
+    "config/frontend_react.mts",
+    "engines/*/vitest.config.mts"
+  ],
+  "references": [
+    {
+      "path": "engines/core"
+    },
+    {
+      "path": "engines/design_system"
+    }
+  ]
+}

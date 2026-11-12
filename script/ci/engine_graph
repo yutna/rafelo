@@ -1,0 +1,100 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+check = false
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/engine_graph [--root DIR] [--check]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--check") { check = true }
+end.parse!
+
+root = File.expand_path(root)
+abort "engine_graph: root does not exist: #{root}" unless Dir.exist?(root)
+
+packages = Dir[File.join(root, "engines", "*", "package.yml")].sort.to_h do |path|
+  name = File.basename(File.dirname(path))
+  dependencies = YAML.load_file(path).fetch("dependencies", []).map { |dep| File.basename(dep) }
+  [ name, dependencies ]
+end
+abort "engine_graph: no engine packages found" if packages.empty?
+
+KERNEL = %w[core design_system].freeze
+
+def project(root, name, include:, references:)
+  {
+    "extends" => "#{root}tsconfig.base.json",
+    "compilerOptions" => {
+      "composite" => true,
+      "declaration" => true,
+      "emitDeclarationOnly" => true,
+      "outDir" => "#{root}tmp/tsc/#{name}",
+      "tsBuildInfoFile" => "#{root}tmp/tsc/#{name}.tsbuildinfo"
+    },
+    "include" => include,
+    "references" => references
+  }
+end
+
+def write_or_check(path, content, check, errors)
+  if check
+    errors << "#{path} is stale" unless File.file?(path) && File.read(path) == content
+  else
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, content)
+  end
+end
+
+require "fileutils"
+errors = []
+every_engine = packages.keys.map { |name| { "path" => "engines/#{name}" } }
+app_references = packages.keys.map { |name| { "path" => "../../engines/#{name}" } }
+
+packages.each do |name, dependencies|
+  references = dependencies.map { |dep| { "path" => "../#{dep}" } }
+  config = project("../../", name, include: [ "app/frontend/**/*" ], references: references)
+  write_or_check(File.join(root, "engines", name, "tsconfig.json"), "#{JSON.pretty_generate(config)}\n", check, errors)
+end
+
+app = project("../../", "app", include: [ "**/*" ], references: app_references)
+write_or_check(File.join(root, "app", "frontend", "tsconfig.json"), "#{JSON.pretty_generate(app)}\n", check, errors)
+
+tooling = project("./", "tooling",
+  include: %w[
+    e2e/**/* engines/*/e2e/**/* script/**/*.ts playwright.config.ts
+    vite.config.mts vitest.config.mts vitest.setup.ts config/frontend_aliases.mts
+    config/frontend_react.mts engines/*/vitest.config.mts
+  ],
+  references: every_engine)
+write_or_check(File.join(root, "tsconfig.tooling.json"), "#{JSON.pretty_generate(tooling)}\n", check, errors)
+
+solution = {
+  "files" => [],
+  "references" => [ *every_engine, { "path" => "app/frontend" }, { "path" => "tsconfig.tooling.json" } ]
+}
+write_or_check(File.join(root, "tsconfig.json"), "#{JSON.pretty_generate(solution)}\n", check, errors)
+
+rules = packages.map do |name, dependencies|
+  surfaces = dependencies.map do |dependency|
+    KERNEL.include?(dependency) ? "^engines/#{dependency}/app/frontend/" : "^engines/#{dependency}/app/frontend/public/"
+  end
+  {
+    "name" => dependencies.empty? ? "#{name}-imports-nothing-in-the-repository" : "#{name}-imports-declared-surfaces-only",
+    "severity" => "error",
+    "from" => { "path" => "^engines/#{name}/" },
+    "to" => {
+      "path" => "^(app|engines)/",
+      "pathNot" => [ "^engines/#{name}/", *surfaces ]
+    }
+  }
+end
+write_or_check(File.join(root, ".dependency-cruiser.engines.generated.json"), "#{JSON.pretty_generate(rules)}\n", check, errors)
+
+errors << "engine_graph: package_todo.yml exists" if Dir[File.join(root, "**", "package_todo.yml")].any?
+warn "engine_graph: checked #{packages.length} engines, #{rules.length} rules; errors=#{errors.length}"
+errors.each { |error| warn "engine_graph: #{error}" }
+exit(errors.empty? ? 0 : 1)

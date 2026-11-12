@@ -1,0 +1,83 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+check = false
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/aliases [--root DIR] [--check]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--check") { check = true }
+end.parse!
+
+root = File.expand_path(root)
+abort "aliases: root does not exist: #{root}" unless Dir.exist?(root)
+
+engines = Dir[File.join(root, "engines", "*", "package.yml")].sort.map { |path| File.basename(File.dirname(path)) }
+abort "aliases: no engines found" if engines.empty?
+
+paths = { "@/*" => [ "app/frontend/*" ] }
+engines.each do |engine|
+  paths["@#{engine}/*"] = [ "engines/#{engine}/app/frontend/*" ]
+  paths["@#{engine}/public/*"] = [ "engines/#{engine}/app/frontend/public/*" ]
+end
+
+base = {
+  "compilerOptions" => {
+    "target" => "ES2022",
+    "lib" => [ "ES2022", "DOM", "DOM.Iterable" ],
+    "module" => "ESNext",
+    "moduleResolution" => "Bundler",
+    "jsx" => "react-jsx",
+    "strict" => true,
+    "skipLibCheck" => true,
+    "types" => [ "vite/client", "node" ],
+    "baseUrl" => ".",
+    "ignoreDeprecations" => "6.0",
+    "allowImportingTsExtensions" => true,
+    "paths" => paths
+  }
+}
+
+alias_lines = engines.map do |engine|
+  "  { find: \"@#{engine}\", replacement: `\${root}/engines/#{engine}/app/frontend` },"
+end
+alias_lines << "  { find: \"@engines\", replacement: `\${root}/engines` },"
+alias_lines << "  { find: \"@\", replacement: `\${root}/app/frontend` },"
+fs_allow_lines = [
+  "  `\${root}`",
+  "  `\${root}/engines`",
+  "  `\${root}/app/frontend`"
+]
+
+frontend_aliases = <<~TS
+  import { fileURLToPath } from "node:url";
+
+  const root = fileURLToPath(new URL("..", import.meta.url)).replace(/\\/$/, "");
+
+  export const engineAliases = [
+  #{alias_lines.join("\n")}
+  ];
+
+  export const engineFsAllow = [
+  #{fs_allow_lines.join(",\n")}
+  ];
+TS
+
+def write_or_check(path, content, check, errors)
+  if check
+    errors << "#{path} is stale" unless File.file?(path) && File.read(path) == content
+  else
+    File.write(path, content)
+  end
+end
+
+errors = []
+write_or_check(File.join(root, "tsconfig.base.json"), "#{JSON.pretty_generate(base)}\n", check, errors)
+write_or_check(File.join(root, "config", "frontend_aliases.mts"), frontend_aliases, check, errors)
+warn "aliases: checked #{engines.length} engines; errors=#{errors.length}"
+errors.each { |error| warn "aliases: #{error}" }
+exit(errors.empty? ? 0 : 1)

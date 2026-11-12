@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "../../tmp/tsc/core",
+    "tsBuildInfoFile": "../../tmp/tsc/core.tsbuildinfo"
+  },
+  "include": [
+    "app/frontend/**/*"
+  ],
+  "references": []
+}
