@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "bundler"
 require "json"
 require "optparse"
 
@@ -55,14 +56,46 @@ errors << "package.json devEngines do not fail on mismatch" unless package.dig("
 gemfile = read(root, "Gemfile")
 checks += 1
 errors << "Gemfile does not read .ruby-version" unless gemfile.include?('ruby file: ".ruby-version"')
+checks += 1
+errors << "Gemfile.lock is missing" unless File.file?(File.join(root, "Gemfile.lock"))
 
-gemfile.each_line do |line|
-  next unless line.match?(/^\s*gem\s+"/)
+begin
+  definition = Bundler::Definition.build(
+    File.join(root, "Gemfile"),
+    File.join(root, "Gemfile.lock"),
+    {}
+  )
+  definition.dependencies.each do |dependency|
+    checks += 1
+    requirement = dependency.requirement
+    exact = requirement.requirements.length == 1 && requirement.requirements.first.first == "="
+    errors << "Gemfile #{dependency.name} is not exact: #{requirement}" unless exact
 
-  checks += 1
-  match = line.match(/^\s*gem\s+"([^"]+)"(?:,\s*"([^"]+)")?/)
-  name, version = match[1], match[2]
-  errors << "Gemfile #{name} is not exact: #{version.inspect}" unless version&.match?(exact_version)
+    if dependency.source.is_a?(Bundler::Source::Git)
+      ref = dependency.source.ref.to_s
+      errors << "Gemfile #{dependency.name} git ref is not a full SHA" unless ref.match?(/\A[0-9a-f]{40}\z/)
+    end
+  end
+
+  engine_names = Dir[File.join(root, "engines", "*", "*.gemspec")].map { |path| File.basename(path, ".gemspec") }
+  allowed_dependencies = definition.dependencies.map(&:name) + engine_names
+  Dir[File.join(root, "engines", "*", "*.gemspec")].each do |path|
+    specification = Gem::Specification.load(path)
+    if specification.nil?
+      errors << "#{path.delete_prefix("#{root}/")} could not be loaded"
+      next
+    end
+
+    specification.dependencies.each do |dependency|
+      checks += 1
+      errors << "gemspec #{dependency.name} states a version constraint" unless dependency.requirement == Gem::Requirement.default
+      unless allowed_dependencies.include?(dependency.name)
+        errors << "gemspec #{dependency.name} is not pinned in the Gemfile or supplied by an engine"
+      end
+    end
+  end
+rescue StandardError => error
+  errors << "Bundler evaluation failed: #{error.message}"
 end
 
 dockerfile = read(root, "Dockerfile")
@@ -89,6 +122,8 @@ errors << "devcontainer features are not exactly versioned" unless features.keys
 
 checks += 1
 errors << "package-lock.json is missing" unless File.file?(File.join(root, "package-lock.json"))
+checks += 1
+errors << ".npmrc must set save-exact=true" unless read(root, ".npmrc").include?("save-exact=true")
 
 if errors.any?
   errors.each { |error| warn "pins: #{error}" }
