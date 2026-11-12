@@ -9,5 +9,6 @@ describe("i18n", () => {
 
     await setLocale("th");
     expect(t("app:home.message")).toBe("ราฟีโล");
+    expect(t("design_system:nav.title")).toBe("ระบบออกแบบ");
   });
 });

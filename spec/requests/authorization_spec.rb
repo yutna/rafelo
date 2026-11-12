@@ -50,6 +50,15 @@ RSpec.describe "Authorization", type: :request do
     expect(page.dig("props", "trace")).to include("requestId", "traceId")
   end
 
+  it "renders the shared error page for an HTML denial" do
+    get "/th/probe/denied"
+
+    expect(response).to have_http_status(:forbidden)
+    expect(response.body).to include('"component":"errors/show"')
+    expect(response.body).to include("ไม่มีสิทธิ์")
+    expect(response.headers["Cache-Control"]).to include("no-store")
+  end
+
   it "renders the Thai error message and both ids when authorization is denied" do
     get "/th/probe/missing"
 

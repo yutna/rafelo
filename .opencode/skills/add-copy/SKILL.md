@@ -28,6 +28,8 @@ description: Use when adding or changing a user-facing string, when a page needs
 
 Load `oo-design` before changing a props or page object. Load `oo-typescript` for TypeScript page code and `oo-working-within-a-framework` for React components. Load `oo-reviewing-object-design` when reviewing the diff. A rule or ADR wins over the pack.
 
+Rule IDs: CT-08; FE-11; ARCH-11.
+
 ## Done when
 
 Every configured locale has the key, the generated JSON is current, the page reads the string through i18n, and `bin/ci` is green.
