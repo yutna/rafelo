@@ -19,11 +19,15 @@ the gist.
 ```sh
 git clone https://gist.github.com/yutna/6e3a34d9ee98dff5a00fbefc8bd780ae.git /tmp/rafelo-spec
 diff -r --exclude=.git --exclude=lessons-learned.md /tmp/rafelo-spec docs/architecture
-wc -l docs/architecture/*.md
-(cd docs/architecture && sha256sum *.md)
+find docs/architecture -maxdepth 1 -name '*.md' ! -name 'lessons-learned.md' \
+  -print0 | sort -z | xargs -0 wc -l
+find docs/architecture -maxdepth 1 -name '*.md' ! -name 'lessons-learned.md' \
+  -print0 | sort -z | xargs -0 sha256sum
 ```
 
-The diff must be clean and the line count must be 9571.
+The diff must be clean, the file count must be 16, and the line count must
+be 9571. `lessons-learned.md` is not a specification file, so both commands
+exclude it.
 
 ## File inventory
 
