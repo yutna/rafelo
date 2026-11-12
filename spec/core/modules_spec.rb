@@ -4,7 +4,7 @@ RSpec.describe Rafelo::Core::Modules do
   after { described_class.reset! }
 
   it "registers a module with defaults" do
-    entry = described_class.register(key: :billing, engine: Class.new)
+    entry = described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
 
     expect(entry.path).to eq("/billing")
     expect(entry.permission_prefixes).to eq([ "billing" ])
@@ -12,35 +12,52 @@ RSpec.describe Rafelo::Core::Modules do
   end
 
   it "rejects a duplicate key" do
-    described_class.register(key: :billing, engine: Class.new)
-    described_class.register(key: :billing, engine: Class.new, path: "/other")
+    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/other")
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /duplicate module key/)
   end
 
   it "rejects a duplicate path" do
-    described_class.register(key: :billing, engine: Class.new)
-    described_class.register(key: :payments, engine: Class.new, path: "/billing")
+    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    described_class.register(key: :payments, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/billing")
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /duplicate module path/)
   end
 
   it "rejects a reserved key or first path segment" do
-    expect { described_class.register(key: :core, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :auth, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :safe, engine: Class.new, path: "/core/extra") }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :safe, engine: Class.new, path: "/sign_in/extra") }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :safe, engine: Class.new, path: "/up/extra") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :core, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :auth, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/core/extra") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/sign_in/extra") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/up/extra") }.to raise_error(ArgumentError, /reserved/)
   end
 
   it "rejects a locale-shaped key or path" do
-    expect { described_class.register(key: :en, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :safe, engine: Class.new, path: "/th") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :en, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/th") }.to raise_error(ArgumentError, /reserved/)
+  end
+
+  it "rejects a key or first segment added by the app routes" do
+    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/reports(.:format)"))
+    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
+
+    engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
+    expect { described_class.register(key: :reports, engine: engine) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: engine, path: "/reports/extra") }.to raise_error(ArgumentError, /reserved/)
+  end
+
+  it "does not reject a module because its own mount path exists" do
+    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/billing(.:format)"))
+    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
+
+    expect { described_class.validate! }.not_to raise_error
   end
 
   it "rejects a duplicate navigation order" do
-    described_class.register(key: :billing, engine: Class.new, nav: { order: 10 })
-    described_class.register(key: :payments, engine: Class.new, path: "/payments", nav: { order: 10 })
+    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, nav: { order: 10 })
+    described_class.register(key: :payments, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/payments", nav: { order: 10 })
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /navigation order/)
   end

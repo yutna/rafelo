@@ -7,9 +7,15 @@ module Rafelo
 
       def initialize(app)
         @app = app
+        @validated = false
       end
 
       def call(env)
+        unless @validated
+          Modules.validate!
+          @validated = true
+        end
+
         request = Rack::Request.new(env)
         path = request.path_info
         return @app.call(env) if exempt?(path)
