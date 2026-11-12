@@ -35,7 +35,7 @@ That file is maintainer-only and is not copied into an adopted application.
 bin/setup --skip-server
 bin/dev
 bin/ci
-bin/rails test
+bundle exec rspec
 ```
 
 The specification's commands (`bin/check`, `bin/kernel_update`, the `rafelo:*`

@@ -1,8 +1,9 @@
 # Deployment
 
 The template ships a production Dockerfile, Thruster and a Kamal
-configuration. SQLite is used in production, so the storage volume is part of
-the deployment contract.
+configuration. PostgreSQL is used in production. The Kamal file is still a
+baseline placeholder; the operations milestone adds the PostgreSQL accessory
+or managed database and removes the old SQLite volume.
 
 ## Docker
 
@@ -12,6 +13,10 @@ Build and run the image locally:
 docker build -t rafelo .
 docker run -d -p 80:80 \
   -e RAILS_MASTER_KEY="$(cat config/master.key)" \
+  -e DB_HOST=host.docker.internal \
+  -e DB_USER=postgres \
+  -e DB_PASSWORD=postgres \
+  -e DB_NAME=rafelo_production \
   --name rafelo \
   rafelo
 ```
@@ -25,7 +30,7 @@ check is `GET /up`.
    - `service` and `image`
    - the `servers.web` host list
    - the registry server and credentials
-   - the persistent volume
+   - the PostgreSQL connection, once the operations milestone lands
 2. Make `config/master.key` available, or set `RAILS_MASTER_KEY` through your
    password manager. `.kamal/secrets` reads `config/master.key` by default.
 3. Deploy:
@@ -48,6 +53,11 @@ bin/kamal dbc
 | Variable | Purpose |
 |---|---|
 | `RAILS_MASTER_KEY` | Decrypts `config/credentials.yml.enc` |
+| `DB_HOST` | PostgreSQL host |
+| `DB_PORT` | PostgreSQL port, default `5432` |
+| `DB_USER` | PostgreSQL user |
+| `DB_PASSWORD` | PostgreSQL password |
+| `DB_NAME` | Production database name |
 | `RAILS_LOG_LEVEL` | Log verbosity, default `info` |
 | `SOLID_QUEUE_IN_PUMA` | Run the job supervisor inside Puma |
 | `WEB_CONCURRENCY` | Puma worker count |
@@ -60,10 +70,10 @@ from a password manager or the environment.
 ## Health checks and data
 
 - Point the load balancer or uptime monitor at `/up`.
-- The SQLite database, cache, queue and cable files live under `storage/`.
-  Keep that directory on the persistent volume and back it up.
-- If you move to multiple web hosts, move the database and Solid components to
-  a shared database first.
+- PostgreSQL holds the BFF data, cache, queue and cable tables. Back it up
+  off the host before taking traffic.
+- If you move to multiple web hosts, point every host at the same PostgreSQL
+  service and recheck the connection budget.
 
 ## Release flow
 

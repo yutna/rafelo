@@ -45,9 +45,10 @@ bin/dev
 bin/ci
 ```
 
-`bin/setup` installs gems, prepares the database and clears logs and tmp.
-`bin/dev` starts the Rails server at <http://localhost:3000>. `bin/ci` runs
-the local checks: style, security scans, tests and seeds.
+`bin/setup` installs gems and npm packages, prepares PostgreSQL and clears
+logs and tmp. `bin/dev` starts Rails and Vite at <http://localhost:3000>.
+`bin/ci` runs the local checks: style, security scans, the Vite build, RSpec
+and seeds.
 
 Verify the exact runtime pins with:
 

@@ -7,14 +7,12 @@
 Opinionated Ruby on Rails BFF template tailored for modern frontend applications.
 
 Rafelo is a Rails 8.1 application baseline for building a
-backend-for-frontend (BFF): a server that renders Hotwire pages where that is
-useful, exposes JSON endpoints for a separate frontend, and already has the
-operational pieces (jobs, cache, cable, Docker, Kamal) wired together.
+backend-for-frontend (BFF): Rails owns HTTP, sessions, props and integration;
+React renders pages through Inertia; PostgreSQL and the Solid trio hold the
+data the BFF owns.
 
-The application code is intentionally still close to the Rails baseline while
-the template conversion proceeds. This release is the tested baseline plus the
-same GitHub workflow used by the rest of
-[yutna](https://github.com/yutna)'s public repositories. The architecture
+The template conversion is in progress. This release is the tested baseline:
+PostgreSQL, Inertia + React + Vite + Tailwind, and RSpec. The architecture
 specification lives in [docs/architecture/](docs/architecture/).
 
 ## Use this template
@@ -25,19 +23,19 @@ This repository is a GitHub template. Create a new repository from it:
 gh repo create my-app --template yutna/rafelo --public
 ```
 
-Then clone your new repository and follow [Getting started](#getting-started).
+Then clone your new repository and follow [Development environment](#development-environment).
 Read [docs/customization.md](docs/customization.md) before the first commit:
 the application name, credentials, deployment settings and community files
 are all meant to be replaced.
 
 ## What is included
 
-- Rails 8.1 with Propshaft, Importmap, Hotwire (Turbo + Stimulus) and Jbuilder
-- SQLite for development and test, with separate SQLite databases for
-  Solid Cache, Solid Queue and Solid Cable in production
+- Rails 8.1 with Inertia, React, Vite and Tailwind CSS
+- PostgreSQL 18.6 in development, test and production
+- Solid Cache, Solid Queue and Solid Cable in the primary database
 - Active Job, Action Cable and Active Storage (with libvips variants)
 - Kamal 2, Thruster and a production Dockerfile
-- Minitest and Capybara, Brakeman, bundler-audit, importmap audit, and
+- RSpec, FactoryBot, WebMock, Brakeman, bundler-audit, npm audit, and
   RuboCop with rails-omakase
 - GitHub Actions CI with a single required `ci-ok` gate, plus the shared
   `pr-check`, `issue-check` and `release` callers from
@@ -50,7 +48,6 @@ are all meant to be replaced.
 - Docker with Dev Container support
 - [mise](https://mise.jdx.dev/) for a host-based setup
 - libvips (for Active Storage variants)
-- SQLite 3.8 or newer for the current baseline
 
 Ruby, Node and npm are pinned by `mise.toml`; do not install a different
 version by hand. The Dev Container installs the pinned versions and PostgreSQL
@@ -88,9 +85,9 @@ bin/setup --skip-server
 bin/dev
 ```
 
-Open <http://localhost:3000/up>. The template has no application-specific
-routes yet; `/up` is the health check used by load balancers and uptime
-monitors.
+Open <http://localhost:3000/> for the Inertia home page and
+<http://localhost:3000/up> for the health check used by load balancers and
+uptime monitors.
 
 Verify the pins from the repository root:
 
@@ -100,9 +97,6 @@ mise exec -- node --version
 mise exec -- npm --version
 docker compose -f .devcontainer/compose.yaml config
 ```
-
-Playwright browsers are installed by the post-create hook once
-`@playwright/test` is part of `package.json`.
 
 ## Credentials
 
@@ -121,14 +115,12 @@ production, provide the key as `RAILS_MASTER_KEY`; see
 ## Testing
 
 ```sh
-bin/rails test
-bin/rails test:system   # requires Chrome
+bundle exec rspec
 bin/ci                  # the local CI suite
 ```
 
-`bin/ci` runs setup, RuboCop, the security scans, the test suite and the seed
-check. System tests are commented out there by default; run them explicitly
-when a change touches browser behaviour.
+`bin/ci` runs setup, RuboCop, the security audits, the Vite build, RSpec and
+the seed check. Browser tests are added with the Playwright milestone.
 
 ## AI-assisted development
 
@@ -140,29 +132,28 @@ the Rails application does not depend on OpenCode.
 
 ## Deployment
 
-The production image uses the included Dockerfile, Thruster and a persistent
-SQLite volume. Kamal configuration lives in `config/deploy.yml`. See
+The production image uses the included Dockerfile, Thruster and PostgreSQL.
+Kamal configuration lives in `config/deploy.yml`. See
 [docs/deployment.md](docs/deployment.md) for the full checklist, including
 `RAILS_MASTER_KEY`, the `/up` health check and backups.
 
 ## Project structure
 
 ```text
-app/controllers     request handling; add the BFF/API namespace here
-app/models          persistence and domain models
-app/views           Hotwire pages, mailers and PWA files
-app/javascript      Stimulus controllers and Importmap entrypoints
+app/controllers     request handling; BFF controllers and sessions
+app/frontend        Inertia entrypoint, pages, styles and client code
+app/models          BFF-owned persistence
 config/             environments, routes, deployment and Solid* settings
-db/                 schema, seeds and Solid* database schemas
-docs/               architecture, customization, deployment and OpenCode notes
+db/                 schema, migrations, seeds and Solid* tables
+docs/               architecture specification, customization and operations
 .opencode/          OpenCode config and vendored design skills
-test/               Minitest, integration and system tests
+spec/               RSpec request and unit tests
 AGENTS.md           project instructions loaded by OpenCode
 ```
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
+- [Architecture specification](docs/architecture/00_README.md)
 - [Customizing the template](docs/customization.md)
 - [Deployment](docs/deployment.md)
 - [OpenCode setup](docs/opencode.md)
@@ -172,15 +163,12 @@ AGENTS.md           project instructions loaded by OpenCode
 
 ## Roadmap
 
-These are intentionally out of scope for v0.1.0 and are the next layers to
-build on the baseline:
+The remaining work follows the architecture specification:
 
-- an API namespace, JSON error format and request/response tests
-- CORS, session/cookie strategy and CSRF handling for a separate frontend
-- authentication and authorization
-- upstream service clients with timeout, retry and circuit-breaker conventions
-- OpenAPI or contract tests
-- an example frontend integration
+- the core kernel, contracts, sessions and authorization
+- the design system and object-oriented frontend domain
+- generators, example engines and operations
+- the application template and adoption proof
 
 ## Versioning and releases
 
