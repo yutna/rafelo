@@ -4,6 +4,7 @@ module Rafelo
   module Core
     module Modules
       RESERVED = %w[up rails_health_check core sign_in root].freeze
+      KERNEL_ERROR_PREFIXES = %w[auth upstream resource validation request unexpected].freeze
 
       Entry = Data.define(:key, :engine, :path, :permission_prefixes, :legacy_paths, :nav, :flag) do
         def route_name = key
@@ -58,10 +59,33 @@ module Rafelo
 
         def validate_entry!(entry)
           key = entry.key.to_s
-          raise ArgumentError, "module key is reserved: #{key}" if RESERVED.include?(key)
-          raise ArgumentError, "module key looks like a locale: #{key}" if Locales.locale_segment?(key)
+          segment = entry.path.split("/")[1].to_s
           raise ArgumentError, "module path must start with /: #{entry.path}" unless entry.path.start_with?("/")
-          raise ArgumentError, "module path is reserved: #{entry.path}" if RESERVED.include?(entry.path.delete_prefix("/"))
+
+          [ [ "key", key ], [ "path", segment ] ].each do |label, name|
+            raise ArgumentError, "module #{label} is reserved: #{name}" if reserved?(name)
+          end
+        end
+
+        def reserved?(name)
+          RESERVED.include?(name) ||
+            KERNEL_ERROR_PREFIXES.include?(name) ||
+            Locales.locale_segment?(name) ||
+            app_route_names.include?(name)
+        end
+
+        def app_route_names
+          return [] unless defined?(Rails) && Rails.respond_to?(:application) && Rails.application
+
+          routes = Rails.application.routes.routes
+          names = routes.filter_map(&:name).map(&:to_s)
+          segments = routes.filter_map do |route|
+            first = route.path.spec.to_s.split("/")[1]
+            first if first&.match?(/\A[a-z][a-z0-9_]*\z/)
+          end
+          (names + segments).uniq
+        rescue StandardError
+          []
         end
       end
     end

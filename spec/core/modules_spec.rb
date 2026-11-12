@@ -25,9 +25,17 @@ RSpec.describe Rafelo::Core::Modules do
     expect { described_class.validate! }.to raise_error(ArgumentError, /duplicate module path/)
   end
 
-  it "rejects a reserved key and a locale-shaped key" do
+  it "rejects a reserved key or first path segment" do
     expect { described_class.register(key: :core, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :en, engine: Class.new) }.to raise_error(ArgumentError, /locale/)
+    expect { described_class.register(key: :auth, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: Class.new, path: "/core/extra") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: Class.new, path: "/sign_in/extra") }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: Class.new, path: "/up/extra") }.to raise_error(ArgumentError, /reserved/)
+  end
+
+  it "rejects a locale-shaped key or path" do
+    expect { described_class.register(key: :en, engine: Class.new) }.to raise_error(ArgumentError, /reserved/)
+    expect { described_class.register(key: :safe, engine: Class.new, path: "/th") }.to raise_error(ArgumentError, /reserved/)
   end
 
   it "rejects a duplicate navigation order" do
