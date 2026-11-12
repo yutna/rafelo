@@ -47,6 +47,7 @@ RUN apt-get update -qq && \
 # Install application gems
 COPY vendor/* ./vendor/
 COPY Gemfile Gemfile.lock .ruby-version ./
+COPY engines ./engines
 COPY package.json package-lock.json ./
 
 RUN npm ci

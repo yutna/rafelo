@@ -38,6 +38,11 @@ gem "thruster", "0.1.27", require: false
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
 gem "image_processing", "1.14.0"
 
+# Engines are path gems discovered by a glob, so a new module does not edit this file.
+Dir[File.join(__dir__, "engines/*/*.gemspec")].sort.each do |gemspec|
+  gem File.basename(gemspec, ".gemspec"), path: File.dirname(gemspec)
+end
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", "1.11.1", platforms: %i[ mri windows ], require: "debug/prelude"
