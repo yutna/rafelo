@@ -1,0 +1,114 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+options = { root: Dir.pwd, base: nil, paths: nil, all: false }
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/affected [--root DIR] [--base REV] [--paths FILE] [--all]"
+  parser.on("--root DIR") { |value| options[:root] = value }
+  parser.on("--base REV") { |value| options[:base] = value }
+  parser.on("--paths FILE") { |value| options[:paths] = value }
+  parser.on("--all") { options[:all] = true }
+end.parse!
+
+ROOT = File.expand_path(options[:root])
+abort "affected: root does not exist: #{ROOT}" unless Dir.exist?(ROOT)
+
+GLOBAL_INPUTS = %w[
+  Gemfile Gemfile.lock package.json package-lock.json .npmrc mise.toml
+  .ruby-version package.yml eslint.config.mjs packwerk.yml .rubocop.yml
+  .dependency-cruiser.cjs vite.config.mts vitest.config.mts playwright.config.ts
+  Dockerfile .dockerignore renovate.json5 VERSION KERNEL_VERSION .gitattributes .gitignore
+  config/application.rb config/credentials/ config/environments/ config/initializers/
+  config/routes.rb config/database.yml config/puma.rb config/queue.yml config/deploy.yml
+  config/ci.rb config/errors.yml config/budgets.yml config/ratchets.yml config/locales.yml
+  config/upstreams.yml config/permission_mapping.yml config/contracts/_shared.json
+  bin/ db/ spec/enforcement/ spec/fixtures/formats/ spec/fixtures/hostile_urls.json
+  .devcontainer/ .github/ script/ tsconfig.base.json engines/core/ engines/design_system/
+].freeze
+
+APP_ONLY = %w[app/ e2e/ spec/ config/locales/ config/contracts/].freeze
+ENGINE_FREE = %w[AGENTS.md CLAUDE.md docs/ .opencode/ .claude/].freeze
+DERIVED = %w[
+  tsconfig.json tsconfig.tooling.json config/frontend_aliases.mts
+  .dependency-cruiser.engines.generated.json
+].freeze
+
+def paths_from_git(root, base)
+  command = [ "git", "-C", root, "diff", "--name-only", "#{base}...HEAD" ]
+  output = IO.popen(command, &:read)
+  abort "affected: git command failed: #{command.join(' ')}" unless $?.success?
+
+  output.lines.map(&:strip).reject(&:empty?)
+end
+
+def paths_from_file(file)
+  abort "affected: paths file does not exist: #{file}" unless File.file?(file)
+
+  File.readlines(file, chomp: true).map(&:strip).reject(&:empty?)
+end
+
+def all_engines(root)
+  Dir[File.join(root, "engines", "*", "package.yml")].sort.map do |package|
+    File.basename(File.dirname(package))
+  end
+end
+
+def classify(path)
+  return :global if GLOBAL_INPUTS.any? { |prefix| path == prefix || path.start_with?(prefix) }
+  return :derived if DERIVED.include?(path)
+  return :engine_free if ENGINE_FREE.any? { |prefix| path == prefix || path.start_with?(prefix) }
+  return :app if APP_ONLY.any? { |prefix| path == prefix || path.start_with?(prefix) }
+  return :engine if path.start_with?("engines/")
+
+  :unknown
+end
+
+paths =
+  if options[:paths]
+    paths_from_file(options[:paths])
+  elsif options[:all]
+    [ "*" ]
+  else
+    base = options[:base] || ENV["BASE_SHA"] || "HEAD~1"
+    paths_from_git(ROOT, base)
+  end
+
+abort "affected: no changed paths" if paths.empty?
+
+engines = all_engines(ROOT)
+selected = []
+mode = :app
+
+paths.each do |path|
+  case classify(path)
+  when :global
+    mode = :all
+  when :unknown
+    mode = :all
+  when :engine
+    name = path.split("/")[1]
+    selected << name if name && !name.empty?
+  when :derived, :engine_free
+    # These files select nothing themselves; git diff will include their source.
+  when :app
+    selected << nil
+  end
+end
+
+if mode == :all
+  selected = [ nil, *engines ]
+elsif selected.empty?
+  selected = []
+else
+  selected = selected.uniq
+end
+
+include_app = selected.include?(nil)
+engines = selected.compact.uniq
+
+puts "app" if include_app
+engines.sort.each { |engine| puts "engine:#{engine}" }
+warn "affected: checked #{paths.length} paths; selected app=#{include_app} engines=#{engines.join(',')}"

@@ -2,6 +2,7 @@
 
 CI.run do
   step "Setup", "bin/setup --skip-server"
+  step "Affected: select", "script/ci/affected --all"
 
   step "Style: Ruby", "bin/rubocop"
 

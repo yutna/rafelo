@@ -14,6 +14,21 @@ permissions:
   contents: read
 
 jobs:
+  affected:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Select affected applications and engines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+        run: script/ci/affected --base "$BASE_SHA"
+
   actionlint:
     runs-on: ubuntu-latest
     steps:
@@ -159,7 +174,7 @@ jobs:
 
   ci-ok:
     if: always()
-    needs: [actionlint, scan_ruby, scan_js, lint, test, production-image]
+    needs: [affected, actionlint, scan_ruby, scan_js, lint, test, production-image]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed
