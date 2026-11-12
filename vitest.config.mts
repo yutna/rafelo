@@ -1,7 +1,10 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
+import { engineAliases } from "./config/frontend_aliases.mts";
+
 export default defineConfig({
+  resolve: { alias: engineAliases },
   test: {
     projects: [
       {

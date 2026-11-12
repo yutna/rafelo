@@ -33,14 +33,17 @@
     "contracts:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts",
     "contracts:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts --check",
     "errors:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts",
-    "errors:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts --check"
+    "errors:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts --check",
+    "i18n:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts",
+    "i18n:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts --check"
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
     "@inertiajs/vite": "3.11.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "i18next": "27.1.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.5",

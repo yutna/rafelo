@@ -8,7 +8,8 @@
     "tsBuildInfoFile": "../../tmp/tsc/app.tsbuildinfo"
   },
   "include": [
-    "**/*"
+    "**/*",
+    "**/*.json"
   ],
   "references": [
     {
