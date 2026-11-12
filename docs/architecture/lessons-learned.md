@@ -235,3 +235,30 @@ generate mode or only fail in check mode. CT-08 should say whether every engine
 must ship a catalog even when it has no UI copy. CT-04 should say whether a page
 schema that includes `sharedPropsSchema` satisfies the layout parse.
 Related IDs: CT-03, CT-04, CT-08.
+
+## 2026-11-12 — v0.10.0 — issue #155
+
+**What happened.** The v0.10.0 gate needed three audit rounds. Round 1 found
+absolute paths could reach any host, the response cap ran after full buffering,
+a public cache accepted viewer data, a viewer gateway accepted a service
+provider, the deadline/bulkhead/executor promises were only configuration, 4xx
+opened the breaker, config values were unvalidated and loaded after eager load,
+there was no transaction guard, and the connection spec compared the wrong
+values. Round 2 found the streaming deadline, retry deadline, bulkhead release
+and truncated-body checks still wrong. Round 3 found the truncation check
+rejected legitimate HEAD, 304 and compressed responses.
+
+**Root cause.** The first pass wrote primitives and happy-path specs without
+proving the unsafe and bodyless cases, and several guard objects were created
+per client instead of per upstream.
+
+**What changed.** Path validation, streaming deadline and cap, shared bulkhead,
+deadline-aware retries, transaction guard, validated/frozen config, core-owned
+`config.x`, production URL requirement, real connection arithmetic, token-kind
+checks and bodyless-response handling. The remaining evidence and wiring are
+carried to #165; the dummy engine stays in #146.
+
+**Spec feedback.** BE-05 should say which responses may omit a body when
+checking `Content-Length`. BE-16 should say whether a gateway owns one client
+for its lifetime. BE-21 should name the Puma thread source explicitly.
+Related IDs: BE-05, BE-16, BE-21.
