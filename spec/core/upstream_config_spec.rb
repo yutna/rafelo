@@ -12,6 +12,7 @@ RSpec.describe Rafelo::Core::UpstreamConfig do
         max_response_bytes: 1_024,
         retry_budget: 0.1,
         idempotency_keys: false,
+        service_token_gateways: [],
         breaker: { failure_threshold: 2, cool_off: 5 }
       }
     }

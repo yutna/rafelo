@@ -21,6 +21,12 @@ module Rafelo
               raise ArgumentError, "unknown token kind #{kind.inspect}"
             end
             @token = kind.to_sym
+            if @token == :service
+              config = Rails.application.config.x.upstreams.fetch(upstream)
+              unless config.service_token_gateways.include?(name)
+                raise ArgumentError, "#{name} is not allow-listed for a service token on #{upstream}"
+              end
+            end
           end
           @token || :viewer
         end
@@ -29,6 +35,9 @@ module Rafelo
       attr_reader :budget, :request_id, :trace_id
 
       def initialize(token_provider:, budget:, request_id:, trace_id:)
+        if self.class.token == :service && !(token_provider.respond_to?(:service?) && token_provider.service?)
+          raise ArgumentError, "#{self.class.name} requires a service token provider"
+        end
         @token_provider = token_provider
         @budget = budget
         @request_id = request_id

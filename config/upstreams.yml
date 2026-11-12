@@ -8,6 +8,7 @@ default: &default
     max_response_bytes: 2_097_152
     retry_budget: 0.1
     idempotency_keys: false
+    service_token_gateways: []
     breaker:
       failure_threshold: 5
       cool_off: 30
