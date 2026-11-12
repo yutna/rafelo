@@ -16,65 +16,101 @@ abort "workflow_policy: root does not exist: #{root}" unless Dir.exist?(root)
 files = Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")]
 abort "workflow_policy: no workflow files found" if files.empty?
 
+KNOWN_SCOPES = %w[
+  actions attestations checks contents deployments discussions id-token issues models
+  packages pages pull-requests repository-projects security-events statuses
+].freeze
+WRITE_ALLOW_LIST = {
+  "issue-check" => %w[issues],
+  "pr-check" => %w[pull-requests issues],
+  "release" => %w[contents issues]
+}.freeze
+PRIVILEGED_TRIGGERS = %w[pull_request_target workflow_run].freeze
+
+def trigger_names(on_config)
+  case on_config
+  when String
+    [ on_config ]
+  when Array
+    on_config.map(&:to_s)
+  when Hash
+    on_config.keys.map(&:to_s)
+  else
+    []
+  end
+end
+
 errors = []
 jobs_checked = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
   raw = File.read(path)
   data = YAML.load_file(path, aliases: true)
+  jobs = data["jobs"] || {}
+  errors << "#{relative}: has no jobs" if jobs.empty?
+
   permissions = data["permissions"]
   unless permissions == { "contents" => "read" }
     errors << "#{relative}: top-level permissions must be exactly contents: read"
   end
 
-  jobs = data["jobs"] || {}
+  triggers = trigger_names(data["on"] || data[true])
+  privileged = triggers.any? { |trigger| PRIVILEGED_TRIGGERS.include?(trigger) }
+
   jobs.each do |name, job|
+    next unless job.is_a?(Hash)
+
     jobs_checked += 1
-    if job["uses"]
-      # A reusable workflow caller cannot declare timeout-minutes.
-    elsif job["steps"]
+    if job["steps"]
       timeout = job["timeout-minutes"]
       errors << "#{relative}: job #{name} has no timeout-minutes" unless timeout.is_a?(Integer) && timeout.positive?
     end
 
     job_permissions = job["permissions"]
-    next unless job_permissions
+    if job_permissions
+      unless job_permissions.is_a?(Hash)
+        errors << "#{relative}: job #{name} permissions must be a mapping"
+      else
+        job_permissions.each do |scope, value|
+          errors << "#{relative}: job #{name} has unknown permission scope #{scope}" unless KNOWN_SCOPES.include?(scope)
+          errors << "#{relative}: job #{name} has unsupported permission #{scope}: #{value}" unless %w[read write none].include?(value)
+          next unless value == "write"
 
-    unless job_permissions.is_a?(Hash)
-      errors << "#{relative}: job #{name} permissions must be a mapping"
-      next
-    end
-    job_permissions.each do |scope, value|
-      unless %w[contents issues pull-requests actions checks packages].include?(scope)
-        errors << "#{relative}: job #{name} has unknown permission scope #{scope}"
+          allowed = WRITE_ALLOW_LIST.fetch(name.to_s, [])
+          errors << "#{relative}: job #{name} has write permission outside the allow-list: #{scope}" unless allowed.include?(scope)
+        end
       end
-      errors << "#{relative}: job #{name} has unsupported permission #{scope}: #{value}" unless %w[read write none].include?(value)
-      if value == "write" && !%w[contents issues pull-requests].include?(scope)
-        errors << "#{relative}: job #{name} has write permission outside the allow-list: #{scope}"
-      end
     end
-  end
 
-  aggregator = jobs["ci-ok"]
-  if aggregator
-    needs = Array(aggregator["needs"]).map(&:to_s)
-    expected = jobs.keys.map(&:to_s) - [ "ci-ok" ]
-    missing = expected - needs
-    errors << "#{relative}: ci-ok needs is missing #{missing.join(', ')}" if missing.any?
-  end
-
-  next unless raw.include?("pull_request_target:") || raw.include?("workflow_run:")
-
-  jobs.each do |name, job|
-    next unless job["steps"]
+    next unless privileged && job["steps"].is_a?(Array)
 
     job["steps"].each do |step|
-      next unless step["uses"].to_s.start_with?("actions/checkout")
+      next unless step.is_a?(Hash)
 
-      ref = step.dig("with", "ref").to_s
-      errors << "#{relative}: job #{name} checks out pull request code in a privileged workflow" if ref.include?("head.sha") || ref.include?("head_ref") || ref.include?("refs/pull/")
+      uses = step["uses"].to_s
+      if uses.start_with?("actions/checkout")
+        ref = step.dig("with", "ref").to_s
+        repository = step.dig("with", "repository").to_s
+        errors << "#{relative}: job #{name} checks out a pull request ref in a privileged workflow" unless ref.empty?
+        errors << "#{relative}: job #{name} checks out another repository in a privileged workflow" unless repository.empty?
+      end
+
       run = step["run"].to_s
-      errors << "#{relative}: job #{name} fetches pull request code in a privileged workflow" if run.include?("gh pr checkout") || run.include?("pull/")
+      if run.match?(/gh pr checkout|refs\/pull\/|pull\/\d+/)
+        errors << "#{relative}: job #{name} fetches pull request code in a privileged workflow"
+      end
+    end
+  end
+
+  if File.basename(path) == "ci.yml"
+    aggregator = jobs["ci-ok"]
+    if aggregator
+      needs = Array(aggregator["needs"]).map(&:to_s)
+      expected = jobs.keys.map(&:to_s) - [ "ci-ok" ]
+      missing = expected - needs
+      errors << "#{relative}: ci-ok needs is missing #{missing.join(', ')}" if missing.any?
+    else
+      errors << "#{relative}: no ci-ok aggregator"
     end
   end
 end
