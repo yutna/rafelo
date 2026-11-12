@@ -16,7 +16,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
   end
   let(:token) { Struct.new(:token).new("secret") }
   let(:client) do
-    described_class.new(name: :api, config: config, token_provider: token,
+    described_class.new(name: :test_api, config: config, token_provider: token,
                         request_id: "request-1", trace_id: "trace-1")
   end
 
