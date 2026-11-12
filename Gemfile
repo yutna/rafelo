@@ -6,6 +6,7 @@ ruby file: ".ruby-version"
 gem "rails", "8.1.4.1"
 # The modern asset pipeline for Rails [https://github.com/rails/propshaft]
 gem "propshaft", "1.3.2"
+gem "pundit", "2.5.2"
 # Use PostgreSQL as the database for Active Record
 gem "pg", "1.7.0"
 # Use the Puma web server [https://github.com/puma/puma]

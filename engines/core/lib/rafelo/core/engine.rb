@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/engine"
+require_relative "../../../app/models/rafelo/core/locales"
 
 module Rafelo
   module Core
