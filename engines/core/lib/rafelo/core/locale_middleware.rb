@@ -20,10 +20,10 @@ module Rafelo
 
           return I18n.with_locale(segment) { @app.call(env) } unless trailing_slash?(path)
 
-          return redirect(path.chomp("/"))
+          return redirect(with_query(path.chomp("/"), request))
         end
 
-        return redirect("/#{Locales.default}") if request.get? || request.head?
+        return redirect(with_query(locale_path(path), request)) if request.get? || request.head?
 
         not_found
       end
@@ -39,6 +39,14 @@ module Rafelo
 
       def trailing_slash?(path)
         path.length > 1 && path.end_with?("/")
+      end
+
+      def locale_path(path)
+        path == "/" ? "/#{Locales.default}" : "/#{Locales.default}#{path}"
+      end
+
+      def with_query(path, request)
+        request.query_string.empty? ? path : "#{path}?#{request.query_string}"
       end
 
       def redirect(path)

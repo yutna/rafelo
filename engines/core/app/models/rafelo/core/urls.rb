@@ -8,7 +8,7 @@ module Rafelo
     class Urls
       attr_reader :built
 
-      def initialize(locale:, router: Rails.application.routes.url_helpers)
+      def initialize(locale:, router: Rails.application.routes.mounted_helpers)
         @locale = locale.to_sym
         @router = router
         @built = []
@@ -16,7 +16,7 @@ module Rafelo
 
       def route(engine_key, route_name, **params)
         proxy = @router.public_send(engine_key)
-        path = proxy.public_send(route_name, locale: @locale, **params)
+        path = proxy.public_send("#{route_name}_path", locale: @locale, **params)
         @built << path
         path
       rescue NoMethodError
