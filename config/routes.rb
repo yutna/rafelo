@@ -10,6 +10,10 @@ Rails.application.routes.draw do
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
   scope ":locale", locale: Rafelo::Core::Locales.route_constraint do
+    Rafelo::Core::Modules.each do |mod|
+      mount mod.engine => mod.path, as: mod.route_name
+    end
+
     root "home#show"
   end
 end
