@@ -149,3 +149,25 @@ remain part of the gate.
 canary for each sub-rule, not one fixture per script. WF-07 should allow the
 semantically equivalent double-quoted guarded-release `if:` form. Related IDs:
 TS-05, TS-07, WF-06, WF-07.
+
+## 2026-11-12 — v0.7.0 — issue #94
+
+**What happened.** The gate found the TypeScript clone detector was a no-op
+because every engine TypeScript file was a one-line file below jscpd's minimum
+size, growth omitted core constants and domain budgets, fan-in counted every
+non-kernel engine as a product module, and the public-interface skill omitted
+rule IDs.
+
+**Root cause.** New guards were wired before there was enough engine code to
+exercise them, and the growth/fan-in scripts were written against the current
+skeleton rather than the engine kinds.
+
+**What changed.** The engine public files are multi-line and the clone scan is
+scoped to public/domain/forms/hooks/gateways/policies. Growth checks public
+constants and domain-engine surfaces. Fan-in counts only engines with a
+registry entry. The skill cites ARCH-05, ARCH-08, ARCH-09 and GEN-05. Graph and
+privacy canaries plus clone-pair calibration are carried to #102.
+
+**Spec feedback.** TS-07 should say how a guard behaves when it currently has
+no eligible input, and ARCH-12 should say whether an empty product-module set
+is a pass. Related IDs: ARCH-05, ARCH-12, TS-07.
