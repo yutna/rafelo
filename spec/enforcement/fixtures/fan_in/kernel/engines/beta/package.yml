@@ -1,3 +1,4 @@
 enforce_dependencies: strict
 dependencies:
+  - engines/core
   - engines/product

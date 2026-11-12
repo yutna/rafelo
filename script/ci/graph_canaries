@@ -90,6 +90,13 @@ write(root, "engines/canary_kernel/package.yml", <<~YAML)
   dependencies:
     - engines/core
 YAML
+write(root, "engines/canary_legal_alpha/package.yml", <<~YAML)
+  enforce_dependencies: strict
+  enforce_privacy: strict
+  public_path: app/public/
+  dependencies:
+    - engines/core
+YAML
 write(root, "engines/canary_legal_beta/package.yml", <<~YAML)
   enforce_dependencies: strict
   enforce_privacy: strict
@@ -98,18 +105,11 @@ write(root, "engines/canary_legal_beta/package.yml", <<~YAML)
     - engines/canary_legal_alpha
 YAML
 
-# Legal Ruby counterpart: design_system declares core and reads a public core constant.
-write(root, "engines/design_system/package.yml", <<~YAML)
-  enforce_dependencies: strict
-  enforce_privacy: strict
-  public_path: app/public/
-  dependencies:
-    - engines/core
-YAML
-write(root, "engines/design_system/app/models/rafelo/design_system/legal_core_use.rb", <<~RUBY)
+# Legal Ruby counterpart: a domain-shaped engine declares core and reads a public core constant.
+write(root, "engines/canary_legal_alpha/app/public/rafelo/canary_legal_alpha/core_use.rb", <<~RUBY)
   module Rafelo
-    module DesignSystem
-      class LegalCoreUse
+    module CanaryLegalAlpha
+      class CoreUse
         def call = Rafelo::Core::PermissionSet.new([])
       end
     end
@@ -265,7 +265,6 @@ end
 
 CANARY_ENGINES.each { |engine| FileUtils.rm_rf(File.join(root, "engines", engine)) }
 FileUtils.rm_f(File.join(root, "engines", "core", "app", "frontend", "internal", "secret.ts"))
-FileUtils.rm_f(File.join(root, "engines", "design_system", "app", "models", "rafelo", "design_system", "legal_core_use.rb"))
 assert_success(root, %w[script/ci/engine_graph], "the restored graph generation")
 assert_success(root, %w[script/ci/aliases], "the restored alias generation")
 assert_success(root, %w[bin/packwerk check], "the restored Ruby graph check")

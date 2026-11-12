@@ -1,16 +1,17 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::BaseController do
-  it "declares the request callbacks in the expected order" do
+  it "pins the implemented callback chain" do
     callbacks = ApplicationController._process_action_callbacks
-    before = callbacks.select { |callback| callback.kind == :before }.map(&:filter)
-    around = callbacks.select { |callback| callback.kind == :around }.map(&:filter)
-    after = callbacks.select { |callback| callback.kind == :after }.map(&:filter)
+    symbols = ->(kind) do
+      callbacks.select { |callback| callback.kind == kind && callback.filter.is_a?(Symbol) }.map(&:filter)
+    end
 
-    expect(before.index(:set_response_headers)).to be < before.index(:assign_request_context)
-    expect(before.index(:assign_request_context)).to be < before.index(:underscore_param_keys)
-    expect(around).to include(:with_locale)
-    expect(after.last).to eq(:verify_authorized)
+    expect(symbols.call(:before)).to eq(
+      [ :verify_authenticity_token, :set_response_headers, :assign_request_context, :underscore_param_keys ]
+    )
+    expect(symbols.call(:around)).to eq([ :with_locale ])
+    expect(symbols.call(:after)).to eq([ :verify_same_origin_request, :verify_authorized ])
   end
 
   it "builds the page context with a Urls object for the request locale" do

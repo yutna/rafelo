@@ -30,6 +30,7 @@ RSpec.describe "Authorization", type: :request do
 
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body.dig("error", "code")).to eq("auth.forbidden")
+    expect(response.headers["Cache-Control"]).to include("no-store")
   end
 
   it "allows an action that authorizes through its policy" do

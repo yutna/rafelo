@@ -21,7 +21,7 @@ module Rafelo
             nav: nav || {},
             flag: flag
           )
-          validate_entry!(entry)
+          validate_entry!(entry, ignore: entries)
           entries << entry
           entry
         end
@@ -48,7 +48,7 @@ module Rafelo
           end
           nav_orders = entries.filter_map { |entry| entry.nav[:order] }
           raise ArgumentError, "duplicate navigation order" if nav_orders.length != nav_orders.uniq.length
-          entries.each { |entry| validate_entry!(entry) }
+          entries.each { |entry| validate_entry!(entry, ignore: entries) }
         end
 
         private
@@ -57,35 +57,33 @@ module Rafelo
           @entries ||= []
         end
 
-        def validate_entry!(entry)
+        def validate_entry!(entry, ignore: [])
           key = entry.key.to_s
           segment = entry.path.split("/")[1].to_s
           raise ArgumentError, "module path must start with /: #{entry.path}" unless entry.path.start_with?("/")
 
           [ [ "key", key ], [ "path", segment ] ].each do |label, name|
-            raise ArgumentError, "module #{label} is reserved: #{name}" if reserved?(name)
+            raise ArgumentError, "module #{label} is reserved: #{name}" if reserved?(name, ignore: ignore)
           end
         end
 
-        def reserved?(name)
+        def reserved?(name, ignore: [])
           RESERVED.include?(name) ||
             KERNEL_ERROR_PREFIXES.include?(name) ||
             Locales.locale_segment?(name) ||
-            app_route_names.include?(name)
+            app_route_names(ignore: ignore).include?(name)
         end
 
-        def app_route_names
+        def app_route_names(ignore: [])
           return [] unless defined?(Rails) && Rails.respond_to?(:application) && Rails.application
 
+          module_names = ignore.map { |item| item.key.to_s }
+          module_segments = ignore.map { |item| item.path.split("/")[1].to_s }
+
           routes = Rails.application.routes.routes
-          names = routes.filter_map(&:name).map(&:to_s)
-          segments = routes.filter_map do |route|
-            first = route.path.spec.to_s.split("/")[1]
-            first if first&.match?(/\A[a-z][a-z0-9_]*\z/)
-          end
+          names = routes.filter_map(&:name).map(&:to_s) - module_names
+          segments = routes.filter_map { |route| route.path.spec.to_s[/\A\/([a-z][a-z0-9_]*)/, 1] } - module_segments
           (names + segments).uniq
-        rescue StandardError
-          []
         end
       end
     end
