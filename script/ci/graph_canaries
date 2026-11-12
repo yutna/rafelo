@@ -1,0 +1,235 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/graph_canaries [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "graph_canaries: root does not exist: #{root}" unless Dir.exist?(root)
+
+CANARY_ENGINES = %w[canary_alpha canary_beta canary_declared canary_kernel canary_undeclared].freeze
+SNAPSHOT_FILES = %w[
+  tsconfig.json tsconfig.tooling.json tsconfig.base.json
+  app/frontend/tsconfig.json config/frontend_aliases.mts
+  .dependency-cruiser.engines.generated.json engines/design_system/package.yml
+].freeze
+
+snapshot = SNAPSHOT_FILES.to_h do |path|
+  full = File.join(root, path)
+  [ path, File.file?(full) ? File.read(full) : nil ]
+end
+
+cleanup = lambda do
+  CANARY_ENGINES.each { |engine| FileUtils.rm_rf(File.join(root, "engines", engine)) }
+  %w[
+    app/models/canary_private_reference.rb
+    engines/core/app/models/rafelo/core/canary_cycle.rb
+    engines/design_system/app/public/rafelo/design_system/public_canary.rb
+    engines/design_system/app/public/rafelo/design_system/canary_cycle.rb
+    engines/design_system/app/models/rafelo/design_system/private_canary.rb
+    engines/core/app/frontend/internal/secret.ts
+  ].each { |path| FileUtils.rm_f(File.join(root, path)) }
+  snapshot.each do |path, content|
+    full = File.join(root, path)
+    content.nil? ? FileUtils.rm_f(full) : File.write(full, content)
+  end
+end
+at_exit { cleanup.call }
+
+def write(root, path, content)
+  full = File.join(root, path)
+  FileUtils.mkdir_p(File.dirname(full))
+  File.write(full, content)
+end
+
+def run(root, *command)
+  Open3.capture2e(*command, chdir: root)
+end
+
+CANARY_ENGINES.each do |engine|
+  write(root, "engines/#{engine}/package.yml", <<~YAML)
+    enforce_dependencies: strict
+    enforce_privacy: strict
+    public_path: app/public/
+    dependencies: []
+  YAML
+end
+write(root, "engines/canary_beta/package.yml", <<~YAML)
+  enforce_dependencies: strict
+  enforce_privacy: strict
+  public_path: app/public/
+  dependencies:
+    - engines/canary_alpha
+YAML
+write(root, "engines/canary_declared/package.yml", <<~YAML)
+  enforce_dependencies: strict
+  enforce_privacy: strict
+  public_path: app/public/
+  dependencies:
+    - engines/canary_alpha
+YAML
+write(root, "engines/canary_kernel/package.yml", <<~YAML)
+  enforce_dependencies: strict
+  enforce_privacy: strict
+  public_path: app/public/
+  dependencies:
+    - engines/core
+YAML
+
+# Ruby canaries: mutual references, an undeclared dependency and a private constant.
+write(root, "engines/design_system/app/public/rafelo/design_system/public_canary.rb", <<~RUBY)
+  module Rafelo
+    module DesignSystem
+      class PublicCanary; end
+    end
+  end
+RUBY
+write(root, "engines/core/app/models/rafelo/core/canary_cycle.rb", <<~RUBY)
+  module Rafelo
+    module Core
+      class CanaryCycle
+        def call = Rafelo::DesignSystem::PublicCanary.new
+      end
+    end
+  end
+RUBY
+write(root, "engines/design_system/app/public/rafelo/design_system/canary_cycle.rb", <<~RUBY)
+  module Rafelo
+    module DesignSystem
+      class CanaryCycle
+        def call = Rafelo::Core::PermissionSet.new([])
+      end
+    end
+  end
+RUBY
+write(root, "engines/design_system/app/models/rafelo/design_system/private_canary.rb", <<~RUBY)
+  module Rafelo
+    module DesignSystem
+      class PrivateCanary; end
+    end
+  end
+RUBY
+write(root, "engines/design_system/package.yml", <<~YAML)
+  enforce_dependencies: strict
+  enforce_privacy: strict
+  public_path: app/public/
+  dependencies: []
+YAML
+write(root, "app/models/canary_private_reference.rb", <<~RUBY)
+  class CanaryPrivateReference
+    def call = Rafelo::DesignSystem::PrivateCanary.new
+  end
+RUBY
+
+ruby_output, ruby_status = run(root, "bin/packwerk", "check")
+ruby_findings = [
+  "engines/core/app/models/rafelo/core/canary_cycle.rb",
+  "engines/design_system/app/public/rafelo/design_system/canary_cycle.rb",
+  "app/models/canary_private_reference.rb",
+  "Dependency violation",
+  "Privacy violation"
+]
+ruby_failures = ruby_findings.reject { |needle| ruby_output.include?(needle) }
+unless !ruby_status.success? && ruby_failures.empty?
+  warn "graph_canaries: expected the Ruby graph checks to fail"
+  warn ruby_output
+  exit 1
+end
+
+FileUtils.rm_rf(File.join(root, "app", "models", "canary_private_reference.rb"))
+FileUtils.rm_f(File.join(root, "engines", "core", "app", "models", "rafelo", "core", "canary_cycle.rb"))
+FileUtils.rm_f(File.join(root, "engines", "design_system", "app", "public", "rafelo", "design_system", "canary_cycle.rb"))
+FileUtils.rm_f(File.join(root, "engines", "design_system", "app", "models", "rafelo", "design_system", "private_canary.rb"))
+File.write(File.join(root, "engines", "design_system", "package.yml"), snapshot.fetch("engines/design_system/package.yml"))
+
+ruby_legal_output, ruby_legal_status = run(root, "bin/packwerk", "check")
+unless ruby_legal_status.success?
+  warn "graph_canaries: the legal Ruby graph check failed"
+  warn ruby_legal_output
+  exit 1
+end
+
+# TypeScript canaries: a file cycle, an undeclared import, a non-public import
+# through a relative path and through @engines, and a kernel internal import.
+write(root, "engines/canary_alpha/app/frontend/public/index.ts", "export const alpha = \"alpha\";\n")
+write(root, "engines/canary_alpha/app/frontend/internal/secret.ts", "export const secret = \"secret\";\n")
+write(root, "engines/canary_alpha/app/frontend/internal/cycle_a.ts", <<~TS)
+  import { cycleB } from "./cycle_b";
+
+  export function cycleA(): string {
+    return cycleB();
+  }
+TS
+write(root, "engines/canary_alpha/app/frontend/internal/cycle_b.ts", <<~TS)
+  import { cycleA } from "./cycle_a";
+
+  export function cycleB(): string {
+    return cycleA();
+  }
+TS
+write(root, "engines/canary_beta/app/frontend/leak.ts", <<~TS)
+  import { secret } from "../../../canary_alpha/app/frontend/internal/secret";
+
+  export const leaked = secret;
+TS
+write(root, "engines/canary_declared/app/frontend/leak.ts", <<~TS)
+  import { secret } from "../../../canary_alpha/app/frontend/internal/secret";
+  import { alpha } from "@engines/canary_alpha/app/frontend/internal/secret";
+
+  export const leaked = `${secret}:${alpha}`;
+TS
+write(root, "engines/canary_undeclared/app/frontend/leak.ts", <<~TS)
+  import { alpha } from "../../../canary_alpha/app/frontend/public/index";
+
+  export const leaked = alpha;
+TS
+write(root, "engines/core/app/frontend/internal/secret.ts", "export const kernelSecret = \"kernel\";\n")
+write(root, "engines/canary_kernel/app/frontend/leak.ts", <<~TS)
+  import { kernelSecret } from "../../../core/app/frontend/internal/secret";
+
+  export const leaked = kernelSecret;
+TS
+
+run(root, "script/ci/engine_graph")
+run(root, "script/ci/aliases")
+depcruise = File.join(root, "node_modules", ".bin", "depcruise")
+abort "graph_canaries: depcruise is not installed" unless File.executable?(depcruise)
+ts_output, ts_status = run(
+  root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err",
+  "engines/canary_alpha", "engines/canary_beta", "engines/canary_declared",
+  "engines/canary_kernel", "engines/canary_undeclared"
+)
+ts_findings = [
+  "no-circular",
+  "canary_beta-imports-declared-surfaces-only",
+  "canary_declared-imports-declared-surfaces-only",
+  "canary_undeclared-imports-nothing-in-the-repository",
+  "kernel-internals-stay-inside"
+]
+ts_failures = ts_findings.reject { |needle| ts_output.include?(needle) }
+unless !ts_status.success? && ts_failures.empty?
+  warn "graph_canaries: expected the TypeScript graph checks to fail"
+  warn ts_output
+  exit 1
+end
+
+CANARY_ENGINES.each { |engine| FileUtils.rm_rf(File.join(root, "engines", engine)) }
+FileUtils.rm_f(File.join(root, "engines", "core", "app", "frontend", "internal", "secret.ts"))
+run(root, "script/ci/engine_graph")
+run(root, "script/ci/aliases")
+
+legal_output, legal_status = run(root, "node_modules/.bin/depcruise", "--config", ".dependency-cruiser.cjs", "app", "engines")
+unless legal_status.success?
+  warn "graph_canaries: the legal TypeScript graph check failed"
+  warn legal_output
+  exit 1
+end
+
+warn "graph_canaries: Ruby cycle, undeclared dependency, privacy, TS cycle, non-public and @engines imports, kernel internals rejected"

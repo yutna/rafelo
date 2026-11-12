@@ -1,0 +1,44 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+require "tempfile"
+require "yaml"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/affected_canary [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "affected_canary: root does not exist: #{root}" unless Dir.exist?(root)
+
+fixture = File.join(root, "spec", "enforcement", "fixtures", "affected", "graph")
+cases_file = File.join(fixture, "cases.yml")
+abort "affected_canary: missing #{cases_file}" unless File.file?(cases_file)
+cases = YAML.load_file(cases_file)
+abort "affected_canary: no cases configured" if cases.empty?
+
+failures = 0
+cases.each do |test_case|
+  Tempfile.create("affected-paths") do |file|
+    file.write(Array(test_case.fetch("paths")).join("\n"))
+    file.close
+    output, status = Open3.capture2e(
+      RbConfig.ruby, File.join(root, "script", "ci", "affected"),
+      "--root", fixture, "--paths", file.path
+    )
+    actual = output.lines.map(&:strip).reject(&:empty?).reject { |line| line.start_with?("affected:") }
+    expected = Array(test_case.fetch("expected"))
+    next if status.success? && actual == expected
+
+    warn "affected_canary: #{test_case.fetch("name")}: expected #{expected.inspect}, got #{actual.inspect}"
+    warn output
+    failures += 1
+  end
+end
+
+warn "affected_canary: checked #{cases.length} cases; failures=#{failures}"
+exit(failures.zero? ? 0 : 1)
