@@ -6,6 +6,9 @@ CI.run do
 
   step "Style: Ruby", "bin/rubocop"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
+  step "Pins: runtime and packages", "script/ci/pins"
+  step "Pins: GitHub Actions", "script/ci/actions_pinned"
+  step "Policy: workflows", "script/ci/workflow_policy"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "npm audit --audit-level=high"

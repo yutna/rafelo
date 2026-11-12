@@ -2,10 +2,11 @@ name: release
 on:
   milestone:
     types: [closed]
-permissions: {}
+permissions:
+  contents: read
 jobs:
   release:
-    uses: yutna/oss-kit/.github/workflows/release.yml@main
+    uses: yutna/oss-kit/.github/workflows/release.yml@11a95f398a14797d99cfdcb1ffef2c2c8ea355ba # main
     permissions:
       contents: write
       issues: write
@@ -19,7 +20,7 @@ jobs:
   #   permissions:
   #     contents: write
   #   steps:
-  #     - uses: actions/checkout@v7
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
   #       with:
   #         ref: ${{ needs.release.outputs.version }}
   #     # build + publish / gh release upload ...

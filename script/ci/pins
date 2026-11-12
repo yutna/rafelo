@@ -1,0 +1,99 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/pins [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "pins: root does not exist: #{root}" unless Dir.exist?(root)
+
+errors = []
+checks = 0
+exact_version = /\A\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?\z/
+
+def read(root, path)
+  full = File.join(root, path)
+  abort "pins: missing #{path}" unless File.file?(full)
+
+  File.read(full)
+end
+
+mise = read(root, "mise.toml").scan(/^([a-z]+) = "([^"]+)"$/).to_h
+%w[ruby node npm].each do |tool|
+  checks += 1
+  errors << "mise.toml: #{tool} is not exact" unless mise[tool]&.match?(exact_version)
+end
+
+ruby_version = read(root, ".ruby-version").strip.sub(/^ruby-/, "")
+checks += 1
+errors << ".ruby-version does not match mise.toml" unless ruby_version == mise["ruby"]
+
+package = JSON.parse(read(root, "package.json"))
+checks += 1
+errors << "packageManager does not match mise.toml" unless package["packageManager"] == "npm@#{mise["npm"]}"
+
+%w[dependencies devDependencies optionalDependencies overrides].each do |group|
+  (package[group] || {}).each do |name, version|
+    checks += 1
+    errors << "package.json #{group}.#{name} is not exact: #{version.inspect}" unless version.to_s.match?(exact_version)
+  end
+end
+
+checks += 1
+errors << "package.json engines do not match mise.toml" unless package.dig("engines", "node") == mise["node"] && package.dig("engines", "npm") == mise["npm"]
+checks += 1
+errors << "package.json devEngines do not match mise.toml" unless package.dig("devEngines", "runtime", "version") == mise["node"] && package.dig("devEngines", "packageManager", "version") == mise["npm"]
+checks += 1
+errors << "package.json devEngines do not fail on mismatch" unless package.dig("devEngines", "runtime", "onFail") == "error" && package.dig("devEngines", "packageManager", "onFail") == "error"
+
+gemfile = read(root, "Gemfile")
+checks += 1
+errors << "Gemfile does not read .ruby-version" unless gemfile.include?('ruby file: ".ruby-version"')
+
+gemfile.each_line do |line|
+  next unless line.match?(/^\s*gem\s+"/)
+
+  checks += 1
+  match = line.match(/^\s*gem\s+"([^"]+)"(?:,\s*"([^"]+)")?/)
+  name, version = match[1], match[2]
+  errors << "Gemfile #{name} is not exact: #{version.inspect}" unless version&.match?(exact_version)
+end
+
+dockerfile = read(root, "Dockerfile")
+checks += 1
+errors << "Dockerfile ARG RUBY_VERSION does not match mise.toml" unless dockerfile.match?(/^ARG RUBY_VERSION=#{Regexp.escape(mise["ruby"])}$/)
+checks += 1
+errors << "Dockerfile Node image is not pinned to mise node" unless dockerfile.match?(/^FROM node:#{Regexp.escape(mise["node"])}-slim AS node$/)
+
+devcontainer_dockerfile = read(root, ".devcontainer/Dockerfile")
+checks += 1
+errors << ".devcontainer/Dockerfile ARG RUBY_VERSION does not match mise.toml" unless devcontainer_dockerfile.match?(/^ARG RUBY_VERSION=#{Regexp.escape(mise["ruby"])}$/)
+checks += 1
+errors << ".devcontainer/Dockerfile base image is not digest-pinned" unless devcontainer_dockerfile.match?(/@sha256:[0-9a-f]{64}/)
+
+compose = read(root, ".devcontainer/compose.yaml")
+checks += 1
+errors << "PostgreSQL image is not version/digest pinned" unless compose.match?(/image:\s+postgres:\d+\.\d+@sha256:[0-9a-f]{64}/)
+
+devcontainer = read(root, ".devcontainer/devcontainer.json")
+stripped = devcontainer.lines.reject { |line| line.lstrip.start_with?("//") }.join
+features = JSON.parse(stripped).fetch("features", {})
+checks += 1
+errors << "devcontainer features are not exactly versioned" unless features.keys.all? { |name| name.match?(/:\d+\.\d+\.\d+$/) }
+
+checks += 1
+errors << "package-lock.json is missing" unless File.file?(File.join(root, "package-lock.json"))
+
+if errors.any?
+  errors.each { |error| warn "pins: #{error}" }
+  warn "pins: checked #{checks} pins; errors=#{errors.length}"
+  exit 1
+end
+
+warn "pins: checked #{checks} pins; errors=0"
