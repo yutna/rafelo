@@ -30,7 +30,7 @@ PRIVILEGED_TRIGGERS = %w[pull_request_target workflow_run].freeze
 def trigger_names(on_config)
   case on_config
   when String
-    [on_config]
+    [ on_config ]
   when Array
     on_config.map(&:to_s)
   when Hash
@@ -106,7 +106,7 @@ files.each do |path|
     aggregator = jobs["ci-ok"]
     if aggregator
       needs = Array(aggregator["needs"]).map(&:to_s)
-      expected = jobs.keys.map(&:to_s) - ["ci-ok"]
+      expected = jobs.keys.map(&:to_s) - [ "ci-ok" ]
       missing = expected - needs
       errors << "#{relative}: ci-ok needs is missing #{missing.join(', ')}" if missing.any?
     else
