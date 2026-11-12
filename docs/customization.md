@@ -18,7 +18,7 @@ Change both spellings consistently. The files that currently contain them are:
 After renaming the module, run the test suite and boot the server once:
 
 ```sh
-bin/rails test
+bundle exec rspec
 bin/dev
 ```
 
@@ -36,13 +36,12 @@ providing it through a password manager or `RAILS_MASTER_KEY` is enough.
 
 ## Database
 
-SQLite is the default. To use PostgreSQL or MySQL, change `config/database.yml`
-and the `Gemfile`, then update the Solid Cache, Queue and Cable databases.
-Those components have their own schemas in `db/cache_schema.rb`,
-`db/queue_schema.rb` and `db/cable_schema.rb`.
+PostgreSQL is the default. The Solid Cache, Queue and Cable tables live in the
+primary database through the migrations under `db/migrate/`; they are part of
+`db/schema.rb`.
 
 If you do not need one of the Solid components, remove its gem, configuration
-file, schema and deployment environment variable together. Do not leave a
+file, migrations and deployment environment variable together. Do not leave a
 half-configured component behind.
 
 ## Deployment
@@ -91,10 +90,10 @@ do not want that check, remove the `preflight` input from
 
 ## Building the BFF layer
 
-The template does not yet include an API namespace, CORS, authentication or
-upstream clients. When you add them, keep the layering described in
-[architecture.md](architecture.md) and add tests for the boundary. A useful
-first slice is:
+The template does not yet include the full BFF kernel, CORS, authentication
+or upstream clients. When you add them, keep the layering described in the
+[architecture specification](architecture/00_README.md) and add tests for the
+boundary. A useful first slice is:
 
 1. `app/controllers/api/v1/` with one read-only endpoint
 2. a request test that asserts the JSON shape and status codes
