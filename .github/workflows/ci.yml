@@ -231,6 +231,7 @@ jobs:
         run: |
           script/ci/growth
           script/ci/fan_in
+          script/ci/growth_canary
 
       - name: Check cross-engine clones
         run: |

@@ -1,0 +1,15 @@
+growth:
+  core:
+    max_files: 100
+    max_public_exports: 100
+    max_public_constants: 1
+  design_system:
+    max_public_exports: 100
+  domain_engine:
+    max_public_exports: 100
+    max_public_constants: 100
+  module:
+    max_files: 100
+    max_pages: 100
+  fan_in:
+    max_dependents: 10

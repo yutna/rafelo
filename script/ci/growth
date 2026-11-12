@@ -32,8 +32,9 @@ end
 def constants(path)
   files(path).sum do |file|
     next 0 unless file.end_with?(".rb")
+    next 0 if file.include?("/internal/")
 
-    File.readlines(file).count { |line| line.match?(/^[A-Z][A-Z0-9_]*\s*=/) }
+    File.readlines(file).count { |line| line.match?(/^\s*[A-Z][A-Z0-9_]*\s*=/) }
   end
 end
 
@@ -45,7 +46,7 @@ core_exports = exports(File.join(root, "engines", "core", "app", "frontend"))
 checks += 1
 errors << "core public exports #{core_exports} > #{budgets.dig("core", "max_public_exports")}" if core_exports > budgets.dig("core", "max_public_exports")
 
-core_constants = constants(File.join(root, "engines", "core", "app", "public"))
+core_constants = constants(File.join(root, "engines", "core", "app"))
 checks += 1
 errors << "core public constants #{core_constants} > #{budgets.dig("core", "max_public_constants")}" if core_constants > budgets.dig("core", "max_public_constants")
 

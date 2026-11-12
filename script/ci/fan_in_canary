@@ -16,7 +16,8 @@ abort "fan_in_canary: root does not exist: #{root}" unless Dir.exist?(root)
 cases = [
   { name: "empty product set", fixture: "empty", expected: "no product modules", status: 0 },
   { name: "within the budget", fixture: "legal", expected: "errors=0", status: 0 },
-  { name: "over the budget", fixture: "over", expected: "has 2 dependents > 1", status: 1 }
+  { name: "over the budget", fixture: "over", expected: "has 2 dependents > 1", status: 1 },
+  { name: "kernel engines are ignored", fixture: "kernel", expected: "errors=0", status: 0 }
 ]
 
 failures = 0
