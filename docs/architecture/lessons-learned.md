@@ -125,3 +125,27 @@ and serves `/up`, `/` and its Vite assets.
 **Spec feedback.** ARCH-01 and OPS-06 should state that the production image
 build is part of the baseline gate, not only the later operations milestone,
 because the frontend build can break it. Related IDs: ARCH-01, OPS-06.
+
+## 2026-11-12 — v0.6.0 — issue #65
+
+**What happened.** The gate needed three audit rounds. The first found that the
+skip check only scanned fixtures, the pin/action/workflow checks were text
+scans that ordinary YAML or Gemfile forms could bypass, and canary coverage was
+too shallow. The second found regressions in duplicate action comments, a
+guarded release checkout, path gems and quoted YAML keys.
+
+**Root cause.** Guards that read text instead of the parsed source, and a
+canary harness that only asserted one substring per guard. The initial
+milestone also claimed the checks without running them against the real tree.
+
+**What changed.** The skip check runs on the real RSpec and frontend tests.
+Pins evaluate the Gemfile and gemspecs through Bundler. Actions are parsed from
+YAML, comments are checked per line, and the workflow policy checks parsed
+triggers, every checkout/run step and a job/scope allow-list. The canary
+harness now checks 18 cases, including full pins. Release metadata and lessons
+remain part of the gate.
+
+**Spec feedback.** TS-07 should say a guard with several sub-rules needs a
+canary for each sub-rule, not one fixture per script. WF-07 should allow the
+semantically equivalent double-quoted guarded-release `if:` form. Related IDs:
+TS-05, TS-07, WF-06, WF-07.
