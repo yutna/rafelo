@@ -14,6 +14,16 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors].freeze
+CANARY_SCRIPTS = %w[affected_canary clones_canary fan_in_canary graph_canaries growth_canary].freeze
+
+config_ci = File.read(File.join(root, "config", "ci.rb"))
+CANARY_SCRIPTS.each do |script|
+  path = File.join(root, "script", "ci", script)
+  abort "enforcement_canaries: missing canary script script/ci/#{script}" unless File.file?(path)
+  abort "enforcement_canaries: script/ci/#{script} is not executable" unless File.executable?(path)
+  abort "enforcement_canaries: script/ci/#{script} is not wired into config/ci.rb" unless config_ci.include?("script/ci/#{script}")
+end
+warn "enforcement_canaries: checked #{CANARY_SCRIPTS.length} canary scripts"
 
 canaries = [
   {

@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/growth_canary [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "growth_canary: root does not exist: #{root}" unless Dir.exist?(root)
+
+cases = [
+  { name: "within the constant budget", fixture: "legal", status: 0, expected: "errors=0" },
+  { name: "indented constants over the budget", fixture: "bad", status: 1, expected: "core public constants 2 > 1" }
+]
+
+failures = 0
+cases.each do |test_case|
+  fixture = File.join(root, "spec", "enforcement", "fixtures", "growth", test_case[:fixture])
+  abort "growth_canary: missing #{fixture}" unless Dir.exist?(fixture)
+
+  output, status = Open3.capture2e(
+    RbConfig.ruby, File.join(root, "script", "ci", "growth"), "--root", fixture
+  )
+  next if status.exitstatus == test_case[:status] && output.include?(test_case[:expected])
+
+  warn "growth_canary: #{test_case[:name]}: expected status #{test_case[:status]} and #{test_case[:expected].inspect}"
+  warn output
+  failures += 1
+end
+
+warn "growth_canary: checked #{cases.length} cases; failures=#{failures}"
+exit(failures.zero? ? 0 : 1)
