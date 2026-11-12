@@ -18,7 +18,7 @@ module Rafelo
           flags: {},
           locale: I18n.locale,
           request_id: Current.request_id,
-          urls: nil
+          urls: Urls.new(locale: I18n.locale)
         )
       end
 
