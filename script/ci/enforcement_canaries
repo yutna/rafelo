@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/enforcement_canaries [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
+
+canaries = [
+  {
+    name: "skip-needs-issue",
+    bad: "spec/enforcement/fixtures/skips/bad",
+    legal: "spec/enforcement/fixtures/skips/legal",
+    command: [ RbConfig.ruby, File.join(root, "script", "ci", "skips"), "--root" ],
+    expected: "skip-needs-issue"
+  }
+]
+
+abort "enforcement_canaries: no canaries configured" if canaries.empty?
+
+failures = 0
+canaries.each do |canary|
+  bad_root = File.join(root, canary[:bad])
+  legal_root = File.join(root, canary[:legal])
+  abort "enforcement_canaries: missing bad fixture #{bad_root}" unless Dir.exist?(bad_root)
+  abort "enforcement_canaries: missing legal fixture #{legal_root}" unless Dir.exist?(legal_root)
+
+  output, status = Open3.capture2e(*canary[:command], bad_root)
+  if status.success? || !output.include?(canary[:expected])
+    warn "canary #{canary[:name]}: expected failure containing #{canary[:expected].inspect}"
+    warn output
+    failures += 1
+  end
+
+  output, status = Open3.capture2e(*canary[:command], legal_root)
+  unless status.success?
+    warn "canary #{canary[:name]}: legal counterpart failed"
+    warn output
+    failures += 1
+  end
+end
+
+warn "enforcement_canaries: checked #{canaries.length} canaries; failures=#{failures}"
+exit(failures.zero? ? 0 : 1)

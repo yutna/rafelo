@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/skips [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "skips: root does not exist: #{root}" unless Dir.exist?(root)
+
+SKIP_FORMS = [
+  /(?<![\w.])skip(?!\s*:)/,
+  /\b(?:xit|xspecify|xexample|xdescribe|xcontext)\b/,
+  /\.skip\b/,
+  /\bpending(?!\s*:)\b/,
+  /\b(?:skip|pending):/,
+  /\bprosopite:\s*false\b/,
+  /\bProsopite\.pause\b/
+].freeze
+
+ISSUE_REFERENCE = /(?:#\d+|https:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/issues\/\d+)/
+
+files = Dir[File.join(root, "spec", "**", "*")].select { |path| File.file?(path) }
+abort "skips: no spec files found under #{root}" if files.empty?
+
+findings = 0
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  next if relative.start_with?("spec/enforcement/fixtures/")
+
+  File.readlines(path, chomp: true).each_with_index do |line, index|
+    code = line.split(/\s+#\s*/, 2).first || ""
+    next if code.lstrip.start_with?("#")
+
+    code = code.gsub(/(["']).*?\1/, '""')
+    next unless SKIP_FORMS.any? { |form| code.match?(form) }
+
+    next if line.match?(ISSUE_REFERENCE)
+    next if relative.start_with?("spec/enforcement/") && line.match?(/prosopite:\s*false|Prosopite\.pause/)
+
+    puts "#{relative}:#{index + 1}: skip-needs-issue: add #<number> or an issue URL on the same line"
+    findings += 1
+  end
+end
+
+warn "skips: checked #{files.length} files; findings=#{findings}"
+exit(findings.zero? ? 0 : 1)

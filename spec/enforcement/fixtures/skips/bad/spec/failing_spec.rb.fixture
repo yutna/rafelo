@@ -1,0 +1,5 @@
+RSpec.describe "bad skip" do
+  it "hides a failure without an issue" do
+    skip
+  end
+end
