@@ -11,6 +11,7 @@ module Rafelo
       :max_response_bytes,
       :retry_budget,
       :idempotency_keys,
+      :service_token_gateways,
       :breaker
     ) do
       REQUIRED = members

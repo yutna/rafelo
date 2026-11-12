@@ -22,6 +22,30 @@ RSpec.describe Rafelo::Core::Gateway do
     end.to raise_error(ArgumentError, /unknown upstream/)
   end
 
+  it "rejects a service token unless the gateway is allow-listed" do
+    expect do
+      Class.new(described_class) do
+        upstream :api
+        token :service
+      end
+    end.to raise_error(ArgumentError, /not allow-listed/)
+  end
+
+  it "requires a service-token provider for an allow-listed service gateway" do
+    config = Rails.application.config.x.upstreams.fetch(:api)
+    allow(Rails.application.config.x).to receive(:upstreams).and_return(
+      api: config.with(service_token_gateways: [ "ServiceGateway" ])
+    )
+    service_gateway = Class.new(described_class) { upstream :api }
+    Object.const_set(:ServiceGateway, service_gateway)
+    service_gateway.token :service
+
+    expect { service_gateway.new(token_provider: token, budget: budget, request_id: "r", trace_id: "t") }
+      .to raise_error(ArgumentError, /service token provider/)
+  ensure
+    Object.send(:remove_const, :ServiceGateway) if Object.const_defined?(:ServiceGateway)
+  end
+
   it "counts calls against the per-request budget" do
     budget.consume!(:api)
     budget.consume!(:api)

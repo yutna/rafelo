@@ -11,6 +11,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       max_response_bytes: 100,
       retry_budget: 0.1,
       idempotency_keys: false,
+      service_token_gateways: [],
       breaker: { failure_threshold: 100, cool_off: 1 }
     )
   end
@@ -63,7 +64,10 @@ RSpec.describe Rafelo::Core::UpstreamClient do
   it "refuses a response over the byte cap" do
     stub_request(:get, "http://upstream.test/large").to_return(status: 200, body: "x" * 101)
 
-    expect { client.get("/large") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("unexpected") }
+    expect { client.get("/large") }.to raise_error(Rafelo::Core::ApplicationError) do |error|
+      expect(error.code).to eq("unexpected")
+      expect(error.message).not_to include("x" * 20)
+    end
   end
 
   it "opens the breaker after repeated failures" do
