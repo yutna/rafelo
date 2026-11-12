@@ -1,0 +1,6 @@
+{
+  "data": [
+    { "id": "inv_1", "number": "INV-1", "status": "draft", "total_minor": 1250, "currency": "THB", "issued_on": "2026-11-12" }
+  ],
+  "pagination": { "kind": "offset", "page": 1, "perPage": 25, "total": 1, "pageCount": 1 }
+}
