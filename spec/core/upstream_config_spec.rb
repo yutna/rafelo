@@ -26,6 +26,14 @@ RSpec.describe Rafelo::Core::UpstreamConfig do
     expect(config[:api].breaker).to eq(failure_threshold: 2, cool_off: 5)
   end
 
+  it "rejects invalid values and nested keys" do
+    invalid = raw.merge("api" => raw["api"].merge(base_url: "", open_timeout: "two"))
+    expect { described_class.load_all(invalid) }.to raise_error(ArgumentError)
+
+    nested = raw.merge("api" => raw["api"].merge(breaker: { failure_threshold: 2, cool_off: 5, extra: 9 }))
+    expect { described_class.load_all(nested) }.to raise_error(ArgumentError)
+  end
+
   it "raises on a missing or unknown key" do
     expect { described_class.load_all(raw.merge("api" => raw["api"].except(:base_url))) }
       .to raise_error(ArgumentError, /missing/)

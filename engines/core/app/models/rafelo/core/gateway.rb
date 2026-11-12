@@ -35,8 +35,9 @@ module Rafelo
       attr_reader :budget, :request_id, :trace_id
 
       def initialize(token_provider:, budget:, request_id:, trace_id:)
-        if self.class.token == :service && !(token_provider.respond_to?(:service?) && token_provider.service?)
-          raise ArgumentError, "#{self.class.name} requires a service token provider"
+        expected_service = self.class.token == :service
+        unless token_provider.respond_to?(:service?) && token_provider.service? == expected_service
+          raise ArgumentError, "#{self.class.name} requires a #{expected_service ? 'service' : 'viewer'} token provider"
         end
         @token_provider = token_provider
         @budget = budget

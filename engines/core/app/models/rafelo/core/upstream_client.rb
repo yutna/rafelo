@@ -5,24 +5,34 @@ require "stoplight"
 
 module Rafelo
   module Core
+    UpstreamResponse = Data.define(:status, :headers, :body)
+
     class UpstreamClient
       FORBIDDEN_HEADERS = %w[authorization traceparent x-request-id idempotency-key if-match].freeze
       RETRYABLE_STATUS = [ 429, 500, 502, 503, 504 ].freeze
+      class << self
+        attr_accessor :transaction_baseline
+      end
+      self.transaction_baseline = 0
 
-      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil)
+      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil)
         new(name: name, config: config, token_provider: token_provider, budget: budget,
-            request_id: request_id, trace_id: trace_id)
+            request_id: request_id, trace_id: trace_id, deadline: deadline)
       end
 
-      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil)
+      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil)
         @name = name.to_sym
         @config = config
         @token_provider = token_provider
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
+        @deadline = deadline || RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
                                     cool_off_time: config.breaker.fetch(:cool_off))
+        @bulkhead = Bulkhead.new(config.max_concurrent_calls)
+        @calls = 0
+        @retries = 0
       end
 
       def get(path, params: nil, headers: {}, if_match: nil)
@@ -47,14 +57,20 @@ module Rafelo
 
       def request(method, path, params: nil, body: nil, headers: {}, idempotency_key: nil, if_match: nil)
         validate_headers!(headers)
+        validate_path!(path)
+        ensure_no_transaction!
+        raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
         @budget&.consume!(@name)
-        @breaker.run do
-          response = perform(method, path, params: params, body: body, headers: headers,
-                             idempotency_key: idempotency_key, if_match: if_match)
-          check_size!(response)
-          map_status!(response)
-          response
+        @calls += 1
+        response = @bulkhead.call do
+          @breaker.run do
+            perform(method, path, params: params, body: body, headers: headers,
+                    idempotency_key: idempotency_key, if_match: if_match)
+          end
         end
+        map_status!(response)
+        response
       rescue Stoplight::Error::RedLight
         raise ApplicationError.new("upstream.circuit_open")
       rescue Faraday::TimeoutError
@@ -66,22 +82,41 @@ module Rafelo
       private
 
       def perform(method, path, params:, body:, headers:, idempotency_key:, if_match:)
-        attempts = 0
-        begin
-          attempts += 1
-          response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
-            request.params.update(params) if params
+        attempt = 0
+        loop do
+          attempt += 1
+          response = perform_once(method, path, params: params, body: body, headers: headers,
+                                  idempotency_key: idempotency_key, if_match: if_match)
+          if (response.status == 429 || response.status >= 500) && %i[get head].include?(method) &&
+             attempt < 2 && retry_allowed? && !@deadline.expired?
+            sleep(backoff_for(response, attempt))
+            @retries += 1
+            next
           end
-          if attempts < 3 && %i[get head].include?(method) && RETRYABLE_STATUS.include?(response.status)
-            sleep(backoff_for(response, attempts))
-            raise Retry
-          end
-          response
-        rescue Retry
-          retry
+          raise ApplicationError.new("upstream.unavailable") if response.status >= 500
+          return response
         end
       end
-      Retry = Class.new(StandardError)
+
+      def perform_once(method, path, params:, body:, headers:, idempotency_key:, if_match:)
+        collected = +""
+        response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
+          request.params.update(params) if params
+          request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+          request.options.on_data = proc do |chunk, _size|
+            collected << chunk
+            if collected.bytesize > @config.max_response_bytes
+              raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+            end
+          end
+        end
+        body = collected.bytesize.positive? ? collected : response.body.to_s
+        if body.bytesize > @config.max_response_bytes
+          raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+        end
+
+        UpstreamResponse.new(status: response.status, headers: response.headers, body: body)
+      end
 
       def connection
         @connection ||= Faraday.new(url: @config.base_url) do |faraday|
@@ -94,9 +129,11 @@ module Rafelo
 
       def request_headers(headers, idempotency_key, if_match)
         result = headers.to_h.transform_keys(&:to_s)
+        raise ArgumentError, "token provider must respond to #token" unless @token_provider.respond_to?(:token)
+
         result["X-Request-Id"] = @request_id.to_s if @request_id
         result["traceparent"] = "00-#{@trace_id}-#{@request_id}-01" if @trace_id && @request_id
-        result["Authorization"] = "Bearer #{@token_provider.token}" if @token_provider.respond_to?(:token) && @token_provider.token
+        result["Authorization"] = "Bearer #{@token_provider.token}" if @token_provider.token
         result["Idempotency-Key"] = idempotency_key.to_s if idempotency_key
         result["If-Match"] = if_match.to_s if if_match
         result
@@ -109,11 +146,29 @@ module Rafelo
         raise ArgumentError, "a gateway may not set #{forbidden.join(', ')}"
       end
 
-      def check_size!(response)
-        bytes = response.body.to_s.bytesize
-        return if bytes <= @config.max_response_bytes
+      def validate_path!(path)
+        raise ArgumentError, "path must be a relative string" unless path.is_a?(String)
+        raise ArgumentError, "path must not start with /" if path.start_with?("/")
+        raise ArgumentError, "path must not be an absolute URL" if path.match?(/\A[a-z][a-z0-9+.-]*:/i)
+        raise ArgumentError, "path must not contain a delimiter" if path.match?(/[?#\\\x00-\x1f]/)
 
-        raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+        segments = path.split("/", -1)
+        return unless segments.empty? || segments.any? { |segment| segment.empty? || segment == "." || segment == ".." }
+
+        raise ApplicationError.new("resource.not_found")
+      end
+
+      def ensure_no_transaction!
+        return unless defined?(ActiveRecord::Base)
+
+        open = ActiveRecord::Base.connection.open_transactions
+        return if open <= self.class.transaction_baseline
+
+        raise ApplicationError.new("unexpected", "Upstream call inside a database transaction")
+      end
+
+      def retry_allowed?
+        @retries + 1 <= (@calls * @config.retry_budget).floor
       end
 
       def map_status!(response)
@@ -123,10 +178,8 @@ module Rafelo
         when 403 then "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"
-        when 413 then "validation.failed"
-        when 422 then "validation.failed"
+        when 413, 422 then "validation.failed"
         when 429 then "upstream.unavailable"
-        when 500..599 then "upstream.unavailable"
         else "unexpected"
         end
         raise ApplicationError.new(code)
