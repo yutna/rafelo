@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  BUNDLE_FROZEN: "true"
+
 jobs:
   affected:
     runs-on: ubuntu-latest
