@@ -34,7 +34,7 @@ module Rafelo
       end
 
       def reason(entry)
-        return "disabled" if entry.flag
+        return "disabled" if entry.flag && !@flags[entry.flag.to_sym]
 
         "forbidden"
       end

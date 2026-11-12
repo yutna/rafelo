@@ -5,6 +5,8 @@ module Rafelo
     class BaseController < ActionController::Base
       include Pundit::Authorization
 
+      rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
+
       allow_browser versions: :modern
       before_action :set_response_headers
       before_action :assign_request_context
@@ -23,6 +25,21 @@ module Rafelo
       end
 
       private
+
+      def pundit_user
+        Current.viewer
+      end
+
+      def deny_access
+        payload = { error: { code: "auth.forbidden" } }
+        if performed?
+          response.status = Rack::Utils.status_code(:forbidden)
+          response.set_header("Content-Type", "application/json")
+          response.body = payload.to_json
+        else
+          render json: payload, status: :forbidden
+        end
+      end
 
       def set_response_headers
         response.headers["Cache-Control"] = "no-store"

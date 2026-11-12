@@ -8,5 +8,6 @@ RSpec.describe "Home page", type: :request do
     expect(response.body).to include('id="app"')
     expect(response.body).to include('"component":"home/index"')
     expect(response.body).to include('"message":"Rafelo"')
+    expect(response.headers["Cache-Control"]).to include("no-store")
   end
 end
