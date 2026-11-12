@@ -194,6 +194,9 @@ jobs:
       - name: Check workflow policy
         run: script/ci/workflow_policy
 
+      - name: Check the Packwerk cycle canary
+        run: script/ci/packwerk_canary
+
   canaries:
     runs-on: ubuntu-latest
     timeout-minutes: 5

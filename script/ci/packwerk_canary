@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "shellwords"
+require "tmpdir"
+
+root = File.expand_path(Dir.pwd)
+Dir.mktmpdir("packwerk-canary") do |tmp|
+  archive = "git -C #{Shellwords.escape(root)} archive HEAD | tar -x -C #{Shellwords.escape(tmp)}"
+  system("bash", "-lc", archive, exception: true)
+
+  FileUtils.mkdir_p(File.join(tmp, "engines", "cycle_a"))
+  FileUtils.mkdir_p(File.join(tmp, "engines", "cycle_b"))
+  File.write(File.join(tmp, "engines", "cycle_a", "package.yml"), "enforce_dependencies: strict\ndependencies:\n  - engines/cycle_b\n")
+  File.write(File.join(tmp, "engines", "cycle_b", "package.yml"), "enforce_dependencies: strict\ndependencies:\n  - engines/cycle_a\n")
+
+  environment = { "BUNDLE_GEMFILE" => File.join(root, "Gemfile") }
+  output, status = Open3.capture2e(environment, "bundle", "exec", "packwerk", "validate", chdir: tmp)
+  unless !status.success? && output.include?("circular dependencies")
+    warn "packwerk_canary: expected a circular dependency failure"
+    warn output
+    exit 1
+  end
+end
+
+warn "packwerk_canary: circular dependency rejected"
