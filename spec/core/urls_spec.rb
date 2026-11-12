@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe Rafelo::Core::Urls do
   proxy = Class.new do
-    def new_invoice(locale:, id:)
+    def new_invoice_path(locale:, id:)
       "/#{locale}/billing/invoices/new?id=#{id}"
     end
   end.new

@@ -4,6 +4,7 @@ module Rafelo
   module Core
     class BaseController < ActionController::Base
       include Pundit::Authorization
+      include Rails.application.routes.mounted_helpers
 
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
 
@@ -20,7 +21,7 @@ module Rafelo
           flags: {},
           locale: I18n.locale,
           request_id: Current.request_id,
-          urls: Urls.new(locale: I18n.locale)
+          urls: Urls.new(locale: I18n.locale, router: self)
         )
       end
 
