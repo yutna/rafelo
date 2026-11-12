@@ -5,6 +5,13 @@ description: Use when code is shared by two engines, when a consumer needs anoth
 
 # Expose a public interface
 
+## Design skills
+
+Load `oo-design` before choosing the home. Load `oo-ruby` for Ruby value
+objects and `oo-typescript` for TypeScript classes; the framework skill applies
+when Rails or React builds the object. Load `oo-reviewing-object-design` when
+reviewing the resulting diff. A rule or ADR wins over the pack.
+
 ## Inputs to collect
 
 - The concept and the engine that owns it.
