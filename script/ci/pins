@@ -6,9 +6,11 @@ require "json"
 require "optparse"
 
 root = Dir.pwd
+only_gems = false
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/pins [--root DIR]"
+  parser.banner = "Usage: script/ci/pins [--root DIR] [--only-gems]"
   parser.on("--root DIR") { |value| root = value }
+  parser.on("--only-gems") { only_gems = true }
 end.parse!
 
 root = File.expand_path(root)
@@ -23,6 +25,50 @@ def read(root, path)
   abort "pins: missing #{path}" unless File.file?(full)
 
   File.read(full)
+end
+
+if only_gems
+  errors = []
+  checks = 0
+  begin
+    lockfile = File.join(root, "Gemfile.lock")
+    definition = Bundler::Definition.build(File.join(root, "Gemfile"), File.file?(lockfile) ? lockfile : nil, {})
+    definition.dependencies.each do |dependency|
+      checks += 1
+      requirement = dependency.requirement
+      exact = requirement.requirements.length == 1 && requirement.requirements.first.first == "="
+      errors << "Gemfile #{dependency.name} is not exact: #{requirement}" unless exact
+    end
+
+    engine_names = Dir[File.join(root, "engines", "*", "*.gemspec")].map { |path| File.basename(path, ".gemspec") }
+    allowed_dependencies = definition.dependencies.map(&:name) + engine_names
+    Dir[File.join(root, "engines", "*", "*.gemspec")].each do |path|
+      specification = Gem::Specification.load(path)
+      if specification.nil?
+        errors << "#{path.delete_prefix("#{root}/")} could not be loaded"
+        next
+      end
+
+      specification.dependencies.each do |dependency|
+        checks += 1
+        errors << "gemspec #{dependency.name} states a version constraint" unless dependency.requirement == Gem::Requirement.default
+        unless allowed_dependencies.include?(dependency.name)
+          errors << "gemspec #{dependency.name} is not pinned in the Gemfile or supplied by an engine"
+        end
+      end
+    end
+  rescue StandardError => error
+    errors << "Bundler evaluation failed: #{error.message}"
+  end
+
+  if errors.any?
+    errors.each { |error| warn "pins: #{error}" }
+    warn "pins: checked #{checks} gems; errors=#{errors.length}"
+    exit 1
+  end
+
+  warn "pins: checked #{checks} gems; errors=0"
+  exit 0
 end
 
 mise = read(root, "mise.toml").scan(/^([a-z]+) = "([^"]+)"$/).to_h

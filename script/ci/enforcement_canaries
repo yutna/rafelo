@@ -13,24 +13,79 @@ end.parse!
 root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
+REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors].freeze
+
 canaries = [
   {
+    check: "affected",
+    name: "empty affected input",
+    bad: "spec/enforcement/fixtures/affected/bad",
+    legal: "spec/enforcement/fixtures/affected/legal",
+    script: "script/ci/affected",
+    bad_args: [ "--paths", "ROOT/paths.txt" ],
+    legal_args: [ "--paths", "ROOT/paths.txt" ],
+    expected: "no changed paths"
+  },
+  {
+    check: "pins",
+    name: "inexact Gemfile",
+    bad: "spec/enforcement/fixtures/pins/bad",
+    legal: "spec/enforcement/fixtures/pins/legal",
+    script: "script/ci/pins",
+    bad_args: [ "--root", "ROOT", "--only-gems" ],
+    legal_args: [ "--root", "ROOT", "--only-gems" ],
+    expected: "not exact"
+  },
+  {
+    check: "actions_pinned",
+    name: "tag-pinned action",
+    bad: "spec/enforcement/fixtures/actions/bad",
+    legal: "spec/enforcement/fixtures/actions/legal",
+    script: "script/ci/actions_pinned",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "not pinned"
+  },
+  {
+    check: "workflow_policy",
+    name: "privileged checkout",
+    bad: "spec/enforcement/fixtures/workflow/bad",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "privileged workflow"
+  },
+  {
+    check: "skips",
     name: "skip-needs-issue",
     bad: "spec/enforcement/fixtures/skips/bad",
     legal: "spec/enforcement/fixtures/skips/legal",
-    command: [ RbConfig.ruby, File.join(root, "script", "ci", "skips"), "--root" ],
+    script: "script/ci/skips",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
     expected: "skip-needs-issue"
   },
   {
+    check: "test_selectors",
     name: "bad-selector",
     bad: "spec/enforcement/fixtures/selectors/bad",
     legal: "spec/enforcement/fixtures/selectors/legal",
-    command: [ RbConfig.ruby, File.join(root, "script", "ci", "test_selectors"), "--root" ],
+    script: "script/ci/test_selectors",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
     expected: "bad-selector"
   }
 ]
 
 abort "enforcement_canaries: no canaries configured" if canaries.empty?
+missing = REQUIRED_CHECKS - canaries.map { |canary| canary[:check] }
+abort "enforcement_canaries: no canary for #{missing.join(', ')}" if missing.any?
+
+def command(root, canary, args, fixture_root)
+  expanded = args.map { |arg| arg.gsub("ROOT", fixture_root) }
+  [ RbConfig.ruby, File.join(root, canary[:script]), *expanded ]
+end
 
 failures = 0
 canaries.each do |canary|
@@ -39,14 +94,14 @@ canaries.each do |canary|
   abort "enforcement_canaries: missing bad fixture #{bad_root}" unless Dir.exist?(bad_root)
   abort "enforcement_canaries: missing legal fixture #{legal_root}" unless Dir.exist?(legal_root)
 
-  output, status = Open3.capture2e(*canary[:command], bad_root)
+  output, status = Open3.capture2e(*command(root, canary, canary[:bad_args], bad_root))
   if status.success? || !output.include?(canary[:expected])
     warn "canary #{canary[:name]}: expected failure containing #{canary[:expected].inspect}"
     warn output
     failures += 1
   end
 
-  output, status = Open3.capture2e(*canary[:command], legal_root)
+  output, status = Open3.capture2e(*command(root, canary, canary[:legal_args], legal_root))
   unless status.success?
     warn "canary #{canary[:name]}: legal counterpart failed"
     warn output
