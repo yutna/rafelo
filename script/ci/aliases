@@ -38,6 +38,7 @@ base = {
     "baseUrl" => ".",
     "ignoreDeprecations" => "6.0",
     "allowImportingTsExtensions" => true,
+    "resolveJsonModule" => true,
     "paths" => paths
   }
 }

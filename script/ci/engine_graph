@@ -56,11 +56,11 @@ app_references = packages.keys.map { |name| { "path" => "../../engines/#{name}" 
 
 packages.each do |name, dependencies|
   references = dependencies.map { |dep| { "path" => "../#{dep}" } }
-  config = project("../../", name, include: [ "app/frontend/**/*" ], references: references)
+  config = project("../../", name, include: [ "app/frontend/**/*", "app/frontend/**/*.json" ], references: references)
   write_or_check(File.join(root, "engines", name, "tsconfig.json"), "#{JSON.pretty_generate(config)}\n", check, errors)
 end
 
-app = project("../../", "app", include: [ "**/*" ], references: app_references)
+app = project("../../", "app", include: [ "**/*", "**/*.json" ], references: app_references)
 write_or_check(File.join(root, "app", "frontend", "tsconfig.json"), "#{JSON.pretty_generate(app)}\n", check, errors)
 
 tooling = project("./", "tooling",

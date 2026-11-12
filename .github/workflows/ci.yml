@@ -161,6 +161,7 @@ jobs:
         run: |
           npm run contracts:check
           npm run errors:check
+          npm run i18n:check
 
       - name: Typecheck frontend
         run: npm run typecheck

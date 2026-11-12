@@ -8,7 +8,8 @@
     "tsBuildInfoFile": "../../tmp/tsc/design_system.tsbuildinfo"
   },
   "include": [
-    "app/frontend/**/*"
+    "app/frontend/**/*",
+    "app/frontend/**/*.json"
   ],
   "references": []
 }
