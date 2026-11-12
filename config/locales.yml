@@ -1,0 +1,3 @@
+available: [en, th]
+default: en
+segment_pattern: "[a-z]{2}"
