@@ -11,9 +11,20 @@ module Rafelo
       allow_browser versions: :modern
       before_action :set_response_headers
       before_action :assign_request_context
+      before_action :share_trace
       around_action :with_locale
       before_action :underscore_param_keys
       after_action :verify_authorized
+
+      def render_page(component, props:)
+        page = props.respond_to?(:to_inertia) ? props.to_inertia : props
+        validate_page_keys!(page)
+        render inertia: component, props: shared_props.merge(page)
+      end
+
+      def shared_props
+        SharedProps.new(context: page_context, request_path: request.path).to_h
+      end
 
       def page_context
         @page_context ||= PageContextFactory.build(
@@ -26,6 +37,21 @@ module Rafelo
       end
 
       private
+
+      def share_trace
+        inertia_share trace: InertiaRails.always { shared_props_trace }
+      end
+
+      def shared_props_trace
+        SharedProps.new(context: page_context, request_path: request.path).trace
+      end
+
+      def validate_page_keys!(page)
+        keys = page.keys.map(&:to_sym)
+        return if keys.sort == PageProps::ENVELOPE_KEYS.sort
+
+        raise ArgumentError, "page props must be exactly #{PageProps::ENVELOPE_KEYS.inspect}: #{keys.inspect}"
+      end
 
       def pundit_user
         Current.viewer
