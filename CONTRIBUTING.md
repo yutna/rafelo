@@ -30,7 +30,15 @@ on GitHub are the changelog.
 
 ## Local development
 
+Open the repository in the Dev Container under `.devcontainer/`. It pins the
+Rails base image, Ruby, Node, npm and PostgreSQL. The post-create command
+installs the tools from `mise.toml` and prepares the application. Ports 3000
+(Rails), 3036 (Vite) and 5432 (PostgreSQL) are forwarded.
+
+For a host-based setup, install Docker and mise, then run:
+
 ```sh
+mise install
 bin/setup --skip-server
 bin/dev
 bin/ci
@@ -39,6 +47,18 @@ bin/ci
 `bin/setup` installs gems, prepares the database and clears logs and tmp.
 `bin/dev` starts the Rails server at <http://localhost:3000>. `bin/ci` runs
 the local checks: style, security scans, tests and seeds.
+
+Verify the exact runtime pins with:
+
+```sh
+mise exec -- ruby --version
+mise exec -- node --version
+mise exec -- npm --version
+docker compose -f .devcontainer/compose.yaml config
+```
+
+Playwright browsers are installed by the Dev Container post-create hook once
+`@playwright/test` is part of `package.json`.
 
 Create local credentials with `bin/rails credentials:edit` when an
 integration needs them. The template does not ship an encrypted credentials
