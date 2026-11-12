@@ -1,0 +1,53 @@
+name: Implementation change
+description: Plan a change that implements the Rafelo specification
+assignees: [yutna]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for planned work. One issue describes one deliverable
+        outcome and one pull request closes it.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What will a user or maintainer be able to do when this is done?
+      placeholder: A short, observable result.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance checks
+      description: The checks that prove the outcome. Include the maximum-size and failure cases where they apply.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: input
+    id: spec
+    attributes:
+      label: Spec rule IDs
+      description: Comma-separated rule IDs this issue covers, for example ARCH-04, BE-13, TS-02.
+      placeholder: ARCH-04, BE-13
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not change.
+      placeholder: List nearby work that belongs in another issue.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Which tests, canaries, guards or documents will prove the rule IDs?
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and risks
+      description: Other issues, owner decisions, or external services this waits on.
