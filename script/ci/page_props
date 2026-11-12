@@ -24,15 +24,31 @@ abort "page_props: no frontend files found under #{root}" if files.empty?
 findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  File.readlines(path, chomp: true).each_with_index do |line, index|
-    next unless line.match?(/\b(?:only|except|deferred|optional|merge|once)\s*:/)
+  lines = File.readlines(path, chomp: true)
+  index = 0
+  while index < lines.length
+    line = lines[index]
+    unless line.match?(/\b(?:only|except|deferred|optional|merge|once)\s*:/)
+      index += 1
+      next
+    end
 
-    line.scan(/["']([^"']+)["']/).flatten.each do |key|
+    block = line.dup
+    depth = line.count("[") - line.count("]")
+    cursor = index
+    while depth.positive? && cursor + 1 < lines.length
+      cursor += 1
+      block << "\n#{lines[cursor]}"
+      depth += lines[cursor].count("[") - lines[cursor].count("]")
+    end
+
+    block.scan(/["']([^"']+)["']/).flatten.each do |key|
       next unless key.include?(".")
 
       puts "#{relative}:#{index + 1}: multi-word partial-reload key #{key.inspect}"
       findings += 1
     end
+    index = cursor + 1
   end
 end
 
