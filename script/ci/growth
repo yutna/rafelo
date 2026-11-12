@@ -29,6 +29,14 @@ def exports(path)
   end
 end
 
+def constants(path)
+  files(path).sum do |file|
+    next 0 unless file.end_with?(".rb")
+
+    File.readlines(file).count { |line| line.match?(/^[A-Z][A-Z0-9_]*\s*=/) }
+  end
+end
+
 core_files = files(File.join(root, "engines", "core")).reject { |file| file.include?("/spec/") || file.include?("/lib/generators/") }
 checks += 1
 errors << "core files #{core_files.length} > #{budgets.dig("core", "max_files")}" if core_files.length > budgets.dig("core", "max_files")
@@ -36,6 +44,10 @@ errors << "core files #{core_files.length} > #{budgets.dig("core", "max_files")}
 core_exports = exports(File.join(root, "engines", "core", "app", "frontend"))
 checks += 1
 errors << "core public exports #{core_exports} > #{budgets.dig("core", "max_public_exports")}" if core_exports > budgets.dig("core", "max_public_exports")
+
+core_constants = constants(File.join(root, "engines", "core", "app", "public"))
+checks += 1
+errors << "core public constants #{core_constants} > #{budgets.dig("core", "max_public_constants")}" if core_constants > budgets.dig("core", "max_public_constants")
 
 design_exports = exports(File.join(root, "engines", "design_system", "app", "frontend"))
 checks += 1
@@ -46,11 +58,19 @@ engine_names = Dir[File.join(root, "engines", "*", "package.yml")].map { |path| 
   next if engine.start_with?("example_")
 
   engine_path = File.join(root, "engines", engine)
-  module_files = files(engine_path)
-  module_pages = files(File.join(engine_path, "app", "frontend", "pages")).count { |file| file.end_with?(".tsx") }
-  checks += 2
-  errors << "#{engine} files #{module_files.length} > #{budgets.dig("module", "max_files")}" if module_files.length > budgets.dig("module", "max_files")
-  errors << "#{engine} pages #{module_pages} > #{budgets.dig("module", "max_pages")}" if module_pages > budgets.dig("module", "max_pages")
+  if File.file?(File.join(engine_path, "config", "module.rb"))
+    module_files = files(engine_path)
+    module_pages = files(File.join(engine_path, "app", "frontend", "pages")).count { |file| file.end_with?(".tsx") }
+    checks += 2
+    errors << "#{engine} files #{module_files.length} > #{budgets.dig("module", "max_files")}" if module_files.length > budgets.dig("module", "max_files")
+    errors << "#{engine} pages #{module_pages} > #{budgets.dig("module", "max_pages")}" if module_pages > budgets.dig("module", "max_pages")
+  else
+    domain_exports = exports(File.join(engine_path, "app", "frontend", "public"))
+    domain_constants = constants(File.join(engine_path, "app", "public"))
+    checks += 2
+    errors << "#{engine} public exports #{domain_exports} > #{budgets.dig("domain_engine", "max_public_exports")}" if domain_exports > budgets.dig("domain_engine", "max_public_exports")
+    errors << "#{engine} public constants #{domain_constants} > #{budgets.dig("domain_engine", "max_public_constants")}" if domain_constants > budgets.dig("domain_engine", "max_public_constants")
+  end
 end
 
 warn "growth: checked #{checks} budgets; errors=#{errors.length}"

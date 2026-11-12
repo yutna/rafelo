@@ -1,0 +1,11 @@
+// Public design-system exports. This file is scanned by the cross-engine clone detector.
+export const DESIGN_SYSTEM_NAME = "design_system";
+export const DESIGN_SYSTEM_GEM = "rafelo_design_system";
+
+export function designSystemName(): string {
+  return DESIGN_SYSTEM_NAME;
+}
+
+export function designSystemGem(): string {
+  return DESIGN_SYSTEM_GEM;
+}

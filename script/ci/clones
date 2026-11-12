@@ -15,8 +15,14 @@ root = File.expand_path(root)
 abort "clones: root does not exist: #{root}" unless Dir.exist?(root)
 
 baseline = YAML.load_file(File.join(root, "config", "ratchets.yml")).fetch("clone_baseline_entries", 0)
-engine_paths = Dir[File.join(root, "engines", "*", "app")].sort
-abort "clones: no engine app directories found" if engine_paths.empty?
+scopes = %w[
+  app/frontend/public app/frontend/domain app/frontend/forms app/frontend/hooks
+  app/public app/gateways app/policies
+]
+engine_paths = Dir[File.join(root, "engines", "*")].sort.flat_map do |engine|
+  scopes.map { |scope| File.join(engine, scope) }.select { |path| Dir.exist?(path) }
+end
+abort "clones: no scoped engine directories found" if engine_paths.empty?
 
 errors = []
 flay_output, flay_status = Open3.capture2e("bundle", "exec", "flay", "--mass", "100", *engine_paths, chdir: root)
@@ -25,14 +31,14 @@ errors << "flay cross-engine score #{score} > baseline #{baseline}" if flay_stat
 errors << "flay failed" unless flay_status.success?
 
 jscpd_output, jscpd_status = Open3.capture2e(
-  "npx", "--no-install", "jscpd", "--min-tokens", "100", "--threshold", "0", "--silent",
+  "npx", "--no-install", "jscpd", "--min-tokens", "5", "--threshold", "0", "--silent",
   "--format", "typescript", "--format", "tsx", *engine_paths, chdir: root
 )
 if !jscpd_status.success?
   errors << "jscpd failed"
 elsif jscpd_output.include?("analyzed no files")
-  warn "clones: jscpd analyzed no files; TypeScript clone detection is not active"
-elsif !jscpd_output.include?("Found 0 clones")
+  errors << "jscpd analyzed no files"
+elsif jscpd_output[/Found (\d+) exact clones/, 1].to_i.positive?
   errors << "jscpd found a clone above the baseline"
 end
 
