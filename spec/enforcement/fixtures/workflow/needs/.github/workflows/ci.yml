@@ -1,0 +1,16 @@
+name: ci
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo ok
+  ci-ok:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: []
+    steps:
+      - run: echo ok

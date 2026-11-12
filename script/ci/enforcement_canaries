@@ -75,6 +75,126 @@ canaries = [
     bad_args: [ "--root", "ROOT" ],
     legal_args: [ "--root", "ROOT" ],
     expected: "bad-selector"
+  },
+  {
+    check: "workflow_policy",
+    name: "write allow-list",
+    bad: "spec/enforcement/fixtures/workflow/write",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "outside the allow-list"
+  },
+  {
+    check: "workflow_policy",
+    name: "missing timeout",
+    bad: "spec/enforcement/fixtures/workflow/timeout",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "no timeout-minutes"
+  },
+  {
+    check: "workflow_policy",
+    name: "top-level permissions",
+    bad: "spec/enforcement/fixtures/workflow/permissions",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "top-level permissions"
+  },
+  {
+    check: "workflow_policy",
+    name: "unknown scope",
+    bad: "spec/enforcement/fixtures/workflow/scope",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "unknown permission scope"
+  },
+  {
+    check: "workflow_policy",
+    name: "missing ci-ok need",
+    bad: "spec/enforcement/fixtures/workflow/needs",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "needs is missing test"
+  },
+  {
+    check: "workflow_policy",
+    name: "privileged run fetch",
+    bad: "spec/enforcement/fixtures/workflow/run",
+    legal: "spec/enforcement/fixtures/workflow/legal",
+    script: "script/ci/workflow_policy",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "fetches pull request code"
+  },
+  {
+    check: "actions_pinned",
+    name: "missing action comment",
+    bad: "spec/enforcement/fixtures/actions/no_comment",
+    legal: "spec/enforcement/fixtures/actions/legal",
+    script: "script/ci/actions_pinned",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "has no version comment"
+  },
+  {
+    check: "actions_pinned",
+    name: "docker digest",
+    bad: "spec/enforcement/fixtures/actions/docker",
+    legal: "spec/enforcement/fixtures/actions/legal",
+    script: "script/ci/actions_pinned",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "digest-pinned"
+  },
+  {
+    check: "actions_pinned",
+    name: "zero action uses",
+    bad: "spec/enforcement/fixtures/actions/zero",
+    legal: "spec/enforcement/fixtures/actions/legal",
+    script: "script/ci/actions_pinned",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "inspected zero uses"
+  },
+  {
+    check: "skips",
+    name: "ruby skip",
+    bad: "spec/enforcement/fixtures/skips/ruby_bad",
+    legal: "spec/enforcement/fixtures/skips/legal",
+    script: "script/ci/skips",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "skip-needs-issue"
+  },
+  {
+    check: "skips",
+    name: "javascript skip",
+    bad: "spec/enforcement/fixtures/skips/js_bad",
+    legal: "spec/enforcement/fixtures/skips/legal",
+    script: "script/ci/skips",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "skip-needs-issue"
+  },
+  {
+    check: "pins",
+    name: "full pin check",
+    bad: "spec/enforcement/fixtures/pins/full_bad",
+    legal: "spec/enforcement/fixtures/pins/full_legal",
+    script: "script/ci/pins",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "save-exact"
   }
 ]
 

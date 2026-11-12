@@ -1,0 +1,2 @@
+ARG RUBY_VERSION=4.0.9
+FROM node:26.13.0-slim AS node
