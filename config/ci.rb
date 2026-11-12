@@ -20,6 +20,8 @@ CI.run do
   step "Clones: canaries", "script/ci/clones_canary"
   step "Frontend: Typecheck", "npm run typecheck"
   step "Frontend: Architecture", "npm run arch:check"
+  step "Frontend: boundary", "script/ci/frontend_boundary"
+  step "Frontend: page props", "script/ci/page_props"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
   step "Tests: skips", "script/ci/skips"
   step "Tests: selectors", "script/ci/test_selectors"
