@@ -10,14 +10,10 @@ gem "propshaft", "1.3.2"
 gem "pg", "1.7.0"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", "8.0.2"
-# Use JavaScript with ESM import maps [https://github.com/rails/importmap-rails]
-gem "importmap-rails", "2.2.3"
-# Hotwire's SPA-like page accelerator [https://turbo.hotwired.dev]
-gem "turbo-rails", "2.0.23"
-# Hotwire's modest JavaScript framework [https://stimulus.hotwired.dev]
-gem "stimulus-rails", "1.3.4"
-# Build JSON APIs with ease [https://github.com/rails/jbuilder]
-gem "jbuilder", "2.15.1"
+# Render React pages from Rails [https://inertiajs.com]
+gem "inertia_rails", "3.23.0"
+# Build frontend assets with Vite [https://vite-ruby.netlify.app]
+gem "vite_rails", "3.11.1"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

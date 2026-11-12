@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--color-slate-50);
+  color: var(--color-slate-900);
+  -webkit-font-smoothing: antialiased;
+}

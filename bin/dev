@@ -1,2 +1,17 @@
 #!/usr/bin/env ruby
-exec "./bin/rails", "server", *ARGV
+# frozen_string_literal: true
+
+commands = ["bin/rails server", "npm run dev"]
+pids = commands.map { |command| Process.spawn(command) }
+
+%w[INT TERM].each do |signal|
+  trap(signal) do
+    pids.each do |pid|
+      Process.kill(signal, pid)
+    rescue Errno::ESRCH
+      nil
+    end
+  end
+end
+
+Process.waitall
