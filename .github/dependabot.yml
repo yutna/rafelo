@@ -13,13 +13,12 @@ updates:
       prefix: chore
       include: scope # -> "chore(deps): bump ...", which passes the PR title check
 
+  # One dependency per pull request. Peer-set groups are added only for the
+  # sets WF-06 names, when those packages enter the frontend stack.
   - package-ecosystem: bundler
     directory: /
     schedule:
       interval: weekly
-    groups:
-      bundler:
-        update-types: [minor, patch]
     labels: [dependencies]
     assignees: [yutna]
     commit-message:
@@ -30,9 +29,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    groups:
-      npm:
-        update-types: [minor, patch]
     labels: [dependencies]
     assignees: [yutna]
     commit-message:
