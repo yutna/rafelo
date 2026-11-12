@@ -123,62 +123,31 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
       - name: Run tests
         env:
           RAILS_ENV: test
           DB_HOST: localhost
           DB_USER: postgres
           DB_PASSWORD: postgres
-        run: bin/rails db:test:prepare test
-
-  system-test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18.6
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips libpq-dev
-
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          bundler-cache: true
-
-      - name: Run System Tests
-        env:
-          RAILS_ENV: test
-          DB_HOST: localhost
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-        run: bin/rails db:test:prepare test:system
-
-      - name: Keep screenshots from failed system tests
-        uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: screenshots
-          path: ${{ github.workspace }}/tmp/screenshots
-          if-no-files-found: ignore
+        run: bin/rails db:test:prepare && bundle exec rspec
 
   ci-ok:
     if: always()
-    needs: [actionlint, scan_ruby, scan_js, lint, test, system-test]
+    needs: [actionlint, scan_ruby, scan_js, lint, test]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed
