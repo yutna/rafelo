@@ -33,7 +33,8 @@ on GitHub are the changelog.
 Open the repository in the Dev Container under `.devcontainer/`. It pins the
 Rails base image, Ruby, Node, npm and PostgreSQL. The post-create command
 installs the tools from `mise.toml` and prepares the application. Ports 3000
-(Rails), 3036 (Vite) and 5432 (PostgreSQL) are forwarded.
+(Rails) and 3036 (Vite) are forwarded. PostgreSQL is reachable as
+`postgres:5432` on the Dev Container network and is not published to the host.
 
 For a host-based setup, install Docker and mise, then run:
 
