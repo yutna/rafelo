@@ -1,0 +1,23 @@
+// For format details, see https://containers.dev/implementors/json_reference/.
+{
+  "name": "rafelo",
+  "dockerComposeFile": "compose.yaml",
+  "service": "rails-app",
+  "workspaceFolder": "/workspaces/rafelo",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/rails/devcontainer/features/postgres-client": {}
+  },
+  "containerEnv": {
+    "BINDING": "0.0.0.0",
+    "DB_HOST": "postgres"
+  },
+  "forwardPorts": [3000, 3036, 5432],
+  // Node and npm come from mise.toml, not from the Node Dev Container feature.
+  // Playwright browsers are installed here once @playwright/test exists.
+  "postCreateCommand": "mise trust && mise install && bin/setup --skip-server && if npm ls @playwright/test >/dev/null 2>&1; then npx playwright install --with-deps; fi",
+  "remoteUser": "vscode"
+}
