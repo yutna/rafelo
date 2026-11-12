@@ -157,6 +157,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check contracts
+        run: npm run contracts:check
+
       - name: Typecheck frontend
         run: npm run typecheck
 

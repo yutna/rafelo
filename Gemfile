@@ -71,5 +71,6 @@ group :development do
 end
 
 group :test do
+  gem "json_schemer", "2.5.0"
   gem "webmock", "3.34.0"
 end

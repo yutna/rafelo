@@ -65,7 +65,7 @@ write_or_check(File.join(root, "app", "frontend", "tsconfig.json"), "#{JSON.pret
 
 tooling = project("./", "tooling",
   include: %w[
-    e2e/**/* engines/*/e2e/**/* script/**/*.ts playwright.config.ts
+    e2e/**/* engines/*/e2e/**/* script/**/*.ts script/**/*.mts playwright.config.ts
     vite.config.mts vitest.config.mts vitest.setup.ts config/frontend_aliases.mts
     config/frontend_react.mts engines/*/vitest.config.mts
   ],
