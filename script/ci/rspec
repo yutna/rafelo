@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+processors="${PARALLEL_TEST_PROCESSORS:-2}"
+script/ci/prepare_test_databases "$processors"
+RAILS_ENV=test bundle exec parallel_rspec spec -n "$processors"

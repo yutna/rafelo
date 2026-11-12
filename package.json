@@ -23,7 +23,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
@@ -40,6 +41,13 @@
     "tailwindcss": "4.3.5",
     "typescript": "6.0.3",
     "vite": "8.3.7",
-    "vite-plugin-ruby": "5.2.6"
+    "vite-plugin-ruby": "5.2.6",
+    "@testing-library/dom": "10.4.2",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@vitest/coverage-v8": "5.1.0",
+    "jsdom": "31.0.0",
+    "vitest": "5.1.0"
   }
 }

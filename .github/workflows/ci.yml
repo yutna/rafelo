@@ -152,13 +152,16 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Run frontend tests
+        run: npm test
+
       - name: Run tests
         env:
           RAILS_ENV: test
           DB_HOST: localhost
           DB_USER: postgres
           DB_PASSWORD: postgres
-        run: bin/rails db:test:prepare && bundle exec rspec
+        run: script/ci/rspec
 
   production-image:
     runs-on: ubuntu-latest

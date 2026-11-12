@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["app/frontend/**/*.ts", "app/frontend/**/*.tsx", "vite.config.mts"]
+  "include": ["app/frontend/**/*.ts", "app/frontend/**/*.tsx", "vite.config.mts", "vitest.config.mts", "vitest.setup.ts"]
 }

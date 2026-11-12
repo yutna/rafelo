@@ -10,7 +10,8 @@ CI.run do
   step "Security: npm audit", "npm audit --audit-level=high"
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
   step "Frontend: Build", "npm run build"
-  step "Tests: RSpec", "bundle exec rspec"
+  step "Frontend: Test", "npm test"
+  step "Tests: RSpec", "script/ci/rspec"
   step "Tests: Seeds", "env RAILS_ENV=test bin/rails db:seed:replant"
 
   # Optional: set a green GitHub commit status to unblock PR merge.
