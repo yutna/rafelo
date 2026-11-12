@@ -171,3 +171,38 @@ privacy canaries plus clone-pair calibration are carried to #102.
 **Spec feedback.** TS-07 should say how a guard behaves when it currently has
 no eligible input, and ARCH-12 should say whether an empty product-module set
 is a pass. Related IDs: ARCH-05, ARCH-12, TS-07.
+
+## 2026-11-12 — v0.8.0 — issue #109
+
+**What happened.** The v0.8.0 gate needed three audit rounds. Round 1 found the
+base controller could not authorize or deny, the home page skipped
+`verify_authorized`, `Urls` called non-existent route helpers, props read
+`Current` through the policy, locale redirects dropped the path and query, and
+the new registry and guard checks were incomplete. Round 2 found the app-route
+reservation was dead at boot and would self-reject once routes loaded, the
+legal graph canary created an illegal design_system → core edge, the callback
+spec did not pin the chain, and the fan-in fixture did not exercise the kernel
+exclusion. Round 3 found the round 2 route fix hid a genuine app route by
+subtracting every module's first path segment.
+
+**Root cause.** The kernel pieces were built and tested one at a time; some
+tests used hand-built doubles that did not match the real Rails route and
+callback shapes, and the first graph canary proved only the negative cases.
+
+**What changed.** `pundit_user` and a 403 `auth.forbidden` rescue; `HomePolicy`
+and an authorized home page; props policies built with `context.permissions`
+and an empty set fallback; mounted-engine `_path` helpers; locale redirects
+that preserve path and query; middleware position and exempt-path specs;
+route-aware registry validation from the middleware with only module keys
+excluded; exact symbol callback-chain pinning; isolated grant-shape specs; a
+capability reason that distinguishes a disabled flag from a policy denial;
+growth counting indented constants; fan-in ignoring kernel engines; a required
+canary-script meta-check; and legal graph counterparts. Permission manifest
+compilation is carried to the module-generator milestone as #124.
+
+**Spec feedback.** ARCH-06 should say when the app-route reservation runs,
+because Rails loads routes after engine initializers. TS-07 should say whether
+a legal graph counterpart may add a temporary dependency to an existing engine
+or must use a throwaway engine. BE-02 should say whether a forgotten
+`authorize` is `auth.forbidden` or a separate developer-facing error.
+Related IDs: ARCH-06, BE-02, TS-07.
