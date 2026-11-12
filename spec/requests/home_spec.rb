@@ -11,6 +11,20 @@ RSpec.describe "Home page", type: :request do
     expect(page["props"]["trace"]).to include("requestId", "traceId")
   end
 
+  it "rejects a stale Inertia asset version with 409" do
+    get "/en", headers: { "X-Inertia" => "true", "X-Inertia-Version" => "stale" }
+
+    expect(response).to have_http_status(:conflict)
+  end
+
+  it "keeps the shared props inside their budget" do
+    get "/th"
+    page = JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    budget = YAML.load_file(Rails.root.join("config/budgets.yml")).dig("defaults", "shared_props_bytes")
+
+    expect(page.fetch("props").to_json.bytesize).to be <= budget
+  end
+
   it "keeps trace on a partial reload that omits it" do
     get "/en", headers: {
       "X-Inertia" => "true",

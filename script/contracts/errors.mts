@@ -2,8 +2,13 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join, relative, resolve } from "node:path";
 import { parseDocument } from "yaml";
 
-const root = process.cwd();
+const rootArg = process.argv.indexOf("--root");
+const root = rootArg >= 0 ? resolve(process.argv[rootArg + 1]) : process.cwd();
 const check = process.argv.includes("--check");
+if (!existsSync(root) || !existsSync(join(root, "engines"))) {
+  console.error(`errors: root does not exist: ${root}`);
+  process.exit(1);
+}
 const codePattern = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
 const entryKeys = new Set(["status", "i18n_key", "retryable"]);
 const engines = readdirSync(join(root, "engines"), { withFileTypes: true })
@@ -105,6 +110,13 @@ for (const [engine, catalog] of groups) {
   } else {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
+  }
+}
+
+for (const engine of engines) {
+  const path = join(root, "engines", engine, "app", "frontend", "errors.generated.ts");
+  if (existsSync(path) && !groups.has(engine)) {
+    fail(`${relative(root, path)} has no error catalog`);
   }
 }
 

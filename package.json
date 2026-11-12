@@ -35,7 +35,8 @@
     "errors:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts",
     "errors:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts --check",
     "i18n:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts",
-    "i18n:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts --check"
+    "i18n:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts --check",
+    "pages:check": "ruby script/ci/page_props"
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
