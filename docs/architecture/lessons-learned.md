@@ -206,3 +206,32 @@ a legal graph counterpart may add a temporary dependency to an existing engine
 or must use a throwaway engine. BE-02 should say whether a forgotten
 `authorize` is `auth.forbidden` or a separate developer-facing error.
 Related IDs: ARCH-06, BE-02, TS-07.
+
+## 2026-11-12 — v0.9.0 — issue #135
+
+**What happened.** The v0.9.0 gate needed three audit rounds. Round 1 found the
+client never switched i18n, the home copy was hardcoded English, every error was
+JSON, and the new contract/i18n checks accepted blank values, missing engine
+catalogs, numeric ids and stale generator outputs. Round 2 found the
+asset-version spec was only sequential and the partial-reload guard still missed
+a multi-line array.
+
+**Root cause.** The first pass proved helpers directly instead of the request
+and page path, and the text-based guards modeled a line rather than the
+formatted value. The i18n generator also validated a locale after extracting
+the namespace, so a blank string returned before the blank check.
+
+**What changed.** The resolver awaits the locale before loading a page; home
+copy lives in the catalogs; errors render the shared page for Inertia/HTML;
+blank/missing/plural/percent i18n cases fail; the locale enum and string-id
+guard are generated; generators are root-aware and stale-safe; boundary guards
+scan values and multi-line arrays; missing translations raise; the asset
+version has a threaded spec; stale versions get 409; the shared budget is
+measured through a request; the design-system namespace loads; and `add-copy`
+names its rules. The dummy engine is carried to #146.
+
+**Spec feedback.** CT-03 should say whether generators delete orphan outputs in
+generate mode or only fail in check mode. CT-08 should say whether every engine
+must ship a catalog even when it has no UI copy. CT-04 should say whether a page
+schema that includes `sharedPropsSchema` satisfies the layout parse.
+Related IDs: CT-03, CT-04, CT-08.
