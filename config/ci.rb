@@ -5,6 +5,9 @@ CI.run do
   step "Affected: select", "script/ci/affected --all"
 
   step "Style: Ruby", "bin/rubocop"
+  step "Boundaries: Packwerk validate", "bin/packwerk validate"
+  step "Boundaries: Packwerk check", "bin/packwerk check"
+  step "Boundaries: Packwerk cycle canary", "script/ci/packwerk_canary"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
   step "Tests: skips", "script/ci/skips"
   step "Tests: selectors", "script/ci/test_selectors"
