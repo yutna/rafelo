@@ -23,6 +23,11 @@ abort "fan_in: no engine packages found" if graph.empty?
 
 kernel = %w[core design_system]
 modules = graph.keys.select { |name| File.file?(File.join(root, "engines", name, "config", "module.rb")) }
+if modules.empty?
+  warn "fan_in: no product modules; nothing to check"
+  exit 0
+end
+
 errors = []
 checks = 0
 modules.each do |name|

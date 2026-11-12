@@ -1,0 +1,3 @@
+growth:
+  fan_in:
+    max_dependents: 1

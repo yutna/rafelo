@@ -4,3 +4,4 @@ use_no_memo: 0
 skipped_tests: 0
 clone_baseline_entries: 0
 legacy_lint_paths: 0
+clone_min_tokens: 5

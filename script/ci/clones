@@ -1,8 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "fileutils"
+require "json"
 require "open3"
 require "optparse"
+require "tmpdir"
 require "yaml"
 
 root = Dir.pwd
@@ -14,7 +17,10 @@ end.parse!
 root = File.expand_path(root)
 abort "clones: root does not exist: #{root}" unless Dir.exist?(root)
 
-baseline = YAML.load_file(File.join(root, "config", "ratchets.yml")).fetch("clone_baseline_entries", 0)
+ratchets = YAML.load_file(File.join(root, "config", "ratchets.yml"))
+baseline = ratchets.fetch("clone_baseline_entries", 0)
+min_tokens = ratchets.fetch("clone_min_tokens", 5)
+
 scopes = %w[
   app/frontend/public app/frontend/domain app/frontend/forms app/frontend/hooks
   app/public app/gateways app/policies
@@ -24,24 +30,64 @@ engine_paths = Dir[File.join(root, "engines", "*")].sort.flat_map do |engine|
 end
 abort "clones: no scoped engine directories found" if engine_paths.empty?
 
-errors = []
-flay_output, flay_status = Open3.capture2e("bundle", "exec", "flay", "--mass", "100", *engine_paths, chdir: root)
-score = flay_output[/Total score \(lower is better\) = (\d+)/, 1].to_i
-errors << "flay cross-engine score #{score} > baseline #{baseline}" if flay_status.success? && score > baseline
-errors << "flay failed" unless flay_status.success?
-
-jscpd_output, jscpd_status = Open3.capture2e(
-  "npx", "--no-install", "jscpd", "--min-tokens", "5", "--threshold", "0", "--silent",
-  "--format", "typescript", "--format", "tsx", *engine_paths, chdir: root
-)
-if !jscpd_status.success?
-  errors << "jscpd failed"
-elsif jscpd_output.include?("analyzed no files")
-  errors << "jscpd analyzed no files"
-elsif jscpd_output[/Found (\d+) exact clones/, 1].to_i.positive?
-  errors << "jscpd found a clone above the baseline"
+def engine_for(path)
+  path[%r{/engines/([^/]+)/}, 1]
 end
 
-warn "clones: flay score=#{score}, baseline=#{baseline}; errors=#{errors.length}"
+def cross_engine?(first, second)
+  first_engine = engine_for(first)
+  second_engine = engine_for(second)
+  first_engine && second_engine && first_engine != second_engine
+end
+
+def flay_cross_engine_blocks(output)
+  output.split(/\n(?=\d+\) )/).count do |block|
+    files = block.scan(%r{(/[^\s:]+\.rb):\d+}).flatten
+    files.map { |file| engine_for(file) }.compact.uniq.length > 1
+  end
+end
+
+gemfile = File.file?(File.join(root, "Gemfile")) ? File.join(root, "Gemfile") : File.expand_path("../../Gemfile", __dir__)
+
+errors = []
+flay_output, flay_status = Open3.capture2e(
+  { "BUNDLE_GEMFILE" => gemfile },
+  "bundle", "exec", "flay", "--mass", "100", *engine_paths, chdir: root
+)
+flay_cross_engine = flay_cross_engine_blocks(flay_output)
+errors << "flay cross-engine clones #{flay_cross_engine} > baseline #{baseline}" if flay_status.success? && flay_cross_engine > baseline
+errors << "flay failed" unless flay_status.success?
+
+jscpd_binary = [
+  File.join(root, "node_modules", ".bin", "jscpd"),
+  File.expand_path("../../node_modules/.bin/jscpd", __dir__)
+].find { |path| File.executable?(path) }
+abort "clones: jscpd is not installed" unless jscpd_binary
+
+report_dir = Dir.mktmpdir("jscpd-report")
+begin
+  jscpd_output, jscpd_status = Open3.capture2e(
+    jscpd_binary, "--min-tokens", min_tokens.to_s, "--threshold", "100", "--silent",
+    "--absolute", "--fail-on-empty", "--reporters", "json", "--output", report_dir,
+    "--format", "typescript", "--format", "tsx", *engine_paths, chdir: root
+  )
+  report_path = File.join(report_dir, "jscpd-report.json")
+  if !jscpd_status.success? || !File.file?(report_path)
+    errors << "jscpd failed"
+  else
+    report = JSON.parse(File.read(report_path))
+    cross_engine = report.fetch("duplicates", []).count do |duplicate|
+      cross_engine?(duplicate.dig("firstFile", "name"), duplicate.dig("secondFile", "name"))
+    end
+    sources = report.dig("statistics", "total", "sources").to_i
+    errors << "jscpd analyzed no files" if sources.zero?
+    errors << "jscpd cross-engine clones #{cross_engine} > baseline #{baseline}" if cross_engine > baseline
+    warn "clones: jscpd analyzed #{sources} files, min_tokens=#{min_tokens}, cross_engine=#{cross_engine}"
+  end
+ensure
+  FileUtils.remove_entry(report_dir)
+end
+
+warn "clones: flay cross_engine=#{flay_cross_engine}, baseline=#{baseline}; errors=#{errors.length}"
 errors.each { |error| warn "clones: #{error}" }
 exit(errors.empty? ? 0 : 1)

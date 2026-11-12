@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/clones_canary [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "clones_canary: root does not exist: #{root}" unless Dir.exist?(root)
+
+cases = [
+  { name: "same-engine duplicate is ignored", fixture: "legal", status: 0, expected: "cross_engine=0" },
+  { name: "cross-engine duplicate fails", fixture: "bad", status: 1, expected: "jscpd cross-engine clones" }
+]
+
+failures = 0
+cases.each do |test_case|
+  fixture = File.join(root, "spec", "enforcement", "fixtures", "clones", test_case[:fixture])
+  abort "clones_canary: missing #{fixture}" unless Dir.exist?(fixture)
+
+  output, status = Open3.capture2e(
+    RbConfig.ruby, File.join(root, "script", "ci", "clones"), "--root", fixture
+  )
+  next if status.exitstatus == test_case[:status] && output.include?(test_case[:expected])
+
+  warn "clones_canary: #{test_case[:name]}: expected status #{test_case[:status]} and #{test_case[:expected].inspect}"
+  warn output
+  failures += 1
+end
+
+warn "clones_canary: checked #{cases.length} cases; failures=#{failures}"
+exit(failures.zero? ? 0 : 1)

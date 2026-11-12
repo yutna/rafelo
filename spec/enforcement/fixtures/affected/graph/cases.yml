@@ -1,0 +1,31 @@
+- name: a domain engine change reaches its transitive dependents
+  paths:
+    - engines/alpha/app/models/alpha.rb
+  expected:
+    - engine:alpha
+    - engine:beta
+    - engine:gamma
+- name: a dependencies list change reaches the declaring engine and its dependents
+  paths:
+    - engines/alpha/package.yml
+  expected:
+    - engine:alpha
+    - engine:beta
+    - engine:gamma
+- name: an app-only path selects the app and no engine
+  paths:
+    - app/controllers/home_controller.rb
+  expected:
+    - app
+- name: a documentation-only path selects nothing
+  paths:
+    - docs/architecture/00_README.md
+  expected: []
+- name: a root path in no list runs everything
+  paths:
+    - new_root_file.txt
+  expected:
+    - app
+    - engine:alpha
+    - engine:beta
+    - engine:gamma

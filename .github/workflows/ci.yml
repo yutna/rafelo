@@ -219,13 +219,23 @@ jobs:
       - name: Check the Packwerk cycle canary
         run: script/ci/packwerk_canary
 
+      - name: Check the graph canaries
+        run: script/ci/graph_canaries
+
+      - name: Check affected selection
+        run: |
+          script/ci/affected_canary
+          script/ci/fan_in_canary
+
       - name: Check growth and fan-in
         run: |
           script/ci/growth
           script/ci/fan_in
 
       - name: Check cross-engine clones
-        run: script/ci/clones
+        run: |
+          script/ci/clones
+          script/ci/clones_canary
 
   canaries:
     runs-on: ubuntu-latest
