@@ -1,4 +1,4 @@
 enforce_dependencies: strict
 enforce_privacy: strict
-public_path: app/public/
+public_path: app/
 dependencies: []
