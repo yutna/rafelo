@@ -7,6 +7,7 @@ module Rafelo
       include Rails.application.routes.mounted_helpers
 
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
+      rescue_from ApplicationError, with: :render_application_error
 
       allow_browser versions: :modern
       before_action :set_response_headers
@@ -58,13 +59,26 @@ module Rafelo
       end
 
       def deny_access
-        payload = { error: { code: "auth.forbidden" } }
+        render_application_error(ApplicationError.new("auth.forbidden"))
+      end
+
+      def render_application_error(error)
+        payload = {
+          error: {
+            code: error.code,
+            message: error.message,
+            requestId: Current.request_id.to_s,
+            traceId: (Current.trace_id.to_s.presence || Current.request_id.to_s),
+            retryable: error.retryable?
+          }
+        }
+        response.headers["Cache-Control"] = "no-store"
         if performed?
-          response.status = Rack::Utils.status_code(:forbidden)
+          response.status = error.status
           response.set_header("Content-Type", "application/json")
           response.body = payload.to_json
         else
-          render json: payload, status: :forbidden
+          render json: payload, status: error.status
         end
       end
 

@@ -1,0 +1,12 @@
+upstream.timeout: { status: 504, i18n_key: core.errors.upstream_timeout, retryable: true }
+upstream.unavailable: { status: 503, i18n_key: core.errors.upstream_unavailable, retryable: true }
+upstream.circuit_open: { status: 503, i18n_key: core.errors.upstream_circuit_open, retryable: true }
+auth.expired: { status: 401, i18n_key: core.errors.auth_expired, retryable: false }
+auth.forbidden: { status: 403, i18n_key: core.errors.forbidden, retryable: false }
+resource.not_found: { status: 404, i18n_key: core.errors.not_found, retryable: false }
+resource.conflict: { status: 409, i18n_key: core.errors.conflict, retryable: false }
+validation.failed: { status: 422, i18n_key: core.errors.validation_failed, retryable: false }
+request.throttled: { status: 429, i18n_key: core.errors.throttled, retryable: true }
+request.invalid: { status: 400, i18n_key: core.errors.request_invalid, retryable: false }
+request.csrf_failed: { status: 422, i18n_key: core.errors.csrf_failed, retryable: true }
+unexpected: { status: 500, i18n_key: core.errors.unexpected, retryable: true }
