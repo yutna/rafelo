@@ -104,3 +104,24 @@ checkpoint.
 template repository's own dependency bot or only the adopted app. OPS-09 should
 say that Dev Container feature tags need exact versions, not just the base and
 database images. Related IDs: WF-06, OPS-09.
+
+## 2026-11-12 — v0.5.0 — issue #50
+
+**What happened.** The gate audit found the production image no longer built:
+the frontend moved to Vite, but the Dockerfile had no Node/npm and the
+repository had no `bin/vite`. It also found Kamal's `asset_path` still pointed
+at Propshaft.
+
+**Root cause.** The baseline conversion split frontend wiring from the
+production image. `bin/ci` runs `npm run build` on the host, so it did not
+exercise `assets:precompile` inside the image, and no CI job built the image.
+
+**What changed.** The image now copies pinned Node/npm from the official Node
+image, runs `npm ci`, includes `bin/vite`, excludes development and test gems,
+and removes `node_modules` after precompile. CI builds the production image.
+Kamal asset bridging points at `/rails/public/vite`. The image builds, boots,
+and serves `/up`, `/` and its Vite assets.
+
+**Spec feedback.** ARCH-01 and OPS-06 should state that the production image
+build is part of the baseline gate, not only the later operations milestone,
+because the frontend build can break it. Related IDs: ARCH-01, OPS-06.
