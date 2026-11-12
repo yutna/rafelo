@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "auth": {
+      "type": "object",
+      "properties": {
+        "viewer": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "viewer"
+      ],
+      "additionalProperties": false
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string"
+        },
+        "traceId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "requestId",
+        "traceId"
+      ],
+      "additionalProperties": false
+    },
+    "app": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "locales": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "localeHrefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "locale": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string",
+                "pattern": "^\\/(?!\\/)"
+              }
+            },
+            "required": [
+              "locale",
+              "href"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "timeZone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "locale",
+        "locales",
+        "localeHrefs",
+        "timeZone"
+      ],
+      "additionalProperties": false
+    },
+    "nav": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^\\/(?!\\/)"
+          },
+          "icon": {
+            "type": "string"
+          },
+          "current": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "path",
+          "icon",
+          "current"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "auth",
+    "trace",
+    "app",
+    "nav",
+    "errors"
+  ],
+  "additionalProperties": false,
+  "$id": "https://rafelo.local/contracts/_shared.json"
+}

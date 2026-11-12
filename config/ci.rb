@@ -30,6 +30,7 @@ CI.run do
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "npm audit --audit-level=high"
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
+  step "Contracts: check", "npm run contracts:check"
   step "Frontend: Build", "npm run build"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"

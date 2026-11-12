@@ -11,6 +11,7 @@
     "e2e/**/*",
     "engines/*/e2e/**/*",
     "script/**/*.ts",
+    "script/**/*.mts",
     "playwright.config.ts",
     "vite.config.mts",
     "vitest.config.mts",

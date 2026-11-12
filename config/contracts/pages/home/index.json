@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "auth": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/auth"
+    },
+    "trace": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/trace"
+    },
+    "app": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/app"
+    },
+    "nav": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/nav"
+    },
+    "errors": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/errors"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "pagination": {
+      "type": "null"
+    },
+    "can": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "auth",
+    "trace",
+    "app",
+    "nav",
+    "errors",
+    "data",
+    "meta",
+    "query",
+    "pagination",
+    "can"
+  ],
+  "additionalProperties": false
+}
