@@ -46,6 +46,8 @@ body:
     attributes:
       label: Evidence
       description: Which tests, canaries, guards or documents will prove the rule IDs?
+    validations:
+      required: true
   - type: textarea
     id: dependencies
     attributes:
