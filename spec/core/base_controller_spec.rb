@@ -10,16 +10,26 @@ RSpec.describe Rafelo::Core::BaseController do
     expect(callbacks).to include(:verify_authorized)
   end
 
+  it "builds the page context with a Urls object for the request locale" do
+    controller = ApplicationController.new
+    context = I18n.with_locale(:th) { controller.page_context }
+
+    expect(context.urls).to be_a(Rafelo::Core::Urls)
+    expect(context.locale).to eq(:th)
+  end
+
   it "builds a page context through the factory" do
+    urls = Rafelo::Core::Urls.new(locale: :en, router: double("router"))
     context = Rafelo::Core::PageContextFactory.build(
       session: nil,
       flags: { search: true },
       locale: :en,
       request_id: "request-1",
-      urls: nil
+      urls: urls
     )
 
     expect(context.locale).to eq(:en)
     expect(context.flags).to eq(search: true)
+    expect(context.urls).to be(urls)
   end
 end
