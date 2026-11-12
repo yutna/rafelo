@@ -208,6 +208,9 @@ jobs:
       - name: Run enforcement canaries
         run: script/ci/enforcement_canaries
 
+      - name: Check test skips
+        run: script/ci/skips
+
       - name: Check test selectors
         run: script/ci/test_selectors
 

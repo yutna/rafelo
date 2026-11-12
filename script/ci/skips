@@ -19,13 +19,22 @@ SKIP_FORMS = [
   /\bpending(?!\s*:)\b/,
   /\b(?:skip|pending):/,
   /\bprosopite:\s*false\b/,
-  /\bProsopite\.pause\b/
+  /\bProsopite\.pause\b/,
+  /\b(?:it|test|describe)\.(?:todo|skipIf|fixme)\b/,
+  /\btest\.describe\.(?:skip|fixme)\b/
 ].freeze
 
 ISSUE_REFERENCE = /(?:#\d+|https:\/\/github\.com\/[^\/\s]+\/[^\/\s]+\/issues\/\d+)/
 
-files = Dir[File.join(root, "spec", "**", "*")].select { |path| File.file?(path) }
-abort "skips: no spec files found under #{root}" if files.empty?
+patterns = [
+  "spec/**/*",
+  "app/frontend/**/*.test.ts",
+  "app/frontend/**/*.test.tsx",
+  "e2e/**/*.ts",
+  "engines/*/e2e/**/*.ts"
+]
+files = patterns.flat_map { |pattern| Dir[File.join(root, pattern)] }.uniq.select { |path| File.file?(path) }
+abort "skips: no test files found under #{root}" if files.empty?
 
 findings = 0
 files.each do |path|
