@@ -17,12 +17,15 @@ files = Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")] +
         Dir[File.join(root, ".github", "actions", "**", "action.{yml,yaml}")]
 abort "actions_pinned: no workflow or action files found" if files.empty?
 
-USES_LINE = /\buses\s*:\s*["']?([^"'\s#]+)["']?\s*(?:#\s*(.*))?/
+USES_LINE = /(?:^|\s)["']?uses["']?\s*:\s*["']?([^"'\s#]+)["']?\s*(?:#\s*(.*))?/
 
 def comments_by_uses(raw)
   raw.each_line.with_object({}) do |line, comments|
     match = line.match(USES_LINE)
-    comments[match[1]] = match[2].to_s.strip if match
+    next unless match
+
+    comments[match[1]] ||= []
+    comments[match[1]] << match[2].to_s.strip
   end
 end
 
@@ -67,7 +70,9 @@ files.each do |path|
     end
 
     errors << "#{location}: not pinned to a full commit SHA" unless reference.match?(/@[0-9a-f]{40}\z/)
-    errors << "#{location}: has no version comment" if comments[reference].to_s.empty?
+    if comments[reference].to_a.empty? || comments[reference].any?(&:empty?)
+      errors << "#{location}: has no version comment"
+    end
   end
 end
 
