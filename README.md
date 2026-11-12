@@ -70,7 +70,9 @@ Forwarded ports:
 | ---: | --- |
 | 3000 | Rails |
 | 3036 | Vite |
-| 5432 | PostgreSQL |
+
+PostgreSQL is reachable from the app as `postgres:5432` on the Dev Container
+network. It is not published to the host.
 
 Open the repository in the Dev Container, then run:
 
