@@ -1,0 +1,37 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/test_selectors [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "test_selectors: root does not exist: #{root}" unless Dir.exist?(root)
+
+patterns = %w[
+  app/frontend/**/*.test.ts
+  app/frontend/**/*.test.tsx
+  e2e/**/*.ts
+  engines/*/e2e/**/*.ts
+]
+files = patterns.flat_map { |pattern| Dir[File.join(root, pattern)] }.uniq.select { |path| File.file?(path) }
+abort "test_selectors: no test files found under #{root}" if files.empty?
+
+forbidden = /\.(?:get|query|find)(?:All)?By(?:Text|LabelText|PlaceholderText|DisplayValue|Title|AltText)\b|\.(?:getByLabel|getByPlaceholder|getByAltText|getByTitle|locator|querySelector(?:All)?)\b/
+findings = 0
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  File.readlines(path, chomp: true).each_with_index do |line, index|
+    next unless line.match?(forbidden)
+
+    puts "#{relative}:#{index + 1}: bad-selector: select by role with an accessible name, or by test id"
+    findings += 1
+  end
+end
+
+warn "test_selectors: checked #{files.length} test files; findings=#{findings}"
+exit(findings.zero? ? 0 : 1)

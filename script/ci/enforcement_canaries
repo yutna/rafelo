@@ -20,6 +20,13 @@ canaries = [
     legal: "spec/enforcement/fixtures/skips/legal",
     command: [ RbConfig.ruby, File.join(root, "script", "ci", "skips"), "--root" ],
     expected: "skip-needs-issue"
+  },
+  {
+    name: "bad-selector",
+    bad: "spec/enforcement/fixtures/selectors/bad",
+    legal: "spec/enforcement/fixtures/selectors/legal",
+    command: [ RbConfig.ruby, File.join(root, "script", "ci", "test_selectors"), "--root" ],
+    expected: "bad-selector"
   }
 ]
 
