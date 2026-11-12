@@ -22,7 +22,9 @@ docker run -d -p 80:80 \
 ```
 
 The container runs Thruster in front of Puma and exposes port 80. The health
-check is `GET /up`.
+check is `GET /up`. Kamal's `asset_path` points at `/rails/public/vite`, the
+Vite output, so a tab still running the previous release can fetch its chunks
+during a deploy.
 
 ## Kamal
 
