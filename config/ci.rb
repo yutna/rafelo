@@ -5,6 +5,7 @@ CI.run do
   step "Affected: select", "script/ci/affected --all"
 
   step "Style: Ruby", "bin/rubocop"
+  step "Enforcement: canaries", "script/ci/enforcement_canaries"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "npm audit --audit-level=high"

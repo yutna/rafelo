@@ -163,6 +163,23 @@ jobs:
           DB_PASSWORD: postgres
         run: script/ci/rspec
 
+  canaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Run enforcement canaries
+        run: script/ci/enforcement_canaries
+
   production-image:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -177,7 +194,7 @@ jobs:
 
   ci-ok:
     if: always()
-    needs: [affected, actionlint, scan_ruby, scan_js, lint, test, production-image]
+    needs: [affected, actionlint, scan_ruby, scan_js, lint, canaries, test, production-image]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed
