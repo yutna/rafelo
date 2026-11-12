@@ -14,6 +14,15 @@ module Rafelo
         @built = []
       end
 
+      def locale_hrefs(request_path)
+        Locales.available.map do |locale|
+          href = request_path.sub(%r{\A/[a-z]{2}(?=/|\z)}, "/#{locale}")
+          href = "/#{locale}" if href == request_path && request_path == "/"
+          @built << href
+          { locale: locale, href: href }
+        end
+      end
+
       def route(engine_key, route_name, **params)
         proxy = @router.public_send(engine_key)
         path = proxy.public_send("#{route_name}_path", locale: @locale, **params)
