@@ -30,9 +30,17 @@ module Rafelo
         @deadline = deadline || RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
                                     cool_off_time: config.breaker.fetch(:cool_off))
-        @bulkhead = Bulkhead.new(config.max_concurrent_calls)
+        @bulkhead = self.class.bulkhead_for(@name, config.max_concurrent_calls)
         @calls = 0
         @retries = 0
+      end
+
+      class << self
+        def bulkhead_for(name, limit)
+          @bulkheads ||= {}
+          @bulkhead_mutex ||= Mutex.new
+          @bulkhead_mutex.synchronize { @bulkheads[name] ||= Bulkhead.new(limit) }
+        end
       end
 
       def get(path, params: nil, headers: {}, if_match: nil)
@@ -89,9 +97,12 @@ module Rafelo
                                   idempotency_key: idempotency_key, if_match: if_match)
           if (response.status == 429 || response.status >= 500) && %i[get head].include?(method) &&
              attempt < 2 && retry_allowed? && !@deadline.expired?
-            sleep(backoff_for(response, attempt))
-            @retries += 1
-            next
+            delay = backoff_for(response, attempt)
+            if delay < @deadline.remaining
+              sleep(delay)
+              @retries += 1
+              next
+            end
           end
           raise ApplicationError.new("upstream.unavailable") if response.status >= 500
           return response
@@ -103,7 +114,11 @@ module Rafelo
         response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
           request.params.update(params) if params
           request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+          request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+          request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
           request.options.on_data = proc do |chunk, _size|
+            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
             collected << chunk
             if collected.bytesize > @config.max_response_bytes
               raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
@@ -113,6 +128,10 @@ module Rafelo
         body = collected.bytesize.positive? ? collected : response.body.to_s
         if body.bytesize > @config.max_response_bytes
           raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+        end
+        expected = response.headers["content-length"].to_i
+        if expected.positive? && body.bytesize < expected
+          raise ApplicationError.new("upstream.unavailable", "Upstream closed before the full response arrived")
         end
 
         UpstreamResponse.new(status: response.status, headers: response.headers, body: body)
@@ -187,7 +206,7 @@ module Rafelo
 
       def backoff_for(response, attempt)
         retry_after = response.headers["retry-after"].to_f
-        retry_after.positive? ? [ retry_after, 1.0 ].min : 0.05 * attempt
+        retry_after.positive? ? retry_after : 0.05 * attempt
       end
     end
   end

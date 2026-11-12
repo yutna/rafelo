@@ -11,7 +11,7 @@ module Rafelo
 
       initializer "rafelo_core.runtime" do |app|
         app.config.x.executor_threads = 4
-        app.config.x.puma_threads = 5
+        app.config.x.puma_threads = ENV.fetch("RAILS_MAX_THREADS", 3).to_i
         app.config.x.requests.upstream_deadline_seconds = 10
         app.config.x.sessions.refresh_timeout_seconds = 15
         app.config.x.downloads.max_concurrent = 2

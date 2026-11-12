@@ -14,6 +14,7 @@ RSpec.describe Rafelo::Core::Bulkhead do
     started.pop
 
     expect { bulkhead.call { :never } }.to raise_error(Rafelo::Core::ApplicationError, /unavailable/)
+    expect { bulkhead.call { :never } }.to raise_error(Rafelo::Core::ApplicationError, /unavailable/)
   ensure
     release << true
     thread&.join

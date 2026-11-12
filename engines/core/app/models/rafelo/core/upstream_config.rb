@@ -34,7 +34,7 @@ module Rafelo
       def self.build(name, attributes)
         base_url = attributes.fetch(:base_url).to_s
         uri = URI.parse(base_url) rescue nil
-        unless uri.is_a?(URI::HTTP) && uri.host && !base_url.strip.empty?
+        unless uri.is_a?(URI::HTTP) && !uri.host.to_s.empty? && !base_url.strip.empty?
           raise ArgumentError, "upstream #{name}: base_url must be an http(s) URL"
         end
         %i[open_timeout read_timeout write_timeout].each do |key|
@@ -56,7 +56,9 @@ module Rafelo
         unless gateways.is_a?(Array) && gateways.all? { |gateway| gateway.is_a?(String) }
           raise ArgumentError, "upstream #{name}: service_token_gateways must be strings"
         end
-        breaker = attributes.fetch(:breaker).to_h.deep_symbolize_keys
+        breaker = attributes.fetch(:breaker)
+        raise ArgumentError, "upstream #{name}: breaker must be a mapping" unless breaker.is_a?(Hash)
+        breaker = breaker.deep_symbolize_keys
         unless breaker.keys.sort == BREAKER_KEYS.sort &&
                breaker[:failure_threshold].is_a?(Integer) && breaker[:failure_threshold].positive? &&
                breaker[:cool_off].is_a?(Numeric) && breaker[:cool_off].positive?
