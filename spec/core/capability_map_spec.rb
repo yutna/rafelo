@@ -21,6 +21,18 @@ RSpec.describe Rafelo::Core::CapabilityMap do
     )
   end
 
+  it "reports forbidden when the flag is on but the policy denies" do
+    capabilities = described_class.new(
+      policy: policy_class.new(nil),
+      entries: [
+        Rafelo::Core::CapabilityMap::Entry.new(key: "billing:invoice:export", policy_method: :export?, flag: :billing)
+      ],
+      flags: { billing: true }
+    )
+
+    expect(capabilities.to_h).to eq("invoice.export" => { allowed: false, reason: "forbidden" })
+  end
+
   it "reports a disabled flag without calling the policy" do
     capabilities = described_class.new(
       policy: policy_class.new(nil),

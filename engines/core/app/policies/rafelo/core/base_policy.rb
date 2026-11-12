@@ -5,12 +5,14 @@ module Rafelo
     class BasePolicy
       attr_reader :user, :record
 
-      def initialize(user, record = nil)
+      def initialize(user, record = nil, permissions: nil)
         @user = user
         @record = record
+        @permissions = permissions
       end
 
       def permissions
+        return @permissions if @permissions
         return user.permissions if user.respond_to?(:permissions)
 
         Current.permissions

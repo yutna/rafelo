@@ -1,9 +1,9 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::PageProps do
-  context_class = Struct.new(:viewer, :flags)
+  context_class = Struct.new(:viewer, :permissions, :flags)
 
-  let(:context) { context_class.new(nil, { billing: true }) }
+  let(:context) { context_class.new(nil, nil, { billing: true }) }
   let(:policy) do
     Class.new(Rafelo::Core::BasePolicy) do
       def create? = true
@@ -62,6 +62,31 @@ RSpec.describe Rafelo::Core::PageProps do
       "invoice.create" => { allowed: true, reason: nil },
       "invoice.export" => { allowed: false, reason: "forbidden" }
     )
+  end
+
+  it "reads the permission set from the context, not from Current" do
+    read_policy = Class.new(Rafelo::Core::BasePolicy) do
+      def read? = permissions.allows?("billing:invoice:read")
+    end
+    klass = Class.new(described_class) do
+      policy_class read_policy
+      capability "billing:invoice:read", :read?
+
+      def initialize(context:, envelope:)
+        super(context:)
+        @envelope = envelope
+      end
+
+      def envelope = @envelope
+    end
+    permission_context = context_class.new(
+      nil,
+      Rafelo::Core::PermissionSet.new([ "billing:invoice:read" ]),
+      {}
+    )
+    c = klass.new(context: permission_context, envelope: { data: {}, meta: {}, query: {}, pagination: nil, can: {} })
+
+    expect(c.capabilities("billing:invoice:read")).to eq("invoice.read" => { allowed: true, reason: nil })
   end
 
   it "raises on an undeclared capability" do

@@ -47,7 +47,10 @@ module Rafelo
         end
 
         CapabilityMap.new(
-          policy: self.class.policy_class.new(context.viewer),
+          policy: self.class.policy_class.new(
+            context.viewer,
+            permissions: context.permissions || PermissionSet.new([])
+          ),
           entries: entries,
           flags: context.flags
         ).to_h
