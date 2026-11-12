@@ -1,0 +1,35 @@
+defaults:
+  sql_queries_per_request: 12
+  upstream_calls_per_request:
+    api: 3
+  props_bytes: 65536
+  shared_props_bytes: 8192
+  js_entry_gzip_kb: 250
+  js_page_chunk_gzip_kb: 60
+  js_lazy_chunk_gzip_kb: 120
+  js_initial_gzip_kb: 300
+  boot_seconds: 8
+
+growth:
+  core:
+    max_files: 400
+    max_public_exports: 120
+    max_public_constants: 80
+  design_system:
+    max_public_exports: 150
+  domain_engine:
+    max_public_exports: 40
+    max_public_constants: 20
+  module:
+    max_files: 600
+    max_pages: 40
+  fan_in:
+    max_dependents: 5
+  touch_rate:
+    max: 0.15
+    min_modules: 3
+
+connections:
+  server_max_connections: 100
+  budget: 90
+  headroom: 10

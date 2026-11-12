@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/growth [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "growth: root does not exist: #{root}" unless Dir.exist?(root)
+
+budgets = YAML.load_file(File.join(root, "config", "budgets.yml")).fetch("growth")
+errors = []
+checks = 0
+
+def files(path)
+  Dir[File.join(path, "**", "*")].select { |file| File.file?(file) }
+end
+
+def exports(path)
+  files(path).sum do |file|
+    next 0 unless file.end_with?(".ts", ".tsx")
+
+    File.readlines(file).count { |line| line.start_with?("export ") }
+  end
+end
+
+core_files = files(File.join(root, "engines", "core")).reject { |file| file.include?("/spec/") || file.include?("/lib/generators/") }
+checks += 1
+errors << "core files #{core_files.length} > #{budgets.dig("core", "max_files")}" if core_files.length > budgets.dig("core", "max_files")
+
+core_exports = exports(File.join(root, "engines", "core", "app", "frontend"))
+checks += 1
+errors << "core public exports #{core_exports} > #{budgets.dig("core", "max_public_exports")}" if core_exports > budgets.dig("core", "max_public_exports")
+
+design_exports = exports(File.join(root, "engines", "design_system", "app", "frontend"))
+checks += 1
+errors << "design_system public exports #{design_exports} > #{budgets.dig("design_system", "max_public_exports")}" if design_exports > budgets.dig("design_system", "max_public_exports")
+
+engine_names = Dir[File.join(root, "engines", "*", "package.yml")].map { |path| File.basename(File.dirname(path)) }
+(engine_names - %w[core design_system]).each do |engine|
+  next if engine.start_with?("example_")
+
+  engine_path = File.join(root, "engines", engine)
+  module_files = files(engine_path)
+  module_pages = files(File.join(engine_path, "app", "frontend", "pages")).count { |file| file.end_with?(".tsx") }
+  checks += 2
+  errors << "#{engine} files #{module_files.length} > #{budgets.dig("module", "max_files")}" if module_files.length > budgets.dig("module", "max_files")
+  errors << "#{engine} pages #{module_pages} > #{budgets.dig("module", "max_pages")}" if module_pages > budgets.dig("module", "max_pages")
+end
+
+warn "growth: checked #{checks} budgets; errors=#{errors.length}"
+errors.each { |error| warn "growth: #{error}" }
+exit(errors.empty? ? 0 : 1)

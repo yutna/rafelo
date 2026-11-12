@@ -196,6 +196,17 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Check runtime and package pins
         run: script/ci/pins
 
@@ -207,6 +218,14 @@ jobs:
 
       - name: Check the Packwerk cycle canary
         run: script/ci/packwerk_canary
+
+      - name: Check growth and fan-in
+        run: |
+          script/ci/growth
+          script/ci/fan_in
+
+      - name: Check cross-engine clones
+        run: script/ci/clones
 
   canaries:
     runs-on: ubuntu-latest
