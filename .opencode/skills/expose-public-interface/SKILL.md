@@ -42,3 +42,5 @@ reviewing the resulting diff. A rule or ADR wins over the pack.
 ## Done when
 
 The consumer imports only the public surface, the declared graph is acyclic, the generated graph is current, and `bin/ci` is green.
+
+Rule IDs: ARCH-05, ARCH-08, ARCH-09; GEN-05 when extracting a domain engine.
