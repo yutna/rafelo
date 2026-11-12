@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+processors = (ARGV[0] || ENV.fetch("PARALLEL_TEST_PROCESSORS", "2")).to_i
+abort "prepare_test_databases: processors must be at least 1" if processors < 1
+
+# parallel_tests gives the first process an empty TEST_ENV_NUMBER and the
+# others 1..n; prepare every possible database name.
+(0..processors).each do |index|
+  environment = { "RAILS_ENV" => "test" }
+  environment["TEST_ENV_NUMBER"] = index.to_s if index.positive?
+  system(environment, "bin/rails", "db:prepare") or abort "prepare_test_databases: failed for process #{index}"
+end
+
+puts "prepare_test_databases: prepared #{processors} databases"
