@@ -35,6 +35,8 @@ if only_gems
     definition = Bundler::Definition.build(File.join(root, "Gemfile"), File.file?(lockfile) ? lockfile : nil, {})
     definition.dependencies.each do |dependency|
       checks += 1
+      next if dependency.source.is_a?(Bundler::Source::Path)
+
       requirement = dependency.requirement
       exact = requirement.requirements.length == 1 && requirement.requirements.first.first == "="
       errors << "Gemfile #{dependency.name} is not exact: #{requirement}" unless exact
@@ -113,6 +115,8 @@ begin
   )
   definition.dependencies.each do |dependency|
     checks += 1
+    next if dependency.source.is_a?(Bundler::Source::Path)
+
     requirement = dependency.requirement
     exact = requirement.requirements.length == 1 && requirement.requirements.first.first == "="
     errors << "Gemfile #{dependency.name} is not exact: #{requirement}" unless exact
