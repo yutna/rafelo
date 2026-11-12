@@ -15,8 +15,7 @@ module Rafelo
         {
           auth: auth,
           app: app,
-          nav: nav,
-          errors: {}
+          nav: nav
         }
       end
 

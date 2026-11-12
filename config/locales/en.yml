@@ -2,3 +2,5 @@ en:
   app:
     home:
       message: "Rafelo"
+      tagline: "Rails BFF template"
+      description: "Rails serves the page, Inertia carries the props, and React renders it."
