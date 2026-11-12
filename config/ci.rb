@@ -6,6 +6,7 @@ CI.run do
 
   step "Style: Ruby", "bin/rubocop"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
+  step "Tests: selectors", "script/ci/test_selectors"
   step "Pins: runtime and packages", "script/ci/pins"
   step "Pins: GitHub Actions", "script/ci/actions_pinned"
   step "Policy: workflows", "script/ci/workflow_policy"
