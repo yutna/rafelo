@@ -11,10 +11,11 @@ backend-for-frontend (BFF): a server that renders Hotwire pages where that is
 useful, exposes JSON endpoints for a separate frontend, and already has the
 operational pieces (jobs, cache, cable, Docker, Kamal) wired together.
 
-The BFF-specific application code is intentionally minimal in v0.1.0. This
-release is the tested baseline plus the same GitHub workflow used by the rest
-of [yutna](https://github.com/yutna)'s public repositories. See
-[docs/architecture.md](docs/architecture.md) for the intended direction.
+The application code is intentionally still close to the Rails baseline while
+the template conversion proceeds. This release is the tested baseline plus the
+same GitHub workflow used by the rest of
+[yutna](https://github.com/yutna)'s public repositories. The architecture
+specification lives in [docs/architecture/](docs/architecture/).
 
 ## Use this template
 
@@ -46,22 +47,41 @@ are all meant to be replaced.
 
 ## Requirements
 
-- Ruby 4.0.9
-- SQLite 3.8 or newer
+- Docker with Dev Container support
+- [mise](https://mise.jdx.dev/) for a host-based setup
 - libvips (for Active Storage variants)
-- Docker (optional, for container builds)
+- SQLite 3.8 or newer for the current baseline
 
-## Getting started
+Ruby, Node and npm are pinned by `mise.toml`; do not install a different
+version by hand. The Dev Container installs the pinned versions and PostgreSQL
+for you.
 
-Install dependencies, prepare the database and start the server:
+## Development environment
+
+Development runs in the Dev Container definition under `.devcontainer/`. It
+uses the Rails Dev Container image pinned by tag and digest, installs Ruby
+4.0.9, Node 26.13.0 and npm 12.2.2 from `mise.toml`, and starts PostgreSQL
+18.6 as a service pinned by digest. The post-create command installs the
+pinned tools and prepares the application.
+
+Forwarded ports:
+
+| Port | Purpose |
+| ---: | --- |
+| 3000 | Rails |
+| 3036 | Vite |
+| 5432 | PostgreSQL |
+
+Open the repository in the Dev Container, then run:
 
 ```sh
-bin/setup
+bin/dev
 ```
 
-To prepare without starting the server:
+For a host-based setup, install Docker and mise, then run:
 
 ```sh
+mise install
 bin/setup --skip-server
 bin/dev
 ```
@@ -69,6 +89,18 @@ bin/dev
 Open <http://localhost:3000/up>. The template has no application-specific
 routes yet; `/up` is the health check used by load balancers and uptime
 monitors.
+
+Verify the pins from the repository root:
+
+```sh
+mise exec -- ruby --version
+mise exec -- node --version
+mise exec -- npm --version
+docker compose -f .devcontainer/compose.yaml config
+```
+
+Playwright browsers are installed by the post-create hook once
+`@playwright/test` is part of `package.json`.
 
 ## Credentials
 
