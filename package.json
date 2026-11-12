@@ -31,7 +31,9 @@
     "graph:generate": "ruby script/ci/engine_graph",
     "graph:check": "ruby script/ci/engine_graph --check",
     "contracts:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts",
-    "contracts:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts --check"
+    "contracts:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts --check",
+    "errors:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts",
+    "errors:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/errors.mts --check"
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
@@ -59,6 +61,7 @@
     "vitest": "5.1.0",
     "dependency-cruiser": "18.7.2",
     "jscpd": "5.4.3",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "yaml": "2.9.1"
   }
 }

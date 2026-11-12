@@ -158,7 +158,9 @@ jobs:
         run: npm ci
 
       - name: Check contracts
-        run: npm run contracts:check
+        run: |
+          npm run contracts:check
+          npm run errors:check
 
       - name: Typecheck frontend
         run: npm run typecheck

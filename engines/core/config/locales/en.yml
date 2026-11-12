@@ -1,0 +1,15 @@
+en:
+  core:
+    errors:
+      upstream_timeout: "The upstream service timed out."
+      upstream_unavailable: "The upstream service is unavailable."
+      upstream_circuit_open: "The upstream service is paused. Try again later."
+      auth_expired: "Your session has expired. Sign in again."
+      forbidden: "You are not allowed to do that."
+      not_found: "The page or record was not found."
+      conflict: "The record changed since you opened it."
+      validation_failed: "Check the highlighted fields."
+      throttled: "Too many requests. Try again shortly."
+      request_invalid: "The request was not valid."
+      csrf_failed: "The form expired. Reload the page and try again."
+      unexpected: "Something went wrong. Try again."
