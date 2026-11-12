@@ -130,7 +130,9 @@ module Rafelo
           raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
         end
         expected = response.headers["content-length"].to_i
-        if expected.positive? && body.bytesize < expected
+        bodyless = method == :head || (100..199).cover?(response.status) || [ 204, 304 ].include?(response.status)
+        encoded = !response.headers["content-encoding"].to_s.empty?
+        if !bodyless && !encoded && expected.positive? && body.bytesize < expected
           raise ApplicationError.new("upstream.unavailable", "Upstream closed before the full response arrived")
         end
 

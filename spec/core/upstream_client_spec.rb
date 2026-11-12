@@ -86,6 +86,19 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     expect(stub).to have_been_requested.once
   end
 
+  it "accepts HEAD and 304 responses that carry a Content-Length" do
+    stub_request(:head, "http://upstream.test/head")
+      .to_return(status: 200, headers: { "Content-Length" => "100" })
+    stub_request(:get, "http://upstream.test/not-modified")
+      .to_return(status: 304, headers: { "Content-Length" => "100" })
+    stub_request(:get, "http://upstream.test/gzip")
+      .to_return(status: 200, body: "compressed", headers: { "Content-Length" => "100", "Content-Encoding" => "gzip" })
+
+    expect(client.head("head").status).to eq(200)
+    expect(client.get("not-modified").status).to eq(304)
+    expect(client.get("gzip").body).to eq("compressed")
+  end
+
   it "treats a truncated response as unavailable" do
     stub_request(:get, "http://upstream.test/truncated")
       .to_return(status: 200, body: "x" * 10, headers: { "Content-Length" => "100" })
