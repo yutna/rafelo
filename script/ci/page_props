@@ -25,9 +25,9 @@ findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
   File.readlines(path, chomp: true).each_with_index do |line, index|
-    next unless line.match?(/\b(?:only|except)\s*:/)
+    next unless line.match?(/\b(?:only|except|deferred|optional|merge|once)\s*:/)
 
-    line.scan(/"([^"]+)"/).flatten.each do |key|
+    line.scan(/["']([^"']+)["']/).flatten.each do |key|
       next unless key.include?(".")
 
       puts "#{relative}:#{index + 1}: multi-word partial-reload key #{key.inspect}"

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { appPathSchema } from "./app_path.schema";
+import { localeSchema } from "./locales.generated";
 
 export const capabilitySchema = z.strictObject({
   allowed: z.boolean(),
@@ -39,9 +40,9 @@ export const sharedPropsSchema = z.object({
   trace: z.object({ requestId: z.string(), traceId: z.string() }),
   app: z.object({
     name: z.string(),
-    locale: z.string(),
-    locales: z.array(z.string()),
-    localeHrefs: z.array(z.object({ locale: z.string(), href: appPathSchema })),
+    locale: localeSchema,
+    locales: z.array(localeSchema),
+    localeHrefs: z.array(z.object({ locale: localeSchema, href: appPathSchema })),
     timeZone: z.string(),
   }),
   nav: z.array(

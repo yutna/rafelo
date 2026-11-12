@@ -27,7 +27,7 @@ files.each do |path|
   next if relative.include?("/layouts/") || relative == "app/frontend/entrypoints/application.tsx"
 
   File.readlines(path, chomp: true).each_with_index do |line, index|
-    next unless line.match?(/\busePage\b/) && line.match?(/import|require/)
+    next unless line.match?(/\busePage\b/)
 
     puts "#{relative}:#{index + 1}: usePage is only allowed in layouts and the page resolver"
     findings += 1

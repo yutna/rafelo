@@ -57,12 +57,20 @@
           "type": "string"
         },
         "locale": {
-          "type": "string"
+          "type": "string",
+          "enum": [
+            "en",
+            "th"
+          ]
         },
         "locales": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "en",
+              "th"
+            ]
           }
         },
         "localeHrefs": {
@@ -71,7 +79,11 @@
             "type": "object",
             "properties": {
               "locale": {
-                "type": "string"
+                "type": "string",
+                "enum": [
+                  "en",
+                  "th"
+                ]
               },
               "href": {
                 "type": "string",

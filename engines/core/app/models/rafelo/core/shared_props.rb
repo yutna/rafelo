@@ -63,7 +63,7 @@ module Rafelo
       end
 
       def nav_path(entry)
-        "/#{@context.locale}#{entry.path}"
+        @context.urls.app_path("/#{@context.locale}#{entry.path}")
       end
 
       def current_module?(entry)

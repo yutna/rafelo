@@ -6,8 +6,6 @@ module Rafelo
     # the paths it built, so a request-spec matcher can prove that every href
     # in the props resolves.
     class Urls
-      attr_reader :built
-
       def initialize(locale:, router: Rails.application.routes.mounted_helpers)
         @locale = locale.to_sym
         @router = router
@@ -21,6 +19,15 @@ module Rafelo
           @built << href
           { locale: locale, href: href }
         end
+      end
+
+      def built
+        @built.dup
+      end
+
+      def app_path(path)
+        @built << path
+        path
       end
 
       def route(engine_key, route_name, **params)
