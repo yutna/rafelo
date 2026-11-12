@@ -2,3 +2,5 @@ th:
   app:
     home:
       message: "ราฟีโล"
+      tagline: "เทมเพลต Rails BFF"
+      description: "Rails ให้บริการหน้าเว็บ Inertia ส่งข้อมูล และ React เรนเดอร์"

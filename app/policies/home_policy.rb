@@ -2,4 +2,5 @@
 
 class HomePolicy < Rafelo::Core::BasePolicy
   def show? = true
+  def missing? = false
 end

@@ -17,10 +17,10 @@ module Rafelo
       before_action :underscore_param_keys
       after_action :verify_authorized
 
-      def render_page(component, props:)
+      def render_page(component, props:, status: nil)
         page = props.respond_to?(:to_inertia) ? props.to_inertia : props
         validate_page_keys!(page)
-        render inertia: component, props: shared_props.merge(page)
+        render inertia: component, props: shared_props.merge(page), status: status
       end
 
       def shared_props
@@ -63,7 +63,22 @@ module Rafelo
       end
 
       def render_application_error(error)
-        payload = {
+        response.headers["Cache-Control"] = "no-store"
+        if performed?
+          response.status = error.status
+          response.set_header("Content-Type", "application/json")
+          response.body = error_payload(error).to_json
+        elsif request.headers["X-Inertia"] == "true" || request.format.html?
+          render_page "errors/show",
+                      props: ErrorShowProps.new(context: page_context, error: error),
+                      status: error.status
+        else
+          render json: error_payload(error), status: error.status
+        end
+      end
+
+      def error_payload(error)
+        {
           error: {
             code: error.code,
             message: error.message,
@@ -72,14 +87,6 @@ module Rafelo
             retryable: error.retryable?
           }
         }
-        response.headers["Cache-Control"] = "no-store"
-        if performed?
-          response.status = error.status
-          response.set_header("Content-Type", "application/json")
-          response.body = payload.to_json
-        else
-          render json: payload, status: error.status
-        end
       end
 
       def set_response_headers

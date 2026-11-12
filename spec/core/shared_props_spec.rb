@@ -25,8 +25,7 @@ RSpec.describe Rafelo::Core::SharedProps do
         localeHrefs: [ { locale: "en", href: "/en" }, { locale: "th", href: "/th" } ],
         timeZone: Time.zone.name
       },
-      nav: [],
-      errors: {}
+      nav: []
     )
   end
 
