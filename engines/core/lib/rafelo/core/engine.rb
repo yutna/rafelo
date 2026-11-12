@@ -13,6 +13,9 @@ module Rafelo
         app.config.i18n.default_locale = Rafelo::Core::Locales.default.to_sym
         app.config.middleware.insert_after ActionDispatch::DebugExceptions, Rafelo::Core::LocaleMiddleware
         app.config.after_initialize { Rafelo::Core::Modules.validate! }
+        app.config.after_initialize do
+          app.config.x.upstreams = Rafelo::Core::UpstreamConfig.load_all(app.config_for(:upstreams))
+        end
         app.config.exceptions_app = ->(env) { Rafelo::Core::ExceptionsApp.call(env) }
       end
     end

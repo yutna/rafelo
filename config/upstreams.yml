@@ -1,0 +1,22 @@
+default: &default
+  api:
+    base_url: <%= ENV.fetch("RAFELO_API_BASE_URL", "http://localhost:4000") %>
+    open_timeout: 2
+    read_timeout: 8
+    write_timeout: 8
+    max_concurrent_calls: 8
+    max_response_bytes: 2_097_152
+    retry_budget: 0.1
+    idempotency_keys: false
+    breaker:
+      failure_threshold: 5
+      cool_off: 30
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default
