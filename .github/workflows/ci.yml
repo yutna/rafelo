@@ -145,9 +145,21 @@ jobs:
           DB_PASSWORD: postgres
         run: bin/rails db:test:prepare && bundle exec rspec
 
+  production-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build the production image
+        run: docker build -t rafelo-ci .
+
   ci-ok:
     if: always()
-    needs: [actionlint, scan_ruby, scan_js, lint, test]
+    needs: [actionlint, scan_ruby, scan_js, lint, test, production-image]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs passed
