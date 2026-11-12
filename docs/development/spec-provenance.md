@@ -1,7 +1,8 @@
 # Spec provenance
 
-The files under `docs/architecture/` are a read-only copy of the private
-Rafelo specification.
+The 16 specification files listed below are a read-only copy of the private
+Rafelo specification. `docs/architecture/lessons-learned.md` is maintainer
+evidence added by this repository; it is not part of the specification copy.
 
 - Source: <https://gist.github.com/yutna/6e3a34d9ee98dff5a00fbefc8bd780ae>
 - Commit: `b9696bba771d633f99c1618c8b00df9e399af5c6`
@@ -17,7 +18,7 @@ the gist.
 
 ```sh
 git clone https://gist.github.com/yutna/6e3a34d9ee98dff5a00fbefc8bd780ae.git /tmp/rafelo-spec
-diff -r --exclude=.git /tmp/rafelo-spec docs/architecture
+diff -r --exclude=.git --exclude=lessons-learned.md /tmp/rafelo-spec docs/architecture
 wc -l docs/architecture/*.md
 (cd docs/architecture && sha256sum *.md)
 ```
