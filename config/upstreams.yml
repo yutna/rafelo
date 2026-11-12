@@ -1,6 +1,6 @@
 default: &default
   api:
-    base_url: <%= ENV.fetch("RAFELO_API_BASE_URL", "http://localhost:4000") %>
+    base_url: <%= ENV.fetch("RAFELO_API_BASE_URL") { Rails.env.production? ? raise("RAFELO_API_BASE_URL is required") : "http://localhost:4000" } %>
     open_timeout: 2
     read_timeout: 8
     write_timeout: 8

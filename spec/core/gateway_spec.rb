@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::Gateway do
-  let(:token) { Struct.new(:token).new("secret") }
+  let(:token) { Struct.new(:token, :service?).new("secret", false) }
   let(:budget) { Rafelo::Core::CallBudget.new(api: 2) }
 
   it "declares a known upstream and token kind and builds the client" do
@@ -44,6 +44,14 @@ RSpec.describe Rafelo::Core::Gateway do
       .to raise_error(ArgumentError, /service token provider/)
   ensure
     Object.send(:remove_const, :ServiceGateway) if Object.const_defined?(:ServiceGateway)
+  end
+
+  it "rejects a viewer gateway built with a service provider" do
+    viewer_gateway = Class.new(described_class) { upstream :api }
+    service_provider = Struct.new(:token, :service?).new("service", true)
+
+    expect { viewer_gateway.new(token_provider: service_provider, budget: budget, request_id: "r", trace_id: "t") }
+      .to raise_error(ArgumentError, /viewer token provider/)
   end
 
   it "counts calls against the per-request budget" do

@@ -20,6 +20,13 @@ RSpec.describe Rafelo::Core::ScopedCache do
     expect(key.call([ "b" ])).to eq("b")
   end
 
+  it "rejects viewer data on a public cache" do
+    viewer = Struct.new(:id).new(1)
+
+    expect { described_class.fetch(scope: :public, owner: :core, key: "x", ttl: 1.minute, viewer: viewer) { 1 } }
+      .to raise_error(ArgumentError, /viewer data/)
+  end
+
   it "rejects an unknown scope and a viewer cache without a viewer" do
     expect { described_class.fetch(scope: :shared, owner: :core, key: "x", ttl: 1.minute) { 1 } }.to raise_error(ArgumentError)
     expect { described_class.fetch(scope: :viewer, owner: :core, key: "x", ttl: 1.minute) { 1 } }.to raise_error(ArgumentError)
