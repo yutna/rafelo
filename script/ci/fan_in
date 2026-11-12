@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/fan_in [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "fan_in: root does not exist: #{root}" unless Dir.exist?(root)
+
+budgets = YAML.load_file(File.join(root, "config", "budgets.yml")).dig("growth", "fan_in")
+limit = budgets.fetch("max_dependents")
+graph = Dir[File.join(root, "engines", "*", "package.yml")].sort.to_h do |path|
+  name = File.basename(File.dirname(path))
+  [ name, YAML.load_file(path).fetch("dependencies", []).map { |dep| File.basename(dep) } ]
+end
+abort "fan_in: no engine packages found" if graph.empty?
+
+kernel = %w[core design_system]
+modules = graph.keys - kernel
+errors = []
+checks = 0
+modules.each do |name|
+  next if name.start_with?("example_")
+
+  dependents = graph.count { |_engine, dependencies| dependencies.include?(name) }
+  checks += 1
+  errors << "#{name} has #{dependents} dependents > #{limit}" if dependents > limit
+end
+
+warn "fan_in: checked #{checks} product modules; errors=#{errors.length}"
+errors.each { |error| warn "fan_in: #{error}" }
+exit(errors.empty? ? 0 : 1)

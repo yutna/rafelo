@@ -54,6 +54,7 @@
     "@vitest/coverage-v8": "5.1.0",
     "jsdom": "31.0.0",
     "vitest": "5.1.0",
-    "dependency-cruiser": "18.7.2"
+    "dependency-cruiser": "18.7.2",
+    "jscpd": "5.4.3"
   }
 }

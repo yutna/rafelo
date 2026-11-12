@@ -56,6 +56,7 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", "1.1.0", require: false
 
+  gem "flay", "2.14.5", require: false
   gem "packwerk", "3.3.1", require: false
   gem "packwerk-extensions", "0.4.0", require: false
   gem "factory_bot_rails", "6.5.1"

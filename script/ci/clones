@@ -1,0 +1,41 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/clones [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "clones: root does not exist: #{root}" unless Dir.exist?(root)
+
+baseline = YAML.load_file(File.join(root, "config", "ratchets.yml")).fetch("clone_baseline_entries", 0)
+engine_paths = Dir[File.join(root, "engines", "*", "app")].sort
+abort "clones: no engine app directories found" if engine_paths.empty?
+
+errors = []
+flay_output, flay_status = Open3.capture2e("bundle", "exec", "flay", "--mass", "100", *engine_paths, chdir: root)
+score = flay_output[/Total score \(lower is better\) = (\d+)/, 1].to_i
+errors << "flay cross-engine score #{score} > baseline #{baseline}" if flay_status.success? && score > baseline
+errors << "flay failed" unless flay_status.success?
+
+jscpd_output, jscpd_status = Open3.capture2e(
+  "npx", "--no-install", "jscpd", "--min-tokens", "100", "--threshold", "0", "--silent",
+  "--format", "typescript", "--format", "tsx", *engine_paths, chdir: root
+)
+if !jscpd_status.success?
+  errors << "jscpd failed"
+elsif jscpd_output.include?("analyzed no files")
+  warn "clones: jscpd analyzed no files; TypeScript clone detection is not active"
+elsif !jscpd_output.include?("Found 0 clones")
+  errors << "jscpd found a clone above the baseline"
+end
+
+warn "clones: flay score=#{score}, baseline=#{baseline}; errors=#{errors.length}"
+errors.each { |error| warn "clones: #{error}" }
+exit(errors.empty? ? 0 : 1)
