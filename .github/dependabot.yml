@@ -25,3 +25,16 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        update-types: [minor, patch]
+    labels: [dependencies]
+    assignees: [yutna]
+    commit-message:
+      prefix: chore
+      include: scope
