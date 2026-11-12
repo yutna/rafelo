@@ -12,10 +12,10 @@ module Rafelo
       end
 
       def call
-        acquire
+        acquired = acquire
         yield
       ensure
-        release
+        release if acquired
       end
 
       private
@@ -31,6 +31,7 @@ module Rafelo
           end
           @in_use += 1
         end
+        true
       end
 
       def release

@@ -39,6 +39,9 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     [ "a/../b", "a//b", "a/./b", "" ].each do |path|
       expect { client.get(path) }.to raise_error(Rafelo::Core::ApplicationError)
     end
+    [ "a\u0000b", "a\tb" ].each do |path|
+      expect { client.get(path) }.to raise_error(ArgumentError)
+    end
     expect(a_request(:get, /evil/)).not_to have_been_made
   end
 
@@ -69,6 +72,25 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       ActiveRecord::Base.transaction { client.get("invoices") }
     end.to raise_error(Rafelo::Core::ApplicationError, /transaction/)
     expect(a_request(:get, "http://upstream.test/invoices")).not_to have_been_made
+  end
+
+  it "does not retry a 429 whose Retry-After cannot fit in the deadline" do
+    short = config.with(retry_budget: 1.0)
+    deadline_client = described_class.new(
+      name: :deadline, config: short, token_provider: token, deadline: Rafelo::Core::RequestDeadline.new(0.05)
+    )
+    stub = stub_request(:get, "http://upstream.test/throttled")
+           .to_return(status: 429, headers: { "Retry-After" => "60" }, body: "{}")
+
+    expect { deadline_client.get("throttled") }.to raise_error(Rafelo::Core::ApplicationError)
+    expect(stub).to have_been_requested.once
+  end
+
+  it "treats a truncated response as unavailable" do
+    stub_request(:get, "http://upstream.test/truncated")
+      .to_return(status: 200, body: "x" * 10, headers: { "Content-Length" => "100" })
+
+    expect { client.get("truncated") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.unavailable") }
   end
 
   it "refuses a gateway-supplied identity header" do
