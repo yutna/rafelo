@@ -60,3 +60,22 @@ The repository's own `.github/` keeps its oss-kit callers and required checks.
 **Spec feedback.** GEN-07 could name the recommended payload directory and
 state that the template repository's own `.github/` is not the payload.
 Related ID: GEN-07.
+
+## 2026-11-12 — v0.3.0 — issue #15
+
+**What happened.** The round 1 gate audit found two S2 findings: the published
+provenance recipe counted the maintainer lessons file as a specification file,
+and the implementation issue form did not require Evidence.
+
+**Root cause.** The verification recipe used a directory glob after a
+non-spec file joined the directory, and the form made four of five required
+fields required. Neither finding touched the spec copies.
+
+**What changed.** The recipe now names and excludes `lessons-learned.md`; the
+Evidence field is required. Round 2 passed with only the two intended files in
+the diff. The root guide's final rule-ID table and no-version-number cleanup
+remain a non-blocking S3 item for `v0.20.0`/`v0.22.0`, tracked in Backlog.
+
+**Spec feedback.** CT-09 verification recipes should say which files are
+specification copies. WF-01 should say Evidence is required when an issue
+claims rule IDs. Related IDs: CT-09, WF-01.
