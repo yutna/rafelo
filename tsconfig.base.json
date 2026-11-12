@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": [
+      "vite/client",
+      "node"
+    ],
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": [
+        "app/frontend/*"
+      ],
+      "@core/*": [
+        "engines/core/app/frontend/*"
+      ],
+      "@core/public/*": [
+        "engines/core/app/frontend/public/*"
+      ],
+      "@design_system/*": [
+        "engines/design_system/app/frontend/*"
+      ],
+      "@design_system/public/*": [
+        "engines/design_system/app/frontend/public/*"
+      ]
+    }
+  }
+}

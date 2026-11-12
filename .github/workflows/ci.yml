@@ -157,6 +157,17 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Check the frontend architecture
+        run: npm run arch:check
+
+      - name: Check generated graph and aliases
+        run: |
+          script/ci/engine_graph --check
+          npm run aliases:check
+
       - name: Build frontend
         run: npm run build
 

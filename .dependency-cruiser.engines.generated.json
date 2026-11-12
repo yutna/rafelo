@@ -1,0 +1,28 @@
+[
+  {
+    "name": "core-imports-nothing-in-the-repository",
+    "severity": "error",
+    "from": {
+      "path": "^engines/core/"
+    },
+    "to": {
+      "path": "^(app|engines)/",
+      "pathNot": [
+        "^engines/core/"
+      ]
+    }
+  },
+  {
+    "name": "design_system-imports-nothing-in-the-repository",
+    "severity": "error",
+    "from": {
+      "path": "^engines/design_system/"
+    },
+    "to": {
+      "path": "^(app|engines)/",
+      "pathNot": [
+        "^engines/design_system/"
+      ]
+    }
+  }
+]
