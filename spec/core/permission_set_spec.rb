@@ -1,18 +1,18 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::PermissionSet do
-  it "matches wildcard, prefix, resource and exact grants" do
-    permissions = described_class.new([
-      "*",
-      "billing:*",
-      "billing:invoice:*",
-      "billing:invoice:read"
-    ])
+  it "matches every kind of grant on its own" do
+    expect(described_class.new([ "*" ]).allows?("billing:invoice:read")).to be(true)
+    expect(described_class.new([ "billing:*" ]).allows?("billing:invoice:create")).to be(true)
+    expect(described_class.new([ "billing:invoice:*" ]).allows?("billing:invoice:create")).to be(true)
+    expect(described_class.new([ "billing:invoice:read" ]).allows?("billing:invoice:read")).to be(true)
+  end
 
-    expect(permissions.allows?("billing:invoice:read")).to be(true)
-    expect(permissions.allows?("billing:invoice:create")).to be(true)
-    expect(permissions.allows?("billing:payment:read")).to be(true)
-    expect(permissions.allows?("other:invoice:read")).to be(true)
+  it "does not over-grant beyond the grant shape" do
+    expect(described_class.new([ "billing:*" ]).allows?("catalog:invoice:read")).to be(false)
+    expect(described_class.new([ "billing:invoice:*" ]).allows?("billing:payment:read")).to be(false)
+    expect(described_class.new([ "billing:invoice:read" ]).allows?("billing:invoice:create")).to be(false)
+    expect(described_class.new([]).allows?("billing:invoice:read")).to be(false)
   end
 
   it "drops every malformed grant shape" do

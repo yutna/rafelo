@@ -7,7 +7,7 @@ class AuthorizationProbeController < ApplicationController
 
   def authorized
     authorize :home, :show?
-    render plain: "authorized"
+    render plain: "authorized #{params[:foo_bar]}"
   end
 end
 
@@ -33,10 +33,10 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "allows an action that authorizes through its policy" do
-    get "/en/probe/authorized"
+    get "/en/probe/authorized?fooBar=probe"
 
     expect(response).to have_http_status(:ok)
-    expect(response.body).to eq("authorized")
+    expect(response.body).to eq("authorized probe")
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
 end
