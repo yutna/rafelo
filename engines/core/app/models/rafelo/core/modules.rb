@@ -78,11 +78,10 @@ module Rafelo
           return [] unless defined?(Rails) && Rails.respond_to?(:application) && Rails.application
 
           module_names = ignore.map { |item| item.key.to_s }
-          module_segments = ignore.map { |item| item.path.split("/")[1].to_s }
 
           routes = Rails.application.routes.routes
           names = routes.filter_map(&:name).map(&:to_s) - module_names
-          segments = routes.filter_map { |route| route.path.spec.to_s[/\A\/([a-z][a-z0-9_]*)/, 1] } - module_segments
+          segments = routes.filter_map { |route| route.path.spec.to_s[/\A\/([a-z][a-z0-9_]*)/, 1] }
           (names + segments).uniq
         end
       end

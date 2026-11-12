@@ -47,12 +47,21 @@ RSpec.describe Rafelo::Core::Modules do
     expect { described_class.register(key: :safe, engine: engine, path: "/reports/extra") }.to raise_error(ArgumentError, /reserved/)
   end
 
-  it "does not reject a module because its own mount path exists" do
+  it "does not reject a module because its own mounted route exists" do
     described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
-    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/billing(.:format)"))
+    fake_route = Struct.new(:name, :path).new("billing", Struct.new(:spec).new("/:locale/billing(.:format)"))
     allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
 
     expect { described_class.validate! }.not_to raise_error
+  end
+
+  it "checks a boot-registered module against an app route with the same first segment" do
+    engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
+    described_class.register(key: :safe, engine: engine, path: "/reports/extra")
+    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/reports(.:format)"))
+    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
+
+    expect { described_class.validate! }.to raise_error(ArgumentError, /path is reserved: reports/)
   end
 
   it "rejects a duplicate navigation order" do
