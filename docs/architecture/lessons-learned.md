@@ -308,3 +308,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** One layout assignment, an `I18nProvider` with calendar/time zone, non-throwing date issues for invalid and impossible dates, a validating `DateField`, copied plain input/output, and round-trip tests for every boundary class. The remaining matcher, compiler-proof, URL-guard, bundle and date-field depth is carried in #219.
 
 **Spec feedback.** FE-02 should say whether the resolver or Inertia applies the layout. FE-14 should name the provider contract. OOP-03 should name the invalid-date codes and the boundary copy rule. Related IDs: FE-02; FE-14; OOP-03; OOP-05; OOP-10.
+
+## 2026-11-13 — v0.14.0 — issue #249
+
+**What happened.** The v0.14.0 gate needed three audit rounds. Round 1 found the announcer focused on first load and announced the wrong text, the flash region was inserted with its message, the error boundary was app-local and reported to a missing route, the chart crashed from missing ECharts components, controls were native HTML, and new copy was hardcoded. Round 2 found the announcer compared the already-updated path, so no navigation was ever announced, and Dialog was hand-rolled. Round 3 passed.
+
+**Root cause.** The first pass checked presence rather than the event contract, and the e2e screenshot test waited for a button before the lazy chart had a chance to crash.
+
+**What changed.** A path-ref announcer with history/query/hash rules, an always-mounted flash region, a design-system boundary with reset/retry/ids/CSRF reporting, modular pie-chart ECharts, React Aria controls and modal, localized en/th copy, and a test-env e2e run against built assets. Remaining catalog, declaration, lint and guard depth is carried in #219.
+
+**Spec feedback.** FE-13 should name the Inertia event ordering and the initial/history semantics. FE-15 should name the reporter contract and last-resort boundary. TS-11 should say which assets and locale screenshots the baseline covers. Related IDs: FE-07; FE-08; FE-13; FE-15; TS-08; TS-11.
