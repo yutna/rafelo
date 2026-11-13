@@ -22,6 +22,7 @@ export const pageSchema = definePage({
     nextHref: z.string().nullable(),
     chart: z.object({ series: z.array(z.record(z.string(), z.unknown())) }).optional(),
   }),
+  meta: z.object({ formToken: z.string() }),
   query: z.object({
     page: z.number().int(),
     perPage: z.number().int(),

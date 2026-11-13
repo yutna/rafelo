@@ -263,6 +263,22 @@ unless !ts_status.success? && ts_failures.empty?
   exit 1
 end
 
+# GEN-08: the TypeScript rule also refuses an import of an example engine.
+write(root, "engines/canary_legal_beta/app/frontend/example_leak.ts", <<~TS)
+  import { CustomerBadge } from "../../../example_customers/app/frontend/public/customer_badge";
+
+  export const leaked = CustomerBadge;
+TS
+example_ts_output, example_ts_status = run(
+  root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err", "engines/canary_legal_beta"
+)
+unless !example_ts_status.success? && example_ts_output.include?("nothing-depends-on-example-engines")
+  warn "graph_canaries: expected the example-engine TypeScript rule to fail"
+  warn example_ts_output
+  exit 1
+end
+FileUtils.rm_f(File.join(root, "engines", "canary_legal_beta", "app", "frontend", "example_leak.ts"))
+
 # GEN-08: an engine outside example_* cannot depend on an example engine.
 write(root, "engines/canary_consumer/package.yml", <<~YAML)
   enforce_dependencies: strict

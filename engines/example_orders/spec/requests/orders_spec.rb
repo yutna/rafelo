@@ -70,6 +70,28 @@ RSpec.describe "Example orders", type: :request do
     expect(page_body.dig("props", "data", "order", "version")).to eq(1)
   end
 
+
+  it "keeps page size and sort in pagination and filter links" do
+    stub_order_upstream(:get, "/orders", "index.json")
+
+    get "/en/example_orders/orders?per_page=25&sort=number&direction=desc", headers: headers
+
+    data = page_body.dig("props", "data")
+    expect(data["nextHref"]).to include("per_page=25")
+    expect(data["nextHref"]).to include("sort=number")
+    expect(data["filterHrefs"].first["href"]).to include("per_page=25")
+  end
+
+  it "does not offer edit to a read-only viewer" do
+    stub_order_upstream(:get, "/orders/order-1", "show.json")
+    read_only = auth_headers(grants: [ "example_orders:order:read" ])
+
+    get "/en/example_orders/orders/order-1", headers: read_only
+
+    expect(response).to have_http_status(:ok)
+    expect(page_body.dig("props", "can", "order.update", "allowed")).to be(false)
+  end
+
   it "creates an order with the idempotency claim" do
     get "/en/example_orders/orders/new", headers: headers
     token = page_body.dig("props", "meta", "formToken")
@@ -100,10 +122,15 @@ RSpec.describe "Example orders", type: :request do
     expect(page_body.dig("props", "errors", "base")).to eq("The order changed since you opened it.")
   end
 
-  it "enqueues the export job for the viewer" do
+  it "enqueues the export job once for the viewer" do
     ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+    stub_order_upstream(:get, "/orders", "index.json")
+    get "/en/example_orders/orders", headers: headers
+    token = page_body.dig("props", "meta", "formToken")
 
-    post "/en/example_orders/orders/export", headers: headers
+    post "/en/example_orders/orders/export", params: { token: token }, headers: headers
+    expect(response).to have_http_status(:see_other)
+    post "/en/example_orders/orders/export", params: { token: token }, headers: headers
 
     expect(response).to have_http_status(:see_other)
     expect(Rafelo::Core::Export.where(viewer_id: "7").count).to eq(1)

@@ -9,7 +9,7 @@ export default function OrderShow(props: Record<string, unknown>) {
   return (
     <>
       <Head title={page.data.order.number} />
-      <OrderShowScreen {...page.data} />
+      <OrderShowScreen {...page.data} can={page.can} />
     </>
   );
 }

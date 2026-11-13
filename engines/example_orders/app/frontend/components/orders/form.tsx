@@ -1,5 +1,7 @@
 import { TextField } from "@design_system/public";
 
+import { t } from "../../i18n";
+
 type Props = {
   customerName: string;
   status: string;
@@ -19,7 +21,7 @@ export function OrderFormFields({
     <>
       <TextField
         testId="example_orders.orders.form.customer"
-        label="Customer"
+        label={t("orders.customer")}
         name="customerName"
         value={customerName}
         onChange={onCustomerNameChange}
@@ -28,7 +30,7 @@ export function OrderFormFields({
       />
       <TextField
         testId="example_orders.orders.form.status"
-        label="Status"
+        label={t("orders.status")}
         name="status"
         value={status}
         onChange={onStatusChange}

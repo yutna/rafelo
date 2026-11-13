@@ -21,6 +21,10 @@
       "paid": "Paid",
       "cancelled": "Cancelled"
     },
+    "pagination": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "version": "Version",
     "export": "Export",
     "created": "Order {{number}} created.",
     "updated": "Order {{number}} updated.",

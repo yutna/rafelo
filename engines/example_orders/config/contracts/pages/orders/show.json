@@ -127,7 +127,30 @@
     },
     "can": {
       "type": "object",
-      "properties": {},
+      "properties": {
+        "order.update": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "allowed",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "order.update"
+      ],
       "additionalProperties": false
     }
   },

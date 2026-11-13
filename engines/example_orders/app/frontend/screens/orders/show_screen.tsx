@@ -15,9 +15,10 @@ type Props = {
   };
   editHref: string;
   indexPath: string;
+  can: Record<string, { allowed: boolean; reason: string | null }>;
 };
 
-export function OrderShowScreen({ order, editHref, indexPath }: Props) {
+export function OrderShowScreen({ order, editHref, indexPath, can }: Props) {
   const { locale, timeZone } = useLocale();
   return (
     <section className="mx-auto max-w-3xl px-6 py-16" data-testid="example_orders.orders.show.page">
@@ -41,14 +42,16 @@ export function OrderShowScreen({ order, editHref, indexPath }: Props) {
           <dd>{formatDate(order.issuedOn, locale, timeZone)}</dd>
         </div>
         <div>
-          <dt className="font-medium">Version</dt>
+          <dt className="font-medium">{t("orders.version")}</dt>
           <dd>{order.version}</dd>
         </div>
       </dl>
       <div className="mt-8 flex gap-4">
-        <Link href={editHref}>
-          <span data-testid="example_orders.orders.show.edit">{t("orders.edit")}</span>
-        </Link>
+        {can["order.update"]?.allowed ? (
+          <Link href={editHref}>
+            <span data-testid="example_orders.orders.show.edit">{t("orders.edit")}</span>
+          </Link>
+        ) : null}
         <Link href={indexPath}>
           <span data-testid="example_orders.orders.show.back">{t("orders.title")}</span>
         </Link>
