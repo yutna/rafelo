@@ -357,7 +357,7 @@ module Rafelo
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
             import { useForm } from "@inertiajs/react";
-            import { Button, Link, TextField } from "@design_system/public";
+            import { Button, Link } from "@design_system/public";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
@@ -367,18 +367,21 @@ module Rafelo
                   <form
                     onSubmit={(event) => {
                       event.preventDefault();
-                      form.transform((data) => ({ ...data, token: meta.formToken })).post(createPath);
+                      form.transform((data) => ({ ...data, token: meta.formToken }));
+                      form.post(createPath);
                     }}
                     className="mt-6 space-y-4"
                   >
-                    <TextField
-                      testId="#{mod}.#{resource_plural}.new.name"
-                      label="Name"
-                      name="name"
+                    <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
+                    <input
+                      id="#{resource_singular}-name"
+                      data-testid="#{mod}.#{resource_plural}.new.name"
+                      className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
                       value={form.data.name}
-                      onChange={(value) => form.setData("name", value)}
-                      error={errors.name}
+                      onChange={(event) => form.setData("name", event.target.value)}
+                      name="name"
                     />
+                    {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
                     <div className="flex gap-3">
                       <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
                       <Link href={indexPath}>Back</Link>
