@@ -85,12 +85,13 @@ module Rafelo
       end
 
       def find_or_create
-        existing = IdempotencyKey.find_by(token_digest: token_digest)
+        existing = IdempotencyKey.readable_format.find_by(token_digest: token_digest)
         return existing if existing
 
         @created = true
         IdempotencyKey.create!(
           token_digest: token_digest,
+          format_version: IdempotencyKey::FORMAT_VERSION,
           viewer_id: viewer_id,
           payload_digest: payload_digest,
           status: "pending",

@@ -64,6 +64,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_035028) do
     t.datetime "expires_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "format_version", default: 1, null: false
     t.index ["expires_at"], name: "index_core_idempotency_keys_on_expires_at"
     t.index ["token_digest"], name: "index_core_idempotency_keys_on_token_digest", unique: true
   end
@@ -87,6 +88,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_035028) do
     t.datetime "last_seen_at"
     t.integer "grants_generation", default: 0, null: false
     t.integer "grants_fetched_generation", default: 0, null: false
+    t.integer "format_version", default: 1, null: false
     t.index ["expires_at"], name: "index_core_sessions_on_expires_at"
     t.index ["token_digest"], name: "index_core_sessions_on_token_digest", unique: true
     t.index ["viewer_id"], name: "index_core_sessions_on_viewer_id"

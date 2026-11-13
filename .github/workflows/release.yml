@@ -13,6 +13,7 @@ jobs:
     with:
       preflight: |
         grep -qx "$VERSION" VERSION
+        test -d "spec/fixtures/formats/v$VERSION" || { echo "missing formats fixture for v$VERSION"; exit 1; }
   # publish:                                 # stack-specific, optional
   #   needs: release
   #   if: needs.release.outputs.released == 'true'
