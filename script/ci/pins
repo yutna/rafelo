@@ -160,15 +160,33 @@ errors << ".devcontainer/Dockerfile ARG RUBY_VERSION does not match mise.toml" u
 checks += 1
 errors << ".devcontainer/Dockerfile base image is not digest-pinned" unless devcontainer_dockerfile.match?(/@sha256:[0-9a-f]{64}/)
 
+image_digest = read(root, ".devcontainer/image_digest").strip
+checks += 1
+unless image_digest.match?(%r{\Aghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+-devcontainer@sha256:[0-9a-f]{64}\z})
+  errors << ".devcontainer/image_digest is not a digest-pinned GHCR reference"
+end
+
 compose = read(root, ".devcontainer/compose.yaml")
 checks += 1
 errors << "PostgreSQL image is not version/digest pinned" unless compose.match?(/image:\s+postgres:\d+\.\d+@sha256:[0-9a-f]{64}/)
+checks += 1
+errors << ".devcontainer/compose.yaml does not use the recorded image" unless compose.include?(image_digest)
 
 devcontainer = read(root, ".devcontainer/devcontainer.json")
 stripped = devcontainer.lines.reject { |line| line.lstrip.start_with?("//") }.join
-features = JSON.parse(stripped).fetch("features", {})
+parsed = JSON.parse(stripped)
+checks += 1
+errors << "devcontainer.json does not reference the recorded image digest" unless devcontainer.include?(image_digest)
+features = parsed.fetch("features", {})
 checks += 1
 errors << "devcontainer features are not exactly versioned" unless features.keys.all? { |name| name.match?(/:\d+\.\d+\.\d+$/) }
+checks += 1
+errors << "devcontainer.json must forward ports 3000 and 3036" unless [ 3000, 3036 ].all? { |port| Array(parsed["forwardPorts"]).include?(port) }
+checks += 1
+errors << "devcontainer.json must bind Vite to 0.0.0.0" unless parsed.dig("containerEnv", "BINDING") == "0.0.0.0"
+
+checks += 1
+errors << ".gitattributes must force LF" unless read(root, ".gitattributes").match?(/^\* text=auto eol=lf$/)
 
 checks += 1
 errors << "package-lock.json is missing" unless File.file?(File.join(root, "package-lock.json"))
