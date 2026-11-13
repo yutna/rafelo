@@ -61,14 +61,18 @@ module Rafelo
           next if body.include?("\x00")
 
           body = body.gsub("Rafelo::#{old_camel}", "Rafelo::#{new_camel}")
+          body = body.gsub(/\bmodule #{Regexp.escape(old_camel)}\b/, "module #{new_camel}")
+          body = body.gsub(/\bclass #{Regexp.escape(old_camel)}\b/, "class #{new_camel}")
           body = body.gsub("rafelo_#{@source_name}", "rafelo_#{@destination_name}")
           body = body.gsub("rafelo/#{@source_name}", "rafelo/#{@destination_name}")
-          body = body.gsub("@#{@source_name}", "@#{@destination_name}")
+          body = body.gsub("@#{@source_name}/", "@#{@destination_name}/")
           body = body.gsub(/^(\s*)key:\s*:#{Regexp.escape(@source_name)}\b/, "\\1key: :#{@destination_name}")
           # keep URL/path and permission prefixes stable per GEN-06
-          body = body.gsub(/^(\s*)path:\s*"[^"]*"/, "\\1path: \"/#{@source_name}\"") if path.to_s.end_with?("config/module.rb")
-          body = body.gsub(/^(\s*)permission_prefixes:\s*\[[^\]]*\]/, "\\1permission_prefixes: [ \"#{@source_name}\" ]") if path.to_s.end_with?("config/module.rb")
-          body = body.gsub(/^(\s*label_key:\s*)"#{Regexp.escape(@source_name)}\.nav\.title"/, "\\1\"#{@destination_name}.nav.title\"") if path.to_s.end_with?("config/module.rb")
+          if path.to_s.end_with?("config/module.rb")
+            body = body.gsub(/^(\s*)path:\s*"[^"]*"/, "\\1path: \"/#{@source_name}\"")
+            body = body.gsub(/^(\s*)permission_prefixes:\s*\[[^\]]*\]/, "\\1permission_prefixes: [ \"#{@source_name}\" ]")
+            body = body.gsub(/^(\s*label_key:\s*)"#{Regexp.escape(@source_name)}\.nav\.title"/, "\\1\"#{@destination_name}.nav.title\"")
+          end
           body = body.gsub(/^(\s*)#{Regexp.escape(@source_name)}:\s*$/, "\\1#{@destination_name}:") if path.to_s.end_with?(".yml")
           body = body.gsub(/\.nav\.title:\s*"#{Regexp.escape(@source_name.humanize)}"/, ".nav.title: \"#{@destination_name.humanize}\"")
           File.binwrite(path, body)
