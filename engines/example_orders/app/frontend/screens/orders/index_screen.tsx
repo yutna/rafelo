@@ -1,7 +1,7 @@
 import { Button, Chart, Deferred, Link, Skeleton, formatNumber, useLocale } from "@design_system/public";
 import { router } from "@inertiajs/react";
 
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Order = {
   id: string;
@@ -22,6 +22,7 @@ type Props = {
   nextHref: string | null;
   chart?: { series: Record<string, unknown>[] };
   can: Record<string, { allowed: boolean; reason: string | null }>;
+  meta: { formToken: string };
 };
 
 export function OrdersScreen({
@@ -33,8 +34,10 @@ export function OrdersScreen({
   nextHref,
   chart,
   can,
+  meta,
 }: Props) {
   const { locale } = useLocale();
+  const t = useOrdersTranslation();
   return (
     <section className="mx-auto max-w-5xl px-6 py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -49,7 +52,7 @@ export function OrdersScreen({
             </Link>
           ) : null}
           {can["order.export"]?.allowed ? (
-            <Button testId="example_orders.orders.index.export" variant="secondary" onPress={() => router.post(exportPath)}>
+            <Button testId="example_orders.orders.index.export" variant="secondary" onPress={() => router.post(exportPath, { token: meta.formToken })}>
               {t("orders.export")}
             </Button>
           ) : null}
@@ -79,9 +82,9 @@ export function OrdersScreen({
         </ul>
       )}
 
-      <nav aria-label="Pagination" className="mt-6 flex gap-4">
-        {previousHref ? <Link href={previousHref}>Previous</Link> : null}
-        {nextHref ? <Link href={nextHref}>Next</Link> : null}
+      <nav aria-label={t("orders.pagination")} className="mt-6 flex gap-4">
+        {previousHref ? <Link href={previousHref}>{t("orders.previous")}</Link> : null}
+        {nextHref ? <Link href={nextHref}>{t("orders.next")}</Link> : null}
       </nav>
 
       <div className="mt-10">

@@ -63,7 +63,8 @@ module Rafelo
         authorize :order, :update?, policy_class: OrderPolicy
         form = OrderForm.new(params.permit(:customer_name, :status, :version, :token))
         back = page_context.urls.route(:example_orders, :edit_order, id: params[:id])
-        return redirect_after_write(back, errors: form.error_messages) if form.invalid?
+        form.errors.add(:version, :blank) if form.version.blank?
+        return redirect_after_write(back, errors: form.error_messages) if form.errors.any? || form.invalid?
 
         Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back) do |idempotency_key|
           order = gateway(OrdersGateway).update(
@@ -87,15 +88,17 @@ module Rafelo
 
       def export
         authorize :order, :export?, policy_class: OrderPolicy
-        export = Rafelo::Core::Export.build_for(
-          viewer: Rafelo::Core::Current.viewer,
-          filename: "orders.csv"
-        )
-        OrderExportJob.perform_later(Rafelo::Core::Current.session.id, export.id)
-        redirect_after_write(
-          page_context.urls.route(:example_orders, :orders),
-          notice: t("example_orders.orders.export_queued")
-        )
+        back = page_context.urls.route(:example_orders, :orders)
+        Rafelo::Core::IdempotencyClaim.call(
+          self, token: params[:token], payload: { status: params[:status].presence }, back: back
+        ) do
+          export = Rafelo::Core::Export.build_for(
+            viewer: Rafelo::Core::Current.viewer,
+            filename: "orders.csv"
+          )
+          OrderExportJob.perform_later(Rafelo::Core::Current.session.id, export.id, params[:status].presence)
+          redirect_after_write(back, notice: t("example_orders.orders.export_queued"))
+        end
       end
     end
   end

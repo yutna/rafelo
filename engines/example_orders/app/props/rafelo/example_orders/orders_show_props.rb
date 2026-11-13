@@ -3,6 +3,9 @@
 module Rafelo
   module ExampleOrders
     class OrdersShowProps < Rafelo::Core::PageProps
+      policy_class Rafelo::ExampleOrders::OrderPolicy
+      capability Rafelo::ExampleOrders::Permissions::ORDER_UPDATE, :update?
+
       def initialize(context:, order:)
         super(context: context)
         @order = order
@@ -26,7 +29,7 @@ module Rafelo
           meta: {},
           query: {},
           pagination: nil,
-          can: {}
+          can: capabilities(Rafelo::ExampleOrders::Permissions::ORDER_UPDATE)
         }
       end
     end

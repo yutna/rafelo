@@ -17,6 +17,6 @@ export const pageSchema = definePage({
     indexPath: z.string(),
   }),
   query: z.object({}),
-  can: [] as const,
+  can: ["order.update"] as const,
   paginated: false,
 });

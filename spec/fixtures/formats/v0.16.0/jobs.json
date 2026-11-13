@@ -46,21 +46,5 @@
     "scheduled_at": null,
     "rafelo_request_id": null,
     "rafelo_trace_id": "4a224be9-325a-4162-af57-8e67af0ef877"
-  },
-  {
-    "job_class": "Rafelo::ExampleOrders::OrderExportJob",
-    "job_id": "26b0506c-5b9e-4591-a31a-b3babf192df5",
-    "provider_job_id": null,
-    "queue_name": "default",
-    "priority": null,
-    "arguments": [],
-    "executions": 0,
-    "exception_executions": {},
-    "locale": "en",
-    "timezone": "UTC",
-    "enqueued_at": "2026-11-13T17:38:37.640413752Z",
-    "scheduled_at": null,
-    "rafelo_request_id": null,
-    "rafelo_trace_id": "55294a4d-bdb0-490c-8050-4e9ec3f6380f"
   }
 ]

@@ -1,11 +1,19 @@
-import i18next from "i18next";
+import { useLocale } from "@design_system/public";
 
 import en from "./locales/en.json";
 import th from "./locales/th.json";
 
-i18next.addResourceBundle("en", "example_orders", en, true, true);
-i18next.addResourceBundle("th", "example_orders", th, true, true);
+const catalogs = { en, th } as const;
 
-export function t(key: string): string {
-  return i18next.t(key, { ns: "example_orders" });
+export function useOrdersTranslation() {
+  const { locale } = useLocale();
+  const catalog = catalogs[locale as keyof typeof catalogs] ?? catalogs.en;
+
+  return (key: string): string => {
+    const value = key.split(".").reduce<unknown>((current, part) => {
+      if (!current || typeof current !== "object") return undefined;
+      return (current as Record<string, unknown>)[part];
+    }, catalog);
+    return typeof value === "string" ? value : key;
+  };
 }

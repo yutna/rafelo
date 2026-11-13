@@ -110,6 +110,8 @@ namespace :formats do
   def job_classes
     roots = [ Rails.root.join("app/jobs") ] + Rails.root.glob("engines/*/app/jobs")
     roots.flat_map { |dir| dir.glob("**/*.rb") }.filter_map do |file|
+      # GEN-08: example engines are removable examples, not kernel proof.
+      next if file.to_s.include?("/engines/example_")
       relative = file.to_s.split("/app/jobs/").last.sub(/\.rb\z/, "")
       klass = relative.camelize.constantize
       next unless klass <= ActiveJob::Base

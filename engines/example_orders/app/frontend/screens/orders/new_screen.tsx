@@ -2,7 +2,7 @@ import { useForm } from "@inertiajs/react";
 import { Button, Link } from "@design_system/public";
 
 import { OrderFormFields } from "../../components/orders/form";
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Props = {
   createPath: string;
@@ -12,6 +12,7 @@ type Props = {
 };
 
 export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) {
+  const t = useOrdersTranslation();
   const form = useForm({ customerName: "", status: "open" });
 
   return (

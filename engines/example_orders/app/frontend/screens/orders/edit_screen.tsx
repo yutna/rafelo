@@ -2,7 +2,7 @@ import { useForm } from "@inertiajs/react";
 import { Button, Link } from "@design_system/public";
 
 import { OrderFormFields } from "../../components/orders/form";
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Props = {
   order: { id: string; number: string; customerName: string; status: string; version: number };
@@ -13,6 +13,7 @@ type Props = {
 };
 
 export function OrdersEditScreen({ order, updatePath, showPath, meta, errors }: Props) {
+  const t = useOrdersTranslation();
   const form = useForm({ customerName: order.customerName, status: order.status });
 
   return (

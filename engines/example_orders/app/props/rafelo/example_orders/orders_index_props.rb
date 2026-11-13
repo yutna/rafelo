@@ -18,13 +18,13 @@ module Rafelo
           data: {
             items: @page.items.map { |order| row(order) },
             newHref: context.urls.route(:example_orders, :new_order),
-            exportPath: context.urls.route(:example_orders, :export_orders),
+            exportPath: context.urls.route(:example_orders, :export_orders, status: @query.filters["status"]),
             filterHrefs: filter_hrefs,
             previousHref: page_href([ @query.page - 1, 1 ].max),
             nextHref: @query.page < page_count ? page_href(@query.page + 1) : nil,
             chart: InertiaRails.defer { chart_data }
           },
-          meta: {},
+          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
           query: @query.to_h,
           pagination: {
             kind: "offset",
@@ -58,14 +58,14 @@ module Rafelo
         [ nil, "open", "paid", "cancelled" ].map do |status|
           {
             label: status ? I18n.t("example_orders.orders.statuses.#{status}") : I18n.t("example_orders.orders.all"),
-            href: context.urls.route(:example_orders, :orders, status: status),
+            href: context.urls.route(:example_orders, :orders, status: status, per_page: @query.per_page, sort: @query.sort, direction: @query.direction),
             current: @query.filters["status"] == status
           }
         end
       end
 
       def page_href(page)
-        context.urls.route(:example_orders, :orders, page: page, status: @query.filters["status"])
+        context.urls.route(:example_orders, :orders, page: page, status: @query.filters["status"], per_page: @query.per_page, sort: @query.sort, direction: @query.direction)
       end
 
       def page_count
