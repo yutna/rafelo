@@ -78,3 +78,5 @@ group :test do
   gem "json_schemer", "2.5.0"
   gem "webmock", "3.34.0"
 end
+
+gem "strong_migrations", "= 2.8.0"

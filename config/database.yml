@@ -18,4 +18,5 @@ test:
 production:
   <<: *default
   database: <%= ENV.fetch("DB_NAME", "rafelo_production") %>
-  password: <%= ENV["DB_PASSWORD"] %>
+  username: <%= ENV["RAFELO_DATABASE_ROLE"] == "migration" ? ENV.fetch("DB_MIGRATION_USER", ENV.fetch("DB_USER", "postgres")) : ENV.fetch("DB_USER", "postgres") %>
+  password: <%= ENV["RAFELO_DATABASE_ROLE"] == "migration" ? ENV["DB_MIGRATION_PASSWORD"] : ENV["DB_PASSWORD"] %>
