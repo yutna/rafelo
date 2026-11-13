@@ -55,6 +55,7 @@ module Rafelo
       end
 
       def wait_for_token(original)
+        ActiveSupport::Notifications.instrument("session_refresh.wait", session_id: @session.id)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @wait
         loop do
           begin

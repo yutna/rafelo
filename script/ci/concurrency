@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script/ci/prepare_test_databases 1
+RAILS_ENV=test bundle exec rspec --tag concurrency

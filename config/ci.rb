@@ -40,6 +40,7 @@ CI.run do
   step "Frontend: Build", "npm run build"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
+  step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: Seeds", "env RAILS_ENV=test bin/rails db:seed:replant"
 
   # Optional: set a green GitHub commit status to unblock PR merge.
