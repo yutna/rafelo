@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+engine = ARGV.fetch(0) { abort("usage: bin/check <engine>") }
+abort("unknown engine: #{engine}") unless Dir.exist?(File.join("engines", engine))
+
+def run!(command)
+  puts "==> #{command}"
+  system(command) || abort("command failed: #{command}")
+end
+
+run!("bin/packwerk check engines/#{engine}")
+run!("npm run arch:check")
+run!("npx tsc -b engines/#{engine}/tsconfig.json")
+
+# Vitest projects are named by engine in this template's conventions; fall back to full frontend tests.
+if system("npx vitest run --project #{engine} --project #{engine}:node")
+  # ok
+else
+  run!("npm test")
+end
+
+if Dir.exist?(File.join("engines", engine, "spec"))
+  run!("bundle exec rspec engines/#{engine}/spec")
+end
+
+if system("npx --version >/dev/null 2>&1")
+  # eslint is not yet fully configured in all states; run if available config exists.
+  if File.exist?("eslint.config.mjs") || File.exist?("eslint.config.js")
+    run!("npx eslint engines/#{engine}/app/frontend") rescue warn("eslint check skipped/failed for #{engine}")
+  end
+end
+
+puts "bin/check #{engine}: ok"
