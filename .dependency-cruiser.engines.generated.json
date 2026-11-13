@@ -24,5 +24,20 @@
         "^engines/design_system/"
       ]
     }
+  },
+  {
+    "name": "example_customers-imports-declared-surfaces-only",
+    "severity": "error",
+    "from": {
+      "path": "^engines/example_customers/"
+    },
+    "to": {
+      "path": "^(app|engines)/",
+      "pathNot": [
+        "^engines/example_customers/",
+        "^engines/core/app/frontend/",
+        "^engines/design_system/app/frontend/"
+      ]
+    }
   }
 ]

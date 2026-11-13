@@ -1,4 +1,9 @@
 PATH
+  remote: engines/example_customers
+  specs:
+    rafelo_example_customers (0.1.0)
+
+PATH
   remote: engines/core
   specs:
     rafelo_core (0.1.0)
@@ -497,6 +502,7 @@ DEPENDENCIES
   pundit (= 2.5.2)
   rafelo_core!
   rafelo_design_system!
+  rafelo_example_customers!
   rails (= 8.1.4.1)
   rspec-rails (= 8.1.0)
   rubocop-rails-omakase (= 1.1.0)
@@ -635,6 +641,7 @@ CHECKSUMS
   rackup (2.3.1) sha256=6c79c26753778e90983761d677a48937ee3192b3ffef6bc963c0950f94688868
   rafelo_core (0.1.0)
   rafelo_design_system (0.1.0)
+  rafelo_example_customers (0.1.0)
   rails (8.1.4.1) sha256=365c3a0ad2713bd6e60628e5e826622d4ca8dee60b5a7e560e9b20844e9650bc
   rails-dom-testing (2.3.0) sha256=8acc7953a7b911ca44588bf08737bc16719f431a1cc3091a292bca7317925c1d
   rails-html-sanitizer (1.7.2) sha256=a21ef45b7a6639fc8e2282473c547514cb86ae271616162a946bf89148fa2424

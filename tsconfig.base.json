@@ -34,6 +34,12 @@
       ],
       "@design_system/public/*": [
         "engines/design_system/app/frontend/public/*"
+      ],
+      "@example_customers/*": [
+        "engines/example_customers/app/frontend/*"
+      ],
+      "@example_customers/public/*": [
+        "engines/example_customers/app/frontend/public/*"
       ]
     }
   }
