@@ -2,6 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Session flow", type: :request do
   before do
+    Rack::Attack.reset!
     stub_upstream(:post, "/auth/sign_in", fixture: "auth/sign_in.json", base_url: "http://localhost:4000")
   end
 

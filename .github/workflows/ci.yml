@@ -272,6 +272,9 @@ jobs:
       - name: Check test selectors
         run: script/ci/test_selectors
 
+      - name: Check boundary cops
+        run: script/ci/cops_canary
+
   production-image:
     runs-on: ubuntu-latest
     timeout-minutes: 20

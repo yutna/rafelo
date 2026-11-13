@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+
+ROOT = File.expand_path(Dir.pwd)
+COPS = %w[
+  Rafelo/FaradayOnlyInUpstreamClient
+  Rafelo/NoTlsVerifyDisable
+  Rafelo/ConfigXOnlyInCore
+  Rafelo/CacheOnlyThroughScopedCache
+].join(",")
+
+bad = File.join(ROOT, "spec/enforcement/fixtures/cops/bad/example.rb")
+legal = File.join(ROOT, "spec/enforcement/fixtures/cops/legal/example.rb")
+abort "cops_canary: missing fixtures" unless File.file?(bad) && File.file?(legal)
+
+output, status = Open3.capture2e("bundle", "exec", "rubocop", "--only", COPS, bad, chdir: ROOT)
+unless !status.success? && COPS.split(",").all? { |cop| output.include?(cop) }
+  warn "cops_canary: the bad fixture did not report every cop"
+  warn output
+  exit 1
+end
+
+output, status = Open3.capture2e("bundle", "exec", "rubocop", "--only", COPS, legal, chdir: ROOT)
+unless status.success?
+  warn "cops_canary: the legal fixture failed"
+  warn output
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length} cops"

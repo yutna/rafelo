@@ -23,6 +23,7 @@ CI.run do
   step "Frontend: boundary", "script/ci/frontend_boundary"
   step "Frontend: page props", "script/ci/page_props"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
+  step "Enforcement: cops", "script/ci/cops_canary"
   step "Tests: skips", "script/ci/skips"
   step "Tests: selectors", "script/ci/test_selectors"
   step "Pins: runtime and packages", "script/ci/pins"
