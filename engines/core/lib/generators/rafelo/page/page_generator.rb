@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "rails/generators"
 require "shellwords"
 require "yaml"
 require_relative "../base/base_generator"
@@ -33,7 +34,9 @@ module Rafelo
         post_write unless options[:skip_post_write]
         say "Created #{@mod}/#{resource_plural} (#{effective_actions.join(", ")}).", :green
       rescue StandardError => e
-        restore_snapshot(@snapshot) if defined?(@snapshot)
+        restore_snapshot(@snapshot) if defined?(@snapshot) && @snapshot
+        raise e if e.is_a?(Thor::Error) && !(defined?(@snapshot) && @snapshot)
+
         raise Thor::Error, "generator rolled back after: #{e.message}"
       end
 

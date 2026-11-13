@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "rails/generators"
 require "yaml"
 
 module Rafelo
@@ -82,6 +83,45 @@ module Rafelo
         update_permissions_manifest(target)
         update_root_spec_paths if Dir.exist?(root.join("spec/requests", @source_name))
         update_dependents
+        update_package_metadata(target)
+        write_legacy_constants(target)
+        update_ratchets(target)
+      end
+
+      def update_package_metadata(engine_root)
+        path = engine_root.join("package.yml")
+        return unless File.file?(path)
+
+        data = YAML.safe_load(File.read(path), aliases: false) || {}
+        metadata = (data["metadata"] || {}).dup
+        metadata["legacy_table_prefix"] = @source_name unless metadata.key?("legacy_table_prefix")
+        data["metadata"] = metadata
+        File.write(path, YAML.dump(data))
+      end
+
+      def write_legacy_constants(engine_root)
+        path = engine_root.join("config/initializers/legacy_constants.rb")
+        FileUtils.mkdir_p(File.dirname(path))
+        old_camel = @source_name.camelize
+        new_camel = @destination_name.camelize
+        lines = []
+        lines << "# frozen_string_literal: true"
+        lines << ""
+        lines << "# Kept for one release after renaming #{@source_name} to #{@destination_name} (GEN-06)."
+        lines << "module Rafelo"
+        lines << "  #{old_camel} = #{new_camel} unless const_defined?(:#{old_camel}, false)"
+        lines << "end"
+        File.write(path, lines.join("\n") + "\n")
+      end
+
+      def update_ratchets(engine_root)
+        path = engine_root.join("config/ratchets.yml")
+        return unless File.file?(path)
+
+        data = YAML.safe_load(File.read(path), aliases: false) || {}
+        data["legacy_table_prefixes"] = data.fetch("legacy_table_prefixes", 0).to_i + 1
+        data["legacy_constants"] = data.fetch("legacy_constants", 0).to_i + 1
+        File.write(path, YAML.dump(data))
       end
 
       def rename_if_exists(from, to)
@@ -115,13 +155,14 @@ module Rafelo
       def update_root_spec_paths
         from = root.join("spec/requests", @source_name)
         to = root.join("spec/requests", @destination_name)
+        return unless Dir.exist?(from)
+
         FileUtils.mkdir_p(to.dirname)
         FileUtils.mv(from, to)
         Dir[to.join("**/*")].select { |p| File.file?(p) }.each do |path|
           body = File.read(path)
-          body = body.gsub("\"/#{@source_name}/", "\"/#{@destination_name}/") # keep URL stable? no, URLs stay stable by path but route helpers may differ; specs should still target old path
-          body = body.gsub("/en/#{@source_name}/", "/en/#{@source_name}/")
-          body = body.gsub("\"#{@source_name}/", "\"#{@destination_name}/")
+          # URLs stay stable on rename (module path is preserved), but page/component keys follow the engine name.
+          body = body.gsub(%("#{ @source_name }/"), %("#{ @destination_name }/))
           File.write(path, body)
         end
       end
