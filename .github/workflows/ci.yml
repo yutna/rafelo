@@ -404,7 +404,6 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      RAILS_ENV: test
       DB_HOST: localhost
       DB_USER: postgres
       DB_PASSWORD: postgres
