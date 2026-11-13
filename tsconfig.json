@@ -8,6 +8,9 @@
       "path": "engines/design_system"
     },
     {
+      "path": "engines/example_customers"
+    },
+    {
       "path": "app/frontend"
     },
     {
