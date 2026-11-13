@@ -1,4 +1,9 @@
 # Omakase Ruby styling for Rails
+
+AllCops:
+  Exclude:
+    - spec/enforcement/fixtures/**/*
+    - script/ci/fixtures/**/*
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
 # Overwrite or add rules to create your own house style
@@ -6,3 +11,18 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
+
+require:
+  - ./script/ci/cops/rafelo/faraday_only_in_upstream_client
+  - ./script/ci/cops/rafelo/no_tls_verify_disable
+  - ./script/ci/cops/rafelo/config_x_only_in_core
+  - ./script/ci/cops/rafelo/cache_only_through_scoped_cache
+
+Rafelo/FaradayOnlyInUpstreamClient:
+  Enabled: true
+Rafelo/NoTlsVerifyDisable:
+  Enabled: true
+Rafelo/ConfigXOnlyInCore:
+  Enabled: true
+Rafelo/CacheOnlyThroughScopedCache:
+  Enabled: true
