@@ -78,6 +78,8 @@ module Rafelo
         (effective_actions & %w[new create edit update]).any?
       end
 
+      def permission_update = "#{mod}:#{resource_plural}:update"
+
       def root = destination_root_path
       def destination_root_path = Pathname.new(destination_root || Dir.pwd)
       def engine_file(path) = "engines/#{mod}/#{path}"
@@ -161,6 +163,35 @@ module Rafelo
             end
           RUBY
         end
+        if effective_actions.include?("edit")
+          methods << <<~RUBY
+            def edit
+              authorize :#{resource_singular}, :edit?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              render_page "#{page_key_base}/edit", props: #{module_class}::#{resource_plural.camelize}EditProps.new(context: page_context, id: params[:id].to_s)
+            end
+          RUBY
+        end
+        if effective_actions.include?("update")
+          methods << <<~RUBY
+            def update
+              authorize :#{resource_singular}, :update?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token))
+              back = page_context.urls.route(:#{mod}, :edit_#{resource_singular}, id: params[:id])
+              if form.invalid?
+                return redirect_after_write(back, errors: form.error_messages)
+              end
+
+              Rafelo::Core::IdempotencyClaim.call(
+                self,
+                token: form.token,
+                payload: form.payload.merge(id: params[:id].to_s),
+                back: back
+              ) do
+                redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_singular}, id: params[:id]), notice: "Updated.")
+              end
+            end
+          RUBY
+        end
 
         create_managed engine_file("app/controllers/#{app_ns_underscore}/#{mod}/#{resource_plural}_controller.rb"), <<~RUBY
           # frozen_string_literal: true
@@ -177,6 +208,7 @@ module Rafelo
 
       def write_policy
         create_perms = effective_actions.include?("create")
+        update_perms = effective_actions.include?("update")
         create_managed engine_file("app/policies/#{app_ns_underscore}/#{mod}/#{resource_singular}_policy.rb"), <<~RUBY
           # frozen_string_literal: true
 
@@ -193,8 +225,12 @@ module Rafelo
               end
 
               def create? = new?
-              def edit? = index?
-              def update? = index?
+
+              def edit?
+                #{update_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_plural.upcase}_UPDATE)" : "index?"}
+              end
+
+              def update? = edit?
             end
           end
         RUBY
@@ -308,10 +344,39 @@ module Rafelo
             end
           RUBY
         end
+
+        if effective_actions.include?("edit")
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_edit_props.rb"), <<~RUBY
+            # frozen_string_literal: true
+
+            module #{module_class}
+              class #{resource_plural.camelize}EditProps < Rafelo::Core::PageProps
+                def initialize(context:, id:)
+                  super(context: context)
+                  @id = id
+                end
+
+                def envelope
+                  {
+                    data: {
+                      #{resource_singular}: { id: @id, name: @id },
+                      updatePath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
+                      showPath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
+                    },
+                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                    query: {},
+                    pagination: nil,
+                    can: {}
+                  }
+                end
+              end
+            end
+          RUBY
+        end
       end
 
       def write_form
-        return unless effective_actions.include?("create")
+        return unless (effective_actions & %w[create update]).any?
 
         create_managed engine_file("app/forms/#{app_ns_underscore}/#{mod}/#{resource_singular}_form.rb"), <<~RUBY
           # frozen_string_literal: true
@@ -573,6 +638,98 @@ module Rafelo
             }
           TSX
         end
+
+        if effective_actions.include?("edit")
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
+
+            export const pageSchema = definePage({
+              data: z.object({
+                #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
+                updatePath: z.string(),
+                showPath: z.string(),
+              }),
+              meta: z.object({ formToken: z.string() }),
+              query: z.object({}),
+              can: [] as const,
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./edit.schema";
+            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
+
+            export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="Edit #{resource_singular.humanize}" />
+                  <#{resource_plural.camelize}EditScreen {...page.data} meta={page.meta} errors={page.errors} />
+                </>
+              );
+            }
+
+            #{resource_singular.camelize}Edit.layoutName = "app" satisfies LayoutName;
+          TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
+
+            export function #{resource_plural.camelize}EditContainer(props: Parameters<typeof #{resource_plural.camelize}EditScreen>[0]) {
+              return <#{resource_plural.camelize}EditScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
+            import { useForm } from "@inertiajs/react";
+            import { Link } from "@design_system/public";
+
+            export function #{resource_plural.camelize}EditScreen({
+              #{resource_singular},
+              updatePath,
+              showPath,
+              meta,
+              errors,
+            }: {
+              #{resource_singular}: { id: string; name: string };
+              updatePath: string;
+              showPath: string;
+              meta: { formToken: string };
+              errors: Record<string, string>;
+            }) {
+              const form = useForm({ name: #{resource_singular}.name ?? "", token: meta.formToken });
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16">
+                  <h1 className="text-display font-semibold">Edit #{resource_singular.humanize}</h1>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      form.transform((data) => ({ ...data, token: meta.formToken }));
+                      form.patch(updatePath);
+                    }}
+                    className="mt-6 space-y-4"
+                  >
+                    <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
+                    <input
+                      id="#{resource_singular}-name"
+                      data-testid="#{mod}.#{resource_plural}.edit.name"
+                      className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
+                      value={form.data.name}
+                      onChange={(event) => form.setData("name", event.target.value)}
+                      name="name"
+                    />
+                    {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
+                    <div className="flex gap-3">
+                      <button data-testid="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</button>
+                      <Link href={showPath}>Back</Link>
+                    </div>
+                  </form>
+                </section>
+              );
+            }
+          TSX
+        end
       end
 
       def write_contracts
@@ -587,6 +744,7 @@ module Rafelo
           content = read_file(path).rstrip
           block = [ "    #{resource_plural}:", "      title: \"#{resource_plural.humanize}\"" ]
           block << "      new: \"New #{resource_singular.humanize}\"" if effective_actions.include?("new")
+          block << "      edit: \"Edit #{resource_singular.humanize}\"" if effective_actions.include?("edit")
           unless content.include?("\n    #{resource_plural}:\n")
             write_managed(path, content + "\n" + block.join("\n") + "\n")
           end
@@ -600,6 +758,7 @@ module Rafelo
         prefix = data[mod] || {}
         actions = [ "read" ]
         actions << "create" if effective_actions.include?("create")
+        actions << "update" if effective_actions.include?("update")
         prefix[resource_plural] = actions.uniq
         data[mod] = prefix
         write_managed(path, YAML.dump(data))
@@ -614,6 +773,7 @@ module Rafelo
       def write_tests
         grants = [ permission_read ]
         grants << permission_create if effective_actions.include?("create")
+        grants << permission_update if effective_actions.include?("update")
         grants_literal = grants.map { |g| "\"#{g}\"" }.join(", ")
         index_spec = <<~RUBY
           require "rails_helper"
@@ -667,6 +827,20 @@ module Rafelo
             end
           RUBY
         end
+        if effective_actions.include?("edit")
+          index_spec << <<~RUBY
+
+            it "renders the edit page contract" do
+              headers = sign_in_with([#{grants_literal}])
+              expect { get "/en/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
+              expect(response).to have_http_status(:ok)
+              expect(response).to match_page_schema("#{page_key_base}/edit")
+              expect(response).to be_within_props_budget("#{page_key_base}/edit")
+              expect(response).to have_resolvable_hrefs("#{page_key_base}/edit")
+              expect(response).to match_policy_capabilities("#{page_key_base}/edit")
+            end
+          RUBY
+        end
         if effective_actions.include?("create")
           index_spec << <<~RUBY
 
@@ -675,6 +849,17 @@ module Rafelo
               post "/en/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
               expect(response).to have_http_status(:see_other)
               expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+            end
+          RUBY
+        end
+        if effective_actions.include?("update")
+          index_spec << <<~RUBY
+
+            it "redirects back with errors when update params are invalid" do
+              headers = sign_in_with([#{grants_literal}])
+              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token" }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
             end
           RUBY
         end

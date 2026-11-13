@@ -82,4 +82,29 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(request_spec).to include('match_page_schema("billing/widgets/show")')
     end
   end
+
+  it "generates an edit/update slice with props, frontend files, and request specs" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      described_class.start([ "billing", "widgets", "--actions=edit", "--skip-post-write" ], destination_root: dir)
+
+      controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
+      expect(controller).to include("def edit")
+      expect(controller).to include("def update")
+      expect(root.join("engines/billing/app/props/rafelo/billing/widgets_edit_props.rb")).to exist
+      expect(root.join("engines/billing/app/frontend/pages/widgets/edit.tsx")).to exist
+      expect(root.join("engines/billing/app/frontend/pages/widgets/edit.schema.ts")).to exist
+      expect(root.join("engines/billing/app/frontend/screens/widgets/edit_screen.tsx")).to exist
+      request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
+      expect(request_spec).to include('renders the edit page contract')
+      expect(request_spec).to include('match_page_schema("billing/widgets/edit")')
+      expect(request_spec).to include('redirects back with errors when update params are invalid')
+    end
+  end
 end
