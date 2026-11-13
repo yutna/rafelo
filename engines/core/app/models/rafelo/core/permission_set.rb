@@ -7,7 +7,10 @@ module Rafelo
       GRANT = /\A(?:\*|[a-z][a-z0-9_]*:(?:\*|[a-z][a-z0-9_]*:(?:\*|[a-z][a-z0-9_]*)))\z/
 
       def initialize(grants)
-        @grants = grants.map(&:to_s).select { |grant| grant.match?(GRANT) }.freeze
+        all = grants.map(&:to_s)
+        @grants = all.select { |grant| grant.match?(GRANT) }.freeze
+        dropped = all.length - @grants.length
+        Metrics.grants_dropped(dropped) if dropped.positive?
       end
 
       def allows?(key)

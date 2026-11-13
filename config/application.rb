@@ -8,8 +8,40 @@ Bundler.require(*Rails.groups)
 
 module Rafelo
   class Application < Rails::Application
+    def self.dummy_boot_task?
+      return false unless defined?(Rake::Task)
+
+      Rake.application.top_level_tasks.any? do |task|
+        %w[assets:precompile ci:production_routes].include?(task)
+      end
+    end
+
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
+
+    if Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].blank?
+      if ENV["RAILS_MASTER_KEY"].blank? && ENV["SECRET_KEY_BASE"].blank?
+        raise ActiveSupport::EncryptedFile::MissingKeyError.new(
+          key_path: Rails.root.join("config/credentials/production.key"), env_key: "RAILS_MASTER_KEY"
+        )
+      end
+    end
+
+    # A real production boot needs the encrypted production credentials. The
+    # two dummy-boot tasks read the committed dummy credentials instead
+    # (SEC-12, OPS-06).
+    config.require_master_key = Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].blank?
+
+    # A dummy boot (assets:precompile in the image build, ci:production_routes)
+    # reads the committed dummy credentials; every other process reads
+    # config/credentials/production.yml.enc (OPS-06, SEC-12).
+    if ENV["SECRET_KEY_BASE_DUMMY"]
+      config.credentials.content_path = root.join("config/credentials/dummy.yml.enc")
+      config.credentials.key_path = root.join("config/credentials/dummy.key")
+      unless dummy_boot_task?
+        raise "SECRET_KEY_BASE_DUMMY is only for assets:precompile and ci:production_routes"
+      end
+    end
 
     # Do not put job arguments in the log; jobs carry ids in their own fields
     # and log lines use the allow-list (OPS-01).

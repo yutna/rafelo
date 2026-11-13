@@ -37,6 +37,8 @@ CI.run do
   step "Policy: workflows", "script/ci/workflow_policy"
   step "Policy: deploy preflight", "script/ci/deploy_preflight"
   step "Policy: deploy preflight canary", "script/ci/deploy_preflight_canary"
+  step "Policy: production routes", "script/ci/production_routes"
+  step "Policy: production routes canary", "script/ci/production_routes_canary"
   step "Policy: gem patches", "script/ci/patches"
   step "Policy: gem patches canary", "script/ci/patches_canary"
 

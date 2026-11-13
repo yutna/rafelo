@@ -14,7 +14,7 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
-CANARY_SCRIPTS = %w[affected_canary clones_canary fan_in_canary graph_canaries growth_canary].freeze
+CANARY_SCRIPTS = %w[affected_canary clones_canary fan_in_canary graph_canaries growth_canary production_routes_canary].freeze
 
 config_ci = File.read(File.join(root, "config", "ci.rb"))
 CANARY_SCRIPTS.each do |script|

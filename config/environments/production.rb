@@ -27,6 +27,9 @@ Rails.application.configure do
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true
 
+  # A real production boot needs the encrypted production credentials. The
+  # two dummy-boot tasks read the committed dummy credentials instead (SEC-12).
+  config.require_master_key = ENV["SECRET_KEY_BASE_DUMMY"].blank?
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = true
 
