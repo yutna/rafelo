@@ -24,9 +24,17 @@ export default defineConfig({
         test: {
           name: "engines",
           environment: "jsdom",
-          include: ["engines/*/app/frontend/**/*.test.ts", "engines/*/app/frontend/**/*.test.tsx"],
+          include: ["engines/*/app/frontend/**/*.test.tsx", "engines/*/app/frontend/**/hooks/**/*.test.ts"],
           exclude: ["engines/*/spec/**"],
           setupFiles: ["./vitest.setup.ts"],
+        },
+      },
+      {
+        test: {
+          name: "engines:node",
+          environment: "node",
+          include: ["engines/*/app/frontend/**/*.test.ts"],
+          exclude: ["engines/*/app/frontend/**/hooks/**", "engines/*/spec/**"],
         },
       },
       {
