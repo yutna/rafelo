@@ -261,7 +261,8 @@ module Rafelo
           "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"
-        when 413, 422
+        when 413 then "unexpected"
+        when 422
           raise ValidationFailed.new(validation_field_codes(response))
         when 429 then "upstream.unavailable"
         else "unexpected"

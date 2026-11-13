@@ -12,10 +12,16 @@ if "$root/script/ci/patches" "$tmp" >/dev/null 2>&1; then
   exit 1
 fi
 
-mkdir -p "$tmp/engines/example/app/models"
+mkdir -p "$tmp/engines/example/app/models" "$tmp/config/initializers"
 echo 'String.class_eval { }' > "$tmp/engines/example/app/models/patch.rb"
 if "$root/script/ci/patches" "$tmp" >/dev/null 2>&1; then
   echo "patches_canary: an engine patch outside the folder passed" >&2
+  exit 1
+fi
+rm -f "$tmp/engines/example/app/models/patch.rb"
+echo 'String.class_eval { }' > "$tmp/config/initializers/evil.rb"
+if "$root/script/ci/patches" "$tmp" >/dev/null 2>&1; then
+  echo "patches_canary: a config-initializer patch outside the folder passed" >&2
   exit 1
 fi
 

@@ -21,6 +21,8 @@ module Rafelo
           ).body
         )
         result(payload)
+      rescue JSON::ParserError
+        raise ApplicationError.new("unexpected", "Upstream returned malformed JSON")
       end
 
       def sign_in(email:, password:)

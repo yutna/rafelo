@@ -85,4 +85,33 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
     first&.kill
     second&.kill
   end
+  it "loses the unique insert without performing a second write" do
+    viewer = Struct.new(:id, :name).new(7, "Ada")
+    session, = Rafelo::Core::Session.start(
+      viewer: viewer, access_token: "a", refresh_token: "r", access_expires_at: 5.minutes.from_now
+    )
+    token = Rafelo::Core::FormToken.issue(session_id: session.id)
+    controller = double("controller", response: double(location: "/en/done"))
+    allow(controller).to receive(:redirect_after_write)
+    allow(controller).to receive(:redirect_to)
+    start = Concurrent::CyclicBarrier.new(2)
+    results = Queue.new
+    threads = 2.times.map do
+      Thread.new do
+        Rafelo::Core::Current.set(session: session) do
+          start.wait
+          results << Rafelo::Core::IdempotencyClaim.call(
+            controller, token: token, payload: { name: "ada" }, back: "/en/form"
+          ) { :ok }
+        end
+      end
+    end
+    threads.each(&:value)
+    outcomes = 2.times.map { results.pop }
+
+    expect(outcomes.count(:performed)).to eq(1)
+    expect(Rafelo::Core::IdempotencyKey.count).to eq(1)
+  ensure
+    threads&.each(&:kill)
+  end
 end

@@ -117,7 +117,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       403 => "auth.forbidden",
       404 => "resource.not_found",
       409 => "resource.conflict",
-      413 => "validation.failed",
+      413 => "unexpected",
       422 => "validation.failed",
       429 => "upstream.unavailable",
       500 => "upstream.unavailable",
@@ -125,7 +125,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       304 => nil,
       410 => "resource.not_found",
       412 => "resource.conflict",
-      413 => "validation.failed",
+      413 => "unexpected",
       302 => "unexpected"
     }.each do |status, code|
       stub_request(:get, "http://upstream.test/status").to_return(status: status, body: "{}")
@@ -202,5 +202,10 @@ RSpec.describe Rafelo::Core::UpstreamClient do
 
     expect(plain).to have_been_requested.once
     expect(keyed).to have_been_requested.once
+  end
+  it "maps an upstream 413 to the error page rather than a form validation" do
+    stub_request(:post, "http://upstream.test/invoices").to_return(status: 413, body: "{}")
+
+    expect { client.post("invoices", body: "{}") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("unexpected") }
   end
 end

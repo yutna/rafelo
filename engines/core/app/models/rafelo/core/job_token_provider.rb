@@ -9,7 +9,7 @@ module Rafelo
       end
 
       def token
-        session = Session.find_by(id: @session_id)
+        session = Session.readable_format.find_by(id: @session_id)
         raise ViewerJob::Stopped.new(:revoked) unless session
         raise ViewerJob::Stopped.new(:expired) unless session.expires_at.future?
 

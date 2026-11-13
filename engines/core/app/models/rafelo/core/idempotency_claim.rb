@@ -104,7 +104,7 @@ module Rafelo
         row
       rescue ActiveRecord::RecordNotUnique
         @created = false
-        IdempotencyKey.find_by!(token_digest: token_digest)
+        IdempotencyKey.readable_format.find_by!(token_digest: token_digest)
       end
 
       def row_belongs_to_claim?(row)

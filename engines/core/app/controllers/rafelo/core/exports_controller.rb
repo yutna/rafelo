@@ -3,6 +3,8 @@
 module Rafelo
   module Core
     class ExportsController < DownloadController
+      throttle to: 30, within: 1.minute, only: :show, name: "export/ip"
+
       def show
         authorize :export, :show?, policy_class: Rafelo::Core::ExportPolicy
         export = Export.find_by(id: params[:id])
