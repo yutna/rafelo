@@ -8,7 +8,8 @@ RSpec.describe "Production configuration" do
     "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY" => "rafelo-test-primary-key-0000001",
     "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" => "rafelo-test-deterministic-0001",
     "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT" => "rafelo-test-salt-000000000001",
-    "RAFELO_API_BASE_URL" => "http://localhost:4000"
+    "RAFELO_API_BASE_URL" => "http://localhost:4000",
+    "DB_PASSWORD" => "production-spec-password"
   }.freeze
 
   SCRIPT = <<~'RUBY'

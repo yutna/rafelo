@@ -6,66 +6,269 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 git init -q "$tmp"
-mkdir -p "$tmp/config" "$tmp/.kamal" "$tmp/.github/workflows"
-echo "RAILS_MASTER_KEY=dummy" > "$tmp/.kamal/secrets.example"
-cat > "$tmp/.github/workflows/audits.yml" <<'YAML'
+mkdir -p "$tmp/config" "$tmp/.kamal/hooks" "$tmp/.github/workflows" "$tmp/.devcontainer"
+
+digest="$(printf 'a%.0s' {1..64})"
+
+write_env() {
+  cat > "$tmp/.env.ci.production" <<'ENV'
+RAFELO_API_BASE_URL=http://127.0.0.1:9
+RAILS_HOSTS=example.com
+ENV
+}
+
+write_secrets() {
+  cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=$(cat config/master.key)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+}
+
+write_hook() {
+  cat > "$tmp/.kamal/hooks/pre-deploy" <<'HOOK'
+#!/usr/bin/env sh
+script/ci/deploy_preflight
+HOOK
+  chmod +x "$tmp/.kamal/hooks/pre-deploy"
+}
+
+write_audits() {
+  cat > "$tmp/.github/workflows/audits.yml" <<'YAML'
 on:
   schedule:
     - cron: "0 6 * * *"
 YAML
-write_deploy() {
-  cat > "$tmp/config/deploy.yml"
 }
-base() {
-  cat <<'YAML'
+
+write_dockerfile() {
+  cat > "$tmp/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.9-slim AS base
+USER 1000:1000
+DOCKER
+}
+
+write_compose() {
+  cat > "$tmp/.devcontainer/compose.yaml" <<YAML
+services:
+  postgres:
+    image: postgres:18.6@sha256:$digest
+YAML
+}
+
+write_single() {
+  cat > "$tmp/config/deploy.yml" <<YAML
 service: rafelo
 deploy_timeout: 120
-env:
-  secret:
-    - RAILS_MASTER_KEY
+boot:
+  limit: 1
+image: rafelo
 servers:
   web:
     - 192.168.0.1
 proxy:
   buffering:
-    max_request_body: 1_048_576
+    max_request_body: 1048576
+env:
+  secret:
+    - RAILS_MASTER_KEY
+  clear:
+    RAFELO_API_BASE_URL: https://api.example.com
+    RAILS_HOSTS: app.example.com
+    ACTIVE_STORAGE_SERVICE: local
+    SOLID_QUEUE_IN_PUMA: true
+    DB_HOST: rafelo-db
+    DB_NAME: rafelo_production
+    DB_USER: rafelo
+    DB_MIGRATION_USER: rafelo_migrator
+asset_path: /rails/public/vite
+volumes:
+  - rafelo_storage:/rails/storage
+builder:
+  arch: amd64
+accessories:
+  db:
+    image: postgres:18.6@sha256:$digest
+    env:
+      secret:
+        - POSTGRES_PASSWORD
 YAML
 }
 
-base | write_deploy
-"$root/script/ci/deploy_preflight" "$tmp" >/dev/null
+write_multi() {
+  cat > "$tmp/config/deploy.multi.yml" <<YAML
+service: rafelo
+deploy_timeout: 120
+boot:
+  limit: 1
+image: rafelo
+servers:
+  web:
+    hosts:
+      - 192.168.0.1
+      - 192.168.0.2
+  job:
+    hosts:
+      - 192.168.0.1
+    cmd: bin/jobs
+proxy:
+  buffering:
+    max_request_body: 1048576
+env:
+  secret:
+    - RAILS_MASTER_KEY
+  clear:
+    RAFELO_API_BASE_URL: https://api.example.com
+    RAILS_HOSTS: app.example.com
+    ACTIVE_STORAGE_SERVICE: amazon
+    DB_HOST: db.example.com
+    DB_NAME: rafelo_production
+    DB_USER: rafelo
+    DB_MIGRATION_USER: rafelo_migrator
+    AWS_REGION: us-east-1
+    AWS_BUCKET: rafelo-production
+asset_path: /rails/public/vite
+builder:
+  arch: amd64
+YAML
+}
 
-if base | sed '/deploy_timeout/d' | write_deploy; then
-  if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
-    echo "deploy_preflight_canary: missing deploy_timeout passed" >&2
+reset() {
+  rm -rf "$tmp"
+  mkdir -p "$tmp/config" "$tmp/.kamal/hooks" "$tmp/.github/workflows" "$tmp/.devcontainer"
+  git init -q "$tmp"
+  write_env
+  write_secrets
+  write_hook
+  write_audits
+  write_dockerfile
+  write_compose
+  write_single
+  write_multi
+  git -C "$tmp" add -A
+}
+
+edit_yaml() {
+  local file="$1"
+  local code="$2"
+  ruby -ryaml -e 'file, code = ARGV; config = YAML.load_file(file); eval(code); File.write(file, YAML.dump(config))' "$file" "$code"
+}
+
+expect_pass() {
+  local name="$1"
+  if ! "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name failed" >&2
+    "$root/script/ci/deploy_preflight" "$tmp" >&2 || true
     exit 1
   fi
-fi
+}
 
-cat > "$tmp/config/deploy.yml" <<'YAML'
-service: rafelo
-deploy_timeout: 120
-env:
-  secret:
-    - RAILS_MASTER_KEY
-servers:
-  web:
-    - 192.168.0.1
-    - 192.168.0.2
-proxy:
-  buffering:
-    max_request_body: 1_048_576
-YAML
-if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
-  echo "deploy_preflight_canary: multi-host without boot.limit passed" >&2
-  exit 1
-fi
+expect_fail() {
+  local name="$1"
+  if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name passed" >&2
+    exit 1
+  fi
+}
 
-echo "GITHUB_TOKEN=x" > "$tmp/.kamal/secrets"
-if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
-  echo "deploy_preflight_canary: a secrets file without RAILS_MASTER_KEY passed" >&2
-  exit 1
-fi
-rm -f "$tmp/.kamal/secrets"
+reset
+expect_pass "valid profiles"
 
-echo "deploy_preflight_canary: checked 4 cases"
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
+expect_fail "missing deploy_timeout"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["boot"]["limit"] = 2'
+expect_fail "multi-host without boot.limit: 1"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail "secrets without RAILS_MASTER_KEY"
+
+reset
+echo "SECRET=1" > "$tmp/.env.local"
+git -C "$tmp" add -f .env.local
+expect_fail "tracked .env.local"
+
+reset
+mkdir -p "$tmp/config/credentials"
+echo "dummy" > "$tmp/config/credentials/production.key"
+git -C "$tmp" add -f config/credentials/production.key
+expect_fail "tracked production key"
+
+reset
+echo "EXTRA_KEY=1" >> "$tmp/.env.ci.production"
+expect_fail ".env.ci.production key missing from env.clear"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["env"]["secret"] << "OTHER_SECRET"'
+expect_fail "second app env.secret"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["env"]["clear"]["SECRET_KEY_BASE"] = "x"'
+expect_fail "config/deploy.yml names SECRET_KEY_BASE"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["env"]["clear"]["SECRET_KEY_BASE_DUMMY"] = "x"'
+expect_fail "config/deploy.yml names SECRET_KEY_BASE_DUMMY"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["asset_path"] = "/rails/public/assets"'
+expect_fail "generated asset_path"
+
+reset
+cat > "$tmp/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.9-slim AS base
+DOCKER
+expect_fail "final stage without USER"
+
+reset
+cat > "$tmp/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.9-slim AS base
+USER 1000:1000
+USER root
+DOCKER
+expect_fail "USER root after a non-root user"
+
+reset
+cat > "$tmp/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.9-slim AS base
+USER 00
+DOCKER
+expect_fail "USER 00"
+
+reset
+cat > "$tmp/Dockerfile" <<'DOCKER'
+FROM ruby:4.0.9-slim AS base
+ARG UID=0
+USER $UID
+DOCKER
+expect_fail "ARG UID=0"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["env"]["clear"]["SOLID_QUEUE_IN_PUMA"] = true'
+expect_fail "multi-host with SOLID_QUEUE_IN_PUMA"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["env"]["clear"]["ACTIVE_STORAGE_SERVICE"] = "local"'
+expect_fail "multi-host with Disk Active Storage"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["servers"].delete("job")'
+expect_fail "multi-host without a job role"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["accessories"]["db"]["image"] = "postgres:18.6"'
+expect_fail "unpinned PostgreSQL accessory"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["image"] = "other"'
+expect_fail "profiles with different images"
+
+reset
+rm -f "$tmp/.kamal/hooks/pre-deploy"
+expect_fail "missing pre-deploy hook"
+
+echo "deploy_preflight_canary: checked 22 cases"

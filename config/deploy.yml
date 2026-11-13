@@ -1,4 +1,9 @@
-# Name of your application. Used to uniquely configure containers.
+# Single-host deployment profile (the default). The multi-host profile is
+# config/deploy.multi.yml: bin/kamal -c config/deploy.multi.yml deploy.
+#
+# Both profiles use this image and code. Data lives in PostgreSQL and files in
+# the Active Storage service (ARCH-13); the only host-local state here is the
+# PostgreSQL accessory volume and the Disk Active Storage volume.
 service: rafelo
 
 # The first host runs db:prepare before /up; size this for boot migrations.
@@ -11,63 +16,49 @@ boot:
 # Name of the container image (use your-user/app-name on external registries).
 image: rafelo
 
-# Deploy to these servers.
+# Deploy to these servers. Add a job role here only after moving Solid Queue
+# out of Puma; the multi-host profile shows that shape.
 servers:
   web:
     - 192.168.0.1
-  # job:
-  #   hosts:
-  #     - 192.168.0.1
-  #   cmd: bin/jobs
 
-# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# If used with Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
-#
-# Using an SSL proxy like this requires turning on config.assume_ssl and config.force_ssl in production.rb!
-#
-# Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
-#
+# Thruster terminates nothing; kamal-proxy terminates TLS. Set ssl and host
+# when the host is public.
 proxy:
   # Cap request bodies at the edge; the core report endpoints have a smaller
   # Rack cap, and uploads will use their own path (SEC-13).
   buffering:
     max_request_body: 1_048_576
-  # ssl: true
-  # host: app.example.com
 
 # Where you keep your container images.
 registry:
-  # Alternatives: hub.docker.com / registry.digitalocean.com / ghcr.io / ...
   server: localhost:5555
-
-  # Needed for authenticated registries.
-  # username: your-user
-
-  # Always use an access token rather than real password when possible.
-  # password:
-  #   - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
   secret:
     - RAILS_MASTER_KEY
   clear:
-    # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
-    # When you start using multiple servers, you should split out job processing to a dedicated machine.
+    # Run the Solid Queue supervisor inside the web Puma process. The
+    # multi-host profile removes this variable and runs a job role instead,
+    # because any value (including "false") turns the plugin on.
     SOLID_QUEUE_IN_PUMA: true
 
-    # Set number of processes dedicated to Solid Queue (default: 1)
-    # JOB_CONCURRENCY: 3
+    # local is the Disk service on the rafelo_storage volume below; choose
+    # amazon (and set AWS_REGION/AWS_BUCKET) for an S3-compatible service.
+    ACTIVE_STORAGE_SERVICE: local
 
-    # Set number of cores available to the application on each server (default: 1).
-    # WEB_CONCURRENCY: 2
+    DB_HOST: rafelo-db
+    DB_NAME: rafelo_production
+    DB_USER: rafelo
+    DB_MIGRATION_USER: rafelo_migrator
 
-    # Match this to any external database server to configure Active Record correctly
-    # Use rafelo-db for a db accessory server on same machine via local kamal docker network.
-    # DB_HOST: 192.168.0.2
+    RAFELO_API_BASE_URL: https://api.example.com
+    RAILS_HOSTS: app.example.com
 
-    # Log everything from Rails
-    # RAILS_LOG_LEVEL: debug
+    RAILS_MAX_THREADS: 5
+    WEB_CONCURRENCY: 2
+    JOB_CONCURRENCY: 1
 
 # Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
 # "bin/kamal logs -r job" will tail logs from the first server in the job section.
@@ -77,8 +68,8 @@ aliases:
   logs: app logs -f
   dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
 
-# Use a persistent storage volume for sqlite database files and local Active Storage files.
-# Recommended to change this to a mounted volume path that is backed up off server.
+# Disk Active Storage for the single-host profile. It is a persistent volume,
+# not request or job scratch space.
 volumes:
   - "rafelo_storage:/rails/storage"
 
@@ -91,40 +82,19 @@ asset_path: /rails/public/vite
 builder:
   arch: amd64
 
-  # # Build image via remote server (useful for faster amd64 builds on arm64 computers)
-  # remote: ssh://docker@docker-builder-server
-  #
-  # # Pass arguments and secrets to the Docker build process
-  # args:
-  #   RUBY_VERSION: ruby-4.0.9
-  # secrets:
-  #   - GITHUB_TOKEN
-  #   - RAILS_MASTER_KEY
-
-# Use a different ssh user than root
-# ssh:
-#   user: app
-
-# Use accessory services (secrets come from .kamal/secrets).
-# accessories:
-#   db:
-#     image: mysql:8.0
-#     host: 192.168.0.2
-#     # Change to 3306 to expose port to the world instead of just local network.
-#     port: "127.0.0.1:3306:3306"
-#     env:
-#       clear:
-#         MYSQL_ROOT_HOST: '%'
-#       secret:
-#         - MYSQL_ROOT_PASSWORD
-#     files:
-#       - config/mysql/production.cnf:/etc/mysql/my.cnf
-#       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
-#     directories:
-#       - data:/var/lib/mysql
-#   redis:
-#     image: valkey/valkey:8
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+# PostgreSQL accessory for the single-host profile. The image is pinned by
+# version and digest at the Dev Container's major version (OPS-09); a major
+# upgrade is planned work, never a tag bump.
+accessories:
+  db:
+    image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+    host: 192.168.0.1
+    port: "127.0.0.1:5432:5432"
+    env:
+      clear:
+        POSTGRES_DB: rafelo_production
+        POSTGRES_USER: rafelo
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - "rafelo-db-data:/var/lib/postgresql"

@@ -1,0 +1,73 @@
+# Multi-host deployment profile. Use it explicitly:
+#
+#   bin/kamal -c config/deploy.multi.yml deploy
+#
+# It runs the same image and code as config/deploy.yml. PostgreSQL and Active
+# Storage are managed services, so no data lives on a host (ARCH-13). Kamal
+# boots one host at a time because each web host runs db:prepare before /up
+# (BE-22, OPS-06).
+service: rafelo
+
+deploy_timeout: 120
+
+boot:
+  limit: 1
+
+image: rafelo
+
+servers:
+  web:
+    hosts:
+      - 192.168.0.1
+      - 192.168.0.2
+  # The job role runs Solid Queue without Puma. It never migrates.
+  job:
+    hosts:
+      - 192.168.0.1
+    cmd: bin/jobs
+
+# The load balancer terminates TLS in front of kamal-proxy; every host still
+# runs kamal-proxy and Thruster.
+proxy:
+  buffering:
+    max_request_body: 1_048_576
+
+registry:
+  server: localhost:5555
+
+env:
+  secret:
+    - RAILS_MASTER_KEY
+  clear:
+    # No SOLID_QUEUE_IN_PUMA here: the job role runs bin/jobs, and the web
+    # Puma process must not start a second Solid Queue supervisor.
+    ACTIVE_STORAGE_SERVICE: amazon
+
+    # Managed PostgreSQL, shared by every web and job host.
+    DB_HOST: db.example.com
+    DB_NAME: rafelo_production
+    DB_USER: rafelo
+    DB_MIGRATION_USER: rafelo_migrator
+
+    RAFELO_API_BASE_URL: https://api.example.com
+    RAILS_HOSTS: app.example.com
+
+    RAILS_MAX_THREADS: 5
+    WEB_CONCURRENCY: 2
+    JOB_CONCURRENCY: 1
+
+    # S3-compatible Active Storage service. The bucket and region are clear
+    # settings; the access keys are in the production credentials (BE-08).
+    AWS_REGION: us-east-1
+    AWS_BUCKET: rafelo-production
+
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "bash"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
+
+asset_path: /rails/public/vite
+
+builder:
+  arch: amd64
