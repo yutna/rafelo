@@ -14,3 +14,4 @@ export { Image } from "./image";
 export { Deferred } from "./deferred";
 export { Chart } from "./chart";
 export { DataTable } from "./data_table";
+export { ErrorBoundary } from "./error_boundary";

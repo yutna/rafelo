@@ -3,5 +3,35 @@
     "message": "Rafelo",
     "tagline": "Rails BFF template",
     "description": "Rails serves the page, Inertia carries the props, and React renders it."
+  },
+  "skip": "Skip to content",
+  "errors": {
+    "page_title": "Something went wrong.",
+    "go_home": "Go home",
+    "retry": "Try again"
+  },
+  "signin": {
+    "title": "Sign in",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in"
+  },
+  "catalog": {
+    "title": "Component catalog",
+    "controls": "Controls",
+    "data": "Data",
+    "open_dialog": "Open dialog",
+    "total": "Total",
+    "name": "Name",
+    "required": "Required",
+    "saved": "Saved",
+    "previous": "Previous",
+    "next": "Next",
+    "pagination": "Pagination",
+    "empty": "No rows",
+    "sample": "Sample chart",
+    "dialog": "Dialog",
+    "close": "Close",
+    "dialog_body": "Dialog body"
   }
 }

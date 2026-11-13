@@ -3,7 +3,7 @@
 @theme inline static {
   --color-primary: var(--color-indigo-600);
   --color-primary-hover: var(--color-indigo-700);
-  --color-danger: var(--color-rose-600);
+  --color-danger: var(--color-rose-700);
   --color-success: var(--color-emerald-600);
   --color-surface: var(--color-white);
   --color-muted: var(--color-slate-100);

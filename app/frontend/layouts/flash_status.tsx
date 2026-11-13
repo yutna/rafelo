@@ -1,15 +1,16 @@
 import { usePage } from "@inertiajs/react";
 
-export function FlashStatus() {
-  const page = usePage() as { flash?: { notice?: string; alert?: string } };
-  const notice = page.flash?.notice;
-  const alert = page.flash?.alert;
+import { flashSchema } from "@core/contracts/page_props.schema";
 
-  if (!notice && !alert) return null;
+export function FlashStatus() {
+  const page = usePage() as { flash?: unknown };
+  const parsed = flashSchema.safeParse(page.flash ?? {});
+  const flash = parsed.success ? parsed.data : {};
+  const alert = flash.alert;
 
   return (
-    <div role={alert ? "alert" : "status"} aria-live={alert ? "assertive" : "polite"} data-testid="flash-status" className="mx-auto max-w-3xl px-6 pt-4">
-      {alert ?? notice}
+    <div role={alert ? "alert" : "status"} aria-live={alert ? "assertive" : "polite"} data-testid="page.flash" className="mx-auto max-w-3xl px-6 pt-4">
+      {alert ?? flash.notice ?? ""}
     </div>
   );
 }

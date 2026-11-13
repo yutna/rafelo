@@ -5,6 +5,7 @@ export { DataTable } from "../data_table";
 export { DateField } from "../date_field";
 export { Deferred } from "../deferred";
 export { Dialog } from "../dialog";
+export { ErrorBoundary } from "../error_boundary";
 export { I18nProvider, useLocale } from "../i18n_provider";
 export { Icon } from "../icon";
 export { Image } from "../image";

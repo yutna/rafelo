@@ -1,9 +1,10 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ReactNode } from "react";
+import { Button as AriaButton } from "react-aria-components";
 
 import { tv } from "./internal/tailwind";
 
 const button = tv({
-  base: "inline-flex items-center justify-center rounded-card px-4 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2",
+  base: "inline-flex items-center justify-center rounded-card px-4 py-2 font-medium outline-offset-2 focus-visible:outline-2",
   variants: {
     variant: {
       primary: "bg-primary text-white hover:bg-primary-hover",
@@ -14,16 +15,20 @@ const button = tv({
   defaultVariants: { variant: "primary" },
 });
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+type ButtonProps = {
   testId: string;
   variant?: "primary" | "secondary" | "danger";
+  type?: "button" | "submit" | "reset";
+  className?: string;
+  onPress?: () => void;
+  isDisabled?: boolean;
   children: ReactNode;
 };
 
 export function Button({ testId, variant, className, children, ...props }: ButtonProps) {
   return (
-    <button data-testid={testId} className={button({ variant, className })} {...props}>
+    <AriaButton data-testid={testId} className={button({ variant, className })} {...props}>
       {children}
-    </button>
+    </AriaButton>
   );
 }

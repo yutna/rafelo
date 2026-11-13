@@ -1,9 +1,9 @@
-import { BarChart } from "echarts/charts";
+import { PieChart } from "echarts/charts";
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
-echarts.use([ BarChart, CanvasRenderer ]);
+echarts.use([ PieChart, CanvasRenderer ]);
 
 type ChartProps = {
   testId: string;
