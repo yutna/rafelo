@@ -11,14 +11,17 @@ module Rafelo
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
       rescue_from ApplicationError, with: :render_application_error
 
+      # The one ordered list (BE-24). Every throttle in a subclass is
+      # prepended and runs before all of these (BE-12).
       allow_browser versions: :modern, block: :render_unsupported_browser, unless: :browser_check_exempt?
-      before_action :load_session
-      before_action :require_module_enabled
       before_action :set_response_headers
       before_action :assign_request_context
-      before_action :share_trace
       around_action :with_locale
       before_action :underscore_param_keys
+      before_action :load_session
+      before_action :require_module_enabled
+      before_action :refresh_stale_grants
+      before_action :require_viewer
       after_action :verify_authorized
 
       def render_page(component, props:, status: nil)
@@ -95,6 +98,11 @@ module Rafelo
         Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
         Current.permissions = PermissionSet.new(session.permission_grants)
         Current.token_provider = ViewerTokenProvider.new(session)
+      end
+
+      def refresh_stale_grants
+        return unless Current.session
+
         refresh_session!
       end
 
@@ -235,6 +243,7 @@ module Rafelo
       def assign_request_context
         Current.request_id = request.request_id
         Current.trace_id = request.env["rafelo.trace_id"].presence || request.request_id
+        share_trace
       end
 
       def with_locale(&block)

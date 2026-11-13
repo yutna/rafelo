@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Dummy engine", type: :request do
   def page_body
-    get "/en/dummy/widgets"
+    get "/en/dummy/widgets", headers: auth_headers
     JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
   end
 
@@ -17,22 +17,22 @@ RSpec.describe "Dummy engine", type: :request do
   end
 
   it "raises when a page key is missing or a shared key is added" do
-    expect { get "/en/dummy/missing_key" }.to raise_error(ArgumentError, /page props must be exactly/)
-    expect { get "/en/dummy/extra_key" }.to raise_error(ArgumentError, /page props must be exactly/)
+    expect { get "/en/dummy/missing_key", headers: auth_headers }.to raise_error(ArgumentError, /page props must be exactly/)
+    expect { get "/en/dummy/extra_key", headers: auth_headers }.to raise_error(ArgumentError, /page props must be exactly/)
   end
 
   it "renders the shared error page for a denial" do
-    get "/th/dummy/denied", headers: { "X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call }
+    get "/th/dummy/denied", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call)
 
     expect(response).to have_http_status(:forbidden)
     expect(JSON.parse(response.body).dig("props", "data", "code")).to eq("auth.forbidden")
   end
 
   it "carries translated flash at the page level, never in props" do
-    get "/en/dummy/flash"
+    get "/en/dummy/flash", headers: auth_headers
     expect(response).to have_http_status(:see_other)
 
-    get "/en/dummy/widgets"
+    follow_redirect(auth_headers.fetch("Cookie"))
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     expect(page.dig("flash", "notice")).to eq("Dummy notice")
     expect(page["props"]).not_to have_key("flash")

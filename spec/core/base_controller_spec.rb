@@ -1,17 +1,58 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::BaseController do
-  it "pins the implemented callback chain" do
-    callbacks = ApplicationController._process_action_callbacks
-    symbols = ->(kind) do
-      callbacks.select { |callback| callback.kind == kind && callback.filter.is_a?(Symbol) }.map(&:filter)
-    end
+  def callback_identity(callback)
+    filter = callback.filter
+    return "#{callback.kind}:#{filter}" if filter.is_a?(Symbol)
 
-    expect(symbols.call(:before)).to eq(
-      [ :verify_authenticity_token, :load_session, :require_module_enabled, :set_response_headers, :assign_request_context, :share_trace, :underscore_param_keys ]
+    path = filter.source_location&.first.to_s
+    "#{callback.kind}:#{path.split('/lib/').last || File.basename(path)}"
+  end
+
+  def exempted_actions(controller, filter)
+    callback = controller._process_action_callbacks.find { |item| item.filter == filter }
+    return [] unless callback
+
+    Array(callback.instance_variable_get(:@unless)).flat_map do |condition|
+      next [] unless condition.instance_variable_get(:@conditional_key) == :only
+
+      condition.instance_variable_get(:@actions).to_a
+    end
+  end
+
+  it "pins the full resolved callback chain" do
+    callbacks = ApplicationController._process_action_callbacks.map { |callback| callback_identity(callback) }
+
+    expect(callbacks).to eq(
+      [
+        "before:verify_authenticity_token",
+        "after:verify_same_origin_request",
+        "around:action_text/engine.rb",
+        "before:inertia_rails/controller.rb",
+        "after:inertia_rails/controller.rb",
+        "before:action_controller/metal/allow_browser.rb",
+        "before:set_response_headers",
+        "before:assign_request_context",
+        "around:with_locale",
+        "before:underscore_param_keys",
+        "before:load_session",
+        "before:require_module_enabled",
+        "before:refresh_stale_grants",
+        "before:require_viewer",
+        "after:verify_authorized"
+      ]
     )
-    expect(symbols.call(:around)).to eq([ :with_locale ])
-    expect(symbols.call(:after)).to eq([ :verify_same_origin_request, :verify_authorized ])
+  end
+
+  it "lists every public endpoint that skips a core callback" do
+    expect(exempted_actions(SessionsController, :load_session)).to contain_exactly("new", "create")
+    expect(exempted_actions(SessionsController, :refresh_stale_grants)).to contain_exactly("new", "create")
+    expect(exempted_actions(SessionsController, :require_viewer)).to contain_exactly("new", "create")
+    expect(exempted_actions(Core::ClientErrorsController, :load_session)).to contain_exactly("create")
+    expect(exempted_actions(Core::ClientErrorsController, :refresh_stale_grants)).to contain_exactly("create")
+    expect(exempted_actions(Core::ClientErrorsController, :require_viewer)).to contain_exactly("create")
+    expect(ComponentCatalogController._process_action_callbacks.map(&:filter)).not_to include(:verify_authorized)
+    expect(Core::ClientErrorsController._process_action_callbacks.map(&:filter)).not_to include(:verify_authorized)
   end
 
   it "builds the page context with a Urls object for the request locale" do

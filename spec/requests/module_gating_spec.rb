@@ -31,7 +31,7 @@ RSpec.describe "Module gating", type: :request do
   it "serves the route when the module flag is on" do
     allow(Rafelo::Core::Flags).to receive(:enabled?).with(:dummy_flag).and_return(true)
 
-    get "/en/dummy/widgets"
+    get "/en/dummy/widgets", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
   end

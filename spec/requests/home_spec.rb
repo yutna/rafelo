@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Home page", type: :request do
   it "carries the full envelope and the response trace ids" do
-    get "/en"
+    get "/en", headers: auth_headers
 
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     expect(page["props"].keys).to contain_exactly(
@@ -12,20 +12,20 @@ RSpec.describe "Home page", type: :request do
   end
 
   it "uses the incoming request id as the trace id" do
-    get "/en", headers: { "X-Request-Id" => "trace-home" }
+    get "/en", headers: auth_headers.merge("X-Request-Id" => "trace-home")
 
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     expect(page.dig("props", "trace", "traceId")).to eq("trace-home")
   end
 
   it "rejects a stale Inertia asset version with 409" do
-    get "/en", headers: { "X-Inertia" => "true", "X-Inertia-Version" => "stale" }
+    get "/en", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => "stale")
 
     expect(response).to have_http_status(:conflict)
   end
 
   it "keeps the shared props inside their budget" do
-    get "/th"
+    get "/th", headers: auth_headers
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     budget = YAML.load_file(Rails.root.join("config/budgets.yml")).dig("defaults", "shared_props_bytes")
 
@@ -33,12 +33,12 @@ RSpec.describe "Home page", type: :request do
   end
 
   it "keeps trace on a partial reload that omits it" do
-    get "/en", headers: {
+    get "/en", headers: auth_headers.merge(
       "X-Inertia" => "true",
       "X-Inertia-Version" => Rafelo::Core::AssetVersion.call,
       "X-Inertia-Partial-Component" => "home/index",
       "X-Inertia-Partial-Data" => "data"
-    }
+    )
 
     page = JSON.parse(response.body)
     expect(page.dig("props", "data", "message")).to eq("Rafelo")
@@ -46,7 +46,7 @@ RSpec.describe "Home page", type: :request do
   end
 
   it "renders the Inertia root with the home component" do
-    get "/en"
+    get "/en", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('id="app"')
@@ -55,7 +55,7 @@ RSpec.describe "Home page", type: :request do
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
   it "proves the page contract, budgets, URLs and capabilities" do
-    expect { get "/en" }.to within_budgets("home/index")
+    expect { get "/en", headers: auth_headers }.to within_budgets("home/index")
     expect(response).to match_page_schema("home/index")
     expect(response).to be_within_props_budget("home/index")
     expect(response).to have_resolvable_hrefs("home/index")

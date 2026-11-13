@@ -24,7 +24,7 @@ RSpec.describe "Error responder", type: :request do
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
   it "proves the error page contract" do
-    expect { get "/en/dummy/widgets/not_found", headers: { "X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call } }.to within_budgets("errors/show")
+    expect { get "/en/dummy/widgets/not_found", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call) }.to within_budgets("errors/show")
 
     expect(response).to have_http_status(:not_found)
     expect(response).to match_page_schema("errors/show")

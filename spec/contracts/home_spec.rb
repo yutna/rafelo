@@ -12,7 +12,7 @@ RSpec.describe "Home page contract", type: :request do
   end
 
   def props
-    get "/en"
+    get "/en", headers: auth_headers
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     page.fetch("props")
   end

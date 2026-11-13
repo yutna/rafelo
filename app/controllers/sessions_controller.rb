@@ -2,6 +2,8 @@
 
 class SessionsController < ApplicationController
   skip_before_action :load_session, only: %i[new create]
+  skip_before_action :refresh_stale_grants, only: %i[new create]
+  skip_before_action :require_viewer, only: %i[new create]
   before_action :skip_authorization
 
   throttle to: 10, within: 1.minute, only: :create, name: "sign_in/ip"

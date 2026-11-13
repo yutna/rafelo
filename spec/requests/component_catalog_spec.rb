@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Component catalog", type: :request do
   it "renders the development catalog with the page contract and budgets" do
-    expect { get "/en/component_catalog" }.to within_budgets("component_catalog/index")
+    expect { get "/en/component_catalog", headers: auth_headers }.to within_budgets("component_catalog/index")
 
     expect(response).to have_http_status(:ok)
     expect(response).to match_page_schema("component_catalog/index")

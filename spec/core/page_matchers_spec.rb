@@ -10,14 +10,14 @@ RSpec.describe "Page matchers", type: :request do
 
   describe "match_page_schema" do
     it "passes for the rendered component and page key" do
-      get "/en"
+      get "/en", headers: auth_headers
       page = PageMatchers.page_of(response)
 
       expect(fake_response(page, response.request.env)).to match_page_schema("home/index")
     end
 
     it "fails when the component does not match the page key" do
-      get "/en"
+      get "/en", headers: auth_headers
       page = PageMatchers.page_of(response)
 
       expect(fake_response(page, response.request.env)).not_to match_page_schema("sessions/new")

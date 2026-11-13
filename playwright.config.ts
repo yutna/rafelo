@@ -7,13 +7,16 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
+    extraHTTPHeaders: process.env.E2E_SESSION_COOKIE
+      ? { Cookie: process.env.E2E_SESSION_COOKIE }
+      : {},
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  expect: { toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: "disabled" } },
-  projects: [
-    { name: "design_system", use: { ...devices["Desktop Chrome"] } },
-  ],
+  expect: {
+    toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: "disabled" },
+  },
+  projects: [{ name: "design_system", use: { ...devices["Desktop Chrome"] } }],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
