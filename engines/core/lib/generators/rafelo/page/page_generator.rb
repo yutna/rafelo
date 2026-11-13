@@ -357,6 +357,7 @@ module Rafelo
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
             import { useForm } from "@inertiajs/react";
+            import { Button, Link, TextField } from "@design_system/public";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
@@ -368,13 +369,21 @@ module Rafelo
                       event.preventDefault();
                       form.transform((data) => ({ ...data, token: meta.formToken })).post(createPath);
                     }}
+                    className="mt-6 space-y-4"
                   >
-                    <label htmlFor="#{resource_singular}-name">Name</label>
-                    <input id="#{resource_singular}-name" value={form.data.name} onChange={(e) => form.setData("name", e.target.value)} />
-                    {errors.name ? <p>{errors.name}</p> : null}
-                    <button type="submit">Create</button>
+                    <TextField
+                      testId="#{mod}.#{resource_plural}.new.name"
+                      label="Name"
+                      name="name"
+                      value={form.data.name}
+                      onChange={(value) => form.setData("name", value)}
+                      error={errors.name}
+                    />
+                    <div className="flex gap-3">
+                      <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
+                      <Link href={indexPath}>Back</Link>
+                    </div>
                   </form>
-                  <a href={indexPath}>Back</a>
                 </section>
               );
             }

@@ -159,15 +159,32 @@ module Rafelo
         create_file "#{engine_dir}/vitest.config.mts", <<~TS
           import react from "@vitejs/plugin-react";
           import { defineConfig } from "vitest/config";
+          import { fileURLToPath } from "node:url";
           import { engineAliases } from "../../config/frontend_aliases.mts";
 
+          const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
+
           export default defineConfig({
-            plugins: [ react() ],
+            plugins: [react()],
             resolve: { alias: engineAliases },
             test: {
               projects: [
-                { test: { name: "#{name}", environment: "jsdom", include: ["app/frontend/**/*.test.tsx", "app/frontend/**/hooks/**/*.test.ts"], setupFiles: ["../../vitest.setup.ts"] } },
-                { test: { name: "#{name}:node", environment: "node", include: ["app/frontend/**/*.test.ts"], exclude: ["app/frontend/**/hooks/**"] } },
+                {
+                  test: {
+                    name: "#{name}",
+                    environment: "jsdom",
+                    include: ["app/frontend/**/*.test.tsx", "app/frontend/**/hooks/**/*.test.ts"],
+                    setupFiles,
+                  },
+                },
+                {
+                  test: {
+                    name: "#{name}:node",
+                    environment: "node",
+                    include: ["app/frontend/**/*.test.ts"],
+                    exclude: ["app/frontend/**/hooks/**"],
+                  },
+                },
               ],
             },
           });
