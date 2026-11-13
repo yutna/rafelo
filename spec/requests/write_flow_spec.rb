@@ -74,4 +74,33 @@ RSpec.describe "Write action flow", type: :request do
 
     expect(response).to have_http_status(:internal_server_error)
   end
+  it "maps a real upstream 422 body to form errors" do
+    stub_upstream(:post, "/widgets", fixture: "widgets/validation.json", status: 422, base_url: "http://localhost:4000")
+
+    post "/en/dummy/widgets/upstream"
+
+    expect(response).to have_http_status(:see_other)
+    follow(signed_in_cookie)
+    errors = page_body(response).dig("props", "errors")
+    expect(errors["name"]).to eq("is too long")
+    expect(errors["base"]).to eq("has already been taken")
+  end
+
+  it "maps a real upstream 409 to a conflict message" do
+    stub_upstream(:post, "/widgets", fixture: "widgets/conflict.json", status: 409, base_url: "http://localhost:4000")
+
+    post "/en/dummy/widgets/upstream"
+
+    expect(response).to have_http_status(:see_other)
+    follow(signed_in_cookie)
+    expect(page_body(response).dig("props", "errors", "base")).to eq("The record changed since you opened it.")
+  end
+
+  it "renders the error page for a real upstream 5xx" do
+    stub_upstream(:post, "/widgets", fixture: "widgets/error.json", status: 503, base_url: "http://localhost:4000")
+
+    post "/en/dummy/widgets/upstream"
+
+    expect(response).to have_http_status(:service_unavailable)
+  end
 end

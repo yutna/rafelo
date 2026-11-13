@@ -37,6 +37,8 @@ module Rafelo
         return refuse(:invalid_token) unless row_belongs_to_claim?(@row)
         return perform(&block) if @created
 
+        @created = false
+
         case @row.status
         when "succeeded" then replay(@row)
         when "unknown" then refuse(:unknown)
@@ -88,8 +90,7 @@ module Rafelo
         existing = IdempotencyKey.readable_format.find_by(token_digest: token_digest)
         return existing if existing
 
-        @created = true
-        IdempotencyKey.create!(
+        row = IdempotencyKey.create!(
           token_digest: token_digest,
           format_version: IdempotencyKey::FORMAT_VERSION,
           viewer_id: viewer_id,
@@ -99,7 +100,10 @@ module Rafelo
           claimed_at: Time.current,
           expires_at: FormToken.retention.from_now
         )
+        @created = true
+        row
       rescue ActiveRecord::RecordNotUnique
+        @created = false
         IdempotencyKey.find_by!(token_digest: token_digest)
       end
 

@@ -26,6 +26,7 @@ module DummyEngine
       post "widgets/conflict", to: "widgets#conflict"
       post "widgets/boom", to: "widgets#boom"
       get "widgets/not_found", to: "widgets#not_found"
+      post "widgets/upstream", to: "widgets#upstream"
     end
   end
 end

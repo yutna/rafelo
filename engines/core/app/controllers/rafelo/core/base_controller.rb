@@ -37,6 +37,12 @@ module Rafelo
       # Every write ends in a 303: success, shape failure, upstream 422 or a
       # conflict. Only unexpected failures render the error page (BE-13).
       def redirect_after_write(path, notice: nil, alert: nil, errors: nil)
+        AuditRecorder.record(
+          controller: self,
+          event: "write",
+          outcome: errors.present? ? "failure" : "success",
+          target: path
+        )
         flash[:notice] = notice if notice
         flash[:alert] = alert if alert
         options = { status: :see_other }
@@ -171,6 +177,8 @@ module Rafelo
       end
 
       def render_application_error(error)
+        AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
+
         if error.code == "auth.expired" && Current.session
           clear_session!
           return redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }

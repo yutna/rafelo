@@ -239,6 +239,19 @@ module Rafelo
         @retries + 1 <= (@calls * @config.retry_budget).floor
       end
 
+      def validation_field_codes(response)
+        data = JSON.parse(response.body.to_s[0, 4_096])
+        errors = data["errors"] || data["error"]
+        return { "base" => :invalid } unless errors.is_a?(Hash)
+
+        errors.each_with_object({}) do |(field, value), out|
+          code = value.is_a?(Array) ? value.first : value
+          out[field.to_s] = %w[blank too_long taken invalid conflict].include?(code.to_s) ? code.to_s.to_sym : :invalid
+        end
+      rescue JSON::ParserError, TypeError
+        { "base" => :invalid }
+      end
+
       def map_status!(response)
         code = case response.status
         when 200..299, 304 then return response
@@ -248,7 +261,8 @@ module Rafelo
           "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"
-        when 413, 422 then "validation.failed"
+        when 413, 422
+          raise ValidationFailed.new(validation_field_codes(response))
         when 429 then "upstream.unavailable"
         else "unexpected"
         end

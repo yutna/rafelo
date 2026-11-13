@@ -17,6 +17,7 @@ module Rafelo
           expires_in: 5.minutes,
           disposition: :attachment
         ), status: :see_other
+        AuditRecorder.record(controller: self, event: "export_download", outcome: "success", target: export.id)
       end
     end
   end
