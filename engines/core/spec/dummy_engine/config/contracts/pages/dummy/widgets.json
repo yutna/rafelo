@@ -31,7 +31,14 @@
     },
     "meta": {
       "type": "object",
-      "properties": {},
+      "properties": {
+        "formToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "formToken"
+      ],
       "additionalProperties": false
     },
     "query": {

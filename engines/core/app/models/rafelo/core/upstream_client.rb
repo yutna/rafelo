@@ -155,7 +155,7 @@ module Rafelo
         result["X-Request-Id"] = @request_id.to_s if @request_id
         result["traceparent"] = "00-#{@trace_id}-#{@request_id}-01" if @trace_id && @request_id
         result["Authorization"] = "Bearer #{@token_provider.token}" if @token_provider.token
-        result["Idempotency-Key"] = idempotency_key.to_s if idempotency_key
+        result["Idempotency-Key"] = idempotency_key.to_s if idempotency_key && @config.idempotency_keys
         result["If-Match"] = if_match.to_s if if_match
         result
       end

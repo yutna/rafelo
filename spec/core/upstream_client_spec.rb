@@ -187,4 +187,20 @@ RSpec.describe Rafelo::Core::UpstreamClient do
   ensure
     Rafelo::Core::Current.reset
   end
+  it "sends Idempotency-Key only to an upstream that declares idempotency keys" do
+    plain = stub_request(:post, "http://upstream.test/invoices")
+      .with { |request| !request.headers.key?("Idempotency-Key") }
+      .to_return(status: 201, body: "{}")
+    keyed = stub_request(:post, "http://upstream.test/keyed")
+      .with(headers: { "Idempotency-Key" => "key-1" })
+      .to_return(status: 201, body: "{}")
+    keyed_config = config.with(idempotency_keys: true)
+    keyed_client = described_class.new(name: :keyed, config: keyed_config, token_provider: token)
+
+    client.post("invoices", body: "{}", idempotency_key: "key-1")
+    keyed_client.post("keyed", body: "{}", idempotency_key: "key-1")
+
+    expect(plain).to have_been_requested.once
+    expect(keyed).to have_been_requested.once
+  end
 end

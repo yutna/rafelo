@@ -1,5 +1,9 @@
 en:
   core:
+    idempotency:
+      invalid_token: "The form token is not valid. Reload the page and try again."
+      still_processing: "This form is still processing. Wait a moment and try again."
+      unknown: "We could not confirm the outcome. Check before trying again."
     errors:
       fields:
         blank: "can't be blank"

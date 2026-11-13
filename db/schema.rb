@@ -10,9 +10,24 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_000300) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_000400) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "core_idempotency_keys", force: :cascade do |t|
+    t.string "token_digest", null: false
+    t.string "viewer_id", null: false
+    t.string "payload_digest", null: false
+    t.string "status", default: "pending", null: false
+    t.integer "attempt", default: 0, null: false
+    t.text "outcome"
+    t.datetime "claimed_at"
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_core_idempotency_keys_on_expires_at"
+    t.index ["token_digest"], name: "index_core_idempotency_keys_on_token_digest", unique: true
+  end
 
   create_table "core_sessions", force: :cascade do |t|
     t.string "token_digest", null: false

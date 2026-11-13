@@ -10,7 +10,7 @@ module DummyEngine
     def envelope
       {
         data: { message: @message },
-        meta: {},
+        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
         query: {},
         pagination: nil,
         can: {}
