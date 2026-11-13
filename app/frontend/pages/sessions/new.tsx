@@ -1,5 +1,6 @@
 import { Head } from "@inertiajs/react";
 
+import type { LayoutName } from "../../lib/layout_name";
 import { pageSchema } from "./new.schema";
 
 export default function SignIn(props: Record<string, unknown>) {
@@ -25,3 +26,5 @@ export default function SignIn(props: Record<string, unknown>) {
     </main>
   );
 }
+
+SignIn.layoutName = "auth" satisfies LayoutName;

@@ -24,6 +24,44 @@ patterns = %W[
 files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
 abort "page_props: no frontend files found under #{root}" if files.empty?
 
+# FE-01: every render_page/render inertia name has a page and a schema.
+# Enforcement fixtures exercise only the partial-key rule.
+page_names = []
+page_failures = 0
+all_pages = []
+unless root.include?("spec/enforcement/fixtures")
+ruby_files = Dir[File.join(root, "app/**/*.rb")] + Dir[File.join(root, "engines/*/app/**/*.rb")]
+page_names = ruby_files.flat_map do |path|
+  File.read(path).scan(/(?:render_page|render inertia:)\s*["']([^"']+)["']/).flatten
+end.uniq
+page_names.each do |name|
+  candidates = [ File.join(root, "app/frontend/pages/#{name}.tsx") ] +
+               Dir[File.join(root, "engines/*/app/frontend/pages/**/#{File.basename(name)}.tsx")].select do |path|
+                 path.include?("/pages/#{name.sub(%r{\A[^/]+/}, "")}.tsx")
+               end
+  path = candidates.find { |candidate| File.file?(candidate) }
+  if path.nil?
+    puts "#{name}: render target has no page file"
+    page_failures += 1
+  elsif !File.file?(path.sub(/\.tsx\z/, ".schema.ts"))
+    puts "#{name}: page has no .schema.ts"
+    page_failures += 1
+  end
+end
+all_pages = files.select { |path| path.include?("/pages/") && path.end_with?(".tsx") && !path.end_with?(".test.tsx") }
+all_pages.each do |path|
+  next if File.file?(path.sub(/\.tsx\z/, ".schema.ts"))
+
+  puts "#{path.delete_prefix("#{root}/")}: page has no .schema.ts"
+  page_failures += 1
+end
+end
+if page_failures.positive?
+  warn "page_props: #{page_failures} page contract failure(s)"
+  exit 1
+end
+warn "page_props: checked #{page_names.length} render target(s) and #{all_pages.length} page file(s)"
+
 if matchers_mode
   contract_files = Dir[File.join(root, "config/contracts/pages/**/*.json")] +
                    Dir[File.join(root, "engines/*/config/contracts/pages/**/*.json")]

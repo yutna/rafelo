@@ -1,5 +1,6 @@
 import { Head } from "@inertiajs/react";
 
+import type { LayoutName } from "../../lib/layout_name";
 import { pageSchema } from "./show.schema";
 
 export default function ErrorShow(props: Record<string, unknown>) {
@@ -20,3 +21,5 @@ export default function ErrorShow(props: Record<string, unknown>) {
     </main>
   );
 }
+
+ErrorShow.layoutName = "bare" satisfies LayoutName;
