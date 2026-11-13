@@ -110,14 +110,23 @@ module Rafelo
       def rewrite_routes
         src_path = root.join("engines", @source, "config/routes.rb")
         src = File.read(src_path)
+        moved_had_index = src.match?(/resources :#{plural}[^\n]*index/) || src.match?(/resources :#{plural}(?![^\n]*only:)/)
+        moved_was_root = src.match?(/^\s*root to:\s*"#{plural}#index"/)
         src = src.gsub(/^\s*resources :#{plural}[^\n]*\n/, "")
-        # keep old URL stable via redirect at source mount path context? easier to leave no local redirect and rely on legacy_paths
+        if moved_was_root
+          next_index = src[/^\s*resources :(\w+)[^\n]*\bindex\b/, 1] || src[/^\s*resources :(\w+)(?![^\n]*only:)/, 1]
+          if next_index
+            src = src.sub(/^\s*root to:.*\n/, "    root to: \"#{next_index}#index\"\n")
+          else
+            src = src.gsub(/^\s*root to:.*\n/, "")
+          end
+        end
         File.write(src_path, src)
 
         tgt_path = root.join("engines", @target, "config/routes.rb")
         tgt = File.read(tgt_path)
         unless tgt.include?("resources :#{plural}")
-          root_line = tgt.include?("root to:") ? "" : "    root to: \"#{plural}#index\"\n"
+          root_line = (!tgt.include?("root to:") && moved_had_index) ? "    root to: \"#{plural}#index\"\n" : ""
           tgt = tgt.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n    resources :#{plural}\n#{root_line}")
         end
         File.write(tgt_path, tgt)
@@ -142,13 +151,22 @@ module Rafelo
       def add_legacy_path
         path = root.join("engines", @target, "config/module.rb")
         content = File.read(path)
-        return if content.include?("legacy_paths:")
-
         old_prefix = "/#{@source}/#{plural}"
-        # target module path is its own path; resource will be under /<target>/<plural>, so legacy /<source>/<plural> -> /<plural>
-        insertion = "  legacy_paths: { \"#{old_prefix}\" => \"/#{plural}\" },\n"
-        content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
-        # also ensure target accepts source permission prefix for stability
+        target_suffix = "/#{plural}"
+
+        if content.include?("legacy_paths:")
+          unless content.include?(%("#{old_prefix}"))
+            content = content.sub(/legacy_paths:\s*\{/, "legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\",")
+          end
+        else
+          insertion = "  legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\" },\n"
+          if content =~ /^(\s*permission_prefixes:.*\n)/
+            content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
+          else
+            content = content.sub(/\A/, "#{insertion}")
+          end
+        end
+
         if content =~ /permission_prefixes:\s*\[([^\]]*)\]/
           prefixes = $1.scan(/"([^"]+)"/).flatten
           unless prefixes.include?(@source)
