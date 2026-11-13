@@ -125,6 +125,14 @@ module Rafelo
             end
           RUBY
         end
+        if effective_actions.include?("show")
+          methods << <<~RUBY
+            def show
+              authorize :#{resource_singular}, :show?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              render_page "#{page_key_base}/show", props: #{module_class}::#{resource_plural.camelize}ShowProps.new(context: page_context, id: params[:id].to_s)
+            end
+          RUBY
+        end
         if effective_actions.include?("new")
           methods << <<~RUBY
             def new
@@ -249,6 +257,34 @@ module Rafelo
             end
           end
         RUBY
+
+        if effective_actions.include?("show")
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_show_props.rb"), <<~RUBY
+            # frozen_string_literal: true
+
+            module #{module_class}
+              class #{resource_plural.camelize}ShowProps < Rafelo::Core::PageProps
+                def initialize(context:, id:)
+                  super(context: context)
+                  @id = id
+                end
+
+                def envelope
+                  {
+                    data: {
+                      #{resource_singular}: { id: @id, name: @id },
+                      indexPath: context.urls.route(:#{mod}, :#{resource_plural})
+                    },
+                    meta: {},
+                    query: {},
+                    pagination: nil,
+                    can: {}
+                  }
+                end
+              end
+            end
+          RUBY
+        end
 
         if effective_actions.include?("new")
           create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_new_props.rb"), <<~RUBY
@@ -376,6 +412,67 @@ module Rafelo
             );
           }
         TSX
+
+        if effective_actions.include?("show")
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
+
+            export const pageSchema = definePage({
+              data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexPath: z.string() }),
+              query: z.object({}),
+              can: [] as const,
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./show.schema";
+            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
+
+            export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="#{resource_singular.humanize}" />
+                  <#{resource_singular.camelize}ShowScreen {...page.data} can={page.can} />
+                </>
+              );
+            }
+
+            #{resource_singular.camelize}Show.layoutName = "app" satisfies LayoutName;
+          TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
+            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
+
+            export function #{resource_singular.camelize}ShowContainer(props: Parameters<typeof #{resource_singular.camelize}ShowScreen>[0]) {
+              return <#{resource_singular.camelize}ShowScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/show_screen.tsx"), <<~TSX
+            import { Link } from "@design_system/public";
+
+            export function #{resource_singular.camelize}ShowScreen({ #{resource_singular}, indexPath, can }: { #{resource_singular}: { id: string; name: string }; indexPath: string; can: Record<string, { allowed: boolean; reason: string | null }> }) {
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16" data-testid="#{mod}.#{resource_plural}.show.page">
+                  <h1 className="text-display font-semibold">#{resource_singular.humanize}</h1>
+                  <dl className="mt-4 space-y-2">
+                    <div>
+                      <dt className="font-medium">ID</dt>
+                      <dd data-testid="#{mod}.#{resource_plural}.show.id">{#{resource_singular}.id}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Name</dt>
+                      <dd>{#{resource_singular}.name}</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-6"><Link href={indexPath}>Back</Link></p>
+                </section>
+              );
+            }
+          TSX
+        end
 
         if effective_actions.include?("new")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
@@ -542,6 +639,20 @@ module Rafelo
               expect(response).to match_policy_capabilities("#{page_key_base}/index")
             end
         RUBY
+        if effective_actions.include?("show")
+          index_spec << <<~RUBY
+
+            it "renders the show page contract" do
+              headers = sign_in_with([#{grants_literal}])
+              expect { get "/en/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
+              expect(response).to have_http_status(:ok)
+              expect(response).to match_page_schema("#{page_key_base}/show")
+              expect(response).to be_within_props_budget("#{page_key_base}/show")
+              expect(response).to have_resolvable_hrefs("#{page_key_base}/show")
+              expect(response).to match_policy_capabilities("#{page_key_base}/show")
+            end
+          RUBY
+        end
         if effective_actions.include?("new")
           index_spec << <<~RUBY
 
