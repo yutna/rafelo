@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Upstream fixtures" do
   it "holds parseable synthetic responses for success and every error class" do
-    files = Dir[Rails.root.join("spec/fixtures/upstream/api/**/*.json")]
+    files = Dir[Rails.root.join("engines/core/spec/fixtures/upstream/api/**/*.json")]
 
     expect(files).not_to be_empty
     files.each do |file|
@@ -20,7 +20,7 @@ RSpec.describe "Upstream fixtures" do
   end
 
   it "has a synthetic grant catalog for drift checks" do
-    grants = JSON.parse(File.read(Rails.root.join("spec/fixtures/upstream/api/grants.json"))).fetch("grants")
+    grants = JSON.parse(File.read(Rails.root.join("engines/core/spec/fixtures/upstream/api/grants.json"))).fetch("grants")
 
     expect(grants).to include("billing:invoice:read")
   end

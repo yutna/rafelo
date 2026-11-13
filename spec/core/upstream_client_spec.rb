@@ -121,10 +121,19 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       422 => "validation.failed",
       429 => "upstream.unavailable",
       500 => "upstream.unavailable",
-      400 => "unexpected"
+      400 => "unexpected",
+      304 => nil,
+      410 => "resource.not_found",
+      412 => "resource.conflict",
+      413 => "validation.failed",
+      302 => "unexpected"
     }.each do |status, code|
       stub_request(:get, "http://upstream.test/status").to_return(status: status, body: "{}")
-      expect { client.get("status") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq(code) }
+      if code.nil?
+        expect(client.get("status").status).to eq(304)
+      else
+        expect { client.get("status") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq(code) }
+      end
     end
   end
 
@@ -133,6 +142,15 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       .to_return({ status: 503, body: "{}" }, { status: 200, body: '{"ok":true}' })
 
     expect(client.get("retry").body).to eq('{"ok":true}')
+  end
+
+  it "does not retry a 503 when the retry budget is exhausted" do
+    no_budget = config.with(retry_budget: 0.1)
+    budget_client = described_class.new(name: :no_budget, config: no_budget, token_provider: token)
+    stub = stub_request(:get, "http://upstream.test/budget").to_return(status: 503, body: "{}")
+
+    expect { budget_client.get("budget") }.to raise_error(Rafelo::Core::ApplicationError)
+    expect(stub).to have_been_requested.once
   end
 
   it "refuses a response over the byte cap" do

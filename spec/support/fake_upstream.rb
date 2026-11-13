@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module FakeUpstream
-  FIXTURE_ROOT = Rails.root.join("spec", "fixtures", "upstream", "api")
+  FIXTURE_ROOT = Rails.root.join("engines", "core", "spec", "fixtures", "upstream", "api")
 
   def fixture_body(path)
     FIXTURE_ROOT.join(path).read
