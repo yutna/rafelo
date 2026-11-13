@@ -1,0 +1,27 @@
+th:
+  example_orders:
+    nav:
+      title: "คำสั่งซื้อตัวอย่าง"
+    orders:
+      title: "คำสั่งซื้อ"
+      subtitle: "ตัวอย่างโมดูลผลิตภัณฑ์ที่ใช้งานได้จริง"
+      empty: "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรอง"
+      filter: "กรองตามสถานะ"
+      all: "ทั้งหมด"
+      new: "สร้างคำสั่งซื้อ"
+      edit: "แก้ไขคำสั่งซื้อ"
+      save: "บันทึก"
+      number: "เลขที่"
+      customer: "ลูกค้า"
+      status: "สถานะ"
+      total: "ยอดรวม"
+      issued_on: "วันที่ออก"
+      statuses:
+        open: "เปิด"
+        paid: "ชำระแล้ว"
+        cancelled: "ยกเลิก"
+      export: "ส่งออก"
+      created: "สร้างคำสั่งซื้อ %{number} แล้ว"
+      updated: "แก้ไขคำสั่งซื้อ %{number} แล้ว"
+      export_queued: "Queued export แล้ว"
+      conflict: "คำสั่งซื้อถูกแก้ไขหลังคุณเปิดหน้านี้"

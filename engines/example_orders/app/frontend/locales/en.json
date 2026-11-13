@@ -1,0 +1,30 @@
+{
+  "nav": {
+    "title": "Example orders"
+  },
+  "orders": {
+    "title": "Orders",
+    "subtitle": "A worked example of a product module",
+    "empty": "No orders match this filter.",
+    "filter": "Filter by status",
+    "all": "All",
+    "new": "New order",
+    "edit": "Edit order",
+    "save": "Save",
+    "number": "Number",
+    "customer": "Customer",
+    "status": "Status",
+    "total": "Total",
+    "issued_on": "Issued on",
+    "statuses": {
+      "open": "Open",
+      "paid": "Paid",
+      "cancelled": "Cancelled"
+    },
+    "export": "Export",
+    "created": "Order {{number}} created.",
+    "updated": "Order {{number}} updated.",
+    "export_queued": "Export queued.",
+    "conflict": "The order changed since you opened it."
+  }
+}

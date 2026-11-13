@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "../../tmp/tsc/example_orders",
+    "tsBuildInfoFile": "../../tmp/tsc/example_orders.tsbuildinfo"
+  },
+  "include": [
+    "app/frontend/**/*",
+    "app/frontend/**/*.json"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../design_system"
+    },
+    {
+      "path": "../example_customers"
+    }
+  ]
+}

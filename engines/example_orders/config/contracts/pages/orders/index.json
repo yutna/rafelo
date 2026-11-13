@@ -1,0 +1,372 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "auth": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/auth"
+    },
+    "trace": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/trace"
+    },
+    "app": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/app"
+    },
+    "nav": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/nav"
+    },
+    "errors": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/errors"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "number": {
+                "type": "string"
+              },
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "tier": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "tier"
+                ],
+                "additionalProperties": false
+              },
+              "status": {
+                "type": "string"
+              },
+              "total": {
+                "type": "object",
+                "properties": {
+                  "minor": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  "currency": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3
+                  },
+                  "exponent": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "minor",
+                  "currency",
+                  "exponent"
+                ],
+                "additionalProperties": false
+              },
+              "issuedOn": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "number",
+              "customer",
+              "status",
+              "total",
+              "issuedOn",
+              "href"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "newHref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exportPath": {
+          "type": "string"
+        },
+        "filterHrefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "href": {
+                "type": "string"
+              },
+              "current": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "label",
+              "href",
+              "current"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "previousHref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nextHref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "chart": {
+          "type": "object",
+          "properties": {
+            "series": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": [
+            "series"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "items",
+        "newHref",
+        "exportPath",
+        "filterHrefs",
+        "previousHref",
+        "nextHref"
+      ],
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "perPage": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "sort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "cursor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "page",
+        "perPage",
+        "sort",
+        "direction",
+        "filters",
+        "cursor"
+      ],
+      "additionalProperties": false
+    },
+    "pagination": {
+      "anyOf": [
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "offset"
+                },
+                "page": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "perPage": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "total": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "pageCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "page",
+                "perPage",
+                "total",
+                "pageCount"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "const": "cursor"
+                },
+                "perPage": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "next": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "prev": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "perPage",
+                "next",
+                "prev"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "can": {
+      "type": "object",
+      "properties": {
+        "order.create": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "allowed",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "order.export": {
+          "type": "object",
+          "properties": {
+            "allowed": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "allowed",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "order.create",
+        "order.export"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "auth",
+    "trace",
+    "app",
+    "nav",
+    "errors",
+    "data",
+    "meta",
+    "query",
+    "pagination",
+    "can"
+  ],
+  "additionalProperties": false
+}

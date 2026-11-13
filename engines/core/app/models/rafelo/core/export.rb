@@ -12,6 +12,14 @@ module Rafelo
 
       scope :readable_format, -> { where(format_version: READABLE_FORMAT_VERSIONS) }
 
+      def self.build_for(viewer:, filename:)
+        create!(
+          viewer_id: viewer.id.to_s,
+          filename: filename,
+          expires_at: Rails.application.config.x.exports.ttl_seconds.seconds.from_now
+        )
+      end
+
       def formatted_expires_at(locale: I18n.locale)
         DateFormatter.format(expires_at, locale: locale)
       end

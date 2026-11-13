@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "auth": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/auth"
+    },
+    "trace": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/trace"
+    },
+    "app": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/app"
+    },
+    "nav": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/nav"
+    },
+    "errors": {
+      "$ref": "https://rafelo.local/contracts/_shared.json#/properties/errors"
+    },
+    "data": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "number": {
+              "type": "string"
+            },
+            "customer": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "tier": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "tier"
+              ],
+              "additionalProperties": false
+            },
+            "status": {
+              "type": "string"
+            },
+            "total": {
+              "type": "object",
+              "properties": {
+                "minor": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "currency": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 3
+                },
+                "exponent": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "minor",
+                "currency",
+                "exponent"
+              ],
+              "additionalProperties": false
+            },
+            "issuedOn": {
+              "type": "string"
+            },
+            "version": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "id",
+            "number",
+            "customer",
+            "status",
+            "total",
+            "issuedOn",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "editHref": {
+          "type": "string"
+        },
+        "indexPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "order",
+        "editHref",
+        "indexPath"
+      ],
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "query": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "pagination": {
+      "type": "null"
+    },
+    "can": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "auth",
+    "trace",
+    "app",
+    "nav",
+    "errors",
+    "data",
+    "meta",
+    "query",
+    "pagination",
+    "can"
+  ],
+  "additionalProperties": false
+}

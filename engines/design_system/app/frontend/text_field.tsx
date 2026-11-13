@@ -8,6 +8,9 @@ type TextFieldProps = {
   error?: string;
   autoComplete?: string;
   isRequired?: boolean;
+  value?: string;
+  defaultValue?: string;
+  onChange?: (value: string) => void;
 };
 
 export function TextField({ testId, label, error, ...props }: TextFieldProps) {

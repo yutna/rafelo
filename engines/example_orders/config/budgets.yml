@@ -1,0 +1,5 @@
+pages:
+  example_orders/orders/index: { upstream_calls_per_request: { api: 2 }, sql_queries_per_request: 6 }
+  example_orders/orders/show: { upstream_calls_per_request: { api: 1 }, sql_queries_per_request: 4 }
+  example_orders/orders/new: { upstream_calls_per_request: { api: 0 }, sql_queries_per_request: 4 }
+  example_orders/orders/edit: { upstream_calls_per_request: { api: 1 }, sql_queries_per_request: 4 }

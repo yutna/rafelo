@@ -39,5 +39,21 @@
         "^engines/design_system/app/frontend/"
       ]
     }
+  },
+  {
+    "name": "example_orders-imports-declared-surfaces-only",
+    "severity": "error",
+    "from": {
+      "path": "^engines/example_orders/"
+    },
+    "to": {
+      "path": "^(app|engines)/",
+      "pathNot": [
+        "^engines/example_orders/",
+        "^engines/core/app/frontend/",
+        "^engines/design_system/app/frontend/",
+        "^engines/example_customers/app/frontend/public/"
+      ]
+    }
   }
 ]

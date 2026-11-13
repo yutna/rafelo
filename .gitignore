@@ -24,6 +24,7 @@ Thumbs.db
 
 # Ignore installed JavaScript packages.
 /node_modules
+/engines/*/node_modules/
 
 # Ignore all logfiles and tempfiles.
 /log/*
