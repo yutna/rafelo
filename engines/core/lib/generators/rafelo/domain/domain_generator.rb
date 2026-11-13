@@ -38,13 +38,37 @@ module Rafelo
               end
             end
           RUBY
-          create_file "#{engine_dir}/package.yml", "enforce_dependencies: strict\nenforce_privacy: strict\npublic_path: app/public/\ndependencies:\n  - engines/core\n"
-          create_file "#{engine_dir}/AGENTS.md", "# #{module_name} domain\n\nFramework-free domain objects and services. No React, Rails or design-system imports.\n"
-          create_file "#{engine_dir}/app/public/.keep", ""
+          create_file "#{engine_dir}/package.yml", "enforce_dependencies: strict\nenforce_privacy: strict\npublic_path: app/public/\ndependencies:\n  - engines/core\n  - engines/design_system\n"
+          create_file "#{engine_dir}/AGENTS.md", "# #{module_name} domain\n\nFramework-free domain objects and services. No React or Rails imports; design-system formatters may be used by hooks, not by domain code.\n"
+          create_file "#{engine_dir}/app/public/#{Rails.application.class.module_parent_name.downcase}/#{name}/.keep", ""
           create_file "#{engine_dir}/app/frontend/public/index.ts", "export const DOMAIN_NAME = \"#{name}\";\n"
           create_file "#{engine_dir}/app/frontend/domain/.keep", ""
+          create_file "#{engine_dir}/app/frontend/components/.keep", ""
           create_file "#{engine_dir}/app/frontend/domain/skeleton.test.ts", "import { describe, expect, it } from \"vitest\";\n\ndescribe(\"#{name} domain\", () => {\n  it(\"runs without a DOM\", () => expect(true).toBe(true));\n});\n"
-          post_write
+          create_file "#{engine_dir}/app/frontend/components/skeleton.test.tsx", "import \"@testing-library/jest-dom/vitest\";\nimport { render, screen } from \"@testing-library/react\";\nimport { describe, expect, it } from \"vitest\";\n\ndescribe(\"#{name} component\", () => {\n  it(\"renders\", () => {\n    render(<div data-testid=\"#{name}.skeleton\" />);\n    expect(screen.getByTestId(\"#{name}.skeleton\")).toBeInTheDocument();\n  });\n});\n"
+          create_file "#{engine_dir}/config/contracts/.keep", ""
+          create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
+          create_file "#{engine_dir}/e2e/.keep", ""
+          Rafelo::Core::Locales.available.map(&:to_s).each do |locale|
+            create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
+          end
+          create_file "#{engine_dir}/vitest.config.mts", <<~TS
+            import react from "@vitejs/plugin-react";
+            import { defineConfig } from "vitest/config";
+            import { engineAliases } from "../../config/frontend_aliases.mts";
+
+            export default defineConfig({
+              plugins: [ react() ],
+              resolve: { alias: engineAliases },
+              test: {
+                projects: [
+                  { test: { name: "#{name}", environment: "jsdom", include: ["app/frontend/**/*.test.tsx"], setupFiles: ["../../vitest.setup.ts"] } },
+                  { test: { name: "#{name}:node", environment: "node", include: ["app/frontend/**/*.test.ts"], exclude: ["app/frontend/**/hooks/**"] } },
+                ],
+              },
+            });
+          TS
+          post_write unless options[:skip_post_write]
         end
         say "Created #{engine_dir}.", :green
       end

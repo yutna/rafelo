@@ -5,12 +5,11 @@ require Rails.root.join("engines/core/lib/generators/rafelo/module_generator")
 RSpec.describe Rafelo::Generators::ModuleGenerator do
   it "writes a wired module without editing routes or the Gemfile" do
     Dir.mktmpdir do |dir|
-      allow_any_instance_of(described_class).to receive(:post_write)
-      Rails::Generators.invoke("rafelo:module", [ "billing_probe", "--icon", "receipt" ], destination_root: dir)
+      Rails::Generators.invoke("rafelo:module", [ "billing_probe", "--icon", "receipt", "--skip-post-write" ], destination_root: dir)
 
       root = Pathname(dir)
       expect(root.join("engines/billing_probe/rafelo_billing_probe.gemspec")).to exist
-      expect(root.join("engines/billing_probe/lib/rafelo/billing_probe/engine.rb").read).to include("Rafelo::Core::Modules.register")
+      expect(root.join("engines/billing_probe/config/module.rb").read).to include("Rafelo::Core::Modules.register")
       expect(root.join("engines/billing_probe/config/locales/en.yml")).to exist
       expect(root.join("engines/billing_probe/app/frontend/domain/skeleton.test.ts")).to exist
       expect(File.read(Rails.root.join("config/routes.rb"))).not_to include("billing_probe")
