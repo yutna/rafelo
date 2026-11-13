@@ -52,7 +52,8 @@ module Rafelo
           token_provider: @token_provider,
           budget: @budget,
           request_id: @request_id,
-          trace_id: @trace_id
+          trace_id: @trace_id,
+          deadline: @budget.respond_to?(:deadline) ? @budget.deadline : nil
         )
       end
     end
