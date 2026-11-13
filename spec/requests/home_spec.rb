@@ -11,6 +11,13 @@ RSpec.describe "Home page", type: :request do
     expect(page["props"]["trace"]).to include("requestId", "traceId")
   end
 
+  it "uses the incoming request id as the trace id" do
+    get "/en", headers: { "X-Request-Id" => "trace-home" }
+
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+    expect(page.dig("props", "trace", "traceId")).to eq("trace-home")
+  end
+
   it "rejects a stale Inertia asset version with 409" do
     get "/en", headers: { "X-Inertia" => "true", "X-Inertia-Version" => "stale" }
 
