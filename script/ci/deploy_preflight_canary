@@ -6,7 +6,13 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
 git init -q "$tmp"
-mkdir -p "$tmp/config"
+mkdir -p "$tmp/config" "$tmp/.kamal" "$tmp/.github/workflows"
+echo "RAILS_MASTER_KEY=dummy" > "$tmp/.kamal/secrets.example"
+cat > "$tmp/.github/workflows/audits.yml" <<'YAML'
+on:
+  schedule:
+    - cron: "0 6 * * *"
+YAML
 write_deploy() {
   cat > "$tmp/config/deploy.yml"
 }
@@ -14,6 +20,9 @@ base() {
   cat <<'YAML'
 service: rafelo
 deploy_timeout: 120
+env:
+  secret:
+    - RAILS_MASTER_KEY
 servers:
   web:
     - 192.168.0.1
@@ -36,6 +45,9 @@ fi
 cat > "$tmp/config/deploy.yml" <<'YAML'
 service: rafelo
 deploy_timeout: 120
+env:
+  secret:
+    - RAILS_MASTER_KEY
 servers:
   web:
     - 192.168.0.1
@@ -49,4 +61,11 @@ if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 3 cases"
+echo "GITHUB_TOKEN=x" > "$tmp/.kamal/secrets"
+if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+  echo "deploy_preflight_canary: a secrets file without RAILS_MASTER_KEY passed" >&2
+  exit 1
+fi
+rm -f "$tmp/.kamal/secrets"
+
+echo "deploy_preflight_canary: checked 4 cases"

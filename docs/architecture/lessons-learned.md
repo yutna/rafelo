@@ -368,3 +368,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** Added `TraceMiddleware` after `ActionDispatch::RequestId`, moved `BodyLimit` after it, and made the 413 payload and headers self-contained. `UpstreamClient#validate_path!` now rejects `%2e`, `%2f`, `%5c`, and `%00` before any call. Request and client specs pin the ids, headers, and traversal cases.
 
 **Spec feedback.** SEC-13 should name the exact headers a middleware response must carry. SEC-14 should say whether encoded separators are rejected or decoded before validation. Related IDs: SEC-09; SEC-13; SEC-14; OPS-02.
+
+## 2026-11-13 — v0.17.0 — issue #299
+
+**What happened.** The BE-22/deploy-preflight carry-over found that `StrongMigrations.statement_timeout` (5 minutes) exceeded `deploy_timeout` (120 seconds), so a boot migration could outlive the deploy that runs it. The preflight also checked only that `.kamal/secrets` was untracked; it did not require the secret names or the daily advisory workflow.
+
+**Root cause.** The two timeouts were configured in different files with no relation test, and the preflight was a tracked-secret check rather than a deploy-contract check.
+
+**What changed.** Set the statement timeout to 2 minutes, added a migration guard spec that reads `deploy_timeout` from `config/deploy.yml` and a concurrent-index expand/contract fixture, and taught the preflight to require `RAILS_MASTER_KEY` in `.kamal/secrets` (or its example) and in `env.secret`, plus the scheduled advisory workflow. The canary now covers the unlucky secret file.
+
+**Spec feedback.** BE-22 should name whether the statement timeout equals or is merely bounded by `deploy_timeout`. OPS-06 should name the exact secret names a preflight must see. Related IDs: BE-22; OPS-06; WF-05.
