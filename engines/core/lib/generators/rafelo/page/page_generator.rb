@@ -70,6 +70,9 @@ module Rafelo
           [ engine_file("app/gateways/#{app_ns_underscore}/#{mod}/#{resource_plural}_gateway.rb"), :file ],
           [ engine_file("app/forms/#{app_ns_underscore}/#{mod}/#{resource_singular}_form.rb"), :file ],
           [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_show_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_new_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_edit_props.rb"), :file ],
           [ engine_file("spec/fixtures/upstream/#{resource_plural}"), :dir ],
           [ "spec/requests/#{mod}/#{resource_plural}_spec.rb", :file ]
         ]
@@ -277,42 +280,38 @@ module Rafelo
       end
 
       def write_props
-        index_can = []
-        index_can_lines = ""
-        if effective_actions.include?("new")
-          index_can = [ "new" ]
-          index_can_lines = <<~RUBY.chomp
-                capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)
-          RUBY
-          index_can_hash = "can: capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)"
-        else
-          index_can_hash = "can: {}"
-        end
+        if effective_actions.include?("index")
+          index_can_hash = if effective_actions.include?("new")
+            "can: capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)"
+          else
+            "can: {}"
+          end
 
-        policy_decl = if effective_actions.include?("new")
-          "      policy_class #{module_class}::#{resource_singular.camelize}Policy\n" \
-          "      capability #{module_class}::Permissions::#{resource_plural.upcase}_CREATE, :create?\n\n"
-        else
-          ""
-        end
+          policy_decl = if effective_actions.include?("new")
+            "      policy_class #{module_class}::#{resource_singular.camelize}Policy\n" \
+            "      capability #{module_class}::Permissions::#{resource_plural.upcase}_CREATE, :create?\n\n"
+          else
+            ""
+          end
 
-        create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), <<~RUBY
-          # frozen_string_literal: true
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), <<~RUBY
+            # frozen_string_literal: true
 
-          module #{module_class}
-            class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
-          #{policy_decl}      def envelope
-                {
-                  data: { items: [], newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
-                  meta: {},
-                  query: {},
-                  pagination: nil,
-                  #{index_can_hash}
-                }
+            module #{module_class}
+              class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
+            #{policy_decl}      def envelope
+                  {
+                    data: { items: [], newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
+                    meta: {},
+                    query: {},
+                    pagination: nil,
+                    #{index_can_hash}
+                  }
+                end
               end
             end
-          end
-        RUBY
+          RUBY
+        end
 
         if effective_actions.include?("show")
           create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_show_props.rb"), <<~RUBY
@@ -425,78 +424,80 @@ module Rafelo
       end
 
       def write_frontend
-        # index
-        can_keys = effective_actions.include?("new") ? "[\"#{permission_create}\"] as const" : "[] as const"
-        data_props = if effective_actions.include?("new")
-          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
-        else
-          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
+        if effective_actions.include?("index")
+          # index
+          can_keys = effective_actions.include?("new") ? "[\"#{permission_create}\"] as const" : "[] as const"
+          data_props = if effective_actions.include?("new")
+            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
+          else
+            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
+          end
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
+
+            export const pageSchema = definePage({
+              data: #{data_props},
+              query: z.object({}),
+              can: #{can_keys},
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
+            export type #{resource_singular.camelize}Item = { id: string; label: string };
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./index.schema";
+            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+
+            export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="#{resource_plural.humanize}" />
+                  <#{resource_plural.camelize}Screen {...page.data} can={page.can} />
+                </>
+              );
+            }
+
+            #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
+          TSX
+          screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
+          new_link = effective_actions.include?("new") ? "\n          {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+
+            export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
+              return <#{resource_plural.camelize}Screen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
+            export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
+              if (items.length === 0) return <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p>;
+              return (
+                <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
+                  {items.map((item) => (
+                    <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>{item.label}</li>
+                  ))}
+                </ul>
+              );
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
+            import { #{resource_plural.camelize}List } from "../../components/#{resource_plural}/list";
+
+            export function #{resource_plural.camelize}Screen(#{screen_props}) {
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16">
+                  <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
+                  <#{resource_plural.camelize}List items={items} />
+                </section>
+              );
+            }
+          TSX
         end
-        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
-          import { z } from "zod";
-          import { definePage } from "@core/contracts/page_props.schema";
-
-          export const pageSchema = definePage({
-            data: #{data_props},
-            query: z.object({}),
-            can: #{can_keys},
-            paginated: false,
-          });
-        TS
-        create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
-          export type #{resource_singular.camelize}Item = { id: string; label: string };
-        TS
-        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
-          import { Head } from "@inertiajs/react";
-          import type { LayoutName } from "@core/contracts/layout.types";
-          import { pageSchema } from "./index.schema";
-          import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
-
-          export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
-            const page = pageSchema.parse(props);
-            return (
-              <>
-                <Head title="#{resource_plural.humanize}" />
-                <#{resource_plural.camelize}Screen {...page.data} can={page.can} />
-              </>
-            );
-          }
-
-          #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
-        TSX
-        screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
-        new_link = effective_actions.include?("new") ? "\n        {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
-        create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
-          import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
-
-          export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
-            return <#{resource_plural.camelize}Screen {...props} />;
-          }
-        TSX
-        create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
-          export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
-            if (items.length === 0) return <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p>;
-            return (
-              <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
-                {items.map((item) => (
-                  <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>{item.label}</li>
-                ))}
-              </ul>
-            );
-          }
-        TSX
-        create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
-          import { #{resource_plural.camelize}List } from "../../components/#{resource_plural}/list";
-
-          export function #{resource_plural.camelize}Screen(#{screen_props}) {
-            return (
-              <section className="mx-auto max-w-3xl px-6 py-16">
-                <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
-                <#{resource_plural.camelize}List items={items} />
-              </section>
-            );
-          }
-        TSX
 
         if effective_actions.include?("show")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
@@ -803,7 +804,7 @@ module Rafelo
         grants << permission_create if effective_actions.include?("create")
         grants << permission_update if effective_actions.include?("update")
         grants_literal = grants.map { |g| "\"#{g}\"" }.join(", ")
-        index_spec = <<~RUBY
+        spec = <<~RUBY
           require "rails_helper"
 
           RSpec.describe "#{mod}/#{resource_plural}", type: :request do
@@ -816,6 +817,10 @@ module Rafelo
               )
               { "Cookie" => "session_token=\#{token}" }
             end
+        RUBY
+
+        if effective_actions.include?("index")
+          spec << <<~RUBY
 
             it "renders the index page contract" do
               headers = sign_in_with([#{grants_literal}])
@@ -826,9 +831,10 @@ module Rafelo
               expect(response).to have_resolvable_hrefs("#{page_key_base}/index")
               expect(response).to match_policy_capabilities("#{page_key_base}/index")
             end
-        RUBY
+          RUBY
+        end
         if effective_actions.include?("show")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "renders the show page contract" do
               headers = sign_in_with([#{grants_literal}])
@@ -842,7 +848,7 @@ module Rafelo
           RUBY
         end
         if effective_actions.include?("new")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "renders the new page contract" do
               headers = sign_in_with([#{grants_literal}])
@@ -856,7 +862,7 @@ module Rafelo
           RUBY
         end
         if effective_actions.include?("edit")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "renders the edit page contract" do
               headers = sign_in_with([#{grants_literal}])
@@ -870,7 +876,7 @@ module Rafelo
           RUBY
         end
         if effective_actions.include?("create")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "redirects back with errors when create params are invalid" do
               headers = sign_in_with([#{grants_literal}])
@@ -881,7 +887,7 @@ module Rafelo
           RUBY
         end
         if effective_actions.include?("update")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "redirects back with errors when update params are invalid" do
               headers = sign_in_with([#{grants_literal}])
@@ -891,8 +897,8 @@ module Rafelo
             end
           RUBY
         end
-        index_spec << "  end\n"
-        create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", index_spec
+        spec << "  end\n"
+        create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", spec
       end
 
       def post_write

@@ -118,12 +118,15 @@ RSpec.describe Rafelo::Generators::PageGenerator do
 
       expect(root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read).to include("def show")
       expect(root.join("engines/billing/app/props/rafelo/billing/widgets_show_props.rb")).to exist
+      expect(root.join("engines/billing/app/props/rafelo/billing/widgets_index_props.rb")).not_to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/show.tsx")).to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/show.schema.ts")).to exist
       expect(root.join("engines/billing/app/frontend/screens/widgets/show_screen.tsx")).to exist
+      expect(root.join("engines/billing/app/frontend/pages/widgets/index.tsx")).not_to exist
       request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
       expect(request_spec).to include('renders the show page contract')
       expect(request_spec).to include('match_page_schema("billing/widgets/show")')
+      expect(request_spec).not_to include('renders the index page contract')
     end
   end
 
@@ -141,14 +144,18 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
       expect(controller).to include("def edit")
       expect(controller).to include("def update")
+      expect(controller).not_to include("def index")
       expect(root.join("engines/billing/app/props/rafelo/billing/widgets_edit_props.rb")).to exist
+      expect(root.join("engines/billing/app/props/rafelo/billing/widgets_index_props.rb")).not_to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/edit.tsx")).to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/edit.schema.ts")).to exist
       expect(root.join("engines/billing/app/frontend/screens/widgets/edit_screen.tsx")).to exist
+      expect(root.join("engines/billing/app/frontend/pages/widgets/index.tsx")).not_to exist
       request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
       expect(request_spec).to include('renders the edit page contract')
       expect(request_spec).to include('match_page_schema("billing/widgets/edit")')
       expect(request_spec).to include('redirects back with errors when update params are invalid')
+      expect(request_spec).not_to include('renders the index page contract')
 
       en_locale = YAML.safe_load(root.join("engines/billing/config/locales/en.yml").read)
       th_locale = YAML.safe_load(root.join("engines/billing/config/locales/th.yml").read)
