@@ -3,7 +3,7 @@
 module Rafelo
   module Core
     class ExportPolicy < BasePolicy
-      def show? = true
+      def show? = record.viewer_id == user&.id.to_s
     end
   end
 end

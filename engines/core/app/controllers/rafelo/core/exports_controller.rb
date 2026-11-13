@@ -6,9 +6,10 @@ module Rafelo
       throttle to: 30, within: 1.minute, only: :show, name: "export/ip"
 
       def show
-        authorize :export, :show?, policy_class: Rafelo::Core::ExportPolicy
-        export = Export.find_by(id: params[:id])
-        raise ApplicationError.new("resource.not_found") unless export && export.viewer_id == Current.viewer&.id.to_s
+        export = Export.readable_format.find_by(id: params[:id])
+        raise ApplicationError.new("resource.not_found") unless export
+
+        authorize export, :show?, policy_class: Rafelo::Core::ExportPolicy
         raise ApplicationError.new("resource.not_found") unless export.file.attached?
 
         send_download(

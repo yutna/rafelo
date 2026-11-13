@@ -2,8 +2,6 @@ require "rails_helper"
 require "timeout"
 
 RSpec.describe "Session refresh concurrency", :concurrency, truncate: %w[core_sessions] do
-  self.use_transactional_tests = false
-
   it "makes one upstream refresh and gives both callers the winner token" do
     viewer = Struct.new(:id, :name).new(7, "Ada")
     session, = Rafelo::Core::Session.start(

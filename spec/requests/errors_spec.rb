@@ -23,6 +23,13 @@ RSpec.describe "Error responder", type: :request do
     expect(body["traceId"]).to be_present
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
+  it "audits an unhandled non-GET failure exactly once" do
+    post "/en/dummy/widgets/crash", headers: auth_headers
+
+    expect(response).to have_http_status(:internal_server_error)
+    expect(Rafelo::Core::AuditEvent.where(event: "request", outcome: "failure").count).to eq(1)
+  end
+
   it "proves the error page contract" do
     expect { get "/en/dummy/widgets/not_found", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call) }.to within_budgets("errors/show")
 

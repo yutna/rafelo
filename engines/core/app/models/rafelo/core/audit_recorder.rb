@@ -29,11 +29,10 @@ module Rafelo
           trace_id: Current.trace_id.to_s.presence || request.request_id,
           ip: truncate_ip(request.remote_ip),
           user_agent_family: family(request.user_agent),
-          created_at: Time.current
+          created_at: Time.current,
+          format_version: AuditEvent::FORMAT_VERSION
         )
         Current.audit_recorded = true
-      rescue StandardError => error
-        Rails.logger.warn("audit.failed event=#{event} error=#{error.class}")
       end
 
       def self.truncate_ip(value)

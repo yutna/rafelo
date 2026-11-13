@@ -4,7 +4,7 @@ module DummyEngine
   class WidgetsController < Rafelo::Core::BaseController
     layout "application"
     before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired create validation conflict boom not_found upstream]
-    throttle to: 30, within: 1.minute, only: %i[create validation conflict boom upstream], name: "dummy/write"
+    throttle to: 30, within: 1.minute, only: %i[create validation conflict boom crash upstream], name: "dummy/write"
 
     def index
       render_page "dummy/widgets", props: DummyWidgetsProps.new(context: page_context, message: "dummy")
@@ -68,6 +68,11 @@ module DummyEngine
       raise Rafelo::Core::ApplicationError.new("resource.not_found")
     end
 
+    def crash
+      authorize :home, :show?
+      raise "unhandled probe"
+    end
+
     def upstream
       Rafelo::Core::UpstreamClient.for(
         :api,
@@ -81,6 +86,18 @@ module DummyEngine
       raise unless error.code == "resource.conflict"
 
       redirect_after_write("/en/dummy/widgets", errors: { "base" => I18n.t("core.errors.fields.conflict") })
+    end
+
+    def upstream_forbidden
+      authorize :home, :show?
+      Rafelo::Core::UpstreamClient.for(
+        :api,
+        config: Rails.application.config.x.upstreams.fetch(:api),
+        token_provider: Rafelo::Core::Current.token_provider,
+        budget: Rafelo::Core::Current.call_budget ||= Rafelo::Core::CallBudget.new(api: 3),
+        request_id: Rafelo::Core::Current.request_id,
+        trace_id: Rafelo::Core::Current.trace_id
+      ).get("forbidden")
     end
 
     def set_flash

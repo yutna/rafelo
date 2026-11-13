@@ -30,10 +30,19 @@ RSpec.describe "Exports", type: :request do
     expect(response.location).to be_nil
   end
 
-  it "hides another viewer's export and an unattached file" do
+  it "throttles export downloads" do
+    export = export_for(7)
+    cookie = session_cookie(7)
+
+    31.times { get "/en/dummy/export/#{export.id}", headers: { "Cookie" => cookie } }
+
+    expect(response).to have_http_status(:too_many_requests)
+  end
+
+  it "denies another viewer's export and hides an unattached file" do
     export = export_for(7)
     get "/en/dummy/export/#{export.id}", headers: { "Cookie" => session_cookie(8) }
-    expect(response).to have_http_status(:not_found)
+    expect(response).to have_http_status(:forbidden)
 
     unattached = export_for(8, attached: false)
     get "/en/dummy/export/#{unattached.id}", headers: { "Cookie" => session_cookie(8) }

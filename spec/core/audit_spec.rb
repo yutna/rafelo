@@ -27,6 +27,26 @@ RSpec.describe Rafelo::Core::AuditRecorder do
     expect(Rafelo::Core::AuditEvent.last.ip).to eq("203.0.113.0/24")
   end
 
+  it "sets the marker only after the insert and does not swallow an insert failure" do
+    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en")
+    controller = double("controller", request: request)
+    allow(Rafelo::Core::AuditEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "audit down")
+
+    expect do
+      described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
+    end.to raise_error(ActiveRecord::StatementInvalid)
+    expect(Rafelo::Core::Current.audit_recorded).to be_falsey
+  end
+
+  it "records the audit format version" do
+    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en")
+    controller = double("controller", request: request)
+
+    described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
+
+    expect(Rafelo::Core::AuditEvent.last.format_version).to eq(Rafelo::Core::AuditEvent::FORMAT_VERSION)
+  end
+
   it "makes audit rows append-only in the database" do
     event = Rafelo::Core::AuditEvent.create!(
       occurred_at: Time.current, event: "write", outcome: "success", created_at: Time.current

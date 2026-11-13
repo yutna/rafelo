@@ -21,13 +21,17 @@ module DummyEngine
       get "download", to: "downloads#show"
       get "download_failure", to: "downloads#failure"
       get "download_overflow", to: "downloads#overflow"
+      get "download_forbidden", to: "downloads#forbidden"
+      get "download_many", to: "downloads#many_chunks"
       get "export/:id", to: "exports#show"
       post "widgets", to: "widgets#create"
       post "widgets/validation", to: "widgets#validation"
       post "widgets/conflict", to: "widgets#conflict"
       post "widgets/boom", to: "widgets#boom"
       get "widgets/not_found", to: "widgets#not_found"
+      get "widgets/upstream_forbidden", to: "widgets#upstream_forbidden"
       post "widgets/upstream", to: "widgets#upstream"
+      post "widgets/crash", to: "widgets#crash"
     end
   end
 end

@@ -140,7 +140,7 @@ module Rafelo
           .positive?
         return refuse(:still_processing) unless claimed
 
-        @row = IdempotencyKey.find(row.id)
+        @row = IdempotencyKey.readable_format.find(row.id)
         perform(&block)
       end
 
