@@ -80,3 +80,5 @@ group :test do
 end
 
 gem "strong_migrations", "= 2.8.0"
+
+gem "lograge", "= 0.15.1"

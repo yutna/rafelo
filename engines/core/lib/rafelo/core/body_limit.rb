@@ -47,7 +47,7 @@ module Rafelo
                      env["action_dispatch.request_id"].presence ||
                      env["HTTP_X_REQUEST_ID"].presence ||
                      SecureRandom.uuid
-        trace_id = env["rafelo.trace_id"].presence || env["HTTP_X_REQUEST_ID"].presence || request_id
+        trace_id = env["rafelo.trace_id"].presence || SecureRandom.hex(16)
         payload = {
           error: {
             code: "request.entity_too_large",

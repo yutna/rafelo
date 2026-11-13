@@ -18,7 +18,7 @@ class SessionsController < ApplicationController
     result = Rafelo::Core::AuthGateway.new(
       budget: Rafelo::Core::CallBudget.new(api: 3),
       request_id: request.request_id,
-      trace_id: request.request_id
+      trace_id: Rafelo::Core::Current.trace_id
     ).sign_in(email: params[:email], password: params[:password])
     Rafelo::Core::Session.find_by_token(cookies[session_cookie_name])&.destroy if cookies[session_cookie_name]
     reset_session
@@ -30,6 +30,7 @@ class SessionsController < ApplicationController
       locale: I18n.locale,
       grants: result.grants
     )
+    request.env["rafelo.log.viewer"] = Rafelo::Core::LogPayload.opaque_viewer(result.viewer.id)
     cookies[session_cookie_name] = {
       value: token,
       httponly: true,

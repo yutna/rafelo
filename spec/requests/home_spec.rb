@@ -11,11 +11,13 @@ RSpec.describe "Home page", type: :request do
     expect(page["props"]["trace"]).to include("requestId", "traceId")
   end
 
-  it "uses the incoming request id as the trace id" do
-    get "/en", headers: auth_headers.merge("X-Request-Id" => "trace-home")
+  it "starts a fresh trace while keeping the incoming request id" do
+    get "/en", headers: auth_headers.merge("X-Request-Id" => "request-home")
 
     page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
-    expect(page.dig("props", "trace", "traceId")).to eq("trace-home")
+    expect(page.dig("props", "trace", "requestId")).to eq("request-home")
+    expect(page.dig("props", "trace", "traceId")).to match(/\A[0-9a-f]{32}\z/)
+    expect(page.dig("props", "trace", "traceId")).not_to eq("request-home")
   end
 
   it "rejects a stale Inertia asset version with 409" do

@@ -1,5 +1,6 @@
 require "rafelo/core/engine"
 require "rafelo/core/locale_middleware"
 require "rafelo/core/trace_middleware"
+require "rafelo/core/log_context_middleware"
 require "rafelo/core/body_limit"
 require "rafelo/core/permissions_policy"
