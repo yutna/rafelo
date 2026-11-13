@@ -15,15 +15,14 @@ concurrency:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: ${{ github.workspace }}
-
 env:
   BUNDLE_FROZEN: "true"
 
 jobs:
   image:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
@@ -38,6 +37,9 @@ jobs:
         id: read
         run: echo "ref=$(cat .devcontainer/image_digest)" >> "$GITHUB_OUTPUT"
   affected:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -57,6 +59,9 @@ jobs:
         run: script/ci/affected --base "$BASE_SHA"
 
   actionlint:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -73,6 +78,9 @@ jobs:
           ./actionlint -color
 
   scan_ruby:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -95,6 +103,9 @@ jobs:
         run: bin/bundler-audit
 
   scan_js:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -114,6 +125,9 @@ jobs:
         run: npm audit --audit-level=high
 
   lint:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -145,6 +159,9 @@ jobs:
         run: bin/rubocop -f github
 
   test:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -224,6 +241,9 @@ jobs:
         run: npm run pages:check -- --matchers
 
   guards:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -279,6 +299,9 @@ jobs:
           script/ci/clones_canary
 
   canaries:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -307,6 +330,9 @@ jobs:
         run: script/ci/cops_canary
 
   concurrency:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -344,6 +370,9 @@ jobs:
         run: script/ci/concurrency
 
   e2e:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -396,6 +425,9 @@ jobs:
 
 
   examples-removable:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -435,6 +467,9 @@ jobs:
         run: script/ci/example_removal
 
   production-image-needed:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -476,6 +511,9 @@ jobs:
           echo "$reason"
 
   production-image:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: [image, production-image-needed]
     if: needs.production-image-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
@@ -498,6 +536,9 @@ jobs:
         run: docker build -t rafelo-ci .
 
   smoke-needed:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: image
     runs-on: ubuntu-latest
     container:
@@ -539,6 +580,9 @@ jobs:
           echo "$reason"
 
   generator-smoke:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     needs: [image, smoke-needed]
     if: needs.smoke-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
@@ -578,6 +622,9 @@ jobs:
         run: script/ci/generator_smoke
 
   ci-ok:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     if: always()
     container:
       image: ${{ needs.image.outputs.ref }}
