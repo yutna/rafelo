@@ -318,3 +318,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** A path-ref announcer with history/query/hash rules, an always-mounted flash region, a design-system boundary with reset/retry/ids/CSRF reporting, modular pie-chart ECharts, React Aria controls and modal, localized en/th copy, and a test-env e2e run against built assets. Remaining catalog, declaration, lint and guard depth is carried in #219.
 
 **Spec feedback.** FE-13 should name the Inertia event ordering and the initial/history semantics. FE-15 should name the reporter contract and last-resort boundary. TS-11 should say which assets and locale screenshots the baseline covers. Related IDs: FE-07; FE-08; FE-13; FE-15; TS-08; TS-11.
+
+## 2026-11-13 — v0.15.0 — issue #260
+
+**What happened.** The v0.15.0 gate found a generated module that did not boot, a post-write step that ignored failures, no rollback outside the engine folder, broken TypeScript/errors checks, hardcoded locales/namespace, a locale-shaped name accepted, and an invalid permission manifest. Round 2 passed after the generated engine was loaded from `config/module.rb`, the post-write steps raised and restored root files, and the domain/module skeletons were completed.
+
+**Root cause.** Generator specs stubbed post-write and never booted a real engine; the registry entry lived in an engine initializer that ran before core autoloading; and token substitutions copied contracts instead of reading them.
+
+**What changed.** App-level module loading, booted module/domain verification, `run_step` failure propagation, tree snapshots/restore, design-system/locale/typecheck skeletons, direct permission manifests, and name normalization/validation. The permission compiler (#124), Prettier, real-smoke CI and adoption namespace are carried in #219.
+
+**Spec feedback.** GEN-09 should name the exact generated root files a rollback restores and whether a rolled-back CLI exits non-zero. GEN-03 should name the gem-name/namespace rules during adoption. Related IDs: GEN-01; GEN-03; GEN-05; GEN-09; ARCH-06.
