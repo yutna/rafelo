@@ -14,5 +14,5 @@ export { Pagination } from "../pagination";
 export { Skeleton } from "../skeleton";
 export { TextField } from "../text_field";
 export { Toast } from "../toast";
-export { calendarFor, formatDate, formatNumber, isValidIsoDate } from "../formatters";
+export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "../formatters";
 export { isSafeUrl, isAppPath } from "../safe_url";

@@ -1,4 +1,4 @@
-import { Button, Chart, Deferred, Link, Skeleton, formatNumber, useLocale } from "@design_system/public";
+import { Button, Chart, Deferred, Link, Skeleton, formatMoney, useLocale } from "@design_system/public";
 import { router } from "@inertiajs/react";
 
 import { useOrdersTranslation } from "../../i18n";
@@ -75,7 +75,7 @@ export function OrdersScreen({
                 <span data-testid={`example_orders.orders.index.row.${order.id}`}>
                   {order.number} · {order.customer.name}
                 </span>
-                <span>{order.status} · {order.total.currency} {formatNumber(order.total.minor / 100, locale)}</span>
+                <span>{order.status} · {formatMoney(order.total.minor, order.total.currency, order.total.exponent, locale)}</span>
               </Link>
             </li>
           ))}

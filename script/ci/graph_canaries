@@ -278,6 +278,21 @@ unless !example_ts_status.success? && example_ts_output.include?("nothing-depend
   warn example_ts_output
   exit 1
 end
+write(root, "script/example_leak.ts", <<~TS)
+  import { exampleCanary } from "../engines/example_canary/app/frontend/public/index";
+
+  export const leaked = exampleCanary;
+TS
+root_ts_output, root_ts_status = run(
+  root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err", "script"
+)
+unless !root_ts_status.success? && root_ts_output.include?("nothing-depends-on-example-engines")
+  warn "graph_canaries: expected the root TypeScript example-engine rule to fail"
+  warn root_ts_output
+  exit 1
+end
+FileUtils.rm_f(File.join(root, "script", "example_leak.ts"))
+
 FileUtils.rm_f(File.join(root, "engines", "canary_legal_beta", "app", "frontend", "example_leak.ts"))
 
 # GEN-08: an engine outside example_* cannot depend on an example engine.

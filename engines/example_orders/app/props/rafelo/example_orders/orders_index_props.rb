@@ -48,7 +48,7 @@ module Rafelo
           number: order.number,
           customer: { id: order.customer_id, name: order.customer_name, tier: order.customer_tier },
           status: order.status,
-          total: { minor: order.total_minor, currency: order.currency, exponent: 2 },
+          total: Rafelo::Core::Money.wire(order.total_minor, order.currency),
           issuedOn: order.issued_on,
           href: context.urls.route(:example_orders, :order, id: order.id)
         }

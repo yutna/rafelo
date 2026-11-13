@@ -22,3 +22,8 @@ export function isValidIsoDate(value: string): boolean {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
+
+export function formatMoney(minor: number, currency: string, exponent: number, locale: string): string {
+  const amount = minor / 10 ** exponent;
+  return `${new Intl.NumberFormat(locale, { minimumFractionDigits: exponent, maximumFractionDigits: exponent }).format(amount)} ${currency}`;
+}
