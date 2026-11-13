@@ -11,6 +11,8 @@ RSpec.describe "Security headers", type: :request do
     expect(response.headers["Content-Security-Policy"]).to match(/script-src 'self' 'nonce-[^']+'/)
     expect(response.headers["Content-Security-Policy"]).not_to include("'nonce-'")
     expect(response.headers["Content-Security-Policy"]).to include("frame-ancestors 'none'")
+    expect(response.headers["Content-Security-Policy"]).to include("form-action 'self'")
+    expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
     expect(response.body).to match(/<meta name="csp-nonce" content="[^"]+">/)
     expect(response.headers["Content-Security-Policy"]).not_to include("unsafe-inline")
   end
@@ -31,6 +33,25 @@ RSpec.describe "Security headers", type: :request do
     expect(response).to have_http_status(:see_other)
   ensure
     ActionController::Base.allow_forgery_protection = previous
+  end
+
+  it "keeps the headers on a 403 and a router 404" do
+    viewer = Struct.new(:id, :name).new(7, "Ada")
+    session, token = Rafelo::Core::Session.start(
+      viewer: viewer, access_token: "access", refresh_token: "refresh",
+      access_expires_at: 5.minutes.from_now, grants: []
+    )
+
+    get "/en/dummy/denied", headers: { "Cookie" => "session_token=#{token}" }
+    expect(response).to have_http_status(:forbidden)
+    expect(response.headers["Content-Security-Policy"]).to include("form-action 'self'")
+    expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
+
+    get "/en/does-not-exist"
+    expect(response).to have_http_status(:not_found)
+    expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
+  ensure
+    session&.destroy
   end
 
   it "throttles repeated sign-in attempts" do

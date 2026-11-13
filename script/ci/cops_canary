@@ -9,6 +9,7 @@ COPS = %w[
   Rafelo/NoTlsVerifyDisable
   Rafelo/ConfigXOnlyInCore
   Rafelo/CacheOnlyThroughScopedCache
+  Rafelo/ReturnToOnlyInValueObject
 ].join(",")
 
 bad = File.join(ROOT, "spec/enforcement/fixtures/cops/bad/example.rb")

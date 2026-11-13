@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "yaml"
+
+ROOT = File.expand_path("../..", __dir__)
+Dir.chdir(ROOT)
+
+tracked = IO.popen(%w[git ls-files], err: File::NULL, &:read)
+abort "deploy_preflight: git ls-files failed" unless $?.success?
+
+forbidden = tracked.lines(chomp: true).select do |path|
+  env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
+  key_file = path.start_with?("config/credentials/") && path.end_with?(".key") && path != "config/credentials/dummy.key"
+  env_file || key_file || path == "config/master.key" || path == ".kamal/secrets"
+end
+abort "deploy_preflight: tracked secret files: #{forbidden.join(", ")}" if forbidden.any?
+
+deploy = YAML.safe_load_file("config/deploy.yml", aliases: true)
+abort "deploy_preflight: config/deploy.yml is not a mapping" unless deploy.is_a?(Hash)
+abort "deploy_preflight: deploy_timeout is missing" unless deploy.key?("deploy_timeout")
+abort "deploy_preflight: proxy max_request_body is missing" unless deploy.dig("proxy", "buffering", "max_request_body")
+
+servers = deploy.fetch("servers", {})
+hosts = servers.values.sum { |entry| entry.is_a?(Hash) ? Array(entry["hosts"]).length : 0 }
+boot_limit = deploy.dig("boot", "limit")
+if hosts > 1 && boot_limit != 1
+  abort "deploy_preflight: more than one host needs boot.limit: 1"
+end
+
+puts "deploy_preflight: tracked secrets clean, deploy timeout set, boot limit safe"
