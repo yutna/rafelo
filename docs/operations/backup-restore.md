@@ -74,7 +74,10 @@ procedure in this file. The application-side steps below do not change.
    ```
 
    The task refuses to run without the confirmation flag and the migration
-   role, truncates `core_sessions`, and prints that the table is empty.
+   role, truncates `core_sessions`, and prints that the table is empty. Make
+   `RESTORE_DATABASE_URL` connect as the migration role (or use `DB_HOST`,
+   `DB_PORT`, and `DB_NAME` so the role switch in `config/database.yml`
+   applies); the URL is never printed.
 4. Run the drill check, which repeats the truncate and proves the table has
    zero rows:
 
