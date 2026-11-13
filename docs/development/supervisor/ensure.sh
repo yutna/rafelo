@@ -12,6 +12,9 @@ if [ -f "$state/STOPPED" ]; then
 fi
 if [ -f "$state/STOP" ]; then
   touch "$state/STOPPED"
+  if crontab -l >/tmp/rafelo-cron 2>/dev/null; then
+    grep -v '# rafelo-supervisor' /tmp/rafelo-cron | crontab - || true
+  fi
   exit 0
 fi
 if tmux has-session -t rafelo-supervisor 2>/dev/null; then
