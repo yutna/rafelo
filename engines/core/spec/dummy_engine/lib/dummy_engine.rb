@@ -20,6 +20,7 @@ module DummyEngine
       get "expired", to: "widgets#expired"
       get "download", to: "downloads#show"
       get "download_failure", to: "downloads#failure"
+      get "download_overflow", to: "downloads#overflow"
       get "export/:id", to: "exports#show"
       post "widgets", to: "widgets#create"
       post "widgets/validation", to: "widgets#validation"

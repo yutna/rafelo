@@ -13,7 +13,7 @@ module Rafelo
 
       def refresh(refresh_token:)
         client = client_for_refresh
-        payload = JSON.parse(
+        payload = parse_json(
           client.post(
             "auth/refresh",
             body: { refresh_token: refresh_token }.to_json,
@@ -21,8 +21,6 @@ module Rafelo
           ).body
         )
         result(payload)
-      rescue JSON::ParserError
-        raise ApplicationError.new("unexpected", "Upstream returned malformed JSON")
       end
 
       def sign_in(email:, password:)
@@ -35,7 +33,7 @@ module Rafelo
           trace_id: @trace_id,
           kind: :auth
         )
-        payload = JSON.parse(
+        payload = parse_json(
           client.post(
             "auth/sign_in",
             body: { email: email, password: password }.to_json,
@@ -46,6 +44,12 @@ module Rafelo
       end
 
       private
+
+      def parse_json(body)
+        JSON.parse(body.to_s)
+      rescue JSON::ParserError, TypeError
+        raise ApplicationError.new("unexpected", "Upstream returned malformed JSON")
+      end
 
       def client_for_refresh
         UpstreamClient.for(
@@ -67,6 +71,8 @@ module Rafelo
           access_expires_at: Time.current + payload.fetch("expires_in").to_i.seconds,
           grants: Array(payload["grants"])
         )
+      rescue KeyError, TypeError, NoMethodError
+        raise ApplicationError.new("unexpected", "Upstream returned malformed JSON")
       end
     end
   end

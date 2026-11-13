@@ -18,5 +18,14 @@ module DummyEngine
         source: ->(&_block) { raise Rafelo::Core::ApplicationError.new("upstream.unavailable") }
       )
     end
+
+    def overflow
+      authorize :home, :show?
+      send_download(
+        filename: "overflow.txt",
+        max_bytes: 5,
+        source: ->(&block) { block.call("abc"); block.call("def") }
+      )
+    end
   end
 end
