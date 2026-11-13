@@ -8,7 +8,7 @@ RSpec.describe Rafelo::Core::BaseController do
     end
 
     expect(symbols.call(:before)).to eq(
-      [ :verify_authenticity_token, :set_response_headers, :assign_request_context, :share_trace, :underscore_param_keys ]
+      [ :verify_authenticity_token, :load_session, :set_response_headers, :assign_request_context, :share_trace, :underscore_param_keys ]
     )
     expect(symbols.call(:around)).to eq([ :with_locale ])
     expect(symbols.call(:after)).to eq([ :verify_same_origin_request, :verify_authorized ])

@@ -9,7 +9,7 @@ module Rafelo
 
       encrypts :access_token, :refresh_token
 
-      def self.start(viewer:, access_token:, refresh_token:, access_expires_at:, locale: Locales.default, ttl: 12.hours)
+      def self.start(viewer:, access_token:, refresh_token:, access_expires_at:, locale: Locales.default, ttl: 12.hours, grants: [])
         token = SecureRandom.urlsafe_base64(32)
         session = create!(
           token_digest: digest(token),
@@ -19,7 +19,9 @@ module Rafelo
           refresh_token: refresh_token,
           access_expires_at: access_expires_at,
           expires_at: ttl.from_now,
-          locale: locale
+          locale: locale,
+          permission_grants: grants,
+          grant_digest: Digest::SHA256.hexdigest(Array(grants).map(&:to_s).sort.join(","))
         )
         [ session, token ]
       end
