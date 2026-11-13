@@ -193,9 +193,14 @@ module Rafelo
       def restore_snapshot(before)
         after = Dir[root.join("**/*")].select { |p| File.file?(p) }
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
-        before.each { |p, content| File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content }
+        before.each do |p, content|
+          FileUtils.mkdir_p(File.dirname(p))
+          File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
+        end
         Dir[root.join("**/*")].select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
           Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
+        rescue StandardError
+          nil
         end
       rescue StandardError
         nil

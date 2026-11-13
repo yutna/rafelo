@@ -56,4 +56,34 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       expect(mod_rb).to include('"billing"')
     end
   end
+
+  it "restores the tree when move fails mid-run" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "billing" => { "widgets" => [ "read" ] } })
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+      before = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort.map { |p| [ p, File.binread(p) ] }
+
+      allow_any_instance_of(described_class).to receive(:add_legacy_path).and_raise("boom")
+
+      expect {
+        begin
+          described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+
+      after = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort.map { |p| [ p, File.binread(p) ] }
+      expect(after).to eq(before)
+    end
+  end
 end

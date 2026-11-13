@@ -41,4 +41,32 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       expect(ratchets["legacy_constants"]).to eq(1)
     end
   end
+
+  it "restores the tree when rename fails mid-run" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      src = root.join("engines/billing")
+      FileUtils.mkdir_p(src.join("config/initializers"))
+      FileUtils.mkdir_p(src.join("lib/rafelo/billing"))
+      File.write(src.join("package.yml"), YAML.dump("enforce_dependencies" => "strict", "dependencies" => []))
+      File.write(src.join("config/ratchets.yml"), YAML.dump("eslint_disable" => 0))
+      File.write(src.join("config/module.rb"), "Rafelo::Core::Modules.register(key: :billing, engine: Object, path: \"/billing\", permission_prefixes: [\"billing\"], nav: { order: 10 })\n")
+      File.write(src.join("config/permissions.yml"), YAML.dump("billing" => { "widgets" => [ "read" ] }))
+      File.write(src.join("lib/rafelo/billing/engine.rb"), "module Rafelo::Billing; class Engine < Rails::Engine; end; end\n")
+      before = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort.map { |p| [ p, File.binread(p) ] }
+
+      allow_any_instance_of(described_class).to receive(:write_legacy_constants).and_raise("boom")
+
+      expect {
+        begin
+          described_class.start([ "billing", "invoicing", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+
+      after = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort.map { |p| [ p, File.binread(p) ] }
+      expect(after).to eq(before)
+    end
+  end
 end

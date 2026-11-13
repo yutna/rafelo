@@ -17,4 +17,30 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(File.read(root.join("engines/billing/config/routes.rb"))).to eq(routes)
     end
   end
+
+  it "rolls back generated files when a write step fails" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      allow_any_instance_of(described_class).to receive(:write_tests).and_raise("boom")
+      before = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort
+
+      expect {
+        begin
+          described_class.start([ "billing", "widgets", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+
+      after = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort
+      expect(after).to eq(before)
+      expect(File.read(root.join("engines/billing/config/routes.rb"))).to eq("Rafelo::Billing::Engine.routes.draw do\nend\n")
+    end
+  end
 end
