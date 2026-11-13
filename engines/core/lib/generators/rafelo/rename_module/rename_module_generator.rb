@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "rails/generators"
+require "shellwords"
 require "yaml"
 
 module Rafelo
@@ -27,6 +29,9 @@ module Rafelo
 
       attr_reader :root
 
+      def app_namespace = Rails.application.class.module_parent_name
+      def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
+
       def validate!
         raise Thor::Error, "engine not found: #{@source_name}" unless Dir.exist?(root.join("engines", @source_name))
         raise Thor::Error, "engine already exists: #{@destination_name}" if Dir.exist?(root.join("engines", @destination_name))
@@ -42,12 +47,12 @@ module Rafelo
         rename_if_exists(target.join("lib/rafelo_#{@source_name}.rb"), target.join("lib/rafelo_#{@destination_name}.rb"))
 
         [
-          [ "lib/rafelo", @source_name, @destination_name ],
-          [ "app/controllers/rafelo", @source_name, @destination_name ],
-          [ "app/policies/rafelo", @source_name, @destination_name ],
-          [ "app/props/rafelo", @source_name, @destination_name ],
-          [ "app/forms/rafelo", @source_name, @destination_name ],
-          [ "app/public/rafelo", @source_name, @destination_name ]
+          [ "lib/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/controllers/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/policies/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/props/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/forms/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/public/#{app_ns_underscore}", @source_name, @destination_name ]
         ].each do |base, from_name, to_name|
           from = target.join(base, from_name)
           to = target.join(base, to_name)
@@ -60,11 +65,11 @@ module Rafelo
           body = File.binread(path)
           next if body.include?("\x00")
 
-          body = body.gsub("Rafelo::#{old_camel}", "Rafelo::#{new_camel}")
+          body = body.gsub("#{app_namespace}::#{old_camel}", "#{app_namespace}::#{new_camel}")
           body = body.gsub(/\bmodule #{Regexp.escape(old_camel)}\b/, "module #{new_camel}")
           body = body.gsub(/\bclass #{Regexp.escape(old_camel)}\b/, "class #{new_camel}")
-          body = body.gsub("rafelo_#{@source_name}", "rafelo_#{@destination_name}")
-          body = body.gsub("rafelo/#{@source_name}", "rafelo/#{@destination_name}")
+          body = body.gsub("#{app_ns_underscore}_#{@source_name}", "#{app_ns_underscore}_#{@destination_name}")
+          body = body.gsub("#{app_ns_underscore}/#{@source_name}", "#{app_ns_underscore}/#{@destination_name}")
           body = body.gsub("@#{@source_name}/", "@#{@destination_name}/")
           body = body.gsub(/^(\s*)key:\s*:#{Regexp.escape(@source_name)}\b/, "\\1key: :#{@destination_name}")
           # keep URL/path and permission prefixes stable per GEN-06
@@ -73,7 +78,9 @@ module Rafelo
             body = body.gsub(/^(\s*)permission_prefixes:\s*\[[^\]]*\]/, "\\1permission_prefixes: [ \"#{@source_name}\" ]")
             body = body.gsub(/^(\s*label_key:\s*)"#{Regexp.escape(@source_name)}\.nav\.title"/, "\\1\"#{@destination_name}.nav.title\"")
           end
-          body = body.gsub(/^(\s*)#{Regexp.escape(@source_name)}:\s*$/, "\\1#{@destination_name}:") if path.to_s.end_with?(".yml")
+          if path.to_s.end_with?(".yml") && !path.to_s.end_with?("config/permissions.yml") && !path.to_s.include?("/config/locales/")
+            body = body.gsub(/^(\s*)#{Regexp.escape(@source_name)}:\s*$/, "\\1#{@destination_name}:")
+          end
           body = body.gsub(/\.nav\.title:\s*"#{Regexp.escape(@source_name.humanize)}"/, ".nav.title: \"#{@destination_name.humanize}\"")
           File.binwrite(path, body)
         end
@@ -82,6 +89,45 @@ module Rafelo
         update_permissions_manifest(target)
         update_root_spec_paths if Dir.exist?(root.join("spec/requests", @source_name))
         update_dependents
+        update_package_metadata(target)
+        write_legacy_constants(target)
+        update_ratchets(target)
+      end
+
+      def update_package_metadata(engine_root)
+        path = engine_root.join("package.yml")
+        return unless File.file?(path)
+
+        data = YAML.safe_load(File.read(path), aliases: false) || {}
+        metadata = (data["metadata"] || {}).dup
+        metadata["legacy_table_prefix"] = @source_name unless metadata.key?("legacy_table_prefix")
+        data["metadata"] = metadata
+        File.write(path, YAML.dump(data))
+      end
+
+      def write_legacy_constants(engine_root)
+        path = engine_root.join("config/initializers/legacy_constants.rb")
+        FileUtils.mkdir_p(File.dirname(path))
+        old_camel = @source_name.camelize
+        new_camel = @destination_name.camelize
+        lines = []
+        lines << "# frozen_string_literal: true"
+        lines << ""
+        lines << "# Kept for one release after renaming #{@source_name} to #{@destination_name} (GEN-06)."
+        lines << "module #{app_namespace}"
+        lines << "  #{old_camel} = #{new_camel} unless const_defined?(:#{old_camel}, false)"
+        lines << "end"
+        File.write(path, lines.join("\n") + "\n")
+      end
+
+      def update_ratchets(engine_root)
+        path = engine_root.join("config/ratchets.yml")
+        return unless File.file?(path)
+
+        data = YAML.safe_load(File.read(path), aliases: false) || {}
+        data["legacy_table_prefixes"] = data.fetch("legacy_table_prefixes", 0).to_i + 1
+        data["legacy_constants"] = data.fetch("legacy_constants", 0).to_i + 1
+        File.write(path, YAML.dump(data))
       end
 
       def rename_if_exists(from, to)
@@ -102,26 +148,22 @@ module Rafelo
       end
 
       def update_permissions_manifest(engine_root)
+        # Keep permission keys stable by preserving the original permission prefix.
         path = engine_root.join("config/permissions.yml")
-        return unless File.file?(path)
-
-        content = YAML.safe_load(File.read(path), aliases: false) || {}
-        if content.key?(@source_name)
-          content[@destination_name] = content.delete(@source_name)
-          File.write(path, YAML.dump(content))
-        end
+        File.file?(path)
       end
 
       def update_root_spec_paths
         from = root.join("spec/requests", @source_name)
         to = root.join("spec/requests", @destination_name)
+        return unless Dir.exist?(from)
+
         FileUtils.mkdir_p(to.dirname)
         FileUtils.mv(from, to)
         Dir[to.join("**/*")].select { |p| File.file?(p) }.each do |path|
           body = File.read(path)
-          body = body.gsub("\"/#{@source_name}/", "\"/#{@destination_name}/") # keep URL stable? no, URLs stay stable by path but route helpers may differ; specs should still target old path
-          body = body.gsub("/en/#{@source_name}/", "/en/#{@source_name}/")
-          body = body.gsub("\"#{@source_name}/", "\"#{@destination_name}/")
+          # URLs stay stable on rename (module path is preserved), but page/component keys follow the engine name.
+          body = body.gsub(%("#{ @source_name }/"), %("#{ @destination_name }/))
           File.write(path, body)
         end
       end
@@ -142,7 +184,20 @@ module Rafelo
           %w[bundle\ install script/ci/engine_graph npm\ run\ aliases:generate npm\ run\ permissions:generate npm\ run\ errors:generate npm\ run\ i18n:generate npm\ run\ contracts:generate].each do |cmd|
             raise Thor::Error, "post-write step failed: #{cmd}" unless run(cmd)
           end
+          format_written_files
         end
+      end
+
+      def format_written_files
+        files = Dir[root.join("engines", @destination_name, "app/frontend/**/*.{ts,tsx,mts,json}")]
+          .select { |p| File.file?(p) }
+          .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
+        files.uniq!
+        return if files.empty?
+
+        rel = files.map { |p| Pathname.new(p).relative_path_from(root).to_s }
+        quoted = rel.map { |p| Shellwords.escape(p) }.join(" ")
+        raise Thor::Error, "post-write step failed: npx prettier --write" unless run("npx prettier --write #{quoted}")
       end
 
       def snapshot
@@ -153,9 +208,14 @@ module Rafelo
       def restore_snapshot(before)
         after = Dir[root.join("**/*")].select { |p| File.file?(p) }
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
-        before.each { |p, content| File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content }
+        before.each do |p, content|
+          FileUtils.mkdir_p(File.dirname(p))
+          File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
+        end
         Dir[root.join("**/*")].select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
           Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
+        rescue StandardError
+          nil
         end
       rescue StandardError
         nil

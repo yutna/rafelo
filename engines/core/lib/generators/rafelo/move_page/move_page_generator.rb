@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "rails/generators"
+require "shellwords"
 require "yaml"
 
 module Rafelo
@@ -32,7 +34,25 @@ module Rafelo
       def validate!
         raise Thor::Error, "source engine not found" unless Dir.exist?(root.join("engines", @source))
         raise Thor::Error, "target engine not found" unless Dir.exist?(root.join("engines", @target))
+
+        source_routes = root.join("engines", @source, "config/routes.rb")
+        raise Thor::Error, "source routes not found" unless File.file?(source_routes)
+        unless File.read(source_routes).include?("resources :#{plural}")
+          raise Thor::Error, "resource not found in source module: #{plural}"
+        end
+
+        target_routes = root.join("engines", @target, "config/routes.rb")
+        if File.file?(target_routes) && File.read(target_routes).include?("resources :#{plural}")
+          raise Thor::Error, "resource already exists in target module: #{plural}"
+        end
+        if Dir.exist?(root.join("engines", @target, "app/frontend/pages/#{plural}")) ||
+           File.exist?(root.join("engines", @target, "app/controllers/#{app_ns_underscore}/#{@target}/#{plural}_controller.rb"))
+          raise Thor::Error, "resource already exists in target module: #{plural}"
+        end
       end
+
+      def app_namespace = Rails.application.class.module_parent_name
+      def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
 
       def plural = @res.pluralize
       def singular = @res.singularize
@@ -42,10 +62,10 @@ module Rafelo
         move_tree("app/frontend/screens/#{plural}", "app/frontend/screens/#{plural}")
         move_tree("app/frontend/containers/#{plural}", "app/frontend/containers/#{plural}")
         move_tree("app/frontend/components/#{plural}", "app/frontend/components/#{plural}")
-        move_glob("app/controllers/rafelo/#{@source}", "app/controllers/rafelo/#{@target}", "*#{plural}*")
-        move_glob("app/policies/rafelo/#{@source}", "app/policies/rafelo/#{@target}", "*#{singular}*")
-        move_glob("app/props/rafelo/#{@source}", "app/props/rafelo/#{@target}", "*#{plural}*")
-        move_glob("app/forms/rafelo/#{@source}", "app/forms/rafelo/#{@target}", "*#{singular}*")
+        move_glob("app/controllers/#{app_ns_underscore}/#{@source}", "app/controllers/#{app_ns_underscore}/#{@target}", "*#{plural}*")
+        move_glob("app/policies/#{app_ns_underscore}/#{@source}", "app/policies/#{app_ns_underscore}/#{@target}", "*#{singular}*")
+        move_glob("app/props/#{app_ns_underscore}/#{@source}", "app/props/#{app_ns_underscore}/#{@target}", "*#{plural}*")
+        move_glob("app/forms/#{app_ns_underscore}/#{@source}", "app/forms/#{app_ns_underscore}/#{@target}", "*#{singular}*")
         move_tree("config/contracts/pages/#{plural}", "config/contracts/pages/#{plural}")
 
         rewrite_target_contents
@@ -53,6 +73,7 @@ module Rafelo
         rewrite_routes
         move_permissions
         add_legacy_path
+        add_legacy_redirect_spec
       end
 
       def move_tree(from_rel, to_rel)
@@ -79,7 +100,7 @@ module Rafelo
           next if body.include?("\x00")
 
           changed = body.dup
-          changed = changed.gsub("Rafelo::#{@source.camelize}", "Rafelo::#{@target.camelize}")
+          changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
           changed = changed.gsub("\"#{@source}/#{plural}\"", "\"#{@target}/#{plural}\"")
           changed = changed.gsub("'#{@source}/#{plural}'", "'#{@target}/#{plural}'")
@@ -110,14 +131,23 @@ module Rafelo
       def rewrite_routes
         src_path = root.join("engines", @source, "config/routes.rb")
         src = File.read(src_path)
+        moved_had_index = src.match?(/resources :#{plural}[^\n]*index/) || src.match?(/resources :#{plural}(?![^\n]*only:)/)
+        moved_was_root = src.match?(/^\s*root to:\s*"#{plural}#index"/)
         src = src.gsub(/^\s*resources :#{plural}[^\n]*\n/, "")
-        # keep old URL stable via redirect at source mount path context? easier to leave no local redirect and rely on legacy_paths
+        if moved_was_root
+          next_index = src[/^\s*resources :(\w+)[^\n]*\bindex\b/, 1] || src[/^\s*resources :(\w+)(?![^\n]*only:)/, 1]
+          if next_index
+            src = src.sub(/^\s*root to:.*\n/, "    root to: \"#{next_index}#index\"\n")
+          else
+            src = src.gsub(/^\s*root to:.*\n/, "")
+          end
+        end
         File.write(src_path, src)
 
         tgt_path = root.join("engines", @target, "config/routes.rb")
         tgt = File.read(tgt_path)
         unless tgt.include?("resources :#{plural}")
-          root_line = tgt.include?("root to:") ? "" : "    root to: \"#{plural}#index\"\n"
+          root_line = (!tgt.include?("root to:") && moved_had_index) ? "    root to: \"#{plural}#index\"\n" : ""
           tgt = tgt.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n    resources :#{plural}\n#{root_line}")
         end
         File.write(tgt_path, tgt)
@@ -129,12 +159,13 @@ module Rafelo
         src = YAML.safe_load(File.read(src_path), aliases: false) || {}
         tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
         src_prefix = src[@source] || {}
-        tgt_prefix = tgt[@target] || {}
+        # Keep permission keys stable by preserving the source prefix in the target manifest.
+        tgt_source_prefix = tgt[@source] || {}
         if src_prefix.key?(plural)
-          tgt_prefix[plural] = src_prefix.delete(plural)
+          tgt_source_prefix[plural] = src_prefix.delete(plural)
         end
         src[@source] = src_prefix
-        tgt[@target] = tgt_prefix
+        tgt[@source] = tgt_source_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))
       end
@@ -142,13 +173,22 @@ module Rafelo
       def add_legacy_path
         path = root.join("engines", @target, "config/module.rb")
         content = File.read(path)
-        return if content.include?("legacy_paths:")
-
         old_prefix = "/#{@source}/#{plural}"
-        # target module path is its own path; resource will be under /<target>/<plural>, so legacy /<source>/<plural> -> /<plural>
-        insertion = "  legacy_paths: { \"#{old_prefix}\" => \"/#{plural}\" },\n"
-        content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
-        # also ensure target accepts source permission prefix for stability
+        target_suffix = "/#{plural}"
+
+        if content.include?("legacy_paths:")
+          unless content.include?(%("#{old_prefix}"))
+            content = content.sub(/legacy_paths:\s*\{/, "legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\",")
+          end
+        else
+          insertion = "  legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\" },\n"
+          if content =~ /^(\s*permission_prefixes:.*\n)/
+            content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
+          else
+            content = content.sub(/\A/, "#{insertion}")
+          end
+        end
+
         if content =~ /permission_prefixes:\s*\[([^\]]*)\]/
           prefixes = $1.scan(/"([^"]+)"/).flatten
           unless prefixes.include?(@source)
@@ -159,12 +199,45 @@ module Rafelo
         File.write(path, content)
       end
 
+      def add_legacy_redirect_spec
+        spec_path = root.join("spec/requests", @target, "#{plural}_legacy_redirect_spec.rb")
+        FileUtils.mkdir_p(spec_path.dirname)
+        content = <<~RUBY
+          # frozen_string_literal: true
+
+          require "rails_helper"
+
+          RSpec.describe "#{@target}/#{plural} legacy redirect", type: :request do
+            it "redirects the old URL to the moved resource with a 301" do
+              get "/en/#{@source}/#{plural}"
+              expect(response).to have_http_status(:moved_permanently)
+              expect(response).to redirect_to("/en/#{@target}/#{plural}")
+            end
+          end
+        RUBY
+        File.write(spec_path, content) unless spec_path.exist?
+      end
+
       def post_write
         inside(root) do
           %w[bundle\ install script/ci/engine_graph npm\ run\ aliases:generate npm\ run\ permissions:generate npm\ run\ errors:generate npm\ run\ i18n:generate npm\ run\ contracts:generate].each do |cmd|
             raise Thor::Error, "post-write step failed: #{cmd}" unless run(cmd)
           end
+          format_written_files
         end
+      end
+
+      def format_written_files
+        files = Dir[root.join("engines", @target, "app/frontend/**/*.{ts,tsx,mts,json}")]
+          .concat(Dir[root.join("engines", @source, "app/frontend/**/*.{ts,tsx,mts,json}")])
+          .select { |p| File.file?(p) }
+          .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
+        files.uniq!
+        return if files.empty?
+
+        rel = files.map { |p| Pathname.new(p).relative_path_from(root).to_s }
+        quoted = rel.map { |p| Shellwords.escape(p) }.join(" ")
+        raise Thor::Error, "post-write step failed: npx prettier --write" unless run("npx prettier --write #{quoted}")
       end
 
       def snapshot
@@ -174,9 +247,14 @@ module Rafelo
       def restore_snapshot(before)
         after = Dir[root.join("**/*")].select { |p| File.file?(p) }
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
-        before.each { |p, content| File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content }
+        before.each do |p, content|
+          FileUtils.mkdir_p(File.dirname(p))
+          File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
+        end
         Dir[root.join("**/*")].select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
           Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
+        rescue StandardError
+          nil
         end
       rescue StandardError
         nil

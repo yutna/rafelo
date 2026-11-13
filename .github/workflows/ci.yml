@@ -390,18 +390,46 @@ jobs:
       - name: Build the production image
         run: docker build -t rafelo-ci .
 
-  ci-ok:
-    if: always()
-    needs: [affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, concurrency, e2e, production-image, generator-smoke]
+  smoke-needed:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
     steps:
-      - name: All required jobs passed
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide whether generator smoke runs
+        id: decide
         env:
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: test "$FAILED" = false
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          run=false
+          reason="skip: no generator/core/registry/routes changes"
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            run=true
+            reason="run: $EVENT_NAME"
+          elif [ -n "$BASE_SHA" ]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
+            if echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
+              run=true
+              reason="run: triggering paths changed"
+            fi
+          else
+            run=true
+            reason="run: no base to compare"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "$reason"
 
   generator-smoke:
+    needs: smoke-needed
+    if: needs.smoke-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -440,33 +468,7 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Decide whether generator smoke runs
-        id: decide
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
-        run: |
-          set -euo pipefail
-          run=false
-          reason="skip: no generator/core/registry/routes changes"
-          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            run=true
-            reason="run: $EVENT_NAME"
-          elif [ -n "$BASE_SHA" ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls)|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
-              run=true
-              reason="run: triggering paths changed"
-            fi
-          else
-            run=true
-            reason="run: no base to compare"
-          fi
-          echo "run=$run" >> "$GITHUB_OUTPUT"
-          echo "$reason"
-
       - name: Run generator smoke
-        if: steps.decide.outputs.run == 'true'
         env:
           RAILS_ENV: test
           DB_HOST: localhost
@@ -474,6 +476,13 @@ jobs:
           DB_PASSWORD: postgres
         run: script/ci/generator_smoke
 
-      - name: Skip generator smoke
-        if: steps.decide.outputs.run != 'true'
-        run: echo "skip - no generator/core/registry/routes changes"
+  ci-ok:
+    if: always()
+    needs: [affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, concurrency, e2e, production-image, smoke-needed, generator-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: All required jobs passed
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false
