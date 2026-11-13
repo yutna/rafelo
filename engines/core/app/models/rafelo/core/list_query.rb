@@ -9,6 +9,8 @@ module Rafelo
       MAX_MULTI_FILTER = 10
       MAX_CURSOR_LENGTH = 200
 
+      def self.max_per_page = MAX_PER_PAGE
+
       def self.from(params, sort:, filters: {}, default_sort: nil, default_direction: "asc")
         page = integer(params[:page]) || 1
         page = 1 if page < 1

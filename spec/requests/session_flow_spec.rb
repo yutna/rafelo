@@ -56,13 +56,18 @@ RSpec.describe "Session refresh and expiry", type: :request do
   it "refreshes tokens and grants through the single-flight path" do
     stub_upstream(:post, "/auth/refresh", fixture: "auth/refresh.json", base_url: "http://localhost:4000")
     session, cookie = session_with(expires_at: 10.seconds.from_now, grants_at: 10.minutes.ago)
+    kinds = []
+    subscriber = ActiveSupport::Notifications.subscribe("upstream.call") { |*, payload| kinds << payload[:kind] }
 
     get "/en", headers: { "Cookie" => cookie }
 
     expect(response).to have_http_status(:ok)
+    expect(kinds).to include(:session_refresh)
     session.reload
     expect(session.access_token).to eq("fresh-access")
     expect(session.permission_grants).to include("billing:invoice:create")
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
   end
 
   it "clears the cookie and redirects to sign-in for a dead session error" do
