@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@import "../../../engines/design_system/app/frontend/theme.css";
+
+@source "../../../engines/*/app/frontend";
 
 @theme {
   --font-sans:

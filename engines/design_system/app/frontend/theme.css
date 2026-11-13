@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme inline static {
+  --color-primary: var(--color-indigo-600);
+  --color-primary-hover: var(--color-indigo-700);
+  --color-danger: var(--color-rose-600);
+  --color-success: var(--color-emerald-600);
+  --color-surface: var(--color-white);
+  --color-muted: var(--color-slate-100);
+  --text-display: 2.25rem;
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.12);
+  --radius-card: 0.75rem;
+}

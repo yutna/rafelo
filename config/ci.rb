@@ -48,6 +48,7 @@ CI.run do
   step "Contracts: i18n", "npm run i18n:check"
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
+  step "Frontend: design-system API", "npm run api:check"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
   step "Tests: page matchers", "npm run pages:check -- --matchers"
