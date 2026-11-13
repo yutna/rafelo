@@ -19,13 +19,15 @@ RSpec.describe "Exports", type: :request do
     export
   end
 
-  it "redirects the owner to a short-lived attachment URL" do
+  it "streams the owner's export without a signed URL" do
     export = export_for(7)
     get "/en/dummy/export/#{export.id}", headers: { "Cookie" => session_cookie(7) }
 
-    expect(response).to have_http_status(:see_other)
-    expect(response.location).to include("/rails/active_storage/blobs/")
-    expect(response.location).to include("disposition=attachment")
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("a,b\n")
+    expect(response.headers["Content-Disposition"]).to include("attachment")
+    expect(response.headers["Content-Disposition"]).to include("report.csv")
+    expect(response.location).to be_nil
   end
 
   it "hides another viewer's export and an unattached file" do

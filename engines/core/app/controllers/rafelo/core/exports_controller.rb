@@ -2,22 +2,24 @@
 
 module Rafelo
   module Core
-    class ExportsController < BaseController
-      layout "application"
-
-      skip_after_action :verify_authorized
-
+    class ExportsController < DownloadController
       def show
+        authorize :export, :show?, policy_class: Rafelo::Core::ExportPolicy
         export = Export.find_by(id: params[:id])
         raise ApplicationError.new("resource.not_found") unless export && export.viewer_id == Current.viewer&.id.to_s
         raise ApplicationError.new("resource.not_found") unless export.file.attached?
 
-        redirect_to rails_blob_url(
-          export.file,
-          expires_in: 5.minutes,
-          disposition: :attachment
-        ), status: :see_other
-        AuditRecorder.record(controller: self, event: "export_download", outcome: "success", target: export.id)
+        send_download(
+          filename: export.filename,
+          type: export.file.content_type,
+          source: ->(&block) do
+            export.file.blob.open do |file|
+              while (chunk = file.read(64 * 1024))
+                block.call(chunk)
+              end
+            end
+          end
+        )
       end
     end
   end
