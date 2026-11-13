@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-root="$(cd "$(dirname "$0")/../.." && pwd)"
+root="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$root"
 state="${SUPERVISOR_STATE:-/tmp/opencode/rafelo-supervisor}"
 mkdir -p "$state"
