@@ -57,3 +57,8 @@ logs/
 
 # Deployment secrets are provided by the password manager or ENV.
 /.kamal/secrets
+
+# Playwright artifacts
+/test-results/
+/playwright-report/
+/blob-report/
