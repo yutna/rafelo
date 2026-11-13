@@ -1,5 +1,8 @@
 en:
   core:
+    unsupported_browser:
+      title: "Your browser is not supported"
+      body: "Please update to a current version of Chrome, Safari, Firefox or Edge to use this application."
     idempotency:
       invalid_token: "The form token is not valid. Reload the page and try again."
       still_processing: "This form is still processing. Wait a moment and try again."

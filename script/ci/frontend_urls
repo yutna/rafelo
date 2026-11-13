@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+files = Dir[File.join(root, "app/frontend/**/*.{ts,tsx}")] +
+        Dir[File.join(root, "engines/*/app/frontend/**/*.{ts,tsx}")]
+files.select! { |path| File.file?(path) && !path.end_with?(".test.ts", ".test.tsx") }
+errors = []
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  body = File.read(path)
+  errors << "#{relative}: dangerouslySetInnerHTML is forbidden" if body.include?("dangerouslySetInnerHTML")
+  errors << "#{relative}: @engines/ imports belong to the page resolver" if body.include?("@engines/") && !relative.end_with?("lib/page_resolver.tsx")
+  errors << "#{relative}: import.meta.glob belongs to the page resolver" if body.include?("import.meta.glob") && !relative.end_with?("lib/page_resolver.tsx")
+
+  next unless relative.start_with?("engines/design_system/app/frontend/")
+
+  allowed = %w[link.tsx deferred.tsx]
+  if body.include?("@inertiajs/") && !allowed.include?(File.basename(path))
+    errors << "#{relative}: design_system may import only Link/Deferred from Inertia"
+  end
+end
+
+if errors.any?
+  errors.each { |error| warn "frontend_urls: #{error}" }
+  exit 1
+end
+puts "frontend_urls: checked #{files.length} files"

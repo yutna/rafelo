@@ -1,0 +1,10 @@
+[
+  "//evil.test/x",
+  "/\\evil.test/x",
+  "/\tevil.test/x",
+  "javascript:alert(1)",
+  "data:text/html,x",
+  " https://app.test/x",
+  "https://app.test/x ",
+  ""
+]
