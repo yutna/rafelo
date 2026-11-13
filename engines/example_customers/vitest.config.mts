@@ -6,6 +6,7 @@ import { engineAliases } from "../../config/frontend_aliases.mts";
 const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
 
 export default defineConfig({
+  root: fileURLToPath(new URL(".", import.meta.url)),
   plugins: [react()],
   resolve: { alias: engineAliases },
   test: {

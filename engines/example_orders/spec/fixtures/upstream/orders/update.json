@@ -1,0 +1,16 @@
+{
+  "data": {
+    "id": "order-1",
+    "number": "ORD-1000",
+    "customer": {
+      "id": "1",
+      "name": "Ada",
+      "tier": "gold"
+    },
+    "status": "paid",
+    "total_minor": 1000,
+    "currency": "THB",
+    "issued_on": "2026-01-01",
+    "version": 2
+  }
+}

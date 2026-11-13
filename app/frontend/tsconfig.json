@@ -20,6 +20,9 @@
     },
     {
       "path": "../../engines/example_customers"
+    },
+    {
+      "path": "../../engines/example_orders"
     }
   ]
 }

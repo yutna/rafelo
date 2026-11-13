@@ -13,6 +13,11 @@ PATH
   specs:
     rafelo_example_customers (0.1.0)
 
+PATH
+  remote: engines/example_orders
+  specs:
+    rafelo_example_orders (0.1.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -503,6 +508,7 @@ DEPENDENCIES
   rafelo_core!
   rafelo_design_system!
   rafelo_example_customers!
+  rafelo_example_orders!
   rails (= 8.1.4.1)
   rspec-rails (= 8.1.0)
   rubocop-rails-omakase (= 1.1.0)
@@ -642,6 +648,7 @@ CHECKSUMS
   rafelo_core (0.1.0)
   rafelo_design_system (0.1.0)
   rafelo_example_customers (0.1.0)
+  rafelo_example_orders (0.1.0)
   rails (8.1.4.1) sha256=365c3a0ad2713bd6e60628e5e826622d4ca8dee60b5a7e560e9b20844e9650bc
   rails-dom-testing (2.3.0) sha256=8acc7953a7b911ca44588bf08737bc16719f431a1cc3091a292bca7317925c1d
   rails-html-sanitizer (1.7.2) sha256=a21ef45b7a6639fc8e2282473c547514cb86ae271616162a946bf89148fa2424

@@ -1,0 +1,7 @@
+enforce_dependencies: strict
+enforce_privacy: strict
+public_path: app/public/
+dependencies:
+  - engines/core
+  - engines/design_system
+  - engines/example_customers

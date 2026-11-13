@@ -40,6 +40,12 @@
       ],
       "@example_customers/public/*": [
         "engines/example_customers/app/frontend/public/*"
+      ],
+      "@example_orders/*": [
+        "engines/example_orders/app/frontend/*"
+      ],
+      "@example_orders/public/*": [
+        "engines/example_orders/app/frontend/public/*"
       ]
     }
   }
