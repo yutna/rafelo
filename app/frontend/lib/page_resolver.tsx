@@ -5,7 +5,7 @@ import { AuthShell } from "../layouts/auth_shell";
 import { BareShell } from "../layouts/bare_shell";
 import { LayoutRoot } from "../layouts/layout_root";
 import { ErrorBoundary } from "@design_system/error_boundary";
-import { reportClientError } from "./report_client_error";
+import { reportClientError, setPageContext } from "./report_client_error";
 import { t } from "./i18n";
 import type { LayoutName } from "./layout_name";
 import { setLocale } from "./i18n";
@@ -92,9 +92,14 @@ function withLayout(component: PageComponent, name: string): PageComponent {
 
 export async function resolvePage(
   name: string,
-  page?: { props?: Record<string, unknown> },
+  page?: { props?: Record<string, unknown>; version?: string | null },
 ): Promise<PageComponent> {
   const app = page?.props?.app as { locale?: string } | undefined;
+  setPageContext({
+    page: name,
+    release: page?.version ?? undefined,
+    trace: page?.props?.trace as { requestId?: string; traceId?: string } | undefined,
+  });
   await setLocale(app?.locale ?? "en");
   const load = pages.get(name);
   if (!load) throw new Error(`Page not found: ${name}`);
