@@ -22,6 +22,8 @@ CI.run do
   step "Frontend: Architecture", "npm run arch:check"
   step "Frontend: boundary", "script/ci/frontend_boundary"
   step "Frontend: page props", "script/ci/page_props"
+  step "Frontend: state wrappers", "script/ci/frontend_state"
+  step "Frontend: state canary", "script/ci/frontend_state_canary"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
   step "Enforcement: cops", "script/ci/cops_canary"
   step "Tests: skips", "script/ci/skips"

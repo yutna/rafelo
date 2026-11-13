@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "yaml"
+
+root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+wrappers = %w[
+  engines/core/app/frontend/lib/use_domain_reducer.ts
+  engines/core/app/frontend/lib/use_ui_state.ts
+].map { |path| File.join(root, path) }
+files = Dir[File.join(root, "app/frontend/**/*.{ts,tsx}")] +
+        Dir[File.join(root, "engines/*/app/frontend/**/*.{ts,tsx}")]
+files.select! { |path| File.file?(path) && !path.include?("/spec/") }
+errors = []
+files.each do |path|
+  next if wrappers.include?(path)
+  next if path.include?("/engines/design_system/app/frontend/")
+
+  body = File.read(path)
+  %w[useState useReducer useActionState useOptimistic].each do |hook|
+    errors << "#{path.delete_prefix("#{root}/")}: #{hook} outside the core wrappers" if body.match?(/\b#{hook}\b/) || body.match?(/React\.#{hook}\b/)
+  end
+end
+
+ratchet = YAML.load_file(File.join(root, "config/ratchets.yml"))
+no_memo = files.sum { |path| File.read(path).scan(/"use no memo"/).length }
+disables = files.sum { |path| File.read(path).scan(/eslint-disable/).length }
+errors << "no-memo count #{no_memo} exceeds ratchet #{ratchet.fetch('use_no_memo')}" if no_memo > ratchet.fetch("use_no_memo")
+errors << "eslint-disable count #{disables} exceeds ratchet #{ratchet.fetch('eslint_disable')}" if disables > ratchet.fetch("eslint_disable")
+
+if errors.any?
+  errors.each { |error| warn "frontend_state: #{error}" }
+  exit 1
+end
+puts "frontend_state: checked #{files.length} files; no-memo=#{no_memo} disables=#{disables}"
