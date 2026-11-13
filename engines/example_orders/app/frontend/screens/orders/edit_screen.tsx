@@ -30,6 +30,7 @@ export function OrdersEditScreen({ order, updatePath, showPath, meta, errors }: 
         <OrderFormFields
           customerName={form.data.customerName}
           status={form.data.status}
+          baseError={errors.base}
           errors={errors}
           onCustomerNameChange={(value) => form.setData("customerName", value)}
           onStatusChange={(value) => form.setData("status", value)}

@@ -2,13 +2,39 @@
 set -euo pipefail
 
 port="${E2E_PORT:-3100}"
+upstream_port="${E2E_UPSTREAM_PORT:-4100}"
 log="$(mktemp)"
+upstream_log="$(mktemp)"
+rails_pid=""
+upstream_pid=""
+cleanup() {
+  if [ -n "$rails_pid" ]; then kill "$rails_pid" 2>/dev/null || true; fi
+  if [ -n "$upstream_pid" ]; then kill "$upstream_pid" 2>/dev/null || true; fi
+  if [ -n "$rails_pid" ]; then
+    RAILS_ENV=test bin/rails runner 'ActiveRecord::Base.connection.execute("TRUNCATE TABLE core_sessions, core_idempotency_keys, core_exports, core_audits RESTART IDENTITY")' >/dev/null 2>&1 || true
+  fi
+  rm -f "$log" "$upstream_log"
+}
+trap cleanup EXIT
+
 rm -f tmp/pids/server.pid
 RAILS_ENV=test bin/vite build >/tmp/rafelo-e2e-vite-build.log 2>&1
+
+export E2E_SERVER=1
+export RAFELO_API_BASE_URL="http://127.0.0.1:${upstream_port}/"
+export E2E_UPSTREAM_URL="http://127.0.0.1:${upstream_port}"
+bundle exec puma -b "tcp://127.0.0.1:${upstream_port}" script/ci/e2e_upstream.ru >"$upstream_log" 2>&1 &
+upstream_pid=$!
+
+for _ in $(seq 1 30); do
+  if curl -sf -o /dev/null "http://127.0.0.1:${upstream_port}/__health"; then break; fi
+  sleep 1
+done
+curl -sf -o /dev/null "http://127.0.0.1:${upstream_port}/__health"
+
 export E2E_SESSION_COOKIE="$(RAILS_ENV=test bin/rails runner 'viewer = Struct.new(:id, :name).new(7, "Ada"); _, token = Rafelo::Core::Session.start(viewer: viewer, access_token: "access", refresh_token: "refresh", access_expires_at: 5.minutes.from_now, grants: []); print "session_token=#{token}"')"
 RAILS_ENV=test bin/rails server -p "$port" >"$log" 2>&1 &
 rails_pid=$!
-trap 'kill "$rails_pid" 2>/dev/null || true; rm -f "$log"' EXIT
 
 for _ in $(seq 1 60); do
   if curl -sf -o /dev/null "http://localhost:${port}/en/component_catalog"; then break; fi
