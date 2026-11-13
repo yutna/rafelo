@@ -5,18 +5,41 @@ RSpec.describe "Write action flow", type: :request do
     JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
   end
 
+  def signed_in_cookie
+    viewer = Struct.new(:id, :name).new(7, "Ada")
+    _, token = Rafelo::Core::Session.start(
+      viewer: viewer, access_token: "access", refresh_token: "refresh",
+      access_expires_at: 5.minutes.from_now, grants: []
+    )
+    "session_token=#{token}"
+  end
+
+  def follow(cookie)
+    location = response.location
+    rails = Array(response.headers["Set-Cookie"]).filter_map do |value|
+      value.split(";").first if value.start_with?("rafelo_session=")
+    end.first
+    get location, headers: { "Cookie" => [ cookie, rails ].compact.join("; ") }
+  end
+
+  def form_token(cookie)
+    get "/en/dummy/widgets", headers: { "Cookie" => cookie }
+    page_body(response).dig("props", "meta", "formToken")
+  end
+
   it "redirects with a one-shot flash on success and never as a prop" do
-    post "/en/dummy/widgets", params: { name: "ada" }
+    cookie = signed_in_cookie
+    post "/en/dummy/widgets", params: { name: "ada", token: form_token(cookie) }, headers: { "Cookie" => cookie }
 
     expect(response).to have_http_status(:see_other)
     expect(response.location).to end_with("/en/dummy/widgets")
 
-    get response.location
+    follow(cookie)
     page = page_body(response)
     expect(page.dig("flash", "notice")).to eq("Widget created.")
     expect(page.dig("props", "flash")).to be_nil
 
-    get "/en/dummy/widgets"
+    get "/en/dummy/widgets", headers: { "Cookie" => cookie }
     expect(page_body(response)["flash"]).to be_nil
   end
 

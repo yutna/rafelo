@@ -39,7 +39,14 @@ module DummyEngine
         return redirect_after_write("/en/dummy/widgets", errors: form.error_messages)
       end
 
-      redirect_after_write("/en/dummy/widgets", notice: "Widget created.")
+      Rafelo::Core::IdempotencyClaim.call(
+        self,
+        token: form.token,
+        payload: form.payload,
+        back: "/en/dummy/widgets"
+      ) do
+        redirect_after_write("/en/dummy/widgets", notice: "Widget created.")
+      end
     end
 
     def validation

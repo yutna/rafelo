@@ -17,3 +17,7 @@ production:
     class: "Rafelo::Core::SessionSweepJob"
     queue: default
     schedule: every hour at minute 27
+  idempotency_sweep:
+    class: "Rafelo::Core::IdempotencySweepJob"
+    queue: default
+    schedule: every hour at minute 42
