@@ -168,7 +168,7 @@ module Rafelo
       end
 
       def snapshot
-        Dir[root.join("**/*")].select { |p| File.file?(p) }.to_h { |p| [p, File.binread(p)] }
+        Dir[root.join("**/*")].select { |p| File.file?(p) }.to_h { |p| [ p, File.binread(p) ] }
       end
 
       def restore_snapshot(before)

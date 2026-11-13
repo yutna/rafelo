@@ -42,12 +42,12 @@ module Rafelo
         rename_if_exists(target.join("lib/rafelo_#{@source_name}.rb"), target.join("lib/rafelo_#{@destination_name}.rb"))
 
         [
-          ["lib/rafelo", @source_name, @destination_name],
-          ["app/controllers/rafelo", @source_name, @destination_name],
-          ["app/policies/rafelo", @source_name, @destination_name],
-          ["app/props/rafelo", @source_name, @destination_name],
-          ["app/forms/rafelo", @source_name, @destination_name],
-          ["app/public/rafelo", @source_name, @destination_name]
+          [ "lib/rafelo", @source_name, @destination_name ],
+          [ "app/controllers/rafelo", @source_name, @destination_name ],
+          [ "app/policies/rafelo", @source_name, @destination_name ],
+          [ "app/props/rafelo", @source_name, @destination_name ],
+          [ "app/forms/rafelo", @source_name, @destination_name ],
+          [ "app/public/rafelo", @source_name, @destination_name ]
         ].each do |base, from_name, to_name|
           from = target.join(base, from_name)
           to = target.join(base, to_name)
@@ -147,7 +147,7 @@ module Rafelo
 
       def snapshot
         paths = Dir[root.join("**/*")].select { |p| File.file?(p) }
-        paths.to_h { |p| [p, File.binread(p)] }
+        paths.to_h { |p| [ p, File.binread(p) ] }
       end
 
       def restore_snapshot(before)

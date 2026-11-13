@@ -187,7 +187,7 @@ module Rafelo
         index_can = []
         index_can_lines = ""
         if effective_actions.include?("new")
-          index_can = ["new"]
+          index_can = [ "new" ]
           index_can_lines = <<~RUBY.chomp
                 capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)
           RUBY
@@ -404,7 +404,7 @@ module Rafelo
           path = root.join(engine_file("config/locales/#{locale}.yml"))
           next unless File.file?(path)
           content = read_file(path).rstrip
-          block = ["    #{resource_plural}:", "      title: \"#{resource_plural.humanize}\""]
+          block = [ "    #{resource_plural}:", "      title: \"#{resource_plural.humanize}\"" ]
           block << "      new: \"New #{resource_singular.humanize}\"" if effective_actions.include?("new")
           unless content.include?("\n    #{resource_plural}:\n")
             write_managed(path, content + "\n" + block.join("\n") + "\n")
@@ -417,7 +417,7 @@ module Rafelo
         content = read_file(path)
         data = YAML.safe_load(content, aliases: false) || {}
         prefix = data[mod] || {}
-        actions = ["read"]
+        actions = [ "read" ]
         actions << "create" if effective_actions.include?("create")
         prefix[resource_plural] = actions.uniq
         data[mod] = prefix
@@ -425,7 +425,7 @@ module Rafelo
       end
 
       def write_tests
-        grants = [permission_read]
+        grants = [ permission_read ]
         grants << permission_create if effective_actions.include?("create")
         grants_literal = grants.map { |g| "\"#{g}\"" }.join(", ")
         index_spec = <<~RUBY
@@ -499,7 +499,7 @@ module Rafelo
 
       def snapshot
         paths = Dir[root.join("**/*")].select { |p| File.file?(p) }
-        paths.to_h { |p| [p, File.binread(p)] }
+        paths.to_h { |p| [ p, File.binread(p) ] }
       end
 
       def restore_snapshot(before)
