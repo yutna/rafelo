@@ -2,6 +2,7 @@
 
 require "rails/generators"
 require "json"
+require "yaml"
 
 module Rafelo
   module Generators
@@ -14,7 +15,7 @@ module Rafelo
         raise Thor::Error, "#{candidate} is reserved" if RESERVED.include?(candidate)
         raise Thor::Error, "#{candidate} must not start with example_" if candidate.start_with?("example_")
         raise Thor::Error, "#{candidate} is not a snake_case engine name" unless candidate.match?(/\A[a-z][a-z0-9_]*\z/)
-        raise Thor::Error, "#{candidate} is already taken" if Dir.exist?(Rails.root.join("engines", candidate))
+        raise Thor::Error, "#{candidate} is already taken" if Dir.exist?(root_path.join("engines", candidate))
         raise Thor::Error, "npm scope @#{candidate} is already used" if npm_scopes.include?(candidate)
         raise Thor::Error, "#{candidate} is a locale" if locale_segments.include?(candidate) || candidate.match?(/\A[a-z]{2}\z/)
         raise Thor::Error, "#{candidate} is an app route" if route_names.include?(candidate)
@@ -38,7 +39,7 @@ module Rafelo
       private
 
       def with_rollback
-        engine = Rails.root.join("engines", name.to_s.underscore)
+        engine = root_path.join("engines", name.to_s.underscore)
         before = generated_tree_state
         yield
       rescue StandardError => error
@@ -52,22 +53,23 @@ module Rafelo
           .dependency-cruiser.engines.generated.json Gemfile.lock tsconfig.json tsconfig.base.json
           tsconfig.tooling.json app/frontend/tsconfig.json config/frontend_aliases.mts
         ]
-        files.to_h { |path| [ path, File.file?(Rails.root.join(path)) ? File.binread(Rails.root.join(path)) : nil ] }
+        files.to_h { |path| [ path, File.file?(root_path.join(path)) ? File.binread(root_path.join(path)) : nil ] }
       end
 
       def restore_tree(before)
         before.each do |path, content|
-          target = Rails.root.join(path)
+          target = root_path.join(path)
           if content.nil?
             FileUtils.rm_f(target)
           else
+            FileUtils.mkdir_p(target.dirname)
             File.binwrite(target, content)
           end
         end
       end
 
       def post_write
-        inside(Rails.root) do
+        inside(root_path) do
           run_step "bundle install"
           run_step "script/ci/engine_graph"
           run_step "npm run aliases:generate"
@@ -83,7 +85,9 @@ module Rafelo
       end
 
       def npm_scopes
-        package = JSON.parse(File.read(Rails.root.join("package.json")))
+        path = root_path.join("package.json")
+        path = Rails.root.join("package.json") unless File.file?(path)
+        package = JSON.parse(File.read(path))
         package.fetch("dependencies", {}).merge(package.fetch("devDependencies", {})).keys.filter_map { |key| key[%r{\A@([^/]+)/}, 1] }
       end
 
@@ -99,7 +103,13 @@ module Rafelo
       end
 
       def error_prefixes
-        YAML.load_file(Rails.root.join("config/errors.yml")).keys.map { |key| key.split(".").first }
+        path = root_path.join("config/errors.yml")
+        path = Rails.root.join("config/errors.yml") unless File.file?(path)
+        YAML.load_file(path).keys.map { |key| key.split(".").first }
+      end
+
+      def root_path
+        Pathname.new(destination_root || Dir.pwd)
       end
     end
   end
