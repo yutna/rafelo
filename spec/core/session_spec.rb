@@ -37,12 +37,41 @@ RSpec.describe Rafelo::Core::Session do
     first = described_class.find(session.id)
     second = described_class.find(session.id)
 
-    expect(first.claim_refresh!(timeout: 15)).to be(true)
-    expect(second.claim_refresh!(timeout: 15)).to be(false)
+    version = first.claim_refresh!(timeout: 15)
+    expect(version).to be_a(Integer)
+    expect(second.claim_refresh!(timeout: 15)).to be_nil
 
-    first.complete_refresh!(access_token: "new-access", refresh_token: "new-refresh", access_expires_at: 5.minutes.from_now)
+    first.complete_refresh!(
+      version: version,
+      access_token: "new-access",
+      refresh_token: "new-refresh",
+      access_expires_at: 5.minutes.from_now,
+      grants: [ "billing:invoice:read" ]
+    )
     expect(described_class.find(session.id).access_token).to eq("new-access")
     expect(described_class.find(session.id).refreshing_since).to be_nil
+  end
+
+  it "refuses a refresh completion from a stale claim" do
+    session, = start
+    first = described_class.find(session.id)
+    second = described_class.find(session.id)
+    stale_version = first.claim_refresh!(timeout: 0)
+    first.update_column(:refreshing_since, 2.minutes.ago)
+    second.reload
+    second.claim_refresh!(timeout: 15)
+
+    expect do
+      first.complete_refresh!(
+        version: stale_version,
+        access_token: "stale-access",
+        refresh_token: "stale-refresh",
+        access_expires_at: 5.minutes.from_now,
+        grants: []
+      )
+    end.to raise_error(Rafelo::Core::ApplicationError)
+
+    expect(described_class.find(session.id).access_token).to eq("access-secret")
   end
 
   it "sweeps expired sessions" do

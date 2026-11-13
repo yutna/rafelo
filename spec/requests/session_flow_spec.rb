@@ -11,9 +11,9 @@ RSpec.describe "Session flow", type: :request do
 
     expect(response).to have_http_status(:see_other)
     expect(response.location).to end_with("/en")
-    cookie = response.headers["Set-Cookie"].join("\n").split(";").first
-    expect(response.headers["Set-Cookie"].join("\n")).to match(/httponly/i)
-    expect(response.headers["Set-Cookie"].join("\n")).to match(/samesite=lax/i)
+    cookie = Array(response.headers["Set-Cookie"]).join("\n").split(";").first
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to match(/httponly/i)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to match(/samesite=lax/i)
     expect(Rafelo::Core::Session.count).to eq(1)
     expect(Rafelo::Core::Session.first.permission_grants).to eq([ "billing:invoice:read" ])
 
@@ -70,5 +70,38 @@ RSpec.describe "Session refresh and expiry", type: :request do
     expect(response).to have_http_status(:see_other)
     expect(response.location).to end_with("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
+  end
+
+  it "clears the cookie and redirects to sign-in when refresh detects a dead session" do
+    stub_upstream(:post, "/auth/refresh", fixture: "auth/expired.json", status: 401, base_url: "http://localhost:4000")
+    session, cookie = session_with(expires_at: 10.seconds.from_now, grants_at: 10.minutes.ago)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/en/sign_in")
+    expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+  end
+
+  it "forgets an idle session and clears its cookie" do
+    session, cookie = session_with
+    session.update_column(:last_seen_at, 31.minutes.ago)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:ok)
+    expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+  end
+
+  it "forgets an expired session and clears its cookie" do
+    session, cookie = session_with
+    session.update_column(:expires_at, 1.minute.ago)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
   end
 end

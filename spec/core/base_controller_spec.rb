@@ -23,13 +23,16 @@ RSpec.describe Rafelo::Core::BaseController do
   end
 
   it "returns 404 for a dark module route" do
-    Rafelo::Core::Modules.register(key: :secret, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/secret", flag: :secret_flag)
+    entry = Rafelo::Core::Modules::Entry.new(
+      key: :secret, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/secret",
+      permission_prefixes: [ "secret" ], legacy_paths: {}, nav: {}, flag: :secret_flag
+    )
+    allow(Rafelo::Core::Modules).to receive(:all).and_return([ entry ])
+    allow(Rafelo::Core::Flags).to receive(:enabled?).with(:secret_flag).and_return(false)
     controller = ApplicationController.new
-    allow(controller).to receive(:request).and_return(double(path_info: "/en/secret"))
+    allow(controller).to receive(:request).and_return(double(original_fullpath: "/en/secret/items"))
 
     expect { controller.send(:require_module_enabled) }.to raise_error(ActionController::RoutingError)
-  ensure
-    Rafelo::Core::Modules.reset!
   end
 
   it "builds a gateway with the current token provider and budget" do

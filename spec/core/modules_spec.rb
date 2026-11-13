@@ -70,4 +70,14 @@ RSpec.describe Rafelo::Core::Modules do
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /navigation order/)
   end
+
+  it "finds a module by its locale-prefixed first path segment" do
+    entry = described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+
+    expect(described_class.for_path("/en/billing/invoices/7?tab=1")).to eq(entry)
+    expect(described_class.for_path("/th/billing")).to eq(entry)
+    expect(described_class.for_path("/billing")).to eq(entry)
+    expect(described_class.for_path("/en/other/billing")).to be_nil
+    expect(described_class.for_path("/en")).to be_nil
+  end
 end
