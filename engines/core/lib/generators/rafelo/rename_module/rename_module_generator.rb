@@ -36,8 +36,8 @@ module Rafelo
           body = body.gsub("rafelo_#{source_name}", "rafelo_#{destination_name}")
           body = body.gsub("@#{source_name}", "@#{destination_name}")
           body = body.gsub("key: :#{source_name}", "key: :#{destination_name}")
-          body = body.gsub("path: \"/#{source_name}\"", "path: \"/#{destination_name}\"")
-          body = body.gsub("permission_prefixes: [ \"#{source_name}\" ]", "permission_prefixes: [ \"#{destination_name}\" ]")
+
+
           body = body.gsub(/^(\s*)#{source_name}:/, "\\1#{destination_name}:")
           body = body.gsub("#{source_name}.nav", "#{destination_name}.nav")
           body = body.gsub("rafelo/#{source_name}", "rafelo/#{destination_name}")
