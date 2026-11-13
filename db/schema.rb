@@ -53,6 +53,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_035028) do
     t.string "ip"
     t.string "user_agent_family"
     t.datetime "created_at", null: false
+    t.integer "format_version", default: 1, null: false
     t.index ["event", "occurred_at"], name: "index_core_audits_on_event_and_occurred_at"
     t.index ["viewer_id"], name: "index_core_audits_on_viewer_id"
   end

@@ -28,6 +28,23 @@ RSpec.describe "Downloads", type: :request do
     expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "failure").count).to eq(1)
   end
 
+  it "streams more chunks than the bounded queue holds without dropping any" do
+    get "/en/dummy/download_many", headers: auth_headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body.lines.length).to eq(20)
+    expect(response.body.lines.last).to eq("chunk-19\n")
+  end
+
+  it "answers a 403 raised inside a download source without a second audit row" do
+    get "/en/dummy/download_forbidden", headers: auth_headers
+
+    expect(response).to have_http_status(:forbidden)
+    expect(response.headers["Content-Disposition"]).to be_nil
+    expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "failure").count).to eq(1)
+    expect(Rafelo::Core::AuditEvent.count).to eq(1)
+  end
+
   it "answers unavailable when the per-process download cap is full" do
     allow(Rafelo::Core::DownloadLimiter).to receive(:acquire).and_return(false)
 

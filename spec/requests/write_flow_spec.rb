@@ -88,6 +88,15 @@ RSpec.describe "Write action flow", type: :request do
     expect(page_body(response).dig("props", "errors", "base")).to eq("The record changed since you opened it.")
   end
 
+  it "maps an upstream 413 to the error page rather than a form redirect" do
+    stub_upstream(:post, "/widgets", fixture: "widgets/error.json", status: 413, base_url: "http://localhost:4000")
+
+    post "/en/dummy/widgets/upstream", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:internal_server_error)
+    expect(response.body).to include("unexpected")
+  end
+
   it "renders the error page for a real upstream 5xx" do
     stub_upstream(:post, "/widgets", fixture: "widgets/error.json", status: 503, base_url: "http://localhost:4000")
 

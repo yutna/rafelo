@@ -16,7 +16,7 @@ RSpec.describe Rafelo::Core::IdempotencySweepJob do
     expect(Rafelo::Core::IdempotencyKey.exists?(live.id)).to be(true)
   end
 
-  it "is scheduled daily in production" do
+  it "is scheduled hourly in production" do
     config = YAML.load_file(Rails.root.join("config/recurring.yml"), aliases: true)
     sweep = config.dig("production", "idempotency_sweep")
 

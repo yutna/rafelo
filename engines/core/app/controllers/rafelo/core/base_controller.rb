@@ -194,6 +194,7 @@ module Rafelo
       end
 
       def deny_access
+        AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
         render_application_error(ApplicationError.new("auth.forbidden"))
       end
 
@@ -203,7 +204,11 @@ module Rafelo
       end
 
       def render_application_error(error)
-        AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
+        if error.code == "auth.forbidden"
+          AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
+        elsif !request.get? && !request.head?
+          AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path)
+        end
 
         if error.code == "auth.expired" && Current.session
           clear_session!
