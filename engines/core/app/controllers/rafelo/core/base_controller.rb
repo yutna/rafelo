@@ -203,10 +203,13 @@ module Rafelo
 
       def render_unexpected_error(error)
         AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
+        ErrorReporter.report(error, handled: false)
+        request.env["rafelo.error_reported"] = true
         raise error
       end
 
       def render_application_error(error)
+        ErrorReporter.report(error, handled: true)
         if error.code == "auth.forbidden"
           AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
         elsif !request.get? && !request.head?

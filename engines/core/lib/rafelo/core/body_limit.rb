@@ -10,7 +10,7 @@ module Rafelo
     # so it carries the trace ids and security headers itself.
     class BodyLimit
       PATHS = {
-        "/core/client_errors" => 64 * 1024,
+        "/core/client_errors" => 8 * 1024,
         "/core/csp_reports" => 64 * 1024
       }.freeze
 

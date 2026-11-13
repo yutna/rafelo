@@ -16,6 +16,11 @@ module Rafelo
         trace_id = request.get_header("rafelo.trace_id").presence ||
                    env["rafelo.trace_id"].presence ||
                    SecureRandom.hex(16)
+        unless env["rafelo.error_reported"]
+          error = env["action_dispatch.exception"] || ApplicationError.new(code)
+          ErrorReporter.report(error, handled: true, code: code, request_id: request_id, trace_id: trace_id)
+          env["rafelo.error_reported"] = true
+        end
 
         payload = I18n.with_locale(locale) do
           {
