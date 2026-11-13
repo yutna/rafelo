@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "json"
+require "rails/generators"
 require "shellwords"
 require "yaml"
 require_relative "../base/base_generator"
@@ -23,17 +25,21 @@ module Rafelo
         write_routes
         write_controller
         write_policy
+        write_gateway
         write_props
         write_form if write_actions?
         write_frontend
         write_contracts
         write_copy
         write_permissions
+        write_fixtures
         write_tests
         post_write unless options[:skip_post_write]
         say "Created #{@mod}/#{resource_plural} (#{effective_actions.join(", ")}).", :green
       rescue StandardError => e
-        restore_snapshot(@snapshot) if defined?(@snapshot)
+        restore_snapshot(@snapshot) if defined?(@snapshot) && @snapshot
+        raise e if e.is_a?(Thor::Error) && !(defined?(@snapshot) && @snapshot)
+
         raise Thor::Error, "generator rolled back after: #{e.message}"
       end
 
@@ -51,10 +57,36 @@ module Rafelo
         unless Dir.exist?(root.join("engines", mod))
           raise Thor::Error, "module engine not found: #{mod}"
         end
-        routes = read_file(root.join(engine_file("config/routes.rb")))
-        if routes.include?("resources :#{resource_plural}")
-          raise Thor::Error, "resource already exists: #{resource_plural}"
+
+        checks = [
+          [ engine_file("config/routes.rb"), :routes ],
+          [ engine_file("app/frontend/pages/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/screens/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/containers/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/components/#{resource_plural}"), :dir ],
+          [ engine_file("config/contracts/pages/#{resource_plural}"), :dir ],
+          [ engine_file("app/controllers/#{app_ns_underscore}/#{mod}/#{resource_plural}_controller.rb"), :file ],
+          [ engine_file("app/policies/#{app_ns_underscore}/#{mod}/#{resource_singular}_policy.rb"), :file ],
+          [ engine_file("app/gateways/#{app_ns_underscore}/#{mod}/#{resource_plural}_gateway.rb"), :file ],
+          [ engine_file("app/forms/#{app_ns_underscore}/#{mod}/#{resource_singular}_form.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_show_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_new_props.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_edit_props.rb"), :file ],
+          [ engine_file("spec/fixtures/upstream/#{resource_plural}"), :dir ],
+          [ "spec/requests/#{mod}/#{resource_plural}_spec.rb", :file ]
+        ]
+
+        existing = checks.any? do |relative, kind|
+          path = root.join(relative)
+          case kind
+          when :routes then File.file?(path) && read_file(path).include?("resources :#{resource_plural}")
+          when :dir then Dir.exist?(path)
+          when :file then File.exist?(path)
+          end
         end
+
+        raise Thor::Error, "resource already exists: #{resource_plural}" if existing
       end
 
       def effective_actions
@@ -68,6 +100,8 @@ module Rafelo
       def write_actions?
         (effective_actions & %w[new create edit update]).any?
       end
+
+      def permission_update = "#{mod}:#{resource_plural}:update"
 
       def root = destination_root_path
       def destination_root_path = Pathname.new(destination_root || Dir.pwd)
@@ -116,6 +150,14 @@ module Rafelo
             end
           RUBY
         end
+        if effective_actions.include?("show")
+          methods << <<~RUBY
+            def show
+              authorize :#{resource_singular}, :show?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              render_page "#{page_key_base}/show", props: #{module_class}::#{resource_plural.camelize}ShowProps.new(context: page_context, id: params[:id].to_s)
+            end
+          RUBY
+        end
         if effective_actions.include?("new")
           methods << <<~RUBY
             def new
@@ -129,18 +171,66 @@ module Rafelo
             def create
               authorize :#{resource_singular}, :create?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
               form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token))
+              back = page_context.urls.route(:#{mod}, :new_#{resource_singular})
               if form.invalid?
-                return redirect_after_write(page_context.urls.route(:#{mod}, :new_#{resource_singular}), errors: form.error_messages)
+                return redirect_after_write(back, errors: form.error_messages)
               end
 
               Rafelo::Core::IdempotencyClaim.call(
                 self,
                 token: form.token,
                 payload: form.payload,
-                back: page_context.urls.route(:#{mod}, :new_#{resource_singular})
-              ) do
+                back: back
+              ) do |idempotency_key|
+                gateway(#{module_class}::#{resource_plural.camelize}Gateway).create(
+                  payload: form.payload, idempotency_key: idempotency_key
+                )
                 redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_plural}), notice: "Created.")
               end
+            rescue Rafelo::Core::ValidationFailed => error
+              redirect_after_write(back, errors: form.translate(error.field_codes))
+            rescue Rafelo::Core::ApplicationError => error
+              raise unless error.code == "resource.conflict"
+
+              redirect_after_write(back, errors: { "base" => I18n.t("core.errors.fields.conflict") })
+            end
+          RUBY
+        end
+        if effective_actions.include?("edit")
+          methods << <<~RUBY
+            def edit
+              authorize :#{resource_singular}, :edit?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              render_page "#{page_key_base}/edit", props: #{module_class}::#{resource_plural.camelize}EditProps.new(context: page_context, id: params[:id].to_s)
+            end
+          RUBY
+        end
+        if effective_actions.include?("update")
+          methods << <<~RUBY
+            def update
+              authorize :#{resource_singular}, :update?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
+              form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token))
+              back = page_context.urls.route(:#{mod}, :edit_#{resource_singular}, id: params[:id])
+              if form.invalid?
+                return redirect_after_write(back, errors: form.error_messages)
+              end
+
+              Rafelo::Core::IdempotencyClaim.call(
+                self,
+                token: form.token,
+                payload: form.payload.merge(id: params[:id].to_s),
+                back: back
+              ) do |idempotency_key|
+                gateway(#{module_class}::#{resource_plural.camelize}Gateway).update(
+                  id: params[:id].to_s, payload: form.payload, idempotency_key: idempotency_key
+                )
+                redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_singular}, id: params[:id]), notice: "Updated.")
+              end
+            rescue Rafelo::Core::ValidationFailed => error
+              redirect_after_write(back, errors: form.translate(error.field_codes))
+            rescue Rafelo::Core::ApplicationError => error
+              raise unless error.code == "resource.conflict"
+
+              redirect_after_write(back, errors: { "base" => I18n.t("core.errors.fields.conflict") })
             end
           RUBY
         end
@@ -160,6 +250,7 @@ module Rafelo
 
       def write_policy
         create_perms = effective_actions.include?("create")
+        update_perms = effective_actions.include?("update")
         create_managed engine_file("app/policies/#{app_ns_underscore}/#{mod}/#{resource_singular}_policy.rb"), <<~RUBY
           # frozen_string_literal: true
 
@@ -176,50 +267,119 @@ module Rafelo
               end
 
               def create? = new?
-              def edit? = index?
-              def update? = index?
+
+              def edit?
+                #{update_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_plural.upcase}_UPDATE)" : "index?"}
+              end
+
+              def update? = edit?
+            end
+          end
+        RUBY
+      end
+
+      def write_gateway
+        upstream = begin
+          config = Rails.application.config.x.upstreams
+          config.respond_to?(:keys) ? Array(config.keys).first : nil
+        rescue StandardError
+          nil
+        end
+        upstream ||= :api
+        methods = []
+        if effective_actions.include?("create")
+          methods << <<~RUBY
+            def create(payload:, idempotency_key:)
+              client.post("#{resource_plural}", body: payload.to_json,
+                          headers: { "Content-Type" => "application/json" },
+                          idempotency_key: idempotency_key)
+            end
+          RUBY
+        end
+        if effective_actions.include?("update")
+          methods << <<~RUBY
+            def update(id:, payload:, idempotency_key:)
+              client.patch("#{resource_plural}/\#{id}", body: payload.to_json,
+                           headers: { "Content-Type" => "application/json" },
+                           idempotency_key: idempotency_key)
+            end
+          RUBY
+        end
+        create_managed engine_file("app/gateways/#{app_ns_underscore}/#{mod}/#{resource_plural}_gateway.rb"), <<~RUBY
+          # frozen_string_literal: true
+
+          module #{module_class}
+            class #{resource_plural.camelize}Gateway < Rafelo::Core::Gateway
+              upstream :#{upstream}
+              token :viewer
+
+          #{methods.map { |method| method.rstrip }.join("\n\n")}
             end
           end
         RUBY
       end
 
       def write_props
-        index_can = []
-        index_can_lines = ""
-        if effective_actions.include?("new")
-          index_can = [ "new" ]
-          index_can_lines = <<~RUBY.chomp
-                capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)
-          RUBY
-          index_can_hash = "can: capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)"
-        else
-          index_can_hash = "can: {}"
-        end
+        if effective_actions.include?("index")
+          index_can_hash = if effective_actions.include?("new")
+            "can: capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)"
+          else
+            "can: {}"
+          end
 
-        policy_decl = if effective_actions.include?("new")
-          "      policy_class #{module_class}::#{resource_singular.camelize}Policy\n" \
-          "      capability #{module_class}::Permissions::#{resource_plural.upcase}_CREATE, :create?\n\n"
-        else
-          ""
-        end
+          policy_decl = if effective_actions.include?("new")
+            "      policy_class #{module_class}::#{resource_singular.camelize}Policy\n" \
+            "      capability #{module_class}::Permissions::#{resource_plural.upcase}_CREATE, :create?\n\n"
+          else
+            ""
+          end
 
-        create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), <<~RUBY
-          # frozen_string_literal: true
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), <<~RUBY
+            # frozen_string_literal: true
 
-          module #{module_class}
-            class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
-          #{policy_decl}      def envelope
-                {
-                  data: { items: [], newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
-                  meta: {},
-                  query: {},
-                  pagination: nil,
-                  #{index_can_hash}
-                }
+            module #{module_class}
+              class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
+            #{policy_decl}      def envelope
+                  {
+                    data: { items: [], newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
+                    meta: {},
+                    query: {},
+                    pagination: nil,
+                    #{index_can_hash}
+                  }
+                end
               end
             end
-          end
-        RUBY
+          RUBY
+        end
+
+        if effective_actions.include?("show")
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_show_props.rb"), <<~RUBY
+            # frozen_string_literal: true
+
+            module #{module_class}
+              class #{resource_plural.camelize}ShowProps < Rafelo::Core::PageProps
+                def initialize(context:, id:)
+                  super(context: context)
+                  @id = id
+                end
+
+                def envelope
+                  {
+                    data: {
+                      #{resource_singular}: { id: @id, name: @id },
+                      indexPath: context.urls.route(:#{mod}, :#{resource_plural})
+                    },
+                    meta: {},
+                    query: {},
+                    pagination: nil,
+                    can: {}
+                  }
+                end
+              end
+            end
+          RUBY
+        end
 
         if effective_actions.include?("new")
           create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_new_props.rb"), <<~RUBY
@@ -243,86 +403,189 @@ module Rafelo
             end
           RUBY
         end
+
+        if effective_actions.include?("edit")
+          create_managed engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_edit_props.rb"), <<~RUBY
+            # frozen_string_literal: true
+
+            module #{module_class}
+              class #{resource_plural.camelize}EditProps < Rafelo::Core::PageProps
+                def initialize(context:, id:)
+                  super(context: context)
+                  @id = id
+                end
+
+                def envelope
+                  {
+                    data: {
+                      #{resource_singular}: { id: @id, name: @id },
+                      updatePath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
+                      showPath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
+                    },
+                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                    query: {},
+                    pagination: nil,
+                    can: {}
+                  }
+                end
+              end
+            end
+          RUBY
+        end
       end
 
       def write_form
-        return unless effective_actions.include?("create")
+        return unless (effective_actions & %w[create update]).any?
 
         create_managed engine_file("app/forms/#{app_ns_underscore}/#{mod}/#{resource_singular}_form.rb"), <<~RUBY
           # frozen_string_literal: true
 
           module #{module_class}
-            class #{resource_singular.camelize}Form
-              include ActiveModel::Model
-              include ActiveModel::Attributes
-
+            class #{resource_singular.camelize}Form < Rafelo::Core::Form
               attribute :name, :string
-              attribute :token, :string
 
               validates :name, presence: true
-              validates :token, presence: true
-
-              def payload
-                { name: name.to_s }
-              end
-
-              def error_messages
-                errors.to_hash(true).transform_values { |messages| Array(messages).first.to_s }
-              end
             end
           end
         RUBY
       end
 
       def write_frontend
-        # index
-        can_keys = effective_actions.include?("new") ? "[\"#{permission_create}\"] as const" : "[] as const"
-        data_props = if effective_actions.include?("new")
-          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
-        else
-          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
+        if effective_actions.include?("index")
+          # index
+          can_keys = effective_actions.include?("new") ? "[\"#{permission_create}\"] as const" : "[] as const"
+          data_props = if effective_actions.include?("new")
+            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
+          else
+            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
+          end
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
+
+            export const pageSchema = definePage({
+              data: #{data_props},
+              query: z.object({}),
+              can: #{can_keys},
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
+            export type #{resource_singular.camelize}Item = { id: string; label: string };
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./index.schema";
+            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+
+            export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="#{resource_plural.humanize}" />
+                  <#{resource_plural.camelize}Screen {...page.data} can={page.can} />
+                </>
+              );
+            }
+
+            #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
+          TSX
+          screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
+          new_link = effective_actions.include?("new") ? "\n          {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+
+            export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
+              return <#{resource_plural.camelize}Screen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
+            export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
+              if (items.length === 0) return <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p>;
+              return (
+                <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
+                  {items.map((item) => (
+                    <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>{item.label}</li>
+                  ))}
+                </ul>
+              );
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
+            import { #{resource_plural.camelize}List } from "../../components/#{resource_plural}/list";
+
+            export function #{resource_plural.camelize}Screen(#{screen_props}) {
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16">
+                  <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
+                  <#{resource_plural.camelize}List items={items} />
+                </section>
+              );
+            }
+          TSX
         end
-        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
-          import { z } from "zod";
-          import { definePage } from "@core/contracts/page_props.schema";
 
-          export const pageSchema = definePage({
-            data: #{data_props},
-            query: z.object({}),
-            can: #{can_keys},
-            paginated: false,
-          });
-        TS
-        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
-          import { Head } from "@inertiajs/react";
-          import type { LayoutName } from "@core/contracts/layout.types";
-          import { pageSchema } from "./index.schema";
-          import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+        if effective_actions.include?("show")
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
 
-          export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
-            const page = pageSchema.parse(props);
-            return (
-              <>
-                <Head title="#{resource_plural.humanize}" />
-                <#{resource_plural.camelize}Screen {...page.data} can={page.can} />
-              </>
-            );
-          }
+            export const pageSchema = definePage({
+              data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexPath: z.string() }),
+              query: z.object({}),
+              can: [] as const,
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./show.schema";
+            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
 
-          #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
-        TSX
-        screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items }: { items: { id: string; label: string }[] }"
-        new_link = effective_actions.include?("new") ? "\n        {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref}>New</a> : null}" : ""
-        create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
-          export function #{resource_plural.camelize}Screen(#{screen_props}) {
-            return (
-              <section className="mx-auto max-w-3xl px-6 py-16">
-                <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
-                {items.length === 0 ? <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p> : null}
-              </section>
-            );
-          }
-        TSX
+            export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="#{resource_singular.humanize}" />
+                  <#{resource_singular.camelize}ShowScreen {...page.data} can={page.can} />
+                </>
+              );
+            }
+
+            #{resource_singular.camelize}Show.layoutName = "app" satisfies LayoutName;
+          TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
+            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
+
+            export function #{resource_singular.camelize}ShowContainer(props: Parameters<typeof #{resource_singular.camelize}ShowScreen>[0]) {
+              return <#{resource_singular.camelize}ShowScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/show_screen.tsx"), <<~TSX
+            import { Link } from "@design_system/public";
+
+            export function #{resource_singular.camelize}ShowScreen({ #{resource_singular}, indexPath, can }: { #{resource_singular}: { id: string; name: string }; indexPath: string; can: Record<string, { allowed: boolean; reason: string | null }> }) {
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16" data-testid="#{mod}.#{resource_plural}.show.page">
+                  <h1 className="text-display font-semibold">#{resource_singular.humanize}</h1>
+                  <dl className="mt-4 space-y-2">
+                    <div>
+                      <dt className="font-medium">ID</dt>
+                      <dd data-testid="#{mod}.#{resource_plural}.show.id">{#{resource_singular}.id}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Name</dt>
+                      <dd>{#{resource_singular}.name}</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-6"><Link href={indexPath}>Back</Link></p>
+                </section>
+              );
+            }
+          TSX
+        end
 
         if effective_actions.include?("new")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
@@ -355,9 +618,45 @@ module Rafelo
 
             #{resource_plural.camelize}New.layoutName = "app" satisfies LayoutName;
           TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}NewScreen } from "../../screens/#{resource_plural}/new_screen";
+
+            export function #{resource_plural.camelize}NewContainer(props: Parameters<typeof #{resource_plural.camelize}NewScreen>[0]) {
+              return <#{resource_plural.camelize}NewScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
+            import { Button } from "@design_system/public";
+
+            type Props = {
+              name: string;
+              errors: Record<string, string>;
+              onNameChange: (value: string) => void;
+              onSubmit: () => void;
+            };
+
+            export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange, onSubmit }: Props) {
+              return (
+                <>
+                  <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
+                  <input
+                    id="#{resource_singular}-name"
+                    data-testid="#{mod}.#{resource_plural}.new.name"
+                    className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
+                    value={name}
+                    onChange={(event) => onNameChange(event.target.value)}
+                    name="name"
+                  />
+                  {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
+                  <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
+                </>
+              );
+            }
+          TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
             import { useForm } from "@inertiajs/react";
-            import { Button, Link } from "@design_system/public";
+            import { Link } from "@design_system/public";
+            import { #{resource_singular.camelize}FormFields } from "../../components/#{resource_plural}/form";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
@@ -372,10 +671,97 @@ module Rafelo
                     }}
                     className="mt-6 space-y-4"
                   >
+                    <#{resource_singular.camelize}FormFields
+                      name={form.data.name}
+                      errors={errors}
+                      onNameChange={(value) => form.setData("name", value)}
+                      onSubmit={() => undefined}
+                    />
+                    <div className="flex gap-3">
+                      <Link href={indexPath}>Back</Link>
+                    </div>
+                  </form>
+                </section>
+              );
+            }
+          TSX
+        end
+
+        if effective_actions.include?("edit")
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
+            import { z } from "zod";
+            import { definePage } from "@core/contracts/page_props.schema";
+
+            export const pageSchema = definePage({
+              data: z.object({
+                #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
+                updatePath: z.string(),
+                showPath: z.string(),
+              }),
+              meta: z.object({ formToken: z.string() }),
+              query: z.object({}),
+              can: [] as const,
+              paginated: false,
+            });
+          TS
+          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
+            import { Head } from "@inertiajs/react";
+            import type { LayoutName } from "@core/contracts/layout.types";
+            import { pageSchema } from "./edit.schema";
+            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
+
+            export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
+              const page = pageSchema.parse(props);
+              return (
+                <>
+                  <Head title="Edit #{resource_singular.humanize}" />
+                  <#{resource_plural.camelize}EditScreen {...page.data} meta={page.meta} errors={page.errors} />
+                </>
+              );
+            }
+
+            #{resource_singular.camelize}Edit.layoutName = "app" satisfies LayoutName;
+          TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
+
+            export function #{resource_plural.camelize}EditContainer(props: Parameters<typeof #{resource_plural.camelize}EditScreen>[0]) {
+              return <#{resource_plural.camelize}EditScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
+            import { useForm } from "@inertiajs/react";
+            import { Link } from "@design_system/public";
+
+            export function #{resource_plural.camelize}EditScreen({
+              #{resource_singular},
+              updatePath,
+              showPath,
+              meta,
+              errors,
+            }: {
+              #{resource_singular}: { id: string; name: string };
+              updatePath: string;
+              showPath: string;
+              meta: { formToken: string };
+              errors: Record<string, string>;
+            }) {
+              const form = useForm({ name: #{resource_singular}.name ?? "", token: meta.formToken });
+              return (
+                <section className="mx-auto max-w-3xl px-6 py-16">
+                  <h1 className="text-display font-semibold">Edit #{resource_singular.humanize}</h1>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      form.transform((data) => ({ ...data, token: meta.formToken }));
+                      form.patch(updatePath);
+                    }}
+                    className="mt-6 space-y-4"
+                  >
                     <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
                     <input
                       id="#{resource_singular}-name"
-                      data-testid="#{mod}.#{resource_plural}.new.name"
+                      data-testid="#{mod}.#{resource_plural}.edit.name"
                       className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
                       value={form.data.name}
                       onChange={(event) => form.setData("name", event.target.value)}
@@ -383,8 +769,8 @@ module Rafelo
                     />
                     {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
                     <div className="flex gap-3">
-                      <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
-                      <Link href={indexPath}>Back</Link>
+                      <button data-testid="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</button>
+                      <Link href={showPath}>Back</Link>
                     </div>
                   </form>
                 </section>
@@ -404,12 +790,21 @@ module Rafelo
           path = root.join(engine_file("config/locales/#{locale}.yml"))
           next unless File.file?(path)
           content = read_file(path).rstrip
-          block = [ "    #{resource_plural}:", "      title: \"#{resource_plural.humanize}\"" ]
-          block << "      new: \"New #{resource_singular.humanize}\"" if effective_actions.include?("new")
-          unless content.include?("\n    #{resource_plural}:\n")
-            write_managed(path, content + "\n" + block.join("\n") + "\n")
+          block = [ "    #{resource_plural}:", "      title: #{localized_copy(locale, resource_plural.humanize)}" ]
+          block << "      new: #{localized_copy(locale, "New #{resource_singular.humanize}")}" if effective_actions.include?("new")
+          block << "      edit: #{localized_copy(locale, "Edit #{resource_singular.humanize}")}" if effective_actions.include?("edit")
+          next if content.include?("\n    #{resource_plural}:\n")
+
+          if content.match?(/^\s{2}#{Regexp.escape(mod)}:\s*\{\}\s*$/)
+            content = content.sub(/^\s{2}#{Regexp.escape(mod)}:\s*\{\}\s*$/, "  #{mod}:")
           end
+          write_managed(path, content + "\n" + block.join("\n") + "\n")
         end
+      end
+
+      def localized_copy(locale, text)
+        value = locale == default_locale ? text : "[#{locale}] #{text}"
+        value.inspect
       end
 
       def write_permissions
@@ -419,16 +814,24 @@ module Rafelo
         prefix = data[mod] || {}
         actions = [ "read" ]
         actions << "create" if effective_actions.include?("create")
+        actions << "update" if effective_actions.include?("update")
         prefix[resource_plural] = actions.uniq
         data[mod] = prefix
         write_managed(path, YAML.dump(data))
       end
 
+      def write_fixtures
+        dir = root.join(engine_file("spec/fixtures/upstream/#{resource_plural}"))
+        FileUtils.mkdir_p(dir)
+        create_managed engine_file("spec/fixtures/upstream/#{resource_plural}/index.json"), JSON.pretty_generate({ "items" => [] }) + "\n"
+      end
+
       def write_tests
         grants = [ permission_read ]
         grants << permission_create if effective_actions.include?("create")
+        grants << permission_update if effective_actions.include?("update")
         grants_literal = grants.map { |g| "\"#{g}\"" }.join(", ")
-        index_spec = <<~RUBY
+        spec = <<~RUBY
           require "rails_helper"
 
           RSpec.describe "#{mod}/#{resource_plural}", type: :request do
@@ -442,6 +845,15 @@ module Rafelo
               { "Cookie" => "session_token=\#{token}" }
             end
 
+            def form_token(headers, path)
+              get path, headers: headers
+              PageMatchers.page_of(response).dig("props", "meta", "formToken")
+            end
+        RUBY
+
+        if effective_actions.include?("index")
+          spec << <<~RUBY
+
             it "renders the index page contract" do
               headers = sign_in_with([#{grants_literal}])
               expect { get "/en/#{mod}/#{resource_plural}", headers: headers }.to within_budgets("#{page_key_base}/index")
@@ -451,9 +863,24 @@ module Rafelo
               expect(response).to have_resolvable_hrefs("#{page_key_base}/index")
               expect(response).to match_policy_capabilities("#{page_key_base}/index")
             end
-        RUBY
+          RUBY
+        end
+        if effective_actions.include?("show")
+          spec << <<~RUBY
+
+            it "renders the show page contract" do
+              headers = sign_in_with([#{grants_literal}])
+              expect { get "/en/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
+              expect(response).to have_http_status(:ok)
+              expect(response).to match_page_schema("#{page_key_base}/show")
+              expect(response).to be_within_props_budget("#{page_key_base}/show")
+              expect(response).to have_resolvable_hrefs("#{page_key_base}/show")
+              expect(response).to match_policy_capabilities("#{page_key_base}/show")
+            end
+          RUBY
+        end
         if effective_actions.include?("new")
-          index_spec << <<~RUBY
+          spec << <<~RUBY
 
             it "renders the new page contract" do
               headers = sign_in_with([#{grants_literal}])
@@ -466,8 +893,104 @@ module Rafelo
             end
           RUBY
         end
-        index_spec << "  end\n"
-        create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", index_spec
+        if effective_actions.include?("edit")
+          spec << <<~RUBY
+
+            it "renders the edit page contract" do
+              headers = sign_in_with([#{grants_literal}])
+              expect { get "/en/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
+              expect(response).to have_http_status(:ok)
+              expect(response).to match_page_schema("#{page_key_base}/edit")
+              expect(response).to be_within_props_budget("#{page_key_base}/edit")
+              expect(response).to have_resolvable_hrefs("#{page_key_base}/edit")
+              expect(response).to match_policy_capabilities("#{page_key_base}/edit")
+            end
+          RUBY
+        end
+        if effective_actions.include?("create")
+          spec << <<~RUBY
+
+            it "creates through the gateway, redirects with 303, and replays without a second call" do
+              headers = sign_in_with([#{grants_literal}])
+              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+                .to_return(status: 201, body: "{}", headers: { "Content-Type" => "application/json" })
+
+              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}")
+
+              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(a_request(:post, "http://localhost:4000/#{resource_plural}")).to have_been_made.once
+            end
+
+            it "redirects back with errors when create params are invalid" do
+              headers = sign_in_with([#{grants_literal}])
+              post "/en/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+            end
+
+            it "redirects back with translated errors when the upstream rejects the create" do
+              headers = sign_in_with([#{grants_literal}])
+              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+                .to_return(status: 422, body: '{"errors":{"name":["taken"]}}',
+                           headers: { "Content-Type" => "application/json" })
+
+              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+            end
+
+            it "redirects back with a conflict when the upstream answers 409" do
+              headers = sign_in_with([#{grants_literal}])
+              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+                .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
+
+              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+            end
+          RUBY
+        end
+        if effective_actions.include?("update")
+          spec << <<~RUBY
+
+            it "updates through the gateway and redirects with 303" do
+              headers = sign_in_with([#{grants_literal}])
+              token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
+              stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
+                .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1")
+            end
+
+            it "redirects back with errors when update params are invalid" do
+              headers = sign_in_with([#{grants_literal}])
+              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token" }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
+            end
+
+            it "redirects back with a conflict when the upstream rejects the update" do
+              headers = sign_in_with([#{grants_literal}])
+              token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
+              stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
+                .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
+
+              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
+            end
+          RUBY
+        end
+        spec << "  end\n"
+        create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", spec
       end
 
       def post_write
@@ -505,7 +1028,10 @@ module Rafelo
       def restore_snapshot(before)
         after = Dir[root.join("**/*")].select { |p| File.file?(p) }
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
-        before.each { |p, content| File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content }
+        before.each do |p, content|
+          FileUtils.mkdir_p(File.dirname(p))
+          File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
+        end
         prune_empty_dirs
       end
 
@@ -518,7 +1044,7 @@ module Rafelo
       end
 
       def read_file(path)
-        File.read(path)
+        File.read(path.to_s)
       end
 
       def create_managed(relative, content)

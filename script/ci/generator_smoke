@@ -33,6 +33,7 @@ bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
 bin/rails generate rafelo:page smoke_check widgets --actions=index,new
 verify smoke_party smoke_check smoke_other
+RAILS_ENV=test bundle exec rspec spec/requests/smoke_check
 
 # Change: move the resource to the other module, then rename that module.
 bin/rails generate rafelo:move_page smoke_check smoke_other widgets
