@@ -1,0 +1,52 @@
+[
+  {
+    "id": 9,
+    "token_digest": "51d7ab1f40aedb9ea14b51edafa1cf87a58eae601fe8e196b83ff916c7f719a2",
+    "viewer_id": "fixture-1",
+    "viewer_name": "Fixture 1",
+    "access_token": "fixture-access-1",
+    "refresh_token": "fixture-refresh-1",
+    "access_expires_at": "2026-11-13 06:03:44 UTC",
+    "refreshing_since": null,
+    "refresh_version": 0,
+    "expires_at": "2026-11-13 17:58:44 UTC",
+    "locale": "en",
+    "created_at": "2026-11-13 05:58:44 UTC",
+    "updated_at": "2026-11-13 05:58:44 UTC",
+    "permission_grants": [
+      "fixture:read"
+    ],
+    "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
+    "grants_refreshed_at": "2026-11-13 05:58:44 UTC",
+    "last_seen_at": "2026-11-13 05:58:44 UTC",
+    "grants_generation": 0,
+    "grants_fetched_generation": 0,
+    "format_version": 1,
+    "token": "XGy3pr4wY1YpTYekqFsVRnkD2KZHZTWoGsCHQkXpv58"
+  },
+  {
+    "id": 10,
+    "token_digest": "187e48958be5e5e4b9527e164144c887923e046fa08b3004359483ae128561c2",
+    "viewer_id": "fixture-2",
+    "viewer_name": "Fixture 2",
+    "access_token": "fixture-access-2",
+    "refresh_token": "fixture-refresh-2",
+    "access_expires_at": "2026-11-13 06:03:44 UTC",
+    "refreshing_since": null,
+    "refresh_version": 0,
+    "expires_at": "2026-11-13 17:58:44 UTC",
+    "locale": "en",
+    "created_at": "2026-11-13 05:58:44 UTC",
+    "updated_at": "2026-11-13 05:58:44 UTC",
+    "permission_grants": [
+      "fixture:read"
+    ],
+    "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
+    "grants_refreshed_at": "2026-11-13 05:58:44 UTC",
+    "last_seen_at": "2026-11-13 05:58:44 UTC",
+    "grants_generation": 0,
+    "grants_fetched_generation": 0,
+    "format_version": 1,
+    "token": "9dPvGG_lj2T6gt8Tk140tUJEESwbTFlaMOIKZ2wilxc"
+  }
+]

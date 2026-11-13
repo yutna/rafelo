@@ -298,3 +298,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** First-claim fencing, real 422/409/503 request specs, an append-only `core_audits` table and recorder, a streamed export path with no signed URL, `Current` in the download producer, a bounded queue, computed field codes, and an outside-folder patch canary. Remaining matcher, fixture, migration and concurrency depth is carried in #219.
 
 **Spec feedback.** TS-02 should define each matcher's exact inputs and failure output. SEC-16 should say where the previous release's fixtures come from and how a tag folder is bootstrapped. BE-18 should choose between a signed redirect and log-safe streaming. Related IDs: BE-13, BE-15, BE-18, BE-23, SEC-16, TS-02, TS-10.
+
+## 2026-11-13 — v0.13.0 — issue #238
+
+**What happened.** The v0.13.0 gate needed two audit rounds. Round 1 found every page rendered two layouts, the required locale/time-zone provider was missing, and date input either threw from `fromPlain` or accepted impossible dates such as `2026-02-31`. Round 2 passed after the fixes and round-trip tests.
+
+**Root cause.** The resolver both rendered a layout and assigned it to Inertia, which applies layouts itself; the locale work stopped at a `lang` attribute; and the form sent person input through a factory designed for invariants.
+
+**What changed.** One layout assignment, an `I18nProvider` with calendar/time zone, non-throwing date issues for invalid and impossible dates, a validating `DateField`, copied plain input/output, and round-trip tests for every boundary class. The remaining matcher, compiler-proof, URL-guard, bundle and date-field depth is carried in #219.
+
+**Spec feedback.** FE-02 should say whether the resolver or Inertia applies the layout. FE-14 should name the provider contract. OOP-03 should name the invalid-date codes and the boundary copy rule. Related IDs: FE-02; FE-14; OOP-03; OOP-05; OOP-10.
