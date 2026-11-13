@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+shopt -s nullglob
+examples=(engines/example_*)
+if [ "${#examples[@]}" -eq 0 ]; then
+  echo "example_removal: no example engines"
+  exit 0
+fi
+
+rm -rf "${examples[@]}"
+BUNDLE_FROZEN=false bundle install
+script/ci/engine_graph
+npm run aliases:generate
+npm run i18n:generate
+npm run errors:generate
+npm run permissions:generate
+npm run contracts:generate
+git config user.name "rafelo-ci"
+git config user.email "ci@rafelo.invalid"
+git add -A
+git commit -m "test: prove the example engines are removable"
+bin/ci

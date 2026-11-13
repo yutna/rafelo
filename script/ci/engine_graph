@@ -23,6 +23,15 @@ packages = Dir[File.join(root, "engines", "*", "package.yml")].sort.to_h do |pat
 end
 abort "engine_graph: no engine packages found" if packages.empty?
 
+packages.each do |name, dependencies|
+  next if name.start_with?("example_")
+
+  examples = dependencies.grep(/\Aexample_/)
+  next if examples.empty?
+
+  abort "engine_graph: #{name}: nothing outside example_* may depend on an example engine (GEN-08): #{examples.join(", ")}"
+end
+
 KERNEL = %w[core design_system].freeze
 
 def project(root, name, include:, references:)
