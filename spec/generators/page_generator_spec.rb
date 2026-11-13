@@ -18,6 +18,26 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "refuses when page artifacts already exist even without a route entry" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config"))
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      routes = "Rafelo::Billing::Engine.routes.draw do\nend\n"
+      File.write(root.join("engines/billing/config/routes.rb"), routes)
+
+      expect {
+        begin
+          described_class.start([ "billing", "widgets", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to change { Dir[root.join("**/*")].sort }
+
+      expect(File.read(root.join("engines/billing/config/routes.rb"))).to eq(routes)
+    end
+  end
+
   it "rolls back generated files when a write step fails" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)

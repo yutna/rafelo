@@ -57,13 +57,25 @@ module Rafelo
         unless Dir.exist?(root.join("engines", mod))
           raise Thor::Error, "module engine not found: #{mod}"
         end
-        routes = read_file(root.join(engine_file("config/routes.rb")))
-        if routes.include?("resources :#{resource_plural}")
-          raise Thor::Error, "resource already exists: #{resource_plural}"
+
+        checks = [
+          [ engine_file("config/routes.rb"), :routes ],
+          [ engine_file("app/frontend/pages/#{resource_plural}"), :dir ],
+          [ engine_file("app/controllers/#{app_ns_underscore}/#{mod}/#{resource_plural}_controller.rb"), :file ],
+          [ engine_file("app/policies/#{app_ns_underscore}/#{mod}/#{resource_singular}_policy.rb"), :file ],
+          [ "spec/requests/#{mod}/#{resource_plural}_spec.rb", :file ]
+        ]
+
+        existing = checks.any? do |relative, kind|
+          path = root.join(relative)
+          case kind
+          when :routes then File.file?(path) && read_file(path).include?("resources :#{resource_plural}")
+          when :dir then Dir.exist?(path)
+          when :file then File.exist?(path)
+          end
         end
-        if Dir.exist?(root.join(engine_file("app/frontend/pages/#{resource_plural}")))
-          raise Thor::Error, "resource already exists: #{resource_plural}"
-        end
+
+        raise Thor::Error, "resource already exists: #{resource_plural}" if existing
       end
 
       def effective_actions
@@ -918,7 +930,7 @@ module Rafelo
       end
 
       def read_file(path)
-        File.read(path)
+        File.read(path.to_s)
       end
 
       def create_managed(relative, content)
