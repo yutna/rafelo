@@ -39,6 +39,9 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     [ "a/../b", "a//b", "a/./b", "" ].each do |path|
       expect { client.get(path) }.to raise_error(Rafelo::Core::ApplicationError)
     end
+    [ "a/%2e%2e/b", "a%2f..%2fb", "a%5c..%5cb", "a%00b" ].each do |path|
+      expect { client.get(path) }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("resource.not_found") }
+    end
     [ "a\u0000b", "a\tb" ].each do |path|
       expect { client.get(path) }.to raise_error(ArgumentError)
     end

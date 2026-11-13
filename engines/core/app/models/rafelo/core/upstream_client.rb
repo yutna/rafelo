@@ -220,6 +220,7 @@ module Rafelo
         raise ArgumentError, "path must not start with /" if path.start_with?("/")
         raise ArgumentError, "path must not be an absolute URL" if path.match?(/\A[a-z][a-z0-9+.-]*:/i)
         raise ArgumentError, "path must not contain a delimiter" if path.match?(/[?#\\\x00-\x1f]/)
+        raise ApplicationError.new("resource.not_found") if path.match?(/%(?:2e|2f|5c|00)/i)
 
         segments = path.split("/", -1)
         return unless segments.empty? || segments.any? { |segment| segment.empty? || segment == "." || segment == ".." }

@@ -358,3 +358,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** `BaseController#render_page` records the built URLs and, for a `PageProps`, the props object in the request env. The matchers now compare the component with the page key, require every href path to be in `Urls#built`, compare `can` with `CapabilityMap` over the declared policy methods and flags, enforce `ListQuery.max_per_page` and `data.items` length for paginated pages, and count `session_refresh`/`auth`/`resend` upstream notifications separately from page calls. Added `spec/core/page_matchers_spec.rb` with mutation-style canaries, fixed the string-key budget lookup, and made `pages:check --matchers` reject records for page keys that have no contract.
 
 **Spec feedback.** TS-02 should name the request-env capture seam for `Urls#built` and the props object, and say that the paginated list is `data.items`. It should also say whether `paginated: false` is represented only by a `null` pagination. Related IDs: TS-02; CT-02; BE-04; BE-16; ARCH-10.
+
+## 2026-11-13 — v0.17.0 — issue #296
+
+**What happened.** The SEC-09/SEC-13/SEC-14 carry-over found that the body-limit 413 returned before the controller stack and carried neither the request/trace ids nor the security headers, that `Current.trace_id` only ever fell back to the Rails request id, and that upstream path validation rejected literal `..`, `/`, and `\` but not their percent-encoded forms.
+
+**Root cause.** The limit is a Rack middleware response, so controller callbacks and `default_headers` do not run for it. The path check split the raw string before decoding.
+
+**What changed.** Added `TraceMiddleware` after `ActionDispatch::RequestId`, moved `BodyLimit` after it, and made the 413 payload and headers self-contained. `UpstreamClient#validate_path!` now rejects `%2e`, `%2f`, `%5c`, and `%00` before any call. Request and client specs pin the ids, headers, and traversal cases.
+
+**Spec feedback.** SEC-13 should name the exact headers a middleware response must carry. SEC-14 should say whether encoded separators are rejected or decoded before validation. Related IDs: SEC-09; SEC-13; SEC-14; OPS-02.
