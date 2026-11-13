@@ -76,7 +76,7 @@ function withLayout(component: PageComponent, name: string): PageComponent {
         homeLabel={t("app:errors.go_home")}
         retryLabel={t("app:errors.retry")}
         homeHref="/"
-        resetKey={window.location.pathname}
+        resetKey={window.location.href}
         requestId={trace?.requestId}
         traceId={trace?.traceId}
         reporter={reportClientError}
