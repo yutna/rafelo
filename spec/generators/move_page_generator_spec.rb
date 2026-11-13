@@ -48,12 +48,18 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       src_perm = YAML.safe_load(File.read(root.join("engines/billing/config/permissions.yml")))
       tgt_perm = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
       expect(src_perm.dig("billing", "widgets")).to be_nil
-      expect(tgt_perm.dig("payments", "widgets")).to eq([ "read" ])
+      expect(tgt_perm.dig("billing", "widgets")).to eq([ "read" ])
+      expect(tgt_perm.dig("payments", "widgets")).to be_nil
 
       mod_rb = File.read(root.join("engines/payments/config/module.rb"))
       expect(mod_rb).to include('legacy_paths')
       expect(mod_rb).to include('/billing/widgets')
       expect(mod_rb).to include('"billing"')
+
+      redirect_spec = root.join("spec/requests/payments/widgets_legacy_redirect_spec.rb")
+      expect(redirect_spec).to exist
+      expect(File.read(redirect_spec)).to include('get "/en/billing/widgets"')
+      expect(File.read(redirect_spec)).to include('redirect_to("/en/payments/widgets")')
     end
   end
 

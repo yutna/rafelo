@@ -74,7 +74,9 @@ module Rafelo
             body = body.gsub(/^(\s*)permission_prefixes:\s*\[[^\]]*\]/, "\\1permission_prefixes: [ \"#{@source_name}\" ]")
             body = body.gsub(/^(\s*label_key:\s*)"#{Regexp.escape(@source_name)}\.nav\.title"/, "\\1\"#{@destination_name}.nav.title\"")
           end
-          body = body.gsub(/^(\s*)#{Regexp.escape(@source_name)}:\s*$/, "\\1#{@destination_name}:") if path.to_s.end_with?(".yml")
+          if path.to_s.end_with?(".yml") && !path.to_s.end_with?("config/permissions.yml") && !path.to_s.include?("/config/locales/")
+            body = body.gsub(/^(\s*)#{Regexp.escape(@source_name)}:\s*$/, "\\1#{@destination_name}:")
+          end
           body = body.gsub(/\.nav\.title:\s*"#{Regexp.escape(@source_name.humanize)}"/, ".nav.title: \"#{@destination_name.humanize}\"")
           File.binwrite(path, body)
         end
@@ -142,14 +144,9 @@ module Rafelo
       end
 
       def update_permissions_manifest(engine_root)
+        # Keep permission keys stable by preserving the original permission prefix.
         path = engine_root.join("config/permissions.yml")
-        return unless File.file?(path)
-
-        content = YAML.safe_load(File.read(path), aliases: false) || {}
-        if content.key?(@source_name)
-          content[@destination_name] = content.delete(@source_name)
-          File.write(path, YAML.dump(content))
-        end
+        File.file?(path)
       end
 
       def update_root_spec_paths

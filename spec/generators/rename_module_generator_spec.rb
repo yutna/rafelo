@@ -33,6 +33,11 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       expect(mod_rb).to include('"billing"')
       expect(mod_rb).not_to include('permission_prefixes: ["invoicing"]')
 
+      perms = YAML.safe_load(File.read(root.join("engines/invoicing/config/permissions.yml")))
+      expect(perms).to have_key("billing")
+      expect(perms).not_to have_key("invoicing")
+      expect(perms.dig("billing", "widgets")).to eq([ "read" ])
+
       pkg = YAML.safe_load(File.read(root.join("engines/invoicing/package.yml")))
       expect(pkg.dig("metadata", "legacy_table_prefix")).to eq("billing")
       expect(root.join("engines/invoicing/config/initializers/legacy_constants.rb")).to exist

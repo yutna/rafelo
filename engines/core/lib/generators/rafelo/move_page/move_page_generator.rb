@@ -54,6 +54,7 @@ module Rafelo
         rewrite_routes
         move_permissions
         add_legacy_path
+        add_legacy_redirect_spec
       end
 
       def move_tree(from_rel, to_rel)
@@ -139,12 +140,13 @@ module Rafelo
         src = YAML.safe_load(File.read(src_path), aliases: false) || {}
         tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
         src_prefix = src[@source] || {}
-        tgt_prefix = tgt[@target] || {}
+        # Keep permission keys stable by preserving the source prefix in the target manifest.
+        tgt_source_prefix = tgt[@source] || {}
         if src_prefix.key?(plural)
-          tgt_prefix[plural] = src_prefix.delete(plural)
+          tgt_source_prefix[plural] = src_prefix.delete(plural)
         end
         src[@source] = src_prefix
-        tgt[@target] = tgt_prefix
+        tgt[@source] = tgt_source_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))
       end
@@ -176,6 +178,25 @@ module Rafelo
           end
         end
         File.write(path, content)
+      end
+
+      def add_legacy_redirect_spec
+        spec_path = root.join("spec/requests", @target, "#{plural}_legacy_redirect_spec.rb")
+        FileUtils.mkdir_p(spec_path.dirname)
+        content = <<~RUBY
+          # frozen_string_literal: true
+
+          require "rails_helper"
+
+          RSpec.describe "#{@target}/#{plural} legacy redirect", type: :request do
+            it "redirects the old URL to the moved resource with a 301" do
+              get "/en/#{@source}/#{plural}"
+              expect(response).to have_http_status(:moved_permanently)
+              expect(response).to redirect_to("/en/#{@target}/#{plural}")
+            end
+          end
+        RUBY
+        File.write(spec_path, content) unless spec_path.exist?
       end
 
       def post_write
