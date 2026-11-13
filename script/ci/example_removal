@@ -9,6 +9,12 @@ if [ "${#examples[@]}" -eq 0 ]; then
 fi
 
 rm -rf "${examples[@]}"
+ruby -rjson -e '
+  path = "spec/fixtures/formats/v0.16.0/jobs.json"
+  rows = JSON.parse(File.read(path))
+  rows.reject! { |row| row["job_class"].to_s.start_with?("Rafelo::ExampleOrders::") }
+  File.write(path, JSON.pretty_generate(rows) + "\n")
+'
 BUNDLE_FROZEN=false bundle install
 script/ci/engine_graph
 npm run aliases:generate
