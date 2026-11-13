@@ -3,7 +3,7 @@
 module DummyEngine
   class WidgetsController < Rafelo::Core::BaseController
     layout "application"
-    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired create validation conflict boom]
+    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired create validation conflict boom not_found]
     throttle to: 30, within: 1.minute, only: %i[create validation conflict boom], name: "dummy/write"
 
     def index
@@ -62,6 +62,10 @@ module DummyEngine
 
     def boom
       raise Rafelo::Core::ApplicationError.new("unexpected")
+    end
+
+    def not_found
+      raise Rafelo::Core::ApplicationError.new("resource.not_found")
     end
 
     def set_flash

@@ -70,6 +70,7 @@ module Rafelo
         raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
         @budget&.consume!(@name)
+        ActiveSupport::Notifications.instrument("upstream.call", name: @name)
         @calls += 1
         response = @bulkhead.call do
           @breaker.run do
@@ -97,6 +98,7 @@ module Rafelo
 
         limit = max_bytes || @config.max_response_bytes
         @budget&.consume!(@name)
+        ActiveSupport::Notifications.instrument("upstream.call", name: @name)
         @calls += 1
         first = true
         total = 0

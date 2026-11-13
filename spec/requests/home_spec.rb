@@ -47,4 +47,11 @@ RSpec.describe "Home page", type: :request do
     expect(response.body).to include('"message":"Rafelo"')
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
+  it "proves the page contract, budgets, URLs and capabilities" do
+    expect { get "/en" }.to within_budgets("home/index")
+    expect(response).to match_page_schema("home/index")
+    expect(response).to be_within_props_budget("home/index")
+    expect(response).to have_resolvable_hrefs("home/index")
+    expect(response).to match_policy_capabilities("home/index")
+  end
 end

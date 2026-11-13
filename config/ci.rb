@@ -43,6 +43,7 @@ CI.run do
   step "Frontend: Build", "npm run build"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
+  step "Tests: page matchers", "npm run pages:check -- --matchers"
   step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: Seeds", "env RAILS_ENV=test bin/rails db:seed:replant"
 
