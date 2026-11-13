@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe "Dummy engine", type: :request do
   def page_body
     get "/en/dummy/widgets"
-    JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
   end
 
   it "renders the full envelope through a test-only engine" do
@@ -33,7 +33,7 @@ RSpec.describe "Dummy engine", type: :request do
     expect(response).to have_http_status(:see_other)
 
     get "/en/dummy/widgets"
-    page = JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     expect(page.dig("flash", "notice")).to eq("Dummy notice")
     expect(page["props"]).not_to have_key("flash")
   end

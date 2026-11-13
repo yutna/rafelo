@@ -8,6 +8,7 @@ gem "rails", "8.1.4.1"
 gem "propshaft", "1.3.2"
 gem "pundit", "2.5.2"
 # Use PostgreSQL as the database for Active Record
+gem "rack-attack", "6.8.0"
 gem "faraday", "2.15.1"
 gem "faraday-net_http_persistent", "2.3.1"
 gem "net-http-persistent", "4.0.8"

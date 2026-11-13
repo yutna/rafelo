@@ -22,7 +22,7 @@ class SessionsController < ApplicationController
       locale: I18n.locale,
       grants: result.grants
     )
-    cookies[:session_token] = {
+    cookies[session_cookie_name] = {
       value: token,
       httponly: true,
       same_site: :lax,
@@ -37,9 +37,9 @@ class SessionsController < ApplicationController
   end
 
   def destroy
-    token = cookies[:session_token]
+    token = cookies[session_cookie_name]
     Rafelo::Core::Session.find_by_token(token)&.destroy if token
-    cookies.delete(:session_token)
+    cookies.delete(session_cookie_name)
     redirect_to "/#{I18n.locale}/sign_in", status: :see_other
   end
 end

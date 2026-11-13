@@ -37,8 +37,12 @@ module Rafelo
         SharedProps.new(context: page_context, request_path: request.path).to_h
       end
 
+      def session_cookie_name
+        Rails.env.production? ? "__Host-rafelo_session_token" : "session_token"
+      end
+
       def load_session
-        token = cookies[:session_token]
+        token = cookies[session_cookie_name]
         return unless token
 
         session = Session.find_by_token(token)
