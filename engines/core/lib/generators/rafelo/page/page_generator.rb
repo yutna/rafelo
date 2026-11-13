@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "rails/generators"
 require "shellwords"
 require "yaml"
@@ -24,12 +25,14 @@ module Rafelo
         write_routes
         write_controller
         write_policy
+        write_gateway
         write_props
         write_form if write_actions?
         write_frontend
         write_contracts
         write_copy
         write_permissions
+        write_fixtures
         write_tests
         post_write unless options[:skip_post_write]
         say "Created #{@mod}/#{resource_plural} (#{effective_actions.join(", ")}).", :green
@@ -56,6 +59,9 @@ module Rafelo
         end
         routes = read_file(root.join(engine_file("config/routes.rb")))
         if routes.include?("resources :#{resource_plural}")
+          raise Thor::Error, "resource already exists: #{resource_plural}"
+        end
+        if Dir.exist?(root.join(engine_file("app/frontend/pages/#{resource_plural}")))
           raise Thor::Error, "resource already exists: #{resource_plural}"
         end
       end
@@ -186,6 +192,26 @@ module Rafelo
         RUBY
       end
 
+      def write_gateway
+        upstream = begin
+          config = Rails.application.config.x.upstreams
+          config.respond_to?(:keys) ? Array(config.keys).first : nil
+        rescue StandardError
+          nil
+        end
+        upstream ||= :api
+        create_managed engine_file("app/gateways/#{app_ns_underscore}/#{mod}/#{resource_plural}_gateway.rb"), <<~RUBY
+          # frozen_string_literal: true
+
+          module #{module_class}
+            class #{resource_plural.camelize}Gateway < Rafelo::Core::Gateway
+              upstream :#{upstream}
+              token :viewer
+            end
+          end
+        RUBY
+      end
+
       def write_props
         index_can = []
         index_can_lines = ""
@@ -296,6 +322,9 @@ module Rafelo
             paginated: false,
           });
         TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
+          export type #{resource_singular.camelize}Item = { id: string; label: string };
+        TS
         create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
           import { Head } from "@inertiajs/react";
           import type { LayoutName } from "@core/contracts/layout.types";
@@ -314,14 +343,35 @@ module Rafelo
 
           #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
         TSX
-        screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items }: { items: { id: string; label: string }[] }"
-        new_link = effective_actions.include?("new") ? "\n        {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref}>New</a> : null}" : ""
+        screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
+        new_link = effective_actions.include?("new") ? "\n        {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
+        create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
+          import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+
+          export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
+            return <#{resource_plural.camelize}Screen {...props} />;
+          }
+        TSX
+        create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
+          export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
+            if (items.length === 0) return <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p>;
+            return (
+              <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
+                {items.map((item) => (
+                  <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>{item.label}</li>
+                ))}
+              </ul>
+            );
+          }
+        TSX
         create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
+          import { #{resource_plural.camelize}List } from "../../components/#{resource_plural}/list";
+
           export function #{resource_plural.camelize}Screen(#{screen_props}) {
             return (
               <section className="mx-auto max-w-3xl px-6 py-16">
                 <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
-                {items.length === 0 ? <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p> : null}
+                <#{resource_plural.camelize}List items={items} />
               </section>
             );
           }
@@ -358,9 +408,45 @@ module Rafelo
 
             #{resource_plural.camelize}New.layoutName = "app" satisfies LayoutName;
           TSX
+          create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
+            import { #{resource_plural.camelize}NewScreen } from "../../screens/#{resource_plural}/new_screen";
+
+            export function #{resource_plural.camelize}NewContainer(props: Parameters<typeof #{resource_plural.camelize}NewScreen>[0]) {
+              return <#{resource_plural.camelize}NewScreen {...props} />;
+            }
+          TSX
+          create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
+            import { Button } from "@design_system/public";
+
+            type Props = {
+              name: string;
+              errors: Record<string, string>;
+              onNameChange: (value: string) => void;
+              onSubmit: () => void;
+            };
+
+            export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange, onSubmit }: Props) {
+              return (
+                <>
+                  <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
+                  <input
+                    id="#{resource_singular}-name"
+                    data-testid="#{mod}.#{resource_plural}.new.name"
+                    className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
+                    value={name}
+                    onChange={(event) => onNameChange(event.target.value)}
+                    name="name"
+                  />
+                  {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
+                  <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
+                </>
+              );
+            }
+          TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
             import { useForm } from "@inertiajs/react";
-            import { Button, Link } from "@design_system/public";
+            import { Link } from "@design_system/public";
+            import { #{resource_singular.camelize}FormFields } from "../../components/#{resource_plural}/form";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
@@ -375,18 +461,13 @@ module Rafelo
                     }}
                     className="mt-6 space-y-4"
                   >
-                    <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
-                    <input
-                      id="#{resource_singular}-name"
-                      data-testid="#{mod}.#{resource_plural}.new.name"
-                      className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
-                      value={form.data.name}
-                      onChange={(event) => form.setData("name", event.target.value)}
-                      name="name"
+                    <#{resource_singular.camelize}FormFields
+                      name={form.data.name}
+                      errors={errors}
+                      onNameChange={(value) => form.setData("name", value)}
+                      onSubmit={() => undefined}
                     />
-                    {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
                     <div className="flex gap-3">
-                      <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
                       <Link href={indexPath}>Back</Link>
                     </div>
                   </form>
@@ -425,6 +506,12 @@ module Rafelo
         prefix[resource_plural] = actions.uniq
         data[mod] = prefix
         write_managed(path, YAML.dump(data))
+      end
+
+      def write_fixtures
+        dir = root.join(engine_file("spec/fixtures/upstream/#{resource_plural}"))
+        FileUtils.mkdir_p(dir)
+        create_managed engine_file("spec/fixtures/upstream/#{resource_plural}/index.json"), JSON.pretty_generate({ "items" => [] }) + "\n"
       end
 
       def write_tests
