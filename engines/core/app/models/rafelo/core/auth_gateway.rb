@@ -11,6 +11,18 @@ module Rafelo
         @trace_id = trace_id
       end
 
+      def refresh(refresh_token:)
+        client = client_for_refresh
+        payload = JSON.parse(
+          client.post(
+            "auth/refresh",
+            body: { refresh_token: refresh_token }.to_json,
+            headers: { "Content-Type" => "application/json" }
+          ).body
+        )
+        result(payload)
+      end
+
       def sign_in(email:, password:)
         client = UpstreamClient.for(
           :api,
@@ -27,6 +39,23 @@ module Rafelo
             headers: { "Content-Type" => "application/json" }
           ).body
         )
+        result(payload)
+      end
+
+      private
+
+      def client_for_refresh
+        UpstreamClient.for(
+          :api,
+          config: Rails.application.config.x.upstreams.fetch(:api),
+          token_provider: NullTokenProvider.new,
+          budget: @budget,
+          request_id: @request_id,
+          trace_id: @trace_id
+        )
+      end
+
+      def result(payload)
         Result.new(
           viewer: Viewer.new(id: payload.dig("viewer", "id").to_s, name: payload.dig("viewer", "name").to_s),
           access_token: payload.fetch("access_token"),

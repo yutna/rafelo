@@ -19,6 +19,7 @@ module Rafelo
         app.config.x.puma_threads = ENV.fetch("RAILS_MAX_THREADS", 3).to_i
         app.config.x.requests.upstream_deadline_seconds = 10
         app.config.x.sessions.refresh_timeout_seconds = 15
+        app.config.x.sessions.idle_timeout_seconds = 30 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800
       end

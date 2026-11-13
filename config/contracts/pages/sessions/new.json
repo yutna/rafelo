@@ -34,7 +34,14 @@
     },
     "meta": {
       "type": "object",
-      "properties": {},
+      "properties": {
+        "csrfToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "csrfToken"
+      ],
       "additionalProperties": false
     },
     "query": {

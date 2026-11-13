@@ -21,7 +21,9 @@ module Rafelo
           expires_at: ttl.from_now,
           locale: locale,
           permission_grants: grants,
-          grant_digest: Digest::SHA256.hexdigest(Array(grants).map(&:to_s).sort.join(","))
+          grant_digest: Digest::SHA256.hexdigest(Array(grants).map(&:to_s).sort.join(",")),
+          grants_refreshed_at: Time.current,
+          last_seen_at: Time.current
         )
         [ session, token ]
       end
@@ -32,6 +34,26 @@ module Rafelo
 
       def self.find_by_token(token)
         find_by(token_digest: digest(token))
+      end
+
+      def viewer
+        Viewer.new(id: viewer_id, name: viewer_name.to_s)
+      end
+
+      def permission_set
+        PermissionSet.new(permission_grants)
+      end
+
+      def grants_stale?
+        grants_refreshed_at.nil? || grants_refreshed_at < 5.minutes.ago
+      end
+
+      def replace_grants!(grants)
+        update!(permission_grants: grants, grants_refreshed_at: Time.current)
+      end
+
+      def touch_seen!
+        update_column(:last_seen_at, Time.current)
       end
 
       def self.sweep

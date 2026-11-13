@@ -10,7 +10,8 @@ export default function SignIn(props: Record<string, unknown>) {
       <Head title="Sign in" />
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Sign in</h1>
       {page.data.error ? <p role="alert" className="mt-4 text-red-700">{page.data.error}</p> : null}
-      <form method="post" action="/en/sign_in" className="mt-8 space-y-4">
+      <form method="post" action={`/${page.app.locale}/sign_in`} className="mt-8 space-y-4">
+        <input type="hidden" name="authenticity_token" value={page.meta.csrfToken} />
         <label className="block text-sm font-medium text-slate-700">
           Email
           <input name="email" type="email" required className="mt-1 w-full rounded border px-3 py-2" />
