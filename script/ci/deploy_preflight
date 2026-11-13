@@ -16,10 +16,28 @@ forbidden = tracked.lines(chomp: true).select do |path|
 end
 abort "deploy_preflight: tracked secret files: #{forbidden.join(", ")}" if forbidden.any?
 
+secrets = ".kamal/secrets"
+if File.file?(secrets)
+  abort "deploy_preflight: .kamal/secrets must not be tracked" if tracked.include?(".kamal/secrets")
+  abort "deploy_preflight: .kamal/secrets must name RAILS_MASTER_KEY" unless File.read(secrets).include?("RAILS_MASTER_KEY")
+else
+  example = ".kamal/secrets.example"
+  unless File.file?(example) && File.read(example).include?("RAILS_MASTER_KEY")
+    abort "deploy_preflight: .kamal/secrets.example must name RAILS_MASTER_KEY"
+  end
+end
+
 deploy = YAML.safe_load_file("config/deploy.yml", aliases: true)
 abort "deploy_preflight: config/deploy.yml is not a mapping" unless deploy.is_a?(Hash)
 abort "deploy_preflight: deploy_timeout is missing" unless deploy.key?("deploy_timeout")
 abort "deploy_preflight: proxy max_request_body is missing" unless deploy.dig("proxy", "buffering", "max_request_body")
+unless Array(deploy.dig("env", "secret")).include?("RAILS_MASTER_KEY")
+  abort "deploy_preflight: env.secret must name RAILS_MASTER_KEY"
+end
+
+audit_workflow = ".github/workflows/audits.yml"
+abort "deploy_preflight: daily advisory workflow is missing" unless File.file?(audit_workflow)
+abort "deploy_preflight: daily advisory workflow is not scheduled" unless File.read(audit_workflow).match?(/^\s*schedule:/)
 
 servers = deploy.fetch("servers", {})
 hosts = servers.values.sum { |entry| Array(entry.is_a?(Hash) ? entry["hosts"] : entry).length }
@@ -28,4 +46,4 @@ if hosts > 1 && boot_limit != 1
   abort "deploy_preflight: more than one host needs boot.limit: 1"
 end
 
-puts "deploy_preflight: tracked secrets clean, deploy timeout set, boot limit safe"
+puts "deploy_preflight: secrets, deploy timeout, advisory workflow, and boot limit safe"
