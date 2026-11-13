@@ -28,15 +28,18 @@ module Rafelo
       end
 
       def refresh_winner(version)
+        previous_token = @session.access_token
         result = @gateway.refresh(refresh_token: @session.refresh_token)
-        @session.complete_refresh!(
+        completed = @session.complete_refresh!(
           version: version,
           access_token: result.access_token,
           refresh_token: result.refresh_token,
           access_expires_at: result.access_expires_at,
           grants: result.grants
         )
-        result.access_token
+        return result.access_token if completed
+
+        wait_for_token(previous_token)
       rescue ActiveRecord::RecordNotFound
         raise ApplicationError.new("auth.expired")
       rescue StandardError
@@ -45,8 +48,11 @@ module Rafelo
       end
 
       def wait_for_winner
+        wait_for_token(@session.access_token)
+      end
+
+      def wait_for_token(original)
         deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @wait
-        original = @session.access_token
         loop do
           begin
             @session.reload
