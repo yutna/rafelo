@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+git init -q "$tmp"
+mkdir -p "$tmp/config"
+write_deploy() {
+  cat > "$tmp/config/deploy.yml"
+}
+base() {
+  cat <<'YAML'
+service: rafelo
+deploy_timeout: 120
+servers:
+  web:
+    - 192.168.0.1
+proxy:
+  buffering:
+    max_request_body: 1_048_576
+YAML
+}
+
+base | write_deploy
+"$root/script/ci/deploy_preflight" "$tmp" >/dev/null
+
+if base | sed '/deploy_timeout/d' | write_deploy; then
+  if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: missing deploy_timeout passed" >&2
+    exit 1
+  fi
+fi
+
+cat > "$tmp/config/deploy.yml" <<'YAML'
+service: rafelo
+deploy_timeout: 120
+servers:
+  web:
+    - 192.168.0.1
+    - 192.168.0.2
+proxy:
+  buffering:
+    max_request_body: 1_048_576
+YAML
+if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+  echo "deploy_preflight_canary: multi-host without boot.limit passed" >&2
+  exit 1
+fi
+
+echo "deploy_preflight_canary: checked 3 cases"

@@ -4,6 +4,10 @@ service: rafelo
 # The first host runs db:prepare before /up; size this for boot migrations.
 deploy_timeout: 120
 
+# One host at a time; the first runs db:prepare before the next boots.
+boot:
+  limit: 1
+
 # Name of the container image (use your-user/app-name on external registries).
 image: rafelo
 
