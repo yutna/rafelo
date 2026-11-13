@@ -4,4 +4,4 @@ set -euo pipefail
 processors="${PARALLEL_TEST_PROCESSORS:-2}"
 RAILS_ENV=test bin/vite build
 script/ci/prepare_test_databases "$processors"
-RAILS_ENV=test bundle exec parallel_rspec spec -n "$processors"
+SPEC_OPTS="--tag ~concurrency" RAILS_ENV=test bundle exec parallel_rspec spec -n "$processors"

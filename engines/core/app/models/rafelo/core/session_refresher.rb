@@ -29,15 +29,18 @@ module Rafelo
 
       def refresh_winner(version)
         previous_token = @session.access_token
+        generation = @session.grants_generation
         result = @gateway.refresh(refresh_token: @session.refresh_token)
         completed = @session.complete_refresh!(
           version: version,
           access_token: result.access_token,
           refresh_token: result.refresh_token,
-          access_expires_at: result.access_expires_at,
-          grants: result.grants
+          access_expires_at: result.access_expires_at
         )
-        return result.access_token if completed
+        if completed
+          @session.replace_grants!(result.grants, generation: generation)
+          return result.access_token
+        end
 
         wait_for_token(previous_token)
       rescue ActiveRecord::RecordNotFound

@@ -6,6 +6,7 @@ class SessionsController < ApplicationController
 
   throttle to: 10, within: 1.minute, only: :create, name: "sign_in/ip"
   throttle to: 30, within: 1.minute, only: :destroy, name: "sign_out/ip"
+  throttle to: 10, within: 1.minute, only: :destroy_all, name: "sign_out_everywhere/ip"
 
   def new
     render_page "sessions/new", props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token)
@@ -46,6 +47,12 @@ class SessionsController < ApplicationController
     Rafelo::Core::Session.find_by_token(token)&.destroy if token
     reset_session
     cookies.delete(session_cookie_name, secure: !Rails.env.local?, path: "/")
+    redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }
+  end
+
+  def destroy_all
+    Rafelo::Core::Session.revoke_all!(Rafelo::Core::Current.viewer.id) if Rafelo::Core::Current.viewer
+    clear_session!
     redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }
   end
 end

@@ -23,6 +23,7 @@ module Rafelo
           permission_grants: grants,
           grant_digest: Digest::SHA256.hexdigest(Array(grants).map(&:to_s).sort.join(",")),
           grants_refreshed_at: Time.current,
+          grants_fetched_generation: 0,
           last_seen_at: Time.current
         )
         [ session, token ]
@@ -45,19 +46,38 @@ module Rafelo
       end
 
       def grants_stale?
-        grants_refreshed_at.nil? || grants_refreshed_at < 5.minutes.ago
+        grants_refreshed_at.nil? ||
+          grants_refreshed_at < 5.minutes.ago ||
+          grants_fetched_generation != grants_generation
       end
 
-      def replace_grants!(grants)
-        update!(permission_grants: grants, grants_refreshed_at: Time.current)
+      def replace_grants!(grants, generation:)
+        self.class
+          .where(id: id, grants_generation: generation)
+          .update_all(
+            permission_grants: grants,
+            grant_digest: grant_digest_for(grants),
+            grants_refreshed_at: Time.current,
+            grants_fetched_generation: generation
+          )
+          .positive?
+      end
+
+      def mark_grants_stale!
+        self.class.where(id: id).update_all("grants_generation = grants_generation + 1")
+        reload
       end
 
       def touch_seen!
         update_column(:last_seen_at, Time.current)
       end
 
+      def self.revoke_all!(viewer_id)
+        where(viewer_id: viewer_id.to_s).delete_all
+      end
+
       def self.sweep
-        where("expires_at < ?", Time.current).delete_all
+        where("expires_at < ?", Time.current).in_batches(of: 1_000).delete_all
       end
 
       def claim_refresh!(timeout:)
@@ -76,7 +96,7 @@ module Rafelo
         refresh_version
       end
 
-      def complete_refresh!(version:, access_token:, refresh_token:, access_expires_at:, grants:)
+      def complete_refresh!(version:, access_token:, refresh_token:, access_expires_at:)
         with_lock do
           next false unless refresh_version == version
 
@@ -84,10 +104,7 @@ module Rafelo
             access_token: access_token,
             refresh_token: refresh_token,
             access_expires_at: access_expires_at,
-            refreshing_since: nil,
-            permission_grants: grants,
-            grant_digest: grant_digest_for(grants),
-            grants_refreshed_at: Time.current
+            refreshing_since: nil
           )
           true
         end
