@@ -7,7 +7,7 @@ export default function SignIn(props: Record<string, unknown>) {
   const page = pageSchema.parse(props);
 
   return (
-    <main className="mx-auto max-w-md px-6 py-24">
+    <section className="mx-auto max-w-md px-6 py-24">
       <Head title="Sign in" />
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Sign in</h1>
       {page.data.error ? <p role="alert" className="mt-4 text-red-700">{page.data.error}</p> : null}
@@ -23,7 +23,7 @@ export default function SignIn(props: Record<string, unknown>) {
         </label>
         <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-white">Sign in</button>
       </form>
-    </main>
+    </section>
   );
 }
 
