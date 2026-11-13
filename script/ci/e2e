@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+port="${E2E_PORT:-3100}"
+log="$(mktemp)"
+rm -f tmp/pids/server.pid
+bin/rails server -p "$port" >"$log" 2>&1 &
+rails_pid=$!
+npm run dev >/tmp/rafelo-e2e-vite.log 2>&1 &
+vite_pid=$!
+trap 'kill "$rails_pid" "$vite_pid" 2>/dev/null || true; rm -f "$log"' EXIT
+
+for _ in $(seq 1 60); do
+  if curl -sf -o /dev/null "http://localhost:${port}/en/component_catalog"; then break; fi
+  sleep 1
+done
+curl -sf -o /dev/null "http://localhost:${port}/en/component_catalog"
+
+PLAYWRIGHT_BASE_URL="http://localhost:${port}" npx playwright test

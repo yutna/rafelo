@@ -38,11 +38,15 @@
     "i18n:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/i18n.mts --check",
     "pages:check": "ruby script/ci/page_props",
     "api:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/design_system_api.mts",
-    "api:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/design_system_api.mts --check"
+    "api:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/design_system_api.mts --check",
+    "e2e": "playwright test",
+    "e2e:update": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
     "@inertiajs/vite": "3.11.0",
+    "@tanstack/react-table": "8.21.3",
+    "echarts": "6.1.0",
     "i18next": "27.1.1",
     "lucide-react": "1.72.0",
     "react": "19.3.1",
@@ -52,7 +56,9 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
     "@babel/core": "7.29.13",
+    "@playwright/test": "1.65.0",
     "@rolldown/plugin-babel": "0.3.1",
     "@tailwindcss/vite": "4.3.5",
     "@testing-library/dom": "10.4.2",

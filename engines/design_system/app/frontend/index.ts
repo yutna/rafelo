@@ -12,3 +12,5 @@ export { calendarFor, formatDate, formatNumber, isValidIsoDate } from "./formatt
 export { Link } from "./link";
 export { Image } from "./image";
 export { Deferred } from "./deferred";
+export { Chart } from "./chart";
+export { DataTable } from "./data_table";

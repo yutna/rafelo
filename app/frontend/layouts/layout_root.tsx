@@ -18,7 +18,7 @@ export function LayoutRoot({ children }: LayoutRootProps) {
 
   return (
     <I18nProvider locale={locale} timeZone={timeZone}>
-      <div lang={locale} data-time-zone={timeZone} className="min-h-screen bg-slate-50 text-slate-900">
+      <div lang={locale} data-time-zone={timeZone} data-testid="app-root" className="min-h-screen bg-slate-50 text-slate-900">
         <SkipLink />
         <PageAnnouncer />
         <FlashStatus />

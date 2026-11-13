@@ -25,5 +25,9 @@ Rails.application.routes.draw do
     end
 
     root "home#show"
+
+    if Rails.env.local?
+      get "component_catalog", to: "component_catalog#index"
+    end
   end
 end

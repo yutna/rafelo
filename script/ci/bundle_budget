@@ -42,6 +42,14 @@ page_sizes.each do |key, size|
   failures << "#{key} #{size}KB > #{budgets['js_page_chunk_gzip_kb']}KB" if size > budgets["js_page_chunk_gzip_kb"]
 end
 
+lazy_sizes = manifest.select { |key, entry| entry["isDynamicEntry"] && !key.start_with?("pages/") }.to_h do |key, _entry|
+  bytes = gzip_kb(root, manifest, key) - gzip_kb(root, manifest, "entrypoints/application.tsx")
+  [ key, kb([ bytes, 0 ].max) ]
+end
+lazy_sizes.each do |key, size|
+  failures << "#{key} #{size}KB > #{budgets['js_lazy_chunk_gzip_kb']}KB" if size > budgets["js_lazy_chunk_gzip_kb"]
+end
+
 smallest = page_sizes.values.min
 initial = entry + smallest
 failures << "initial #{initial}KB > #{budgets['js_initial_gzip_kb']}KB" if initial > budgets["js_initial_gzip_kb"]
@@ -50,4 +58,4 @@ if failures.any?
   failures.each { |failure| warn "bundle_budget: #{failure}" }
   exit 1
 end
-puts "bundle_budget: entry=#{entry}KB pages=#{page_sizes.values.max}KB initial=#{initial}KB"
+puts "bundle_budget: entry=#{entry}KB pages=#{page_sizes.values.max}KB lazy=#{lazy_sizes.values.max}KB initial=#{initial}KB"
