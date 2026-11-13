@@ -14,6 +14,11 @@ Rails.application.routes.draw do
       mount mod.engine => mod.path, as: mod.route_name
     end
 
+    if Rails.env.test?
+      require Rails.root.join("engines/core/spec/dummy_engine/lib/dummy_engine")
+      mount DummyEngine::Engine => "/dummy", as: :dummy
+    end
+
     root "home#show"
   end
 end

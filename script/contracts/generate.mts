@@ -27,10 +27,14 @@ function outputPath(source: string): string {
     return resolve(root, "config/contracts/pages", relative("app/frontend/pages", source).replace(/\.schema\.ts$/, ".json"));
   }
   const match = source.match(/^engines\/([^/]+)\/app\/frontend\/pages\//);
-  if (!match) {
-    fail(`unexpected page schema path ${source}`);
+  if (match) {
+    return resolve(root, "engines", match[1], "config/contracts/pages", relative(`engines/${match[1]}/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"));
   }
-  return resolve(root, "engines", match[1], "config/contracts/pages", relative(`engines/${match[1]}/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"));
+  const dummy = source.match(/^engines\/([^/]+)\/spec\/dummy_engine\/app\/frontend\/pages\//);
+  if (dummy) {
+    return resolve(root, "engines", dummy[1], "spec/dummy_engine/config/contracts/pages", relative(`engines/${dummy[1]}/spec/dummy_engine/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"));
+  }
+  fail(`unexpected page schema path ${source}`);
 }
 
 function checkStringIds(value: unknown, path: string) {
@@ -78,6 +82,7 @@ writeGenerated(resolve(root, "config/contracts/_shared.json"), shared);
 const sources = [
   ...globSync("app/frontend/pages/**/*.schema.ts", { cwd: root }),
   ...globSync("engines/*/app/frontend/pages/**/*.schema.ts", { cwd: root }),
+  ...globSync("engines/*/spec/dummy_engine/app/frontend/pages/**/*.schema.ts", { cwd: root }),
 ].sort();
 
 if (sources.length === 0) {
