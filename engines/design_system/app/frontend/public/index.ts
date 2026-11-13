@@ -15,5 +15,6 @@ export { Link } from "../link";
 export { Deferred } from "../deferred";
 export { isSafeUrl, isAppPath } from "../safe_url";
 
-export { calendarFor, formatDate, formatNumber } from "../formatters";
+export { calendarFor, formatDate, formatNumber, isValidIsoDate } from "../formatters";
 export { DateField } from "../date_field";
+export { I18nProvider, useLocale } from "../i18n_provider";

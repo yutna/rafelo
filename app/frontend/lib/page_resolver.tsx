@@ -65,9 +65,9 @@ function withLayout(component: PageComponent, name: string): PageComponent {
   const layoutName = component.layoutName ?? "app";
   const wrapper: PageComponent = (props) => {
     const Page = component;
-    return <>{LAYOUTS[layoutName](<Page {...props} />)}</>;
+    return <Page {...props} />;
   };
-  wrapper.layout = LAYOUTS[layoutName];
+  wrapper.layout = LAYOUTS[layoutName] ?? LAYOUTS.app;
   compiled.set(name, wrapper);
   return wrapper;
 }
