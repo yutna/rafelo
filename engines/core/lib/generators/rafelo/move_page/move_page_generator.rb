@@ -34,6 +34,21 @@ module Rafelo
       def validate!
         raise Thor::Error, "source engine not found" unless Dir.exist?(root.join("engines", @source))
         raise Thor::Error, "target engine not found" unless Dir.exist?(root.join("engines", @target))
+
+        source_routes = root.join("engines", @source, "config/routes.rb")
+        raise Thor::Error, "source routes not found" unless File.file?(source_routes)
+        unless File.read(source_routes).include?("resources :#{plural}")
+          raise Thor::Error, "resource not found in source module: #{plural}"
+        end
+
+        target_routes = root.join("engines", @target, "config/routes.rb")
+        if File.file?(target_routes) && File.read(target_routes).include?("resources :#{plural}")
+          raise Thor::Error, "resource already exists in target module: #{plural}"
+        end
+        if Dir.exist?(root.join("engines", @target, "app/frontend/pages/#{plural}")) ||
+           File.exist?(root.join("engines", @target, "app/controllers/#{app_ns_underscore}/#{@target}/#{plural}_controller.rb"))
+          raise Thor::Error, "resource already exists in target module: #{plural}"
+        end
       end
 
       def app_namespace = Rails.application.class.module_parent_name
