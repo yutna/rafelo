@@ -11,6 +11,9 @@ module Rafelo
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
 
+    # Refuse a redirect to another host; ReturnTo checks the target first.
+    config.action_controller.action_on_open_redirect = :raise
+
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.

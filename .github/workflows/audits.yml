@@ -1,0 +1,54 @@
+name: audits
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audits:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: npm install
+        run: npm ci
+
+      - name: Ruby advisories
+        run: bin/bundler-audit
+
+      - name: JavaScript advisories
+        run: npm audit --audit-level=high
+
+      - name: Open an issue on a new advisory
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="Dependency advisory on main ($(date -u +%Y-%m-%d))"
+          if gh issue list --state open --search "$title in:title" --json number --jq 'length' | grep -qv '^0$'; then
+            exit 0
+          fi
+          gh issue create --title "$title" --label security --body "The scheduled audit failed on main. Fix or triage every new advisory with a deadline (high/critical: one week). Run: bin/bundler-audit and npm audit --audit-level=high. Workflow: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

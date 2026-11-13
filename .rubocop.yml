@@ -17,6 +17,7 @@ require:
   - ./script/ci/cops/rafelo/no_tls_verify_disable
   - ./script/ci/cops/rafelo/config_x_only_in_core
   - ./script/ci/cops/rafelo/cache_only_through_scoped_cache
+  - ./script/ci/cops/rafelo/return_to_only_in_value_object
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -25,4 +26,6 @@ Rafelo/NoTlsVerifyDisable:
 Rafelo/ConfigXOnlyInCore:
   Enabled: true
 Rafelo/CacheOnlyThroughScopedCache:
+  Enabled: true
+Rafelo/ReturnToOnlyInValueObject:
   Enabled: true

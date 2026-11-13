@@ -29,6 +29,7 @@ CI.run do
   step "Pins: runtime and packages", "script/ci/pins"
   step "Pins: GitHub Actions", "script/ci/actions_pinned"
   step "Policy: workflows", "script/ci/workflow_policy"
+  step "Policy: deploy preflight", "script/ci/deploy_preflight"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "npm audit --audit-level=high"

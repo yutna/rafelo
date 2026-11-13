@@ -10,7 +10,7 @@ Thumbs.db
 
 # Environment (commit .env.example only)
 /.env*
-!.env.example
+!/.env.ci.production
 
 # Editors
 .idea/
@@ -54,3 +54,6 @@ Thumbs.db
 # Ignore logs outside log/.
 *.log
 logs/
+
+# Deployment secrets are provided by the password manager or ENV.
+/.kamal/secrets
