@@ -3,7 +3,10 @@
 namespace :ci do
   desc "Walk the production route set and check it against the committed allow-list"
   task production_routes: :environment do
-    routes = Rafelo::Core::ProductionRoutes.walk(Rails.application.routes)
+    routes = Rafelo::Core::ProductionRoutes.walk(
+      Rails.application.routes,
+      known_engines: Rafelo::Core::Modules.all.map(&:engine)
+    )
     modules = Rafelo::Core::ProductionRoutes.module_routes(Rafelo::Core::Modules.all)
 
     if ENV["DUMP"]

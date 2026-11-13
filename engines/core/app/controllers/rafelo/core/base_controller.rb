@@ -10,6 +10,7 @@ module Rafelo
       rescue_from StandardError, with: :render_unexpected_error
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
       rescue_from ApplicationError, with: :render_application_error
+      rescue_from ActionController::InvalidAuthenticityToken, with: :render_csrf_error
 
       # The one ordered list (BE-24). Every throttle in a subclass is
       # prepended and runs before all of these (BE-12).
@@ -43,6 +44,7 @@ module Rafelo
       end
 
       def render_error(code)
+        share_trace
         I18n.with_locale(params[:locale] || Locales.default) do
           render_application_error(ApplicationError.new(code))
         end
@@ -199,6 +201,11 @@ module Rafelo
       def deny_access
         AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
         render_application_error(ApplicationError.new("auth.forbidden"))
+      end
+
+      def render_csrf_error
+        share_trace
+        render_application_error(ApplicationError.new("request.csrf_failed"))
       end
 
       def render_unexpected_error(error)

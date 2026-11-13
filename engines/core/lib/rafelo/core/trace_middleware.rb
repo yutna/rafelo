@@ -49,6 +49,9 @@ module Rafelo
         env["rafelo.request_id"] = request_id
         env["rafelo.trace_id"] = trace.fetch(:trace_id)
         env["rafelo.trace_sampled"] = trace.fetch(:sampled)
+        Current.request_id = request_id
+        Current.trace_id = trace.fetch(:trace_id)
+        Current.trace_sampled = trace.fetch(:sampled)
         @app.call(env)
       end
     end
