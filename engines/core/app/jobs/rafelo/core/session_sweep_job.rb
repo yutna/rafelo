@@ -2,7 +2,7 @@
 
 module Rafelo
   module Core
-    class SessionSweepJob < ActiveJob::Base
+    class SessionSweepJob < BaseJob
       queue_as :default
 
       def perform
