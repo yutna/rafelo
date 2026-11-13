@@ -13,7 +13,7 @@ RSpec.describe "Home page contract", type: :request do
 
   def props
     get "/en"
-    page = JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     page.fetch("props")
   end
 

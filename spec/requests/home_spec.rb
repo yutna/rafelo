@@ -4,7 +4,7 @@ RSpec.describe "Home page", type: :request do
   it "carries the full envelope and the response trace ids" do
     get "/en"
 
-    page = JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     expect(page["props"].keys).to contain_exactly(
       "data", "meta", "query", "pagination", "can", "auth", "app", "nav", "errors", "trace"
     )
@@ -19,7 +19,7 @@ RSpec.describe "Home page", type: :request do
 
   it "keeps the shared props inside their budget" do
     get "/th"
-    page = JSON.parse(response.body[/<script data-page="app" type="application\/json">(.*?)<\/script>/m, 1])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
     budget = YAML.load_file(Rails.root.join("config/budgets.yml")).dig("defaults", "shared_props_bytes")
 
     expect(page.fetch("props").to_json.bytesize).to be <= budget
