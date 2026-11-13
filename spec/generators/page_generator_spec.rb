@@ -43,4 +43,21 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(File.read(root.join("engines/billing/config/routes.rb"))).to eq("Rafelo::Billing::Engine.routes.draw do\nend\n")
     end
   end
+
+  it "adds root route for the module's first index page" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      described_class.start([ "billing", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      routes = File.read(root.join("engines/billing/config/routes.rb"))
+      expect(routes).to include('root to: "widgets#index"')
+      expect(routes).to include("resources :widgets")
+    end
+  end
 end
