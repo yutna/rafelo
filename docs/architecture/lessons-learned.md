@@ -328,3 +328,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** App-level module loading, booted module/domain verification, `run_step` failure propagation, tree snapshots/restore, design-system/locale/typecheck skeletons, direct permission manifests, and name normalization/validation. The permission compiler (#124), Prettier, real-smoke CI and adoption namespace are carried in #219.
 
 **Spec feedback.** GEN-09 should name the exact generated root files a rollback restores and whether a rolled-back CLI exits non-zero. GEN-03 should name the gem-name/namespace rules during adoption. Related IDs: GEN-01; GEN-03; GEN-05; GEN-09; ARCH-06.
+
+## 2026-11-13 — v0.16.0 — issue #267 (gate)
+
+**What happened.** The v0.16.0 gate (GEN-02/GEN-04/GEN-06/TS-06) passed with no S1 and four S2 findings carried into v0.17.0 (#219). Generator smoke (`script/ci/generator_smoke`) and CI wiring were completed and made green in #279, but page/move/rename generators still only partially satisfy the full slice and release-compatibility requirements.
+
+**Root cause.** End-to-end smoke proved the happy path (create/verify/move/rename/verify) before dedicated generator specs, legacy-URL/permission pinning specs, and full GEN-02/GEN-06 behaviors (root-route reassignment, legacy table-prefix/constant metadata and ratchets, trigger/skip exactness) were complete.
+
+**What changed.** Posted gate traceability/audit on #267, recorded S2 carries in #219, added lessons-learned entry, and bumped `VERSION` to `0.16.0` for release. `bin/ci` and generator smoke are green.
+
+**Spec feedback.** GEN-04/TS-06 could clarify whether the smoke skip must be declared as a job-level `if:` when the job always runs a cheap decide step with an explicit skip reason. GEN-06 could spell out the minimum evidence for `legacy_paths` redirect and permission-key stability (request-spec shape). Related IDs: GEN-02, GEN-04, GEN-06, TS-06.
