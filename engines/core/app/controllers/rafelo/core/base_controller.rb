@@ -24,7 +24,10 @@ module Rafelo
       def render_page(component, props:, status: nil)
         page = props.respond_to?(:to_inertia) ? props.to_inertia : props
         validate_page_keys!(page)
-        render inertia: component, props: shared_props.merge(page), status: status
+        shared = shared_props
+        request.env["rafelo.page_props"] = props if props.respond_to?(:to_inertia)
+        request.env["rafelo.urls_built"] = page_context.urls.built
+        render inertia: component, props: shared.merge(page), status: status
       end
 
       # Used by throttle handlers that run before the base callbacks. The

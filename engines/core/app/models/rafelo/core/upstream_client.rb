@@ -15,18 +15,19 @@ module Rafelo
       end
       self.transaction_baseline = 0
 
-      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil)
+      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil, kind: :page)
         new(name: name, config: config, token_provider: token_provider, budget: budget,
-            request_id: request_id, trace_id: trace_id, deadline: deadline)
+            request_id: request_id, trace_id: trace_id, deadline: deadline, kind: kind)
       end
 
-      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil)
+      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil, kind: :page)
         @name = name.to_sym
         @config = config
         @token_provider = token_provider
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
+        @kind = kind.to_sym
         @deadline = deadline || RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
                                     cool_off_time: config.breaker.fetch(:cool_off))
@@ -70,7 +71,7 @@ module Rafelo
         raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
         @budget&.consume!(@name)
-        ActiveSupport::Notifications.instrument("upstream.call", name: @name)
+        ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind)
         @calls += 1
         response = @bulkhead.call do
           @breaker.run do
@@ -98,7 +99,7 @@ module Rafelo
 
         limit = max_bytes || @config.max_response_bytes
         @budget&.consume!(@name)
-        ActiveSupport::Notifications.instrument("upstream.call", name: @name)
+        ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind)
         @calls += 1
         first = true
         total = 0

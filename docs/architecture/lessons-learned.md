@@ -348,3 +348,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** Regenerated `spec/fixtures/formats/v0.16.0/` from tag `v0.16.0` in a clean worktree, added `PersistedFormatsReader` to load a folder through the current readers and refuse unsupported versions, expanded the spec with previous/current mixed-release reads and an unsupported-version canary, and added `bin/rails formats:check` to the CI gate. No guard, budget, or ratchet was loosened.
 
 **Spec feedback.** SEC-16 should say which tag's code generates a release's fixtures when the release pull request is prepared, and whether the compatibility spec loads the latest folder or the N-2 window. Related IDs: SEC-16; TS-01; WF-05.
+
+## 2026-11-13 — v0.17.0 — issue #291
+
+**What happened.** The TS-02 carry-over found that the page matchers proved the wrong things: `have_resolvable_hrefs` accepted any route-recognizable path instead of the paths Rails built, `match_policy_capabilities` checked the shape of `can` rather than the policy method and grant matrix, and `be_within_props_budget` never required the maximum page size. The budget matcher also counted session refreshes against the page's upstream budget, and a page could render a different component than the page key under test.
+
+**Root cause.** The matchers reimplemented weak approximations in the test support layer, and the request flow did not expose `Urls#built` or the props object to a request spec. The per-upstream budget lookup also used symbol keys against a YAML hash with string keys, so any upstream call would have failed the budget.
+
+**What changed.** `BaseController#render_page` records the built URLs and, for a `PageProps`, the props object in the request env. The matchers now compare the component with the page key, require every href path to be in `Urls#built`, compare `can` with `CapabilityMap` over the declared policy methods and flags, enforce `ListQuery.max_per_page` and `data.items` length for paginated pages, and count `session_refresh`/`auth`/`resend` upstream notifications separately from page calls. Added `spec/core/page_matchers_spec.rb` with mutation-style canaries, fixed the string-key budget lookup, and made `pages:check --matchers` reject records for page keys that have no contract.
+
+**Spec feedback.** TS-02 should name the request-env capture seam for `Urls#built` and the props object, and say that the paginated list is `data.items`. It should also say whether `paginated: false` is represented only by a `null` pagination. Related IDs: TS-02; CT-02; BE-04; BE-16; ARCH-10.

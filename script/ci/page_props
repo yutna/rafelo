@@ -73,7 +73,12 @@ if matchers_mode
   abort "page_props: no page matcher records; run RSpec first" if recorded.empty?
 
   by_page = recorded.group_by { |entry| entry["page"] }
-  failures = 0
+  contract_keys = contract_files.map { |path| path.split("/config/contracts/pages/").last.delete_suffix(".json") }
+  unknown_pages = by_page.keys - contract_keys
+  unknown_pages.each do |key|
+    puts "#{key}: matcher record has no page contract"
+  end
+  failures = unknown_pages.length
   contract_files.sort.each do |path|
     key = path.split("/config/contracts/pages/").last.delete_suffix(".json")
     names = by_page.fetch(key, []).map { |entry| entry["matcher"] }.uniq

@@ -32,7 +32,8 @@ module Rafelo
           token_provider: NullTokenProvider.new,
           budget: @budget,
           request_id: @request_id,
-          trace_id: @trace_id
+          trace_id: @trace_id,
+          kind: :auth
         )
         payload = JSON.parse(
           client.post(
@@ -53,7 +54,8 @@ module Rafelo
           token_provider: NullTokenProvider.new,
           budget: @budget,
           request_id: @request_id,
-          trace_id: @trace_id
+          trace_id: @trace_id,
+          kind: :session_refresh
         )
       end
 
