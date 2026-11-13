@@ -54,7 +54,8 @@ module Rafelo
         old = File.read(old_path)
         old = old.gsub(/^\s*resources :#{resource.pluralize}.*\n/, "")
         unless old.include?("redirect")
-          old = old.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n    get \"#{resource.pluralize}(/*rest)\", to: redirect { |_params, request| \"/#{request.path_parameters[:locale] || :en}/#{target}/#{resource.pluralize}\" }\n")
+          redirect_line = '    get "%s(/*rest)", to: redirect("/en/%s/%s")' % [ resource.pluralize, target, resource.pluralize ]
+          old = old.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n#{redirect_line}\n")
         end
         File.write(old_path, old)
 

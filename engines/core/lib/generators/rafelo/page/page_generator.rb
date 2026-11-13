@@ -17,6 +17,8 @@ module Rafelo
         raise Thor::Error, "unknown actions: #{actions.inspect}" unless actions.all? { |action| %w[index show new edit].include?(action) }
         raise Thor::Error, "resource singular equals plural" if @resource.singularize == @resource.pluralize
         raise Thor::Error, "module engine not found: #{@module_name}" unless Dir.exist?(Rails.root.join("engines", @module_name))
+        routes = File.read(Rails.root.join("engines", @module_name, "config/routes.rb"))
+        raise Thor::Error, "resource already exists: #{@resource.pluralize}" if routes.include?("resources :#{@resource.pluralize}")
 
         with_rollback do
           write_routes(actions)
@@ -84,7 +86,8 @@ module Rafelo
         if content.include?("resources :#{@resource.pluralize}")
           return
         end
-        content = content.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n#{entry}    root to: \"#{@resource.pluralize}#index\"\n")
+        root = content.include?("root to:") ? "" : "    root to: \"#{@resource.pluralize}#index\"\n"
+        content = content.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n#{entry}#{root}")
         File.write(path, content)
       end
 
@@ -120,8 +123,12 @@ module Rafelo
 
           module #{module_class}
             class #{@resource.camelize}Policy < Rafelo::Core::BasePolicy
-              def index? = true
-              def show? = true
+              def index? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:read")
+              def show? = index?
+              def new? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:create")
+              def create? = new?
+              def edit? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:update")
+              def update? = edit?
             end
           end
         RUBY
@@ -186,7 +193,7 @@ module Rafelo
       end
 
       def write_copy
-        %w[en th].each do |locale|
+        Rafelo::Core::Locales.available.map(&:to_s).each do |locale|
           path = Rails.root.join(engine_dir, "config/locales/#{locale}.yml")
           next unless File.file?(path)
           File.write(path, File.read(path).rstrip + "\n    #{@resource.pluralize}:\n      title: \"#{@resource.pluralize.humanize}\"\n")
@@ -204,7 +211,14 @@ module Rafelo
 
           RSpec.describe "#{@module_name}/#{@resource.pluralize}", type: :request do
             it "renders the page contract" do
-              expect { get "/en/#{@module_name}/#{@resource.pluralize}" }.to within_budgets("#{page_base}/index")
+              viewer = Struct.new(:id, :name).new(7, "Ada")
+              _, token = Rafelo::Core::Session.start(
+                viewer: viewer, access_token: "a", refresh_token: "r",
+                access_expires_at: 5.minutes.from_now,
+                grants: [ "#{@module_name}:#{@resource.pluralize}:read" ]
+              )
+              cookie = "session_token=#{token}"
+              expect { get "/en/#{@module_name}/#{@resource.pluralize}", headers: { "Cookie" => cookie } }.to within_budgets("#{page_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_base}/index")
               expect(response).to be_within_props_budget("#{page_base}/index")
