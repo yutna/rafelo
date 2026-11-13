@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "optparse"
+require_relative "../../engines/core/app/models/rafelo/core/production_routes"
+
+root = File.expand_path("../..", __dir__)
+routes_path = nil
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/production_routes [--root DIR] [--routes FILE]"
+  parser.on("--root DIR") { |value| root = File.expand_path(value) }
+  parser.on("--routes FILE") { |value| routes_path = File.expand_path(value) }
+end.parse!
+
+root = File.expand_path(root)
+abort "production_routes: root does not exist: #{root}" unless Dir.exist?(root)
+
+if routes_path
+  document = JSON.parse(File.read(routes_path))
+  walked = Array(document.is_a?(Hash) ? document["routes"] : document).map do |row|
+    Rafelo::Core::ProductionRoutes::Route.new(
+      verb: row.fetch("verb", "").to_s,
+      path: row.fetch("path").to_s,
+      to: row.fetch("to").to_s,
+      kind: row.fetch("kind", "dispatch").to_s
+    )
+  end
+  module_rows = document.is_a?(Hash) ? Array(document["module_routes"]) : []
+  modules = module_rows.map do |row|
+    Rafelo::Core::ProductionRoutes::Route.new(
+      verb: row.fetch("verb", "").to_s,
+      path: row.fetch("path").to_s,
+      to: row.fetch("to").to_s,
+      kind: row.fetch("kind", "dispatch").to_s
+    )
+  end
+else
+  environment = File.readlines(File.join(root, ".env.ci.production"), chomp: true)
+    .reject { |line| line.empty? || line.start_with?("#") }
+    .to_h { |line| line.split("=", 2) }
+  environment["RAILS_ENV"] = "production"
+  environment["SECRET_KEY_BASE_DUMMY"] = "1"
+  abort "production_routes: dummy production boot failed" unless system(
+    environment, "bin/rails", "ci:production_routes", chdir: root
+  )
+  exit 0
+end
+
+allow_list = Rafelo::Core::ProductionRoutes.load_allow_list(File.join(root, "config", "production_routes.yml"))
+errors = Rafelo::Core::ProductionRoutes.check(walked: walked, allow_list: allow_list, module_routes: modules)
+if errors.any?
+  errors.each { |error| warn "production_routes: #{error}" }
+  abort "production_routes: #{errors.length} route(s) unclassified or missing"
+end
+
+puts "production_routes: walked #{walked.length} routes, matched #{allow_list.length} listed and #{modules.length} module routes"

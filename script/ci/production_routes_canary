@@ -1,0 +1,54 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+require "yaml"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "production_routes")
+
+LEGAL_ROUTES = [
+  { "verb" => "GET", "path" => "/up", "to" => "rails/health#show", "kind" => "dispatch" },
+  { "verb" => "POST", "path" => "/core/client_errors", "to" => "core/client_errors#create", "kind" => "dispatch" },
+  { "verb" => "", "path" => "/cable", "to" => "ActionCable::Server::Base", "kind" => "mount" }
+].freeze
+
+def run_case(script, root, name, routes:, allow: LEGAL_ROUTES, expected:)
+  Dir.mktmpdir("rafelo-production-routes") do |tmp|
+    FileUtils.mkdir_p(File.join(tmp, "config"))
+    File.write(File.join(tmp, "config", "production_routes.yml"), { "routes" => allow }.to_yaml)
+    File.write(File.join(tmp, "routes.json"), JSON.generate({ "routes" => routes, "module_routes" => [] }))
+
+    output, status = Open3.capture2e(
+      script, "--root", tmp, "--routes", File.join(tmp, "routes.json")
+    )
+    unless expected
+      abort "production_routes_canary: #{name} unexpectedly failed:\n#{output}" unless status.success?
+      next
+    end
+
+    abort "production_routes_canary: #{name} unexpectedly passed" if status.success?
+    abort "production_routes_canary: #{name} did not say #{expected.inspect}:\n#{output}" unless output.include?(expected)
+  end
+end
+
+run_case(script, root, "legal walk", routes: LEGAL_ROUTES, expected: nil)
+run_case(script, root, "development route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/en/component_catalog", "to" => "component_catalog#index", "kind" => "dispatch" }
+], expected: "not allow-listed")
+run_case(script, root, "mounted fake app", routes: LEGAL_ROUTES + [
+  { "verb" => "", "path" => "/en/dummy", "to" => "DummyEngine::Engine", "kind" => "mount" }
+], expected: "not allow-listed")
+run_case(script, root, "stray redirect", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/old", "to" => "legacy_redirect", "kind" => "redirect" }
+], expected: "not allow-listed")
+run_case(script, root, "multi-verb route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET|POST", "path" => "/both", "to" => "home#show", "kind" => "unknown" }
+], expected: "unclassified")
+run_case(script, root, "listed route missing", routes: LEGAL_ROUTES - [ LEGAL_ROUTES.last ], expected: "listed but missing")
+run_case(script, root, "empty walk", routes: [], expected: "empty walk")
+
+puts "production_routes_canary: 7 cases passed"

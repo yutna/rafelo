@@ -40,6 +40,7 @@ module Rafelo
         )
         if completed
           @session.replace_grants!(result.grants, generation: generation)
+          Metrics.token_refresh(success: true)
           return result.access_token
         end
 
@@ -47,6 +48,7 @@ module Rafelo
       rescue ActiveRecord::RecordNotFound
         raise ApplicationError.new("auth.expired")
       rescue StandardError
+        Metrics.token_refresh(success: false)
         @session.fail_refresh!(version: version)
         raise
       end

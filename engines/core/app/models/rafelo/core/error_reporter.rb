@@ -10,12 +10,14 @@ module Rafelo
       CLIENT_KEYS = %w[message stack page path release request_id trace_id].freeze
 
       def self.report(error, handled:, code: nil, request_id: nil, trace_id: nil)
+        resolved_code = code || error_code(error)
+        Metrics.record_error(resolved_code)
         Rails.error.report(
           error,
           handled: handled,
           severity: :error,
           context: {
-            code: code || error_code(error),
+            code: resolved_code,
             request_id: (request_id || Current.request_id).to_s.presence || "unknown",
             trace_id: (trace_id || Current.trace_id).to_s.presence || "unknown",
             release: Release.call

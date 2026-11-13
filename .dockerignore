@@ -9,10 +9,12 @@
 
 # Ignore all environment files.
 /.env*
+!/.env.ci.production
 
 # Ignore all default key files.
 /config/master.key
 /config/credentials/*.key
+!/config/credentials/dummy.key
 
 # Ignore all logfiles and tempfiles.
 /log/*
