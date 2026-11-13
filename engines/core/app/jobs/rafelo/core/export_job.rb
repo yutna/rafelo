@@ -7,7 +7,11 @@ module Rafelo
     class ExportJob < ViewerJob
       def attach!(export, io:, filename:, content_type: "application/octet-stream")
         export.file.attach(io: io, filename: filename, content_type: content_type)
-        export.update!(status: "ready", expires_at: Rails.application.config.x.exports.ttl_seconds.seconds.from_now)
+        export.update!(
+          status: "ready",
+          expires_at: Rails.application.config.x.exports.ttl_seconds.seconds.from_now,
+          format_version: Export::FORMAT_VERSION
+        )
       end
     end
   end

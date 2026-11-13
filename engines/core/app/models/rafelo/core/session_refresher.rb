@@ -3,15 +3,16 @@
 module Rafelo
   module Core
     class SessionRefresher
-      def initialize(session:, gateway:, timeout:, wait: 10.0)
+      def initialize(session:, gateway:, timeout:, wait: 10.0, force: false)
         @session = session
         @gateway = gateway
         @timeout = timeout
         @wait = wait
+        @force = force
       end
 
       def call
-        return @session.access_token if fresh? && !@session.grants_stale?
+        return @session.access_token if !@force && fresh? && !@session.grants_stale?
 
         version = @session.claim_refresh!(timeout: @timeout)
         if version

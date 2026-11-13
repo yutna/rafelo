@@ -9,6 +9,18 @@ module Rafelo
       end
 
       def token
+        refresh(force: false)
+      end
+
+      def refresh!
+        refresh(force: true)
+      end
+
+      def service? = false
+
+      private
+
+      def refresh(force:)
         session = Session.readable_format.find_by(id: @session_id)
         raise ViewerJob::Stopped.new(:revoked) unless session
         raise ViewerJob::Stopped.new(:expired) unless session.expires_at.future?
@@ -21,7 +33,8 @@ module Rafelo
             trace_id: Current.trace_id
           ),
           timeout: Rails.application.config.x.sessions.refresh_timeout_seconds,
-          wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2
+          wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2,
+          force: force
         ).call
         session.reload.access_token
       rescue ApplicationError => error
@@ -29,8 +42,6 @@ module Rafelo
 
         raise
       end
-
-      def service? = false
     end
   end
 end

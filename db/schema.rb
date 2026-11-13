@@ -64,6 +64,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_035028) do
     t.datetime "expires_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "format_version", default: 1, null: false
     t.index ["expires_at"], name: "index_core_exports_on_expires_at"
     t.index ["viewer_id", "created_at"], name: "index_core_exports_on_viewer_id_and_created_at"
   end

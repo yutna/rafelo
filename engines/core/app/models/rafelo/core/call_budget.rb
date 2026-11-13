@@ -29,14 +29,22 @@ module Rafelo
 
       def remaining
         return unless @deadline
+        return @deadline.remaining if @deadline.respond_to?(:remaining)
 
         [ @deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0 ].max
+      end
+
+      def expired?
+        return false unless @deadline
+        return @deadline.expired? if @deadline.respond_to?(:expired?)
+
+        remaining <= 0
       end
 
       private
 
       def enforce_deadline!
-        raise ApplicationError.new("upstream.timeout") if @deadline && remaining <= 0
+        raise ApplicationError.new("upstream.timeout") if expired?
       end
     end
   end

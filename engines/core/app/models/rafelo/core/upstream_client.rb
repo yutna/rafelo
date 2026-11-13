@@ -139,10 +139,19 @@ module Rafelo
 
       def perform(method, path, params:, body:, headers:, idempotency_key:, if_match:)
         attempt = 0
+        refreshed = false
         loop do
           attempt += 1
           response = perform_once(method, path, params: params, body: body, headers: headers,
                                   idempotency_key: idempotency_key, if_match: if_match)
+          if response.status == 401 && !refreshed && @token_provider.respond_to?(:refresh!)
+            refreshed = true
+            @token_provider.refresh!
+            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+            ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: :session_resend)
+            next
+          end
           if (response.status == 429 || response.status >= 500) && %i[get head].include?(method) &&
              attempt < 2 && retry_allowed? && !@deadline.expired?
             delay = backoff_for(response, attempt)

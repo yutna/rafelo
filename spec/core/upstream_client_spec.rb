@@ -1,5 +1,22 @@
 require "rails_helper"
 
+class UpstreamRefreshingTokenProvider
+  attr_reader :refreshes
+
+  def initialize
+    @token = "old"
+    @refreshes = 0
+  end
+
+  def token = @token
+  def service? = false
+
+  def refresh!
+    @refreshes += 1
+    @token = "new"
+  end
+end
+
 RSpec.describe Rafelo::Core::UpstreamClient do
   let(:config) do
     Rafelo::Core::UpstreamConfig.new(
@@ -16,6 +33,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     )
   end
   let(:token) { Struct.new(:token).new("secret") }
+
   let(:client) do
     described_class.new(name: :test_api, config: config, token_provider: token,
                         request_id: "request-1", trace_id: "trace-1")
@@ -138,6 +156,66 @@ RSpec.describe Rafelo::Core::UpstreamClient do
         expect { client.get("status") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq(code) }
       end
     end
+  end
+
+  it "refreshes once and resends a GET after a 401" do
+    refreshing = UpstreamRefreshingTokenProvider.new
+    old = stub_request(:get, "http://upstream.test/invoices")
+      .with(headers: { "Authorization" => "Bearer old" })
+      .to_return(status: 401, body: "{}")
+    fresh = stub_request(:get, "http://upstream.test/invoices")
+      .with(headers: { "Authorization" => "Bearer new" })
+      .to_return(status: 200, body: '{"ok":true}')
+    refreshing_client = described_class.new(name: :refresh, config: config, token_provider: refreshing)
+
+    expect(refreshing_client.get("invoices").body).to eq('{"ok":true}')
+    expect(refreshing.refreshes).to eq(1)
+    expect(old).to have_been_requested.once
+    expect(fresh).to have_been_requested.once
+  end
+
+  it "resends a keyless POST once after a 401" do
+    refreshing = UpstreamRefreshingTokenProvider.new
+    old = stub_request(:post, "http://upstream.test/invoices")
+      .with(headers: { "Authorization" => "Bearer old" })
+      .to_return(status: 401, body: "{}")
+    fresh = stub_request(:post, "http://upstream.test/invoices")
+      .with(headers: { "Authorization" => "Bearer new" })
+      .to_return(status: 201, body: "{}")
+    refreshing_client = described_class.new(name: :refresh_post, config: config, token_provider: refreshing)
+
+    expect(refreshing_client.post("invoices", body: "{}").status).to eq(201)
+    expect(refreshing.refreshes).to eq(1)
+    expect(old).to have_been_requested.once
+    expect(fresh).to have_been_requested.once
+  end
+
+  it "counts the resend separately from the page budget" do
+    refreshing = UpstreamRefreshingTokenProvider.new
+    budget = Rafelo::Core::CallBudget.new(refresh_budget: 1)
+    stub_request(:get, "http://upstream.test/invoices")
+      .to_return({ status: 401, body: "{}" }, { status: 200, body: "{}" })
+    refreshing_client = described_class.new(
+      name: :refresh_budget, config: config, token_provider: refreshing, budget: budget
+    )
+
+    expect(refreshing_client.get("invoices").status).to eq(200)
+    expect(budget.count(:refresh_budget)).to eq(1)
+  end
+
+  it "instruments the resend with its own kind" do
+    refreshing = UpstreamRefreshingTokenProvider.new
+    kinds = []
+    subscriber = ActiveSupport::Notifications.subscribe("upstream.call") { |*, payload| kinds << payload[:kind] }
+    stub_request(:get, "http://upstream.test/invoices")
+      .to_return({ status: 401, body: "{}" }, { status: 200, body: "{}" })
+    refreshing_client = described_class.new(name: :refresh_kind, config: config, token_provider: refreshing)
+
+    refreshing_client.get("invoices")
+
+    expect(kinds).to eq([ :page, :session_resend ])
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
   end
 
   it "retries a GET once on a 503" do

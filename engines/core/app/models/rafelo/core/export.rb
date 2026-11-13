@@ -3,9 +3,14 @@
 module Rafelo
   module Core
     class Export < ActiveRecord::Base
+      FORMAT_VERSION = 1
+      READABLE_FORMAT_VERSIONS = [ FORMAT_VERSION ].freeze
+
       self.table_name = "core_exports"
 
       has_one_attached :file
+
+      scope :readable_format, -> { where(format_version: READABLE_FORMAT_VERSIONS) }
 
       def formatted_expires_at(locale: I18n.locale)
         DateFormatter.format(expires_at, locale: locale)

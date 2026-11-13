@@ -55,6 +55,36 @@ RSpec.describe Rafelo::Core::SessionRefresher do
     expect(Rafelo::Core::Session.find(session.id).access_token).to eq("successor-access")
   end
 
+  it "forces a refresh when the caller saw a 401 on a locally fresh token" do
+    session = Rafelo::Core::Session.start(
+      viewer: viewer,
+      access_token: "old-access",
+      refresh_token: "old-refresh",
+      access_expires_at: 5.minutes.from_now,
+      grants: [ "billing:invoice:read" ]
+    ).first
+    calls = 0
+    gateway = Class.new do
+      attr_reader :calls
+
+      def initialize(result)
+        @result = result
+        @calls = 0
+      end
+
+      def refresh(refresh_token:)
+        @calls += 1
+        @result
+      end
+    end.new(result)
+
+    token = described_class.new(session: session, gateway: gateway, timeout: 15, force: true).call
+
+    expect(token).to eq("winner-access")
+    expect(gateway.calls).to eq(1)
+    expect(session.reload.access_token).to eq("winner-access")
+  end
+
   it "maps a session deleted during refresh to auth.expired" do
     session = start_session
     gateway = Class.new do
