@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/app/frontend" "$tmp/config"
+cat > "$tmp/config/ratchets.yml" <<'YAML'
+use_no_memo: 0
+eslint_disable: 0
+YAML
+echo 'const x = useState(false);' > "$tmp/app/frontend/bad.ts"
+
+if "$root/script/ci/frontend_state" "$tmp" >/dev/null 2>&1; then
+  echo "frontend_state_canary: useState outside the wrappers passed" >&2
+  exit 1
+fi
+
+echo "frontend_state_canary: checked 1 case"

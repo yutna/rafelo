@@ -20,6 +20,16 @@ export default defineConfig({
         },
       },
       {
+        plugins: [react()],
+        test: {
+          name: "engines",
+          environment: "jsdom",
+          include: ["engines/*/app/frontend/**/*.test.ts", "engines/*/app/frontend/**/*.test.tsx"],
+          exclude: ["engines/*/spec/**"],
+          setupFiles: ["./vitest.setup.ts"],
+        },
+      },
+      {
         test: {
           name: "app:node",
           environment: "node",
