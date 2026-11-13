@@ -36,8 +36,9 @@ jobs:
   affected:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     steps:
       - name: Checkout code
@@ -54,8 +55,9 @@ jobs:
   actionlint:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -69,8 +71,9 @@ jobs:
   scan_ruby:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 10
     steps:
       - name: Checkout code
@@ -92,8 +95,9 @@ jobs:
   scan_js:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 10
     steps:
       - name: Checkout code
@@ -118,8 +122,9 @@ jobs:
   lint:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 10
     env:
       RUBOCOP_CACHE_ROOT: tmp/rubocop
@@ -150,8 +155,9 @@ jobs:
   test:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 20
     services:
       postgres:
@@ -238,8 +244,9 @@ jobs:
   guards:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     steps:
       - name: Checkout code
@@ -302,8 +309,9 @@ jobs:
   canaries:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     steps:
       - name: Checkout code
@@ -331,8 +339,9 @@ jobs:
   concurrency:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 10
     services:
       postgres:
@@ -369,8 +378,9 @@ jobs:
   e2e:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 20
     services:
       postgres:
@@ -430,8 +440,9 @@ jobs:
   examples-removable:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 20
     services:
       postgres:
@@ -478,8 +489,9 @@ jobs:
   production-image-needed:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     outputs:
       run: ${{ steps.decide.outputs.run }}
@@ -553,8 +565,9 @@ jobs:
   smoke-needed:
     needs: image
     runs-on: ubuntu-latest
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 5
     outputs:
       run: ${{ steps.decide.outputs.run }}
@@ -641,8 +654,9 @@ jobs:
 
   ci-ok:
     if: always()
-    container: ${{ needs.image.outputs.ref }}
-    options: --user root
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     needs: [image, affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, examples-removable, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 2
