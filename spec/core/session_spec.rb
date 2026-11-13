@@ -62,14 +62,15 @@ RSpec.describe Rafelo::Core::Session do
     second.claim_refresh!(timeout: 15)
 
     expect do
-      first.complete_refresh!(
+      completed = first.complete_refresh!(
         version: stale_version,
         access_token: "stale-access",
         refresh_token: "stale-refresh",
         access_expires_at: 5.minutes.from_now,
         grants: []
       )
-    end.to raise_error(Rafelo::Core::ApplicationError)
+      expect(completed).to be(false)
+    end.not_to raise_error
 
     expect(described_class.find(session.id).access_token).to eq("access-secret")
   end

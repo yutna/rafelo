@@ -68,13 +68,17 @@ module Rafelo
           .positive?
         return unless claimed
 
-        reload
+        begin
+          reload
+        rescue ActiveRecord::RecordNotFound
+          raise ApplicationError.new("auth.expired")
+        end
         refresh_version
       end
 
       def complete_refresh!(version:, access_token:, refresh_token:, access_expires_at:, grants:)
         with_lock do
-          raise ApplicationError.new("auth.expired") unless refresh_version == version
+          next false unless refresh_version == version
 
           update!(
             access_token: access_token,
@@ -85,6 +89,7 @@ module Rafelo
             grant_digest: grant_digest_for(grants),
             grants_refreshed_at: Time.current
           )
+          true
         end
       end
 
