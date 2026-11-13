@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mapfile -t spec_dirs < <(find engines -maxdepth 2 -type d -name spec | sort)
+if [ "${#spec_dirs[@]}" -eq 0 ]; then
+  echo "engine_specs: no engine spec directories"
+  exit 0
+fi
+
+bundle exec rspec "${spec_dirs[@]}"

@@ -41,7 +41,8 @@ RSpec.describe "Example orders", type: :request do
   it "renders the show page" do
     stub_order_upstream(:get, "/orders/order-1", "show.json")
 
-    get "/en/example_orders/orders/order-1", headers: headers
+    expect { get "/en/example_orders/orders/order-1", headers: headers }
+      .to within_budgets("example_orders/orders/show")
 
     expect(response).to have_http_status(:ok)
     expect(response).to match_page_schema("example_orders/orders/show")
@@ -49,16 +50,22 @@ RSpec.describe "Example orders", type: :request do
     expect(response).to have_resolvable_hrefs("example_orders/orders/show")
   end
 
-  it "renders new and edit with the form token" do
-    get "/en/example_orders/orders/new", headers: headers
+  it "renders new and edit with the form token and the full page contract" do
+    expect { get "/en/example_orders/orders/new", headers: headers }
+      .to within_budgets("example_orders/orders/new")
     expect(response).to have_http_status(:ok)
     expect(response).to match_page_schema("example_orders/orders/new")
+    expect(response).to be_within_props_budget("example_orders/orders/new")
+    expect(response).to have_resolvable_hrefs("example_orders/orders/new")
     expect(page_body.dig("props", "meta", "formToken")).to be_present
 
     stub_order_upstream(:get, "/orders/order-1", "show.json")
-    get "/en/example_orders/orders/order-1/edit", headers: headers
+    expect { get "/en/example_orders/orders/order-1/edit", headers: headers }
+      .to within_budgets("example_orders/orders/edit")
     expect(response).to have_http_status(:ok)
     expect(response).to match_page_schema("example_orders/orders/edit")
+    expect(response).to be_within_props_budget("example_orders/orders/edit")
+    expect(response).to have_resolvable_hrefs("example_orders/orders/edit")
     expect(page_body.dig("props", "meta", "formToken")).to be_present
     expect(page_body.dig("props", "data", "order", "version")).to eq(1)
   end

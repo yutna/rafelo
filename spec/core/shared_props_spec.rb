@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::SharedProps do
-  after { Rafelo::Core::Modules.reset! }
+  before { allow(Rafelo::Core::Modules).to receive(:all).and_return([]) }
 
   let(:context) do
     Rafelo::Core::PageContext.new(
