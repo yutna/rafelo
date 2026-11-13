@@ -1,25 +1,29 @@
 import { useEffect, useRef } from "react";
 
-type NavigateDetail = { page?: { url?: string; props?: { trace?: { requestId?: string } } }; type?: string };
+type NavigateDetail = { page?: { url?: string }; type?: string };
 
 export function PageAnnouncer() {
-  const headingRef = useRef<HTMLElement | null>(null);
   const liveRef = useRef<HTMLDivElement | null>(null);
+  const pathRef = useRef<string>(typeof window === "undefined" ? "" : window.location.pathname);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<NavigateDetail>).detail;
-      if (!detail || detail.type === "initial" || detail.type === "history") return;
-      const next = new URL(detail.page?.url ?? "", window.location.origin);
-      const current = new URL(window.location.href);
-      if (next.pathname === current.pathname) return;
+      if (!detail || detail.type === "initial") return;
+
+      const next = new URL(detail.page?.url ?? "", window.location.origin).pathname;
+      const previous = pathRef.current;
+      pathRef.current = next;
+      if (next === previous) return;
 
       requestAnimationFrame(() => {
         const heading = document.querySelector<HTMLElement>("main h1, main [role='heading']");
-        if (!heading) return;
+        if (!heading) {
+          if (liveRef.current) liveRef.current.textContent = document.title;
+          return;
+        }
         heading.setAttribute("tabindex", "-1");
         heading.focus({ preventScroll: true });
-        headingRef.current = heading;
         if (liveRef.current) liveRef.current.textContent = heading.textContent ?? "";
       });
     };
