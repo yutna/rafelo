@@ -14,6 +14,7 @@ module DummyEngine
       get "denied", to: "widgets#denied"
       get "flash", to: "widgets#set_flash"
       get "whoami", to: "widgets#whoami"
+      get "expired", to: "widgets#expired"
     end
   end
 end

@@ -11,6 +11,7 @@ module Rafelo
 
       allow_browser versions: :modern
       before_action :load_session
+      before_action :require_module_enabled
       before_action :set_response_headers
       before_action :assign_request_context
       before_action :share_trace
@@ -47,11 +48,52 @@ module Rafelo
 
         session = Session.find_by_token(token)
         return unless session && session.expires_at.future?
+        if session.last_seen_at && session.last_seen_at < Rails.application.config.x.sessions.idle_timeout_seconds.seconds.ago
+          session.destroy
+          return
+        end
+        session.touch_seen! if session.last_seen_at.nil? || session.last_seen_at < 1.minute.ago
 
         Current.session = session
         Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
         Current.permissions = PermissionSet.new(session.permission_grants)
         Current.token_provider = ViewerTokenProvider.new(session)
+        refresh_session!
+      end
+
+      def refresh_session!
+        gateway = AuthGateway.new(
+          budget: CallBudget.new(api: 3),
+          request_id: request.request_id,
+          trace_id: request.request_id
+        )
+        SessionRefresher.new(
+          session: Current.session,
+          gateway: gateway,
+          timeout: Rails.application.config.x.sessions.refresh_timeout_seconds
+        ).call
+        Current.token_provider = ViewerTokenProvider.new(Current.session.reload)
+        Current.permissions = Current.session.permission_set
+      rescue ApplicationError => error
+        clear_session! if error.code == "auth.expired"
+      end
+
+      def clear_session!
+        Current.session&.destroy
+        Current.session = nil
+        Current.viewer = nil
+        Current.permissions = nil
+        Current.token_provider = nil
+        reset_session
+        cookies.delete(session_cookie_name, secure: !Rails.env.local?, path: "/")
+      end
+
+      def require_module_enabled
+        segment = request.path_info.split("/")[2]
+        entry = Modules.all.find { |mod| mod.path.split("/")[1] == segment }
+        return unless entry&.flag && !Flags.enabled?(entry.flag)
+
+        raise ActionController::RoutingError, "Not Found"
       end
 
       def require_viewer
@@ -94,6 +136,11 @@ module Rafelo
       end
 
       def render_application_error(error)
+        if error.code == "auth.expired" && Current.session
+          clear_session!
+          return redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }
+        end
+
         response.headers["Cache-Control"] = "no-store"
         if performed?
           response.status = error.status

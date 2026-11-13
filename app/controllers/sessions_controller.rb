@@ -5,7 +5,7 @@ class SessionsController < ApplicationController
   before_action :skip_authorization
 
   def new
-    render_page "sessions/new", props: SessionsNewProps.new(context: page_context)
+    render_page "sessions/new", props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token)
   end
 
   def create
@@ -14,6 +14,8 @@ class SessionsController < ApplicationController
       request_id: request.request_id,
       trace_id: request.request_id
     ).sign_in(email: params[:email], password: params[:password])
+    Rafelo::Core::Session.find_by_token(cookies[session_cookie_name])&.destroy if cookies[session_cookie_name]
+    reset_session
     session, token = Rafelo::Core::Session.start(
       viewer: result.viewer,
       access_token: result.access_token,
@@ -32,14 +34,15 @@ class SessionsController < ApplicationController
     redirect_to "/#{I18n.locale}", status: :see_other
   rescue Rafelo::Core::ApplicationError => error
     render_page "sessions/new",
-                props: SessionsNewProps.new(context: page_context, error: error.message),
+                props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token, error: error.message),
                 status: error.status
   end
 
   def destroy
     token = cookies[session_cookie_name]
     Rafelo::Core::Session.find_by_token(token)&.destroy if token
-    cookies.delete(session_cookie_name)
-    redirect_to "/#{I18n.locale}/sign_in", status: :see_other
+    reset_session
+    cookies.delete(session_cookie_name, secure: !Rails.env.local?, path: "/")
+    redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }
   end
 end

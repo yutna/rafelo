@@ -8,7 +8,7 @@ RSpec.describe Rafelo::Core::BaseController do
     end
 
     expect(symbols.call(:before)).to eq(
-      [ :verify_authenticity_token, :load_session, :set_response_headers, :assign_request_context, :share_trace, :underscore_param_keys ]
+      [ :verify_authenticity_token, :load_session, :require_module_enabled, :set_response_headers, :assign_request_context, :share_trace, :underscore_param_keys ]
     )
     expect(symbols.call(:around)).to eq([ :with_locale ])
     expect(symbols.call(:after)).to eq([ :verify_same_origin_request, :verify_authorized ])
@@ -20,6 +20,16 @@ RSpec.describe Rafelo::Core::BaseController do
 
     expect(context.urls).to be_a(Rafelo::Core::Urls)
     expect(context.locale).to eq(:th)
+  end
+
+  it "returns 404 for a dark module route" do
+    Rafelo::Core::Modules.register(key: :secret, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/secret", flag: :secret_flag)
+    controller = ApplicationController.new
+    allow(controller).to receive(:request).and_return(double(path_info: "/en/secret"))
+
+    expect { controller.send(:require_module_enabled) }.to raise_error(ActionController::RoutingError)
+  ensure
+    Rafelo::Core::Modules.reset!
   end
 
   it "builds a gateway with the current token provider and budget" do

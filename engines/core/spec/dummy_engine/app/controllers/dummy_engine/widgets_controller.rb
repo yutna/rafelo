@@ -3,7 +3,7 @@
 module DummyEngine
   class WidgetsController < Rafelo::Core::BaseController
     layout "application"
-    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami]
+    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired]
 
     def index
       render_page "dummy/widgets", props: DummyWidgetsProps.new(context: page_context, message: "dummy")
@@ -26,6 +26,10 @@ module DummyEngine
 
     def whoami
       render plain: Rafelo::Core::Current.viewer&.id.to_s
+    end
+
+    def expired
+      raise Rafelo::Core::ApplicationError.new("auth.expired")
     end
 
     def set_flash
