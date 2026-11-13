@@ -1,7 +1,7 @@
 [
   {
     "job_class": "Rafelo::Core::ExportSweepJob",
-    "job_id": "3601199a-626a-4368-b14b-70b3707f2644",
+    "job_id": "b7493635-2ce2-490e-93af-c11764519635",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -10,14 +10,14 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T05:58:44.715522135Z",
+    "enqueued_at": "2026-11-13T09:40:23.323971796Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "4d427720-ff43-451d-b961-9b3b6d6a9d24"
+    "rafelo_trace_id": "f1f67244-95d8-4cb9-b50f-e2473940e654"
   },
   {
     "job_class": "Rafelo::Core::IdempotencySweepJob",
-    "job_id": "69ef823b-a7b1-4dd1-af59-b3cd21f2c459",
+    "job_id": "ec0aa97b-2d85-4764-b6da-7a3695944f06",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -26,14 +26,14 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T05:58:44.715545113Z",
+    "enqueued_at": "2026-11-13T09:40:23.323994639Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "854f4c51-5702-4c7f-9855-7c94d6415067"
+    "rafelo_trace_id": "721efbd0-cb16-4dee-b691-cd860feaa9a0"
   },
   {
     "job_class": "Rafelo::Core::SessionSweepJob",
-    "job_id": "caac8eb1-f92e-4f0d-96b6-f1a028b29aa6",
+    "job_id": "91dcc0c7-c94e-4c17-b2fe-b3690fe23fc4",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -42,9 +42,9 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T05:58:44.715557065Z",
+    "enqueued_at": "2026-11-13T09:40:23.324006955Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "16859a12-fdcc-4818-98f1-5f588e0830ba"
+    "rafelo_trace_id": "93b7e6dd-aa76-4b64-9369-16a08873b9e3"
   }
 ]
