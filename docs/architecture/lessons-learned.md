@@ -288,3 +288,13 @@ generation fencing are carried in #185.
 tokens and grants together. SEC-15 should name the 403 staleness mark and its
 concurrency test. SEC-13 should name the exact `/up` and host-authorization
 expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-15.
+
+## 2026-11-13 — v0.12.0 — issue #220
+
+**What happened.** The v0.12.0 gate needed three audit rounds. Round 1 found two concurrent first claims could both write, real upstream 422/409 never reached the 303 form flow, no audit trail existed, a signed export URL reached the log, the download producer lost `Current`, and several matcher/format/migration checks were shape-only. Round 2 confirmed the write races and audit fixed but found the followed Active Storage request still logged the signed URL. Round 3 passed after exports streamed through core.
+
+**Root cause.** The first pass tested hand-built error objects instead of the real client, treated a shape check as proof of a matcher, generated "previous release" fixtures with the new code, and left concurrency specs that could pass with the fence removed.
+
+**What changed.** First-claim fencing, real 422/409/503 request specs, an append-only `core_audits` table and recorder, a streamed export path with no signed URL, `Current` in the download producer, a bounded queue, computed field codes, and an outside-folder patch canary. Remaining matcher, fixture, migration and concurrency depth is carried in #219.
+
+**Spec feedback.** TS-02 should define each matcher's exact inputs and failure output. SEC-16 should say where the previous release's fixtures come from and how a tag folder is bootstrapped. BE-18 should choose between a signed redirect and log-safe streaming. Related IDs: BE-13, BE-15, BE-18, BE-23, SEC-16, TS-02, TS-10.
