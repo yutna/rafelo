@@ -556,6 +556,17 @@ module Rafelo
             end
           RUBY
         end
+        if effective_actions.include?("create")
+          index_spec << <<~RUBY
+
+            it "redirects back with errors when create params are invalid" do
+              headers = sign_in_with([#{grants_literal}])
+              post "/en/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+            end
+          RUBY
+        end
         index_spec << "  end\n"
         create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", index_spec
       end
