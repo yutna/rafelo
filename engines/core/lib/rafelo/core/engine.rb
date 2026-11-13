@@ -23,6 +23,7 @@ module Rafelo
         app.config.x.sessions.absolute_timeout_seconds = 12 * 60 * 60
         app.config.x.idempotency.retention_seconds = app.config.x.sessions.absolute_timeout_seconds + 60 * 60
         app.config.x.idempotency.stale_margin_seconds = 5
+        app.config.x.jobs.upstream_deadline_seconds = 30
         app.config.x.sessions.touch_interval_seconds = 5 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800
