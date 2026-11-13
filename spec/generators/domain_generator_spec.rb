@@ -5,8 +5,7 @@ require Rails.root.join("engines/core/lib/generators/rafelo/domain_generator")
 RSpec.describe Rafelo::Generators::DomainGenerator do
   it "writes a domain engine with no pages, routes or registry entry" do
     Dir.mktmpdir do |dir|
-      allow_any_instance_of(described_class).to receive(:post_write)
-      Rails::Generators.invoke("rafelo:domain", [ "customers_probe" ], destination_root: dir)
+      Rails::Generators.invoke("rafelo:domain", [ "customers_probe", "--skip-post-write" ], destination_root: dir)
 
       root = Pathname(dir)
       expect(root.join("engines/customers_probe/rafelo_customers_probe.gemspec")).to exist

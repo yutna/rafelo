@@ -10,7 +10,7 @@ module Rafelo
 
       def create_module
         validate_name!
-        raise Thor::Error, "icon must be folder, check or alert" unless %w[folder check alert receipt].include?(options[:icon])
+        raise Thor::Error, "icon must be one of #{icon_names.join(", ")}" unless icon_names.include?(options[:icon])
 
         with_rollback do
           write_engine
@@ -19,7 +19,7 @@ module Rafelo
           write_config
           write_frontend
           write_tests
-          post_write
+          post_write unless options[:skip_post_write]
         end
         say "Created #{engine_dir} and regenerated the graph, aliases, contracts and catalogs.", :green
       end
@@ -55,30 +55,18 @@ module Rafelo
           # frozen_string_literal: true
 
           require "rails/engine"
-          require_relative "../../../app/frontend/public/index" if false
+          require "rafelo_core"
 
-          module Rafelo
+          module #{namespace}
             module #{module_name}
               class Engine < ::Rails::Engine
-                isolate_namespace Rafelo::#{module_name}
+                isolate_namespace #{namespace}::#{module_name}
 
                 initializer "rafelo_#{name}.migration_paths" do |app|
                   config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
                 end
 
-                initializer "rafelo_#{name}.registry" do
-                  Rafelo::Core::Modules.register(
-                    key: :#{name},
-                    engine: Rafelo::#{module_name}::Engine,
-                    path: "/#{name}",
-                    permission_prefixes: [ "#{name}" ],
-                    nav: { order: next_nav_order, label_key: "#{name}.nav.title", icon: "#{options[:icon]}" }
-                  )
-                end
 
-                def self.next_nav_order
-                  Rafelo::Core::Modules.all.map { |entry| entry.nav[:order] }.compact.max.to_i + 10
-                end
               end
             end
           end
@@ -98,8 +86,19 @@ module Rafelo
         create_file "#{engine_dir}/config/routes.rb", <<~RUBY
           # frozen_string_literal: true
 
-          Rafelo::#{module_name}::Engine.routes.draw do
+          #{namespace}::#{module_name}::Engine.routes.draw do
           end
+        RUBY
+        create_file "#{engine_dir}/config/module.rb", <<~RUBY
+          # frozen_string_literal: true
+
+          Rafelo::Core::Modules.register(
+            key: :#{name},
+            engine: #{namespace}::#{module_name}::Engine,
+            path: "/#{name}",
+            permission_prefixes: [ "#{name}" ],
+            nav: { order: Rafelo::Core::Modules.all.map { |entry| entry.nav[:order] }.compact.max.to_i + 10, label_key: "#{name}.nav.title", icon: "#{options[:icon]}" }
+          )
         RUBY
       end
 
@@ -115,15 +114,16 @@ module Rafelo
       end
 
       def write_config
-        create_file "#{engine_dir}/config/locales/en.yml", "en:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
-        create_file "#{engine_dir}/config/locales/th.yml", "th:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
+        locales.each do |locale|
+          create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
+        end
         create_file "#{engine_dir}/config/errors.yml", "{}\n"
-        create_file "#{engine_dir}/config/permissions.yml", "#{name}:\n  resources:\n    widget:\n      actions: [read]\n"
+        create_file "#{engine_dir}/config/permissions.yml", "#{name}:\n  widget: [read]\n"
         create_file "#{engine_dir}/config/budgets.yml", "pages: {}\n"
         create_file "#{engine_dir}/config/ratchets.yml", "eslint_disable: 0\nuse_no_memo: 0\n"
         create_file "#{engine_dir}/config/contracts/.keep", ""
         create_file "#{engine_dir}/db/migrate/.keep", ""
-        create_file "#{engine_dir}/app/public/.keep", ""
+        create_file "#{engine_dir}/app/public/#{namespace.downcase}/#{name}/.keep", ""
         create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
         create_file "#{engine_dir}/e2e/.keep", ""
       end
@@ -136,6 +136,7 @@ module Rafelo
 
       def write_tests
         create_file "#{engine_dir}/app/frontend/components/skeleton.test.tsx", <<~TSX
+          import "@testing-library/jest-dom/vitest";
           import { render, screen } from "@testing-library/react";
           import { describe, expect, it } from "vitest";
 
@@ -156,10 +157,12 @@ module Rafelo
           });
         TS
         create_file "#{engine_dir}/vitest.config.mts", <<~TS
+          import react from "@vitejs/plugin-react";
           import { defineConfig } from "vitest/config";
           import { engineAliases } from "../../config/frontend_aliases.mts";
 
           export default defineConfig({
+            plugins: [ react() ],
             resolve: { alias: engineAliases },
             test: {
               projects: [
@@ -173,6 +176,18 @@ module Rafelo
 
       def gemspec_name
         "rafelo_#{name}"
+      end
+
+      def namespace
+        Rails.application.class.module_parent_name
+      end
+
+      def icon_names
+        File.read(Rails.root.join("engines/design_system/app/frontend/icon.tsx")).scan(/^  ([a-z_]+):/).flatten
+      end
+
+      def locales
+        Rafelo::Core::Locales.available.map(&:to_s)
       end
     end
   end
