@@ -89,6 +89,17 @@ RSpec.describe "Deployment profiles" do
     expect(credentials.dig(:aws, :secret_access_key)).to be_present
   end
 
+  it "prepares the database as the migration role before the web server starts" do
+    entrypoint = File.read(Rails.root.join("bin/docker-entrypoint"))
+
+    expect(entrypoint).to include('RAFELO_DATABASE_ROLE=migration ./bin/rails db:prepare')
+    expect(entrypoint).to include('exec "${@}"')
+    expect(File.read(Rails.root.join("config/puma.rb")))
+      .to include('plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]')
+    expect(File.read(Rails.root.join("config/queue.yml")))
+      .to include('processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>')
+  end
+
   it "runs Thruster in front of Puma in the one production image" do
     dockerfile = File.read(Rails.root.join("Dockerfile"))
 
