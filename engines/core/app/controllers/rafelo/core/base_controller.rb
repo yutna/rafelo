@@ -23,6 +23,15 @@ module Rafelo
         render inertia: component, props: shared_props.merge(page), status: status
       end
 
+      def gateway(klass)
+        klass.new(
+          token_provider: Current.token_provider,
+          budget: Current.call_budget ||= CallBudget.new(api: 3),
+          request_id: Current.request_id,
+          trace_id: Current.trace_id
+        )
+      end
+
       def shared_props
         SharedProps.new(context: page_context, request_path: request.path).to_h
       end

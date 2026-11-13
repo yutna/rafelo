@@ -46,7 +46,7 @@ module Rafelo
       end
 
       def client
-        UpstreamClient.for(
+        @client ||= UpstreamClient.for(
           self.class.upstream,
           config: Rails.application.config.x.upstreams.fetch(self.class.upstream),
           token_provider: @token_provider,

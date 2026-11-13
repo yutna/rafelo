@@ -22,6 +22,18 @@ RSpec.describe Rafelo::Core::BaseController do
     expect(context.locale).to eq(:th)
   end
 
+  it "builds a gateway with the current token provider and budget" do
+    Rafelo::Core::Current.token_provider = Struct.new(:token, :service?).new("secret", false)
+    Rafelo::Core::Current.call_budget = Rafelo::Core::CallBudget.new(api: 2)
+    gateway = ApplicationController.new.gateway(ExampleInvoicesGateway)
+
+    expect(gateway.client).to be_a(Rafelo::Core::UpstreamClient)
+    expect(gateway.budget.count(:api)).to eq(0)
+  ensure
+    Rafelo::Core::Current.token_provider = nil
+    Rafelo::Core::Current.call_budget = nil
+  end
+
   it "builds a page context through the factory" do
     urls = Rafelo::Core::Urls.new(locale: :en, router: double("router"))
     context = Rafelo::Core::PageContextFactory.build(
