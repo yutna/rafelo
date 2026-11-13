@@ -1,6 +1,7 @@
 import { Head } from "@inertiajs/react";
 
 import { HomeScreen } from "../../screens/home/home_screen";
+import type { LayoutName } from "../../lib/layout_name";
 import { pageSchema } from "./index.schema";
 
 export default function HomeIndex(props: Record<string, unknown>) {
@@ -13,3 +14,5 @@ export default function HomeIndex(props: Record<string, unknown>) {
     </>
   );
 }
+
+HomeIndex.layoutName = "app" satisfies LayoutName;
