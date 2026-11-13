@@ -123,12 +123,12 @@ module Rafelo
 
           module #{module_class}
             class #{@resource.camelize}Policy < Rafelo::Core::BasePolicy
-              def index? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:read")
+              def index? = permissions.allows?(#{module_class}::Permissions::#{@resource.pluralize.upcase}_READ)
               def show? = index?
-              def new? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:create")
-              def create? = new?
-              def edit? = permissions.allows?("#{@module_name}:#{@resource.pluralize}:update")
-              def update? = edit?
+              def new? = index?
+              def create? = index?
+              def edit? = index?
+              def update? = index?
             end
           end
         RUBY

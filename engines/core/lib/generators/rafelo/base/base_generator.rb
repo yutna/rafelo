@@ -73,6 +73,7 @@ module Rafelo
           run_step "npm run aliases:generate"
           run_step "npm run i18n:generate"
           run_step "npm run errors:generate"
+          run_step "npm run permissions:generate"
           run_step "npm run contracts:generate"
         end
       end

@@ -45,6 +45,7 @@ CI.run do
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
   step "Contracts: check", "npm run contracts:check"
   step "Contracts: errors", "npm run errors:check"
+  step "Contracts: permissions", "npm run permissions:check"
   step "Contracts: i18n", "npm run i18n:check"
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
