@@ -28,6 +28,7 @@ RSpec.describe "Exports", type: :request do
     expect(response.headers["Content-Disposition"]).to include("attachment")
     expect(response.headers["Content-Disposition"]).to include("report.csv")
     expect(response.location).to be_nil
+    expect(Rafelo::Core::AuditEvent.where(event: "export", outcome: "success").count).to eq(1)
   end
 
   it "throttles export downloads" do

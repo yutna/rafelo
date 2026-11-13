@@ -25,3 +25,7 @@ production:
     class: "Rafelo::Core::ExportSweepJob"
     queue: default
     schedule: every hour at minute 52
+  audit_partition_maintenance:
+    class: "Rafelo::Core::AuditPartitionMaintenanceJob"
+    queue: default
+    schedule: every hour at minute 7

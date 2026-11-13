@@ -25,8 +25,12 @@ module Rafelo
 
           # prepend: limits run before every base callback (BE-24), so a
           # throttled request loads no session and triggers no refresh.
+          limit_name = name
           rate_limit(to:, within:, only: actions, by:, name:, prepend: true,
-                     with: -> { render_error("request.throttled") })
+                     with: lambda {
+                       AuditRecorder.record(controller: self, event: "rate_limit", outcome: "failure", target: limit_name)
+                       render_error("request.throttled")
+                     })
 
           self.throttle_limits = throttle_limits.merge(
             actions.index_with { |action| [ *Array(throttle_limits[action]), { name:, to:, within: } ].freeze }

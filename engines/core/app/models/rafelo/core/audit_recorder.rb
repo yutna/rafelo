@@ -15,7 +15,8 @@ module Rafelo
         /Safari\//i => "safari"
       }.freeze
 
-      def self.record(controller:, event:, outcome:, target: nil)
+      def self.record(controller:, event:, outcome:, target: nil, viewer_id: nil, resource: nil,
+                      action: nil, upstream_id: nil, policy: nil, page: nil)
         return if Current.audit_recorded
 
         request = controller.request
@@ -24,15 +25,28 @@ module Rafelo
           event: event,
           outcome: outcome,
           target: target.to_s.presence,
-          viewer_id: Current.viewer&.id&.to_s,
+          viewer_id: (viewer_id || Current.viewer&.id)&.to_s,
           request_id: Current.request_id.to_s.presence || request.request_id,
-          trace_id: Current.trace_id.to_s.presence || request.request_id,
+          trace_id: Current.trace_id.to_s.presence || request.env["rafelo.trace_id"].to_s.presence || request.request_id,
           ip: truncate_ip(request.remote_ip),
           user_agent_family: family(request.user_agent),
+          resource: resource || inferred_resource(controller),
+          action: action || inferred_action(controller),
+          upstream_id: upstream_id || request.env["rafelo.audit.upstream_id"].to_s.presence,
+          policy: policy.to_s.presence,
+          page: page || request.env["rafelo.page"].to_s.presence,
           created_at: Time.current,
           format_version: AuditEvent::FORMAT_VERSION
         )
         Current.audit_recorded = true
+      end
+
+      def self.inferred_resource(controller)
+        controller.controller_path.to_s.presence if controller.respond_to?(:controller_path)
+      end
+
+      def self.inferred_action(controller)
+        controller.action_name.to_s.presence if controller.respond_to?(:action_name)
       end
 
       def self.truncate_ip(value)

@@ -6,7 +6,8 @@ module Rafelo
       FORMAT_VERSION = 1
       READABLE_FORMAT_VERSIONS = [ FORMAT_VERSION ].freeze
 
-      self.table_name = "core_audits"
+      self.table_name = "core_audit_events"
+      self.primary_key = "id"
       self.record_timestamps = false
 
       scope :readable_format, -> { where(format_version: READABLE_FORMAT_VERSIONS) }

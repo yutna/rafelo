@@ -16,5 +16,6 @@ RSpec.describe "Request throttling", type: :request do
     expect(response).to have_http_status(:too_many_requests)
     expect(response.body).to include("request.throttled")
     expect(response.headers["Cache-Control"]).to include("no-store")
+    expect(Rafelo::Core::AuditEvent.where(event: "rate_limit", outcome: "failure").count).to eq(1)
   end
 end

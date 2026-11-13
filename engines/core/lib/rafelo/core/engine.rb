@@ -25,6 +25,9 @@ module Rafelo
         app.config.x.idempotency.stale_margin_seconds = 5
         app.config.x.jobs.upstream_deadline_seconds = 30
         app.config.x.exports.ttl_seconds = 6 * 60 * 60
+        app.config.x.audit.retention_days = 365
+        app.config.x.audit.partition_months_ahead = 2
+        app.config.x.database.runtime_role = ENV["DB_USER"]
         app.config.x.sessions.touch_interval_seconds = 5 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800
