@@ -61,7 +61,7 @@ module Rafelo
       def page_context
         @page_context ||= PageContextFactory.build(
           session: Current.session,
-          flags: {},
+          flags: Flags.current,
           locale: I18n.locale,
           request_id: Current.request_id,
           urls: Urls.new(locale: I18n.locale, router: self)

@@ -51,7 +51,7 @@ module Rafelo
       end
 
       def nav
-        Modules.all.map do |entry|
+        Modules.all.reject { |entry| entry.flag && !@context.flags.fetch(entry.flag, false) }.map do |entry|
           {
             key: entry.key.to_s,
             label: I18n.t(entry.nav[:label_key], default: entry.key.to_s),
