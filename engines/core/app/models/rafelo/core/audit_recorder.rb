@@ -19,7 +19,6 @@ module Rafelo
         return if Current.audit_recorded
 
         request = controller.request
-        Current.audit_recorded = true
         AuditEvent.create!(
           occurred_at: Time.current,
           event: event,
@@ -32,6 +31,7 @@ module Rafelo
           user_agent_family: family(request.user_agent),
           created_at: Time.current
         )
+        Current.audit_recorded = true
       rescue StandardError => error
         Rails.logger.warn("audit.failed event=#{event} error=#{error.class}")
       end

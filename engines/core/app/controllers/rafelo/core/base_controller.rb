@@ -7,6 +7,7 @@ module Rafelo
       include Throttling
       include Rails.application.routes.mounted_helpers
 
+      rescue_from StandardError, with: :render_unexpected_error
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
       rescue_from ApplicationError, with: :render_application_error
 
@@ -185,6 +186,11 @@ module Rafelo
         render_application_error(ApplicationError.new("auth.forbidden"))
       end
 
+      def render_unexpected_error(error)
+        AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
+        raise error
+      end
+
       def render_application_error(error)
         AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
 
@@ -225,7 +231,7 @@ module Rafelo
 
       def assign_request_context
         Current.request_id = request.request_id
-        Current.trace_id = request.env["rafelo.trace_id"]
+        Current.trace_id = request.env["rafelo.trace_id"].presence || request.request_id
       end
 
       def with_locale(&block)

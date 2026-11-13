@@ -25,7 +25,8 @@ end
 scan = Dir[File.join(root, "app/**/*.rb")] +
        Dir[File.join(root, "engines/*/app/**/*.rb")] +
        Dir[File.join(root, "lib/**/*.rb")] +
-       Dir[File.join(root, "engines/*/lib/**/*.rb")]
+       Dir[File.join(root, "engines/*/lib/**/*.rb")] +
+       Dir[File.join(root, "config/initializers/*.rb")]
 scan.each do |path|
   next if path.include?("/config/initializers/patches/")
 

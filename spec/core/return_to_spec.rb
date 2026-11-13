@@ -36,5 +36,6 @@ RSpec.describe Rafelo::Core::ReturnTo do
   it "accepts another configured locale and falls back when blank" do
     expect(target("/th/x", locale: :en)).to eq("/th/x")
     expect(target(nil)).to eq("/en")
+    expect(target([ "/en/x" ])).to eq("/en")
   end
 end

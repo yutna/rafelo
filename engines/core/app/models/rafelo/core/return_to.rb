@@ -38,6 +38,7 @@ module Rafelo
       end
 
       def valid?(candidate)
+        return false unless candidate.is_a?(String)
         return false if candidate.blank?
         return false unless candidate.start_with?("/")
         return false if candidate.match?(SCHEME)
