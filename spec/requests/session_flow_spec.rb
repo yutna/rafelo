@@ -15,6 +15,7 @@ RSpec.describe "Session flow", type: :request do
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to match(/samesite=lax/i)
     expect(Rafelo::Core::Session.count).to eq(1)
     expect(Rafelo::Core::Session.first.permission_grants).to eq([ "billing:invoice:read" ])
+    expect(Rafelo::Core::AuditEvent.where(event: "sign_in", outcome: "success").count).to eq(1)
 
     get "/en/dummy/whoami", headers: { "Cookie" => cookie }
     expect(response.body).to eq("7")
@@ -26,6 +27,7 @@ RSpec.describe "Session flow", type: :request do
     delete "/en/sign_out", headers: { "Cookie" => cookie }
     expect(response).to have_http_status(:see_other)
     expect(Rafelo::Core::Session.count).to eq(0)
+    expect(Rafelo::Core::AuditEvent.where(event: "sign_out", outcome: "success").count).to eq(1)
   end
 
   it "renders the sign-in page with the form" do
@@ -99,6 +101,7 @@ RSpec.describe "Session refresh and expiry", type: :request do
     expect(response.location).to end_with("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+    expect(Rafelo::Core::AuditEvent.where(event: "session_revoked", outcome: "failure").count).to eq(1)
   end
 
   it "forgets an idle session and clears its cookie" do
@@ -154,6 +157,7 @@ RSpec.describe "Session lifecycle edges", type: :request do
     delete "/en/sign_out_everywhere", headers: { "Cookie" => second }
     expect(response).to have_http_status(:see_other)
     expect(Rafelo::Core::Session.count).to eq(0)
+    expect(Rafelo::Core::AuditEvent.where(event: "sign_out_everywhere", outcome: "success").count).to eq(1)
   end
 
   it "touches last_seen_at at most once per interval" do

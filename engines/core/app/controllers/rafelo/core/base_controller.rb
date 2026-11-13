@@ -198,8 +198,15 @@ module Rafelo
         Current.viewer
       end
 
-      def deny_access
-        AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
+      def deny_access(error = nil)
+        AuditRecorder.record(
+          controller: self,
+          event: "authorization",
+          outcome: "failure",
+          target: request.path,
+          policy: error.respond_to?(:policy) ? error.policy : nil,
+          page: request.path
+        )
         render_application_error(ApplicationError.new("auth.forbidden"))
       end
 
@@ -209,7 +216,7 @@ module Rafelo
       end
 
       def render_unexpected_error(error)
-        AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path) unless request.get? || request.head?
+        AuditRecorder.record(controller: self, event: "write", outcome: "failure", target: request.path) unless request.get? || request.head?
         ErrorReporter.report(error, handled: false)
         request.env["rafelo.error_reported"] = true
         raise error
@@ -217,10 +224,23 @@ module Rafelo
 
       def render_application_error(error)
         ErrorReporter.report(error, handled: true)
-        if error.code == "auth.forbidden"
-          AuditRecorder.record(controller: self, event: "authorization", outcome: "failure", target: request.path)
+        if error.code == "auth.expired"
+          AuditRecorder.record(
+            controller: self,
+            event: "session_revoked",
+            outcome: "failure",
+            target: request.path
+          )
+        elsif error.code == "auth.forbidden"
+          AuditRecorder.record(
+            controller: self,
+            event: "authorization",
+            outcome: "failure",
+            target: request.path,
+            page: request.path
+          )
         elsif !request.get? && !request.head?
-          AuditRecorder.record(controller: self, event: "request", outcome: "failure", target: request.path)
+          AuditRecorder.record(controller: self, event: "write", outcome: "failure", target: request.path)
         end
 
         if error.code == "auth.expired" && Current.session

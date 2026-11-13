@@ -67,9 +67,11 @@ environment; never commit it. The single-host PostgreSQL accessory also reads
 
 Create the runtime and migration database roles before the first deploy (the
 accessory creates only the runtime `rafelo` role), and put their passwords in
-the `database` credentials above. The entrypoint runs `db:prepare` as the
-migration role while the old release still serves (BE-22); the web server and
-the job role then connect as the runtime role.
+the `database` credentials above. See
+[operations/database-roles.md](operations/database-roles.md) for the grants.
+The entrypoint runs `db:prepare` as the migration role while the old release
+still serves (BE-22); the web server and the job role then connect as the
+runtime role.
 
 ## Single host
 

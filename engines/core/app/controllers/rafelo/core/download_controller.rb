@@ -10,7 +10,7 @@ module Rafelo
 
       layout "application"
 
-      def send_download(filename:, source:, type: nil, max_bytes: nil)
+      def send_download(filename:, source:, type: nil, max_bytes: nil, event: "download")
         authorize_download!
         permit = DownloadLimiter.acquire
         raise ApplicationError.new("upstream.unavailable") unless permit
@@ -49,9 +49,9 @@ module Rafelo
             stream.write(value)
           end
         end
-        AuditRecorder.record(controller: self, event: "download", outcome: "success", target: filename)
+        AuditRecorder.record(controller: self, event: event, outcome: "success", target: filename)
       rescue StandardError
-        AuditRecorder.record(controller: self, event: "download", outcome: "failure", target: filename)
+        AuditRecorder.record(controller: self, event: event, outcome: "failure", target: filename)
         raise
       ensure
         producer&.kill

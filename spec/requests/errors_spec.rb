@@ -27,7 +27,7 @@ RSpec.describe "Error responder", type: :request do
     post "/en/dummy/widgets/crash", headers: auth_headers
 
     expect(response).to have_http_status(:internal_server_error)
-    expect(Rafelo::Core::AuditEvent.where(event: "request", outcome: "failure").count).to eq(1)
+    expect(Rafelo::Core::AuditEvent.where(event: "write", outcome: "failure").count).to eq(1)
   end
 
   it "proves the error page contract" do

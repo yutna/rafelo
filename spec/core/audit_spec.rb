@@ -14,7 +14,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   end
 
   it "writes one row per request even when called twice" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en")
+    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
     Rafelo::Core::Current.request_id = "request-1"
     Rafelo::Core::Current.trace_id = "trace-1"
@@ -28,7 +28,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   end
 
   it "sets the marker only after the insert and does not swallow an insert failure" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en")
+    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
     allow(Rafelo::Core::AuditEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "audit down")
 
@@ -39,7 +39,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   end
 
   it "records the audit format version" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en")
+    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
 
     described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
@@ -47,7 +47,34 @@ RSpec.describe Rafelo::Core::AuditRecorder do
     expect(Rafelo::Core::AuditEvent.last.format_version).to eq(Rafelo::Core::AuditEvent::FORMAT_VERSION)
   end
 
-  it "makes audit rows append-only in the database" do
+  it "records the allow-listed resource, action, page, and upstream id" do
+    request = double(
+      "request",
+      request_id: "request-1",
+      remote_ip: "203.0.113.7",
+      user_agent: "Chrome/140.0",
+      path: "/en/orders",
+      env: { "rafelo.page" => "orders/new", "rafelo.audit.upstream_id" => "order-9" }
+    )
+    controller = double("controller", request: request, controller_path: "rafelo/example_orders/orders", action_name: "create")
+
+    described_class.record(
+      controller: controller,
+      event: "write",
+      outcome: "success",
+      target: "/en/orders",
+      policy: "OrderPolicy"
+    )
+
+    event = Rafelo::Core::AuditEvent.last
+    expect(event.resource).to eq("rafelo/example_orders/orders")
+    expect(event.action).to eq("create")
+    expect(event.page).to eq("orders/new")
+    expect(event.upstream_id).to eq("order-9")
+    expect(event.policy).to eq("OrderPolicy")
+  end
+
+  it "makes audit rows append-only in the database on every partition" do
     event = Rafelo::Core::AuditEvent.create!(
       occurred_at: Time.current, event: "write", outcome: "success", created_at: Time.current
     )

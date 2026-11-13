@@ -101,7 +101,6 @@ restore a base backup, choose a point between two known writes, replay WAL,
 run `script/ops/restore_drill`, and record the result. A drill that leaves any
 session row fails. The drill records the recovery point and the recovery time
 actually achieved, not the target.
-
 Audit records in the restored database must survive the restore; dropping
 partitions is retention, not restoration. Review the audit partition routine
 when the drill runs (OPS-08).

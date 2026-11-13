@@ -39,6 +39,7 @@ module Rafelo
 
         Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back) do |idempotency_key|
           order = gateway(OrdersGateway).create(payload: form.payload, idempotency_key: idempotency_key)
+          request.env["rafelo.audit.upstream_id"] = order.id.to_s
           redirect_after_write(
             page_context.urls.route(:example_orders, :order, id: order.id),
             notice: t("example_orders.orders.created", number: order.number)
@@ -73,6 +74,7 @@ module Rafelo
             idempotency_key: idempotency_key,
             if_match: form.version
           )
+          request.env["rafelo.audit.upstream_id"] = order.id.to_s
           redirect_after_write(
             page_context.urls.route(:example_orders, :order, id: order.id),
             notice: t("example_orders.orders.updated", number: order.number)

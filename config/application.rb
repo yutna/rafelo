@@ -43,6 +43,10 @@ module Rafelo
       end
     end
 
+    # Audit triggers and partitions cannot be expressed in schema.rb (OPS-08).
+    config.active_record.schema_format = :sql
+    config.active_record.dump_schema_after_migration = false
+
     # Do not put job arguments in the log; jobs carry ids in their own fields
     # and log lines use the allow-list (OPS-01).
     config.active_job.log_arguments = false

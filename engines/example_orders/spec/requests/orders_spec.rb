@@ -105,6 +105,10 @@ RSpec.describe "Example orders", type: :request do
     expect(response).to have_http_status(:see_other)
     expect(response.location).to end_with("/en/example_orders/orders/order-101")
     expect(Rafelo::Core::IdempotencyKey.count).to eq(1)
+    event = Rafelo::Core::AuditEvent.where(event: "write", outcome: "success").last
+    expect(event.resource).to eq("rafelo/example_orders/orders")
+    expect(event.action).to eq("create")
+    expect(event.upstream_id).to eq("order-101")
   end
 
   it "redirects a conflict back to edit with a base error" do

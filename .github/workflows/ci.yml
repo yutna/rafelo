@@ -136,7 +136,7 @@ jobs:
           --health-retries 10
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips libpq-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips libpq-dev postgresql-client
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -311,7 +311,7 @@ jobs:
           --health-retries 10
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev postgresql-client
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -349,7 +349,7 @@ jobs:
           --health-retries 10
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev postgresql-client
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -414,7 +414,7 @@ jobs:
       DB_PASSWORD: postgres
     steps:
       - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips libpq-dev
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libvips libpq-dev postgresql-client
 
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -568,6 +568,9 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

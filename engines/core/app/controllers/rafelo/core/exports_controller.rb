@@ -21,7 +21,8 @@ module Rafelo
                 block.call(chunk)
               end
             end
-          end
+          end,
+          event: "export"
         )
       end
     end

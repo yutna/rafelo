@@ -188,9 +188,10 @@ module Rafelo
                 payload: form.payload,
                 back: back
               ) do |idempotency_key|
-                gateway(#{module_class}::#{resource_plural.camelize}Gateway).create(
+                created = gateway(#{module_class}::#{resource_plural.camelize}Gateway).create(
                   payload: form.payload, idempotency_key: idempotency_key
                 )
+                request.env["rafelo.audit.upstream_id"] = created.id.to_s if created.respond_to?(:id)
                 redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_plural}), notice: "Created.")
               end
             rescue Rafelo::Core::ValidationFailed => error
@@ -226,9 +227,10 @@ module Rafelo
                 payload: form.payload.merge(id: params[:id].to_s),
                 back: back
               ) do |idempotency_key|
-                gateway(#{module_class}::#{resource_plural.camelize}Gateway).update(
+                updated = gateway(#{module_class}::#{resource_plural.camelize}Gateway).update(
                   id: params[:id].to_s, payload: form.payload, idempotency_key: idempotency_key
                 )
+                request.env["rafelo.audit.upstream_id"] = updated.id.to_s if updated.respond_to?(:id)
                 redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_singular}, id: params[:id]), notice: "Updated.")
               end
             rescue Rafelo::Core::ValidationFailed => error

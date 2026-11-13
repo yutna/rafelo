@@ -93,6 +93,7 @@ RSpec.describe "Deployment profiles" do
     entrypoint = File.read(Rails.root.join("bin/docker-entrypoint"))
 
     expect(entrypoint).to include('RAFELO_DATABASE_ROLE=migration ./bin/rails db:prepare')
+    expect(entrypoint).to include('RAFELO_DATABASE_ROLE=migration ./bin/rails rafelo:audit:partitions')
     expect(entrypoint).to include('exec "${@}"')
     expect(File.read(Rails.root.join("config/puma.rb")))
       .to include('plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]')
