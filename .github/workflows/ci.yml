@@ -193,6 +193,9 @@ jobs:
           DB_PASSWORD: postgres
         run: script/ci/rspec
 
+      - name: Check page matcher coverage
+        run: npm run pages:check -- --matchers
+
   guards:
     runs-on: ubuntu-latest
     timeout-minutes: 5

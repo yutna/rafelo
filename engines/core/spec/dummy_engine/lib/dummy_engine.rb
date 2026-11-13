@@ -25,6 +25,7 @@ module DummyEngine
       post "widgets/validation", to: "widgets#validation"
       post "widgets/conflict", to: "widgets#conflict"
       post "widgets/boom", to: "widgets#boom"
+      get "widgets/not_found", to: "widgets#not_found"
     end
   end
 end

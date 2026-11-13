@@ -29,10 +29,14 @@ RSpec.describe "Session flow", type: :request do
   end
 
   it "renders the sign-in page with the form" do
-    get "/en/sign_in"
+    expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('"component":"sessions/new"')
+    expect(response).to match_page_schema("sessions/new")
+    expect(response).to be_within_props_budget("sessions/new")
+    expect(response).to have_resolvable_hrefs("sessions/new")
+    expect(response).to match_policy_capabilities("sessions/new")
   end
 end
 

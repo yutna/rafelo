@@ -2,11 +2,14 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "json"
 
 root = Dir.pwd
+matchers_mode = false
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/page_props [--root DIR]"
+  parser.banner = "Usage: script/ci/page_props [--root DIR] [--matchers]"
   parser.on("--root DIR") { |value| root = value }
+  parser.on("--matchers") { matchers_mode = true }
 end.parse!
 
 root = File.expand_path(root)
@@ -20,6 +23,39 @@ patterns = %W[
 ]
 files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
 abort "page_props: no frontend files found under #{root}" if files.empty?
+
+if matchers_mode
+  contract_files = Dir[File.join(root, "config/contracts/pages/**/*.json")] +
+                   Dir[File.join(root, "engines/*/config/contracts/pages/**/*.json")]
+  recorded = Dir[File.join(root, "tmp/page_matchers/*.json")].flat_map do |path|
+    JSON.parse(File.read(path))
+  rescue JSON::ParserError
+    []
+  end
+  abort "page_props: no page matcher records; run RSpec first" if recorded.empty?
+
+  by_page = recorded.group_by { |entry| entry["page"] }
+  failures = 0
+  contract_files.sort.each do |path|
+    key = path.split("/config/contracts/pages/").last.delete_suffix(".json")
+    names = by_page.fetch(key, []).map { |entry| entry["matcher"] }.uniq
+    required = %w[match_page_schema within_budgets be_within_props_budget have_resolvable_hrefs]
+    schema = JSON.parse(File.read(path))
+    required << "match_policy_capabilities" if schema.dig("properties", "can", "properties")&.any?
+    missing = required - names
+    next if missing.empty?
+
+    puts "#{key}: missing matchers #{missing.join(', ')}"
+    failures += 1
+  end
+  if failures.positive?
+    warn "page_props: #{failures} page(s) missing matcher records"
+    exit 1
+  end
+
+  warn "page_props: checked #{contract_files.length} page contract(s)"
+  exit 0
+end
 
 findings = 0
 files.each do |path|

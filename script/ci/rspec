@@ -2,6 +2,7 @@
 set -euo pipefail
 
 processors="${PARALLEL_TEST_PROCESSORS:-2}"
+rm -rf tmp/page_matchers
 RAILS_ENV=test bin/vite build
 script/ci/prepare_test_databases "$processors"
 SPEC_OPTS="--tag ~concurrency" RAILS_ENV=test bundle exec parallel_rspec spec -n "$processors"
