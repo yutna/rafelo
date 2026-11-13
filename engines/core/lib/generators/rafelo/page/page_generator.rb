@@ -12,7 +12,6 @@ module Rafelo
       argument :module_name_arg, type: :string
       argument :resource, type: :string
       class_option :actions, type: :string, default: "index"
-      class_option :skip_post_write, type: :boolean, default: false
 
       def create_page
         @mod = module_name_arg.to_s.underscore
@@ -34,7 +33,7 @@ module Rafelo
         write_permissions
         write_fixtures
         write_tests
-        post_write unless options[:skip_post_write]
+        post_write
         say "Created #{@mod}/#{resource_plural} (#{effective_actions.join(", ")}).", :green
       rescue StandardError => e
         restore_snapshot(@snapshot) if defined?(@snapshot) && @snapshot
@@ -147,7 +146,13 @@ module Rafelo
           methods << <<~RUBY
             def index
               authorize :#{resource_singular}, :index?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
-              render_page "#{page_key_base}/index", props: #{module_class}::#{resource_plural.camelize}IndexProps.new(context: page_context)
+              query = Rafelo::Core::ListQuery.from(params, sort: %w[id label], filters: {})
+              items = gateway(#{module_class}::#{resource_plural.camelize}Gateway).list(
+                page: query.page, per_page: query.per_page
+              )
+              render_page "#{page_key_base}/index", props: #{module_class}::#{resource_plural.camelize}IndexProps.new(
+                context: page_context, items: items, query: query
+              )
             end
           RUBY
         end
@@ -288,6 +293,16 @@ module Rafelo
         end
         upstream ||= :api
         methods = []
+        if effective_actions.include?("index")
+          methods << <<~RUBY
+            def list(page:, per_page:)
+              payload = JSON.parse(client.get("#{resource_plural}", params: { page: page, per_page: per_page }).body)
+              Array(payload["items"] || payload.dig("data", "items"))
+            rescue JSON::ParserError
+              raise Rafelo::Core::ApplicationError.new("unexpected", "Upstream returned malformed JSON")
+            end
+          RUBY
+        end
         if effective_actions.include?("create")
           methods << <<~RUBY
             def create(payload:, idempotency_key:)
@@ -340,12 +355,24 @@ module Rafelo
 
             module #{module_class}
               class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
-            #{policy_decl}      def envelope
+            #{policy_decl}      def initialize(context:, items:, query:)
+                  super(context: context)
+                  @items = items
+                  @query = query
+                end
+
+                def envelope
                   {
-                    data: { items: [], newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
+                    data: { items: @items, newHref: #{effective_actions.include?("new") ? "context.urls.route(:#{mod}, :new_#{resource_singular})" : "nil"} },
                     meta: {},
                     query: {},
-                    pagination: nil,
+                    pagination: {
+                      kind: "offset",
+                      page: @query.page,
+                      perPage: @query.per_page,
+                      total: @items.length,
+                      pageCount: (@items.length.to_f / @query.per_page).ceil
+                    },
                     #{index_can_hash}
                   }
                 end
@@ -468,7 +495,6 @@ module Rafelo
               data: #{data_props},
               query: z.object({}),
               can: #{can_keys},
-              paginated: false,
             });
           TS
           create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
@@ -824,7 +850,11 @@ module Rafelo
       def write_fixtures
         dir = root.join(engine_file("spec/fixtures/upstream/#{resource_plural}"))
         FileUtils.mkdir_p(dir)
-        create_managed engine_file("spec/fixtures/upstream/#{resource_plural}/index.json"), JSON.pretty_generate({ "items" => [] }) + "\n"
+        items = Array.new(Rafelo::Core::ListQuery.max_per_page) do |index|
+          { "id" => index.to_s, "label" => "Item #{index}" }
+        end
+        create_managed engine_file("spec/fixtures/upstream/#{resource_plural}/index.json"),
+                       JSON.pretty_generate({ "items" => items }) + "\n"
       end
 
       def write_tests
@@ -855,8 +885,16 @@ module Rafelo
         if effective_actions.include?("index")
           spec << <<~RUBY
 
-            it "renders the index page contract" do
+            it "renders the index page contract at the maximum page size" do
               headers = sign_in_with([#{grants_literal}])
+              items = JSON.parse(
+                Rails.root.join("engines/#{mod}/spec/fixtures/upstream/#{resource_plural}/index.json").read
+              ).fetch("items")
+              stub_request(:get, "http://localhost:4000/#{resource_plural}")
+                .with(query: { page: "1", per_page: Rafelo::Core::ListQuery.max_per_page.to_s })
+                .to_return(status: 200, body: { items: items }.to_json,
+                           headers: { "Content-Type" => "application/json" })
+
               expect { get "/en/#{mod}/#{resource_plural}", headers: headers }.to within_budgets("#{page_key_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/index")
