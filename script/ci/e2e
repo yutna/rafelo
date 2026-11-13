@@ -11,7 +11,7 @@ cleanup() {
   if [ -n "$rails_pid" ]; then kill "$rails_pid" 2>/dev/null || true; fi
   if [ -n "$upstream_pid" ]; then kill "$upstream_pid" 2>/dev/null || true; fi
   if [ -n "$rails_pid" ]; then
-    RAILS_ENV=test bin/rails runner 'Rafelo::Core::Session.delete_all; Rafelo::Core::IdempotencyKey.delete_all; Rafelo::Core::Export.delete_all; Rafelo::Core::AuditEvent.delete_all' >/dev/null 2>&1 || true
+    RAILS_ENV=test bin/rails runner 'ActiveRecord::Base.connection.execute("TRUNCATE TABLE core_sessions, core_idempotency_keys, core_exports, core_audits RESTART IDENTITY")' >/dev/null 2>&1 || true
   fi
   rm -f "$log" "$upstream_log"
 }
