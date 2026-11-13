@@ -136,7 +136,8 @@ and never values; CI skips that comparison because it never holds the key.
 - Point the load balancer or uptime monitor at `/up`; it checks no upstream
   (OPS-05). `/core/ready` adds a PostgreSQL query.
 - PostgreSQL holds the BFF data, cache, queue, and cable tables. Back it up
-  off the host before taking traffic (OPS-07).
+  off the host before taking traffic, and run the monthly restore drill in
+  [operations/backup-restore.md](operations/backup-restore.md) (OPS-07).
 - Assets are bridged from `/rails/public/vite`, so a tab still running the
   previous release can fetch its chunks during and just after a deploy.
 
