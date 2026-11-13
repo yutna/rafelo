@@ -87,6 +87,51 @@ module Rafelo
         raise ApplicationError.new("upstream.unavailable")
       end
 
+      # Streams a body only after the first response callback has checked the
+      # status and Content-Length; the caller has written no bytes yet (BE-18).
+      def stream(method, path, headers: {}, max_bytes: nil, &block)
+        validate_headers!(headers)
+        validate_path!(path)
+        ensure_no_transaction!
+        raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+        limit = max_bytes || @config.max_response_bytes
+        @budget&.consume!(@name)
+        @calls += 1
+        first = true
+        total = 0
+        @bulkhead.call do
+          @breaker.run do
+            connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
+              request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+              request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+              request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+              request.options.on_data = proc do |chunk, _size, env|
+                if first
+                  first = false
+                  map_status!(env)
+                  expected = env.response_headers["content-length"].to_i
+                  raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+                end
+                raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+                total += chunk.bytesize
+                raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
+
+                block.call(chunk)
+              end
+            end
+          end
+        end
+        total
+      rescue Stoplight::Error::RedLight
+        raise ApplicationError.new("upstream.circuit_open")
+      rescue Faraday::TimeoutError
+        raise ApplicationError.new("upstream.timeout")
+      rescue Faraday::ConnectionFailed
+        raise ApplicationError.new("upstream.unavailable")
+      end
+
       private
 
       def perform(method, path, params:, body:, headers:, idempotency_key:, if_match:)
