@@ -754,13 +754,21 @@ module Rafelo
           path = root.join(engine_file("config/locales/#{locale}.yml"))
           next unless File.file?(path)
           content = read_file(path).rstrip
-          block = [ "    #{resource_plural}:", "      title: \"#{resource_plural.humanize}\"" ]
-          block << "      new: \"New #{resource_singular.humanize}\"" if effective_actions.include?("new")
-          block << "      edit: \"Edit #{resource_singular.humanize}\"" if effective_actions.include?("edit")
-          unless content.include?("\n    #{resource_plural}:\n")
-            write_managed(path, content + "\n" + block.join("\n") + "\n")
+          block = [ "    #{resource_plural}:", "      title: #{localized_copy(locale, resource_plural.humanize)}" ]
+          block << "      new: #{localized_copy(locale, "New #{resource_singular.humanize}")}" if effective_actions.include?("new")
+          block << "      edit: #{localized_copy(locale, "Edit #{resource_singular.humanize}")}" if effective_actions.include?("edit")
+          next if content.include?("\n    #{resource_plural}:\n")
+
+          if content.match?(/^\s{2}#{Regexp.escape(mod)}:\s*\{\}\s*$/)
+            content = content.sub(/^\s{2}#{Regexp.escape(mod)}:\s*\{\}\s*$/, "  #{mod}:")
           end
+          write_managed(path, content + "\n" + block.join("\n") + "\n")
         end
+      end
+
+      def localized_copy(locale, text)
+        value = locale == default_locale ? text : "[#{locale}] #{text}"
+        value.inspect
       end
 
       def write_permissions

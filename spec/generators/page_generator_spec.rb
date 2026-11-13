@@ -125,6 +125,13 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(request_spec).to include('renders the edit page contract')
       expect(request_spec).to include('match_page_schema("billing/widgets/edit")')
       expect(request_spec).to include('redirects back with errors when update params are invalid')
+
+      en_locale = YAML.safe_load(root.join("engines/billing/config/locales/en.yml").read)
+      th_locale = YAML.safe_load(root.join("engines/billing/config/locales/th.yml").read)
+      expect(en_locale.dig("en", "billing", "widgets", "title")).to eq("Widgets")
+      expect(en_locale.dig("en", "billing", "widgets", "edit")).to eq("Edit Widget")
+      expect(th_locale.dig("th", "billing", "widgets", "title")).to eq("[th] Widgets")
+      expect(th_locale.dig("th", "billing", "widgets", "edit")).to eq("[th] Edit Widget")
     end
   end
 end
