@@ -16,7 +16,7 @@ abort "graph_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 CANARY_ENGINES = %w[
   canary_alpha canary_beta canary_declared canary_kernel canary_undeclared
-  canary_legal_alpha canary_legal_beta canary_consumer
+  canary_legal_alpha canary_legal_beta canary_consumer example_canary
 ].freeze
 SNAPSHOT_FILES = %w[
   tsconfig.json tsconfig.tooling.json tsconfig.base.json
@@ -264,10 +264,11 @@ unless !ts_status.success? && ts_failures.empty?
 end
 
 # GEN-08: the TypeScript rule also refuses an import of an example engine.
+write(root, "engines/example_canary/app/frontend/public/index.ts", "export const exampleCanary = \"example\";\n")
 write(root, "engines/canary_legal_beta/app/frontend/example_leak.ts", <<~TS)
-  import { CustomerBadge } from "../../../example_customers/app/frontend/public/customer_badge";
+  import { exampleCanary } from "../../../example_canary/app/frontend/public/index";
 
-  export const leaked = CustomerBadge;
+  export const leaked = exampleCanary;
 TS
 example_ts_output, example_ts_status = run(
   root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err", "engines/canary_legal_beta"
