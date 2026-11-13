@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+patch_dir = File.join(root, "config/initializers/patches")
+abort "patches: missing #{patch_dir}" unless Dir.exist?(patch_dir)
+
+errors = []
+Dir[File.join(patch_dir, "*.rb")].sort.each do |path|
+  name = File.basename(path, ".rb")
+  body = File.read(path)
+  spec = File.join(root, "spec/patches/#{name}_spec.rb")
+  version_spec = File.join(root, "spec/patches/#{name}_version_spec.rb")
+
+  errors << "#{name}: missing behaviour spec #{spec}" unless File.file?(spec)
+  errors << "#{name}: missing version spec #{version_spec}" unless File.file?(version_spec)
+  errors << "#{name}: must prepend a module" unless body.include?("prepend")
+  errors << "#{name}: must link an upstream issue or pull request" unless body.match?(%r{https://github\.com/})
+  errors << "#{name}: must say why the patch exists" unless body.match?(/why:/i)
+  if File.file?(version_spec) && !File.read(version_spec).include?("Gem.loaded_specs")
+    errors << "#{name}: version spec must read Gem.loaded_specs"
+  end
+end
+
+if errors.any?
+  errors.each { |error| warn "patches: #{error}" }
+  exit 1
+end
+
+puts "patches: checked #{Dir[File.join(patch_dir, '*.rb')].length} patch file(s)"

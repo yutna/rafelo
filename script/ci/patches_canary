@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/config/initializers/patches" "$tmp/spec/patches"
+echo 'prepend Module' > "$tmp/config/initializers/patches/example.rb"
+
+if "$root/script/ci/patches" "$tmp" >/dev/null 2>&1; then
+  echo "patches_canary: a patch without specs passed" >&2
+  exit 1
+fi
+
+echo "patches_canary: checked 1 case"

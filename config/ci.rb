@@ -31,6 +31,8 @@ CI.run do
   step "Policy: workflows", "script/ci/workflow_policy"
   step "Policy: deploy preflight", "script/ci/deploy_preflight"
   step "Policy: deploy preflight canary", "script/ci/deploy_preflight_canary"
+  step "Policy: gem patches", "script/ci/patches"
+  step "Policy: gem patches canary", "script/ci/patches_canary"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "npm audit --audit-level=high"
