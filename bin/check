@@ -13,8 +13,10 @@ run!("bin/packwerk check engines/#{engine}")
 run!("npm run arch:check")
 run!("npx tsc -b engines/#{engine}/tsconfig.json")
 
-# Vitest projects are named by engine in this template's conventions; fall back to full frontend tests.
-if system("npx vitest run --project #{engine} --project #{engine}:node")
+engine_vitest = File.join("engines", engine, "vitest.config.mts")
+if File.exist?(engine_vitest)
+  run!("npx vitest run --config #{engine_vitest}")
+elsif system("npx vitest run --project #{engine} --project #{engine}:node")
   # ok
 else
   run!("npm test")
@@ -24,11 +26,9 @@ if Dir.exist?(File.join("engines", engine, "spec"))
   run!("bundle exec rspec engines/#{engine}/spec")
 end
 
-if system("npx --version >/dev/null 2>&1")
-  # eslint is not yet fully configured in all states; run if available config exists.
-  if File.exist?("eslint.config.mjs") || File.exist?("eslint.config.js")
-    run!("npx eslint engines/#{engine}/app/frontend") rescue warn("eslint check skipped/failed for #{engine}")
-  end
+if File.exist?("eslint.config.mjs") || File.exist?("eslint.config.js")
+  frontend = File.join("engines", engine, "app/frontend")
+  run!("npx eslint #{frontend}") if Dir.exist?(frontend)
 end
 
 puts "bin/check #{engine}: ok"
