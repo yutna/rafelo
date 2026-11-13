@@ -21,10 +21,10 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
           nav: { order: 10, label_key: "billing.nav.title", icon: "folder" }
         )
       RUBY
-      File.write(src.join("config/permissions.yml"), YAML.dump("billing" => { "widgets" => ["read"] }))
+      File.write(src.join("config/permissions.yml"), YAML.dump("billing" => { "widgets" => [ "read" ] }))
       File.write(src.join("lib/rafelo/billing/engine.rb"), "module Rafelo::Billing; class Engine < Rails::Engine; end; end\n")
 
-      described_class.start(["billing", "invoicing", "--skip-post-write"], destination_root: dir)
+      described_class.start([ "billing", "invoicing", "--skip-post-write" ], destination_root: dir)
 
       expect(root.join("engines/billing")).not_to exist
       expect(root.join("engines/invoicing")).to exist

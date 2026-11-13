@@ -27,7 +27,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       write_engine(root, "billing",
         path: "/billing",
         routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\n  root to: \"widgets#index\"\nend\n",
-        permissions: { "billing" => { "widgets" => ["read"] } })
+        permissions: { "billing" => { "widgets" => [ "read" ] } })
       write_engine(root, "payments",
         path: "/payments",
         routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
@@ -35,7 +35,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
       File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
 
-      described_class.start(["billing", "payments", "widgets", "--skip-post-write"], destination_root: dir)
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
 
       expect(root.join("engines/billing/app/frontend/pages/widgets")).not_to exist
       expect(root.join("engines/payments/app/frontend/pages/widgets/index.tsx")).to exist
@@ -48,7 +48,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       src_perm = YAML.safe_load(File.read(root.join("engines/billing/config/permissions.yml")))
       tgt_perm = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
       expect(src_perm.dig("billing", "widgets")).to be_nil
-      expect(tgt_perm.dig("payments", "widgets")).to eq(["read"])
+      expect(tgt_perm.dig("payments", "widgets")).to eq([ "read" ])
 
       mod_rb = File.read(root.join("engines/payments/config/module.rb"))
       expect(mod_rb).to include('legacy_paths')
