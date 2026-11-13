@@ -196,7 +196,9 @@ module Rafelo
         code = case response.status
         when 200..299, 304 then return response
         when 401 then "auth.expired"
-        when 403 then "auth.forbidden"
+        when 403
+          Current.session&.mark_grants_stale!
+          "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"
         when 413, 422 then "validation.failed"

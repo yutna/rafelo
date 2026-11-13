@@ -45,8 +45,7 @@ RSpec.describe Rafelo::Core::Session do
       version: version,
       access_token: "new-access",
       refresh_token: "new-refresh",
-      access_expires_at: 5.minutes.from_now,
-      grants: [ "billing:invoice:read" ]
+      access_expires_at: 5.minutes.from_now
     )
     expect(described_class.find(session.id).access_token).to eq("new-access")
     expect(described_class.find(session.id).refreshing_since).to be_nil
@@ -66,8 +65,7 @@ RSpec.describe Rafelo::Core::Session do
         version: stale_version,
         access_token: "stale-access",
         refresh_token: "stale-refresh",
-        access_expires_at: 5.minutes.from_now,
-        grants: []
+        access_expires_at: 5.minutes.from_now
       )
       expect(completed).to be(false)
     end.not_to raise_error
@@ -83,5 +81,42 @@ RSpec.describe Rafelo::Core::Session do
 
     expect(described_class.exists?(expired.id)).to be(false)
     expect(described_class.exists?(live.id)).to be(true)
+  end
+  it "fences a grants write with the generation it read" do
+    session, = start
+    stale = described_class.find(session.id)
+    generation = stale.grants_generation
+    described_class.find(session.id).mark_grants_stale!
+
+    expect(stale.replace_grants!([ "billing:invoice:create" ], generation: generation)).to be(false)
+
+    fresh = described_class.find(session.id)
+    expect(fresh.permission_grants).to eq([])
+    expect(fresh.grants_stale?).to be(true)
+  end
+
+  it "writes grants when the generation still matches" do
+    session, = start
+    generation = session.grants_generation
+
+    expect(session.replace_grants!([ "billing:invoice:create" ], generation: generation)).to be(true)
+
+    expect(session.reload.permission_grants).to eq([ "billing:invoice:create" ])
+    expect(session.grants_stale?).to be(false)
+  end
+
+  it "revokes every session for one viewer" do
+    first, = start
+    second, = start
+    other, = described_class.start(
+      viewer: Struct.new(:id, :name).new(8, "Grace"),
+      access_token: "a", refresh_token: "r", access_expires_at: 5.minutes.from_now
+    )
+
+    expect(described_class.revoke_all!(viewer.id)).to eq(2)
+
+    expect(described_class.exists?(first.id)).to be(false)
+    expect(described_class.exists?(second.id)).to be(false)
+    expect(described_class.exists?(other.id)).to be(true)
   end
 end

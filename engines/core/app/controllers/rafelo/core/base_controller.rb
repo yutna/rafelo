@@ -64,7 +64,7 @@ module Rafelo
           forget_session!(session)
           return
         end
-        session.touch_seen! if session.last_seen_at.nil? || session.last_seen_at < 1.minute.ago
+        session.touch_seen! if session.last_seen_at.nil? || session.last_seen_at < Rails.application.config.x.sessions.touch_interval_seconds.seconds.ago
 
         Current.session = session
         Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
@@ -91,6 +91,8 @@ module Rafelo
         raise if error.code == "auth.expired"
 
         Rails.logger.warn("session refresh deferred: #{error.code}")
+      rescue ActiveRecord::RecordNotFound
+        raise ApplicationError.new("auth.expired")
       end
 
       def forget_session!(session)

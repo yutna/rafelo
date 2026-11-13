@@ -103,3 +103,75 @@ RSpec.describe "Session refresh and expiry", type: :request do
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
   end
 end
+
+RSpec.describe "Session lifecycle edges", type: :request do
+  let(:viewer) { Struct.new(:id, :name).new(7, "Ada") }
+
+  def session_with(last_seen_at: Time.current, expires_at: 5.minutes.from_now)
+    session, token = Rafelo::Core::Session.start(
+      viewer: viewer, access_token: "access", refresh_token: "refresh",
+      access_expires_at: expires_at, grants: [ "billing:invoice:read" ]
+    )
+    session.update_column(:last_seen_at, last_seen_at)
+    [ session, "session_token=#{token}" ]
+  end
+
+  before do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/sign_in.json", base_url: "http://localhost:4000")
+  end
+
+  it "keeps the other session on normal sign-out and revokes all on sign-out everywhere" do
+    _, first = session_with
+    _, second = session_with
+    expect(Rafelo::Core::Session.count).to eq(2)
+
+    delete "/en/sign_out", headers: { "Cookie" => first }
+    expect(response).to have_http_status(:see_other)
+
+    expect(Rafelo::Core::Session.count).to eq(1)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+
+    delete "/en/sign_out_everywhere", headers: { "Cookie" => second }
+    expect(response).to have_http_status(:see_other)
+    expect(Rafelo::Core::Session.count).to eq(0)
+  end
+
+  it "touches last_seen_at at most once per interval" do
+    session, cookie = session_with(last_seen_at: 2.minutes.ago)
+    seen = session.last_seen_at
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(session.reload.last_seen_at).to be_within(1.second).of(seen)
+  end
+
+  it "touches last_seen_at after the interval" do
+    session, cookie = session_with(last_seen_at: 6.minutes.ago)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(session.reload.last_seen_at).to be_within(5.seconds).of(Time.current)
+  end
+
+  it "keeps the session just inside the idle timeout and ends it just after" do
+    live, live_cookie = session_with(last_seen_at: 29.minutes.ago)
+    get "/en", headers: { "Cookie" => live_cookie }
+    expect(Rafelo::Core::Session.exists?(live.id)).to be(true)
+
+    idle, idle_cookie = session_with(last_seen_at: 30.minutes.ago - 1.second)
+    get "/en", headers: { "Cookie" => idle_cookie }
+    expect(Rafelo::Core::Session.exists?(idle.id)).to be(false)
+    expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+  end
+
+  it "keeps the old token when a refresh fails transiently" do
+    stub_upstream(:post, "/auth/refresh", fixture: "auth/expired.json", status: 503, base_url: "http://localhost:4000")
+    session, cookie = session_with(expires_at: 10.seconds.from_now)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:ok)
+    expect(Rafelo::Core::Session.exists?(session.id)).to be(true)
+    expect(session.reload.access_token).to eq("access")
+  end
+end

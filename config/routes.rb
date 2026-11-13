@@ -17,6 +17,7 @@ Rails.application.routes.draw do
     get "sign_in", to: "sessions#new"
     post "sign_in", to: "sessions#create"
     delete "sign_out", to: "sessions#destroy"
+    delete "sign_out_everywhere", to: "sessions#destroy_all"
 
     if Rails.env.test?
       require Rails.root.join("engines/core/spec/dummy_engine/lib/dummy_engine")

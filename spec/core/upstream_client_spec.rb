@@ -170,4 +170,21 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     expect { breaker_client.get("fail") }.to raise_error(Rafelo::Core::ApplicationError)
     expect { breaker_client.get("fail") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.circuit_open") }
   end
+  it "marks the viewer's grants stale when the upstream answers 403" do
+    viewer = Struct.new(:id, :name).new(7, "Ada")
+    session, = Rafelo::Core::Session.start(
+      viewer: viewer, access_token: "access", refresh_token: "refresh",
+      access_expires_at: 5.minutes.from_now, grants: [ "billing:invoice:read" ]
+    )
+    Rafelo::Core::Current.session = session
+    stub_request(:get, "http://upstream.test/invoices").to_return(status: 403, body: "{}")
+
+    expect { client.get("invoices") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("auth.forbidden") }
+
+    session.reload
+    expect(session.grants_generation).to eq(1)
+    expect(session.grants_stale?).to be(true)
+  ensure
+    Rafelo::Core::Current.reset
+  end
 end

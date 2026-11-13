@@ -32,6 +32,6 @@ RSpec.describe "Throttle coverage" do
       checked << "#{controller}##{action}"
     end
 
-    expect(checked).to include("sessions#create", "sessions#destroy")
+    expect(checked).to include("sessions#create", "sessions#destroy", "sessions#destroy_all")
   end
 end

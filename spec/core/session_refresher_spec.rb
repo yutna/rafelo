@@ -41,9 +41,9 @@ RSpec.describe Rafelo::Core::SessionRefresher do
           version: version,
           access_token: "successor-access",
           refresh_token: "successor-refresh",
-          access_expires_at: 5.minutes.from_now,
-          grants: [ "billing:invoice:read" ]
+          access_expires_at: 5.minutes.from_now
         )
+        successor.replace_grants!([ "billing:invoice:read" ], generation: successor.grants_generation)
         @result
       end
     end.new(session_id: session.id, result: result)
