@@ -29,7 +29,7 @@ Rails.application.configure do
 
   # A real production boot needs the encrypted production credentials. The
   # two dummy-boot tasks read the committed dummy credentials instead (SEC-12).
-  config.require_master_key = ENV["SECRET_KEY_BASE_DUMMY"].blank?
+  config.require_master_key = ENV["SECRET_KEY_BASE_DUMMY"].blank? && ENV["SECRET_KEY_BASE"].blank?
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = true
 

@@ -143,7 +143,13 @@ module Rafelo
         end
 
         def escape(value)
-          value.to_s.gsub("\\", "\\\\\\\\").gsub('"', '\\"')
+          value.to_s.gsub(/[\\"\n]/) do |character|
+            case character
+            when "\\" then "\\\\"
+            when '"' then '\\"'
+            when "\n" then "\\n"
+            end
+          end
         end
 
         def mutex
