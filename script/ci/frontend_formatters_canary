@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/app/frontend"
+echo 'const x = new Intl.DateTimeFormat("en");' > "$tmp/app/frontend/bad.ts"
+
+if "$root/script/ci/frontend_formatters" "$tmp" >/dev/null 2>&1; then
+  echo "frontend_formatters_canary: a direct Intl call passed" >&2
+  exit 1
+fi
+
+echo "frontend_formatters_canary: checked 1 case"

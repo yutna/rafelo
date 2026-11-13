@@ -14,3 +14,6 @@ export { Image } from "../image";
 export { Link } from "../link";
 export { Deferred } from "../deferred";
 export { isSafeUrl, isAppPath } from "../safe_url";
+
+export { calendarFor, formatDate, formatNumber } from "../formatters";
+export { DateField } from "../date_field";

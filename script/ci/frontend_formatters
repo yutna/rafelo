@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+files = Dir[File.join(root, "app/frontend/**/*.{ts,tsx}")] +
+        Dir[File.join(root, "engines/*/app/frontend/**/*.{ts,tsx}")]
+files.select! { |path| File.file?(path) && !path.end_with?(".test.ts", ".test.tsx") }
+allowed = %w[engines/design_system/app/frontend/formatters.ts]
+errors = []
+files.each do |path|
+  relative = path.delete_prefix("#{root}/")
+  next if allowed.include?(relative) || relative.include?("/domain/") || relative.include?("/forms/")
+
+  body = File.read(path)
+  %w[Intl.DateTimeFormat Intl.NumberFormat Intl.RelativeTimeFormat toLocaleDateString toLocaleTimeString toLocaleString toFixed].each do |token|
+    errors << "#{relative}: #{token} belongs in the shared formatter" if body.include?(token)
+  end
+  %w[getFullYear getUTCFullYear getMonth getDate].each do |token|
+    errors << "#{relative}: date getter #{token} belongs in domain/formatters" if body.include?(token)
+  end
+end
+
+if errors.any?
+  errors.each { |error| warn "frontend_formatters: #{error}" }
+  exit 1
+end
+puts "frontend_formatters: checked #{files.length} files"
