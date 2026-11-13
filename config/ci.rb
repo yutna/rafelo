@@ -26,6 +26,8 @@ CI.run do
   step "Frontend: state canary", "script/ci/frontend_state_canary"
   step "Frontend: safe URLs", "script/ci/frontend_urls"
   step "Frontend: URL canary", "script/ci/frontend_urls_canary"
+  step "Frontend: formatters", "script/ci/frontend_formatters"
+  step "Frontend: formatter canary", "script/ci/frontend_formatters_canary"
   step "Enforcement: canaries", "script/ci/enforcement_canaries"
   step "Enforcement: cops", "script/ci/cops_canary"
   step "Tests: skips", "script/ci/skips"
