@@ -15,6 +15,10 @@ concurrency:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: ${{ github.workspace }}
+
 env:
   BUNDLE_FROZEN: "true"
 
@@ -81,10 +85,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Scan for common Rails security vulnerabilities using static analysis
         run: bin/brakeman --no-pager
@@ -104,14 +106,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
 
       - name: Install npm dependencies
         run: npm ci
@@ -134,10 +128,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Prepare RuboCop cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -178,18 +170,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Install npm dependencies
         run: npm ci
@@ -254,18 +236,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Install npm dependencies
         run: npm ci
@@ -319,10 +291,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Run enforcement canaries
         run: script/ci/enforcement_canaries
@@ -362,10 +332,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Run concurrency specs
         env:
@@ -401,18 +369,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Install npm dependencies
         run: npm ci
@@ -467,18 +425,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Install npm dependencies
         run: npm ci
@@ -539,19 +487,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
 
       - name: Install npm dependencies
         run: npm ci
@@ -628,18 +563,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
-        with:
-          bundler-cache: true
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26.13.0
-
-      - name: Pin npm
-        run: npm install --global npm@12.2.2
+      - name: Install gems
+        run: bundle check || bundle install
 
       - name: Install npm dependencies
         run: npm ci
