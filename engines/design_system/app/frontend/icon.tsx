@@ -1,9 +1,10 @@
-import { AlertTriangle, Check, Folder } from "lucide-react";
+import { AlertTriangle, Check, Folder, Receipt } from "lucide-react";
 
 const ICONS = {
   folder: Folder,
   check: Check,
   alert: AlertTriangle,
+  receipt: Receipt,
 } as const;
 
 export type IconName = keyof typeof ICONS;
