@@ -2,7 +2,6 @@ require "rails_helper"
 
 RSpec.describe "Session flow", type: :request do
   before do
-    Rack::Attack.reset!
     stub_upstream(:post, "/auth/sign_in", fixture: "auth/sign_in.json", base_url: "http://localhost:4000")
   end
 
@@ -40,7 +39,6 @@ end
 RSpec.describe "Session refresh and expiry", type: :request do
   let(:viewer) { Struct.new(:id, :name).new(7, "Ada") }
 
-  before { Rack::Attack.reset! }
 
   def session_with(expires_at: 5.minutes.from_now, grants_at: Time.current)
     session, token = Rafelo::Core::Session.start(

@@ -33,6 +33,7 @@ module Rafelo
         app.config.i18n.available_locales = Rafelo::Core::Locales.available.map(&:to_sym)
         app.config.i18n.default_locale = Rafelo::Core::Locales.default.to_sym
         app.config.middleware.insert_after ActionDispatch::DebugExceptions, Rafelo::Core::LocaleMiddleware
+        app.config.middleware.insert_before 0, Rafelo::Core::BodyLimit
         app.config.after_initialize { Rafelo::Core::Modules.validate! }
         app.config.exceptions_app = ->(env) { Rafelo::Core::ExceptionsApp.call(env) }
       end

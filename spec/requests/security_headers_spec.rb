@@ -1,7 +1,6 @@
 require "rails_helper"
 
 RSpec.describe "Security headers", type: :request do
-  before { Rack::Attack.reset! }
   it "sets the security headers and a nonce-based CSP" do
     get "/en"
 
@@ -36,7 +35,6 @@ RSpec.describe "Security headers", type: :request do
 
   it "throttles repeated sign-in attempts" do
     stub_upstream(:post, "/auth/sign_in", fixture: "auth/sign_in.json", base_url: "http://localhost:4000")
-    Rack::Attack.reset!
     11.times do
       post "/th/sign_in", params: { email: "a@example.test", password: "wrong" }
     end

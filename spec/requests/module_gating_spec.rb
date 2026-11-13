@@ -3,8 +3,6 @@ require "rails_helper"
 require Rails.root.join("engines/core/spec/dummy_engine/lib/dummy_engine")
 
 RSpec.describe "Module gating", type: :request do
-  before { Rack::Attack.reset! }
-
   def dark_entry
     Rafelo::Core::Modules::Entry.new(
       key: :dummy,
