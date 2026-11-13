@@ -262,3 +262,29 @@ carried to #165; the dummy engine stays in #146.
 checking `Content-Length`. BE-16 should say whether a gateway owns one client
 for its lifetime. BE-21 should name the Puma thread source explicitly.
 Related IDs: BE-05, BE-16, BE-21.
+
+## 2026-11-13 — v0.11.0 — issue #186
+
+**What happened.** The v0.11.0 gate needed four audit rounds. Round 1 found the
+signed-in page crashed, the sign-in form had no CSRF token, refresh and dead
+sessions were not handled, the CSP nonce was empty, production cookie deletion
+was insecure, grants never went stale, and dark modules were still reachable.
+Round 2 found a 401 refresh returned 200, production host authorization was
+off, and mounted-engine gating read an engine-relative path. Round 3 found the
+takeover fence logged the successor out; round 4 passed.
+
+**Root cause.** The first pass tested happy paths and a unit-shaped path that
+production never produces, and treated "clear the session" as one outcome for
+both a dead session and a lost refresh race.
+
+**What changed.** Rotation and clear-history, a real CSRF token, single-flight
+refresh with a version fence and one token/grant write, idle/expired cookie
+cleanup, per-request CSP nonces, `form-action 'self'`, production SSL/hosts/`/up`,
+`Modules.for_path` over the original full path, and a lost race that returns the
+successor token instead of revoking the session. Remaining evidence and SEC-15
+generation fencing are carried in #185.
+
+**Spec feedback.** SEC-03 should say whether a refresh writes tokens only or
+tokens and grants together. SEC-15 should name the 403 staleness mark and its
+concurrency test. SEC-13 should name the exact `/up` and host-authorization
+expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-15.
