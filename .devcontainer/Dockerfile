@@ -27,6 +27,7 @@ COPY --chown=vscode:vscode mise.toml package.json package-lock.json /tmp/
 RUN cd /tmp && \
     mise trust && \
     mise install && \
+    mise reshim && \
     mise exec -- npm ci && \
     mise exec -- npx playwright install --with-deps && \
     rm -rf node_modules package.json package-lock.json mise.toml
