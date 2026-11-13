@@ -61,29 +61,41 @@ module Rafelo
       end
 
       def claim_refresh!(timeout:)
-        self.class
+        claimed = self.class
           .where(id: id, refresh_version: refresh_version)
           .where("refreshing_since IS NULL OR refreshing_since < now() - make_interval(secs => ?)", timeout)
           .update_all("refresh_version = refresh_version + 1, refreshing_since = now()")
           .positive?
-      end
+        return unless claimed
 
-      def complete_refresh!(access_token:, refresh_token:, access_expires_at:)
         reload
-        update!(
-          access_token: access_token,
-          refresh_token: refresh_token,
-          access_expires_at: access_expires_at,
-          refreshing_since: nil
-        )
+        refresh_version
       end
 
-      def fail_refresh!
-        update!(refreshing_since: nil)
+      def complete_refresh!(version:, access_token:, refresh_token:, access_expires_at:, grants:)
+        with_lock do
+          raise ApplicationError.new("auth.expired") unless refresh_version == version
+
+          update!(
+            access_token: access_token,
+            refresh_token: refresh_token,
+            access_expires_at: access_expires_at,
+            refreshing_since: nil,
+            permission_grants: grants,
+            grant_digest: grant_digest_for(grants),
+            grants_refreshed_at: Time.current
+          )
+        end
       end
 
-      def expires_at=(value)
-        super
+      def fail_refresh!(version:)
+        self.class
+          .where(id: id, refresh_version: version)
+          .update_all(refreshing_since: nil)
+      end
+
+      def grant_digest_for(grants)
+        Digest::SHA256.hexdigest(Array(grants).map(&:to_s).sort.join(","))
       end
 
       def serializable_hash(options = nil)

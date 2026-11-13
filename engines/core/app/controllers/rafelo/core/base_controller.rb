@@ -47,9 +47,12 @@ module Rafelo
         return unless token
 
         session = Session.find_by_token(token)
-        return unless session && session.expires_at.future?
+        if session.nil? || !session.expires_at.future?
+          forget_session!(session)
+          return
+        end
         if session.last_seen_at && session.last_seen_at < Rails.application.config.x.sessions.idle_timeout_seconds.seconds.ago
-          session.destroy
+          forget_session!(session)
           return
         end
         session.touch_seen! if session.last_seen_at.nil? || session.last_seen_at < 1.minute.ago
@@ -70,12 +73,20 @@ module Rafelo
         SessionRefresher.new(
           session: Current.session,
           gateway: gateway,
-          timeout: Rails.application.config.x.sessions.refresh_timeout_seconds
+          timeout: Rails.application.config.x.sessions.refresh_timeout_seconds,
+          wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2
         ).call
         Current.token_provider = ViewerTokenProvider.new(Current.session.reload)
         Current.permissions = Current.session.permission_set
       rescue ApplicationError => error
-        clear_session! if error.code == "auth.expired"
+        raise if error.code == "auth.expired"
+
+        Rails.logger.warn("session refresh deferred: #{error.code}")
+      end
+
+      def forget_session!(session)
+        session&.destroy
+        delete_session_cookie!
       end
 
       def clear_session!
@@ -85,12 +96,15 @@ module Rafelo
         Current.permissions = nil
         Current.token_provider = nil
         reset_session
+        delete_session_cookie!
+      end
+
+      def delete_session_cookie!
         cookies.delete(session_cookie_name, secure: !Rails.env.local?, path: "/")
       end
 
       def require_module_enabled
-        segment = request.path_info.split("/")[2]
-        entry = Modules.all.find { |mod| mod.path.split("/")[1] == segment }
+        entry = Modules.for_path(request.original_fullpath)
         return unless entry&.flag && !Flags.enabled?(entry.flag)
 
         raise ActionController::RoutingError, "Not Found"

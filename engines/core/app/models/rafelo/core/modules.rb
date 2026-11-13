@@ -30,6 +30,15 @@ module Rafelo
 
         def each(&block) = entries.each(&block)
 
+        def for_path(full_path)
+          segments = full_path.to_s.split("?").first.to_s.split("/").reject(&:empty?)
+          segments.shift if Locales.locale_segment?(segments.first)
+          segment = segments.first
+          return if segment.nil?
+
+          all.find { |entry| entry.path.split("/")[1] == segment }
+        end
+
         def fetch(key)
           entries.find { |entry| entry.key == key.to_sym } ||
             raise(KeyError, "unknown module #{key.inspect}")
