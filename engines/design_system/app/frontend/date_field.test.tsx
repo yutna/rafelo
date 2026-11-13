@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { DateField } from "./date_field";
+import { I18nProvider } from "./i18n_provider";
 
 describe("DateField", () => {
   it("converts a Thai Buddhist Era entry to ISO Gregorian", async () => {
@@ -15,6 +16,27 @@ describe("DateField", () => {
     await userEvent.type(input, "12/11/2569");
 
     expect(onChange).toHaveBeenCalledWith("2026-11-12");
+  });
+
+  it("refuses an impossible calendar date", async () => {
+    const onChange = vi.fn();
+    render(<DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={onChange} locale="th" />);
+    const input = screen.getByRole("textbox");
+
+    await userEvent.clear(input);
+    await userEvent.type(input, "31/02/2569");
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("reads the locale from the provider", () => {
+    render(
+      <I18nProvider locale="th" timeZone="Asia/Bangkok">
+        <DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={() => {}} />
+      </I18nProvider>,
+    );
+
+    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("11/11/2569");
   });
 
   it("refuses a Gregorian year typed in Thai", async () => {

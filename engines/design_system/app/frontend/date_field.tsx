@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+import { isValidIsoDate } from "./formatters";
+import { useLocale } from "./i18n_provider";
+
 type DateFieldProps = {
   label: string;
   value: string;
@@ -24,15 +27,18 @@ function toIso(display: string, locale: string): string | null {
   const day = Number(match[1]);
   const month = Number(match[2]);
   const year = Number(match[3]) - 543;
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const iso = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return isValidIsoDate(iso) ? iso : null;
 }
 
-export function DateField({ label, value, min, max, onChange, locale = "en" }: DateFieldProps) {
-  const [text, setText] = useState(() => toDisplay(value, locale));
+export function DateField({ label, value, min, max, onChange, locale }: DateFieldProps) {
+  const context = useLocale();
+  const activeLocale = locale ?? context.locale;
+  const [text, setText] = useState(() => toDisplay(value, activeLocale));
 
   function commit(next: string) {
     setText(next);
-    const iso = toIso(next, locale);
+    const iso = toIso(next, activeLocale);
     if (iso && iso >= min && iso <= max) onChange(iso);
   }
 
