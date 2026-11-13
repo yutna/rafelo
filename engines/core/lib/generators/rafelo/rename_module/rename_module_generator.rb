@@ -29,6 +29,9 @@ module Rafelo
 
       attr_reader :root
 
+      def app_namespace = Rails.application.class.module_parent_name
+      def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
+
       def validate!
         raise Thor::Error, "engine not found: #{@source_name}" unless Dir.exist?(root.join("engines", @source_name))
         raise Thor::Error, "engine already exists: #{@destination_name}" if Dir.exist?(root.join("engines", @destination_name))
@@ -44,12 +47,12 @@ module Rafelo
         rename_if_exists(target.join("lib/rafelo_#{@source_name}.rb"), target.join("lib/rafelo_#{@destination_name}.rb"))
 
         [
-          [ "lib/rafelo", @source_name, @destination_name ],
-          [ "app/controllers/rafelo", @source_name, @destination_name ],
-          [ "app/policies/rafelo", @source_name, @destination_name ],
-          [ "app/props/rafelo", @source_name, @destination_name ],
-          [ "app/forms/rafelo", @source_name, @destination_name ],
-          [ "app/public/rafelo", @source_name, @destination_name ]
+          [ "lib/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/controllers/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/policies/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/props/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/forms/#{app_ns_underscore}", @source_name, @destination_name ],
+          [ "app/public/#{app_ns_underscore}", @source_name, @destination_name ]
         ].each do |base, from_name, to_name|
           from = target.join(base, from_name)
           to = target.join(base, to_name)
@@ -62,11 +65,11 @@ module Rafelo
           body = File.binread(path)
           next if body.include?("\x00")
 
-          body = body.gsub("Rafelo::#{old_camel}", "Rafelo::#{new_camel}")
+          body = body.gsub("#{app_namespace}::#{old_camel}", "#{app_namespace}::#{new_camel}")
           body = body.gsub(/\bmodule #{Regexp.escape(old_camel)}\b/, "module #{new_camel}")
           body = body.gsub(/\bclass #{Regexp.escape(old_camel)}\b/, "class #{new_camel}")
-          body = body.gsub("rafelo_#{@source_name}", "rafelo_#{@destination_name}")
-          body = body.gsub("rafelo/#{@source_name}", "rafelo/#{@destination_name}")
+          body = body.gsub("#{app_ns_underscore}_#{@source_name}", "#{app_ns_underscore}_#{@destination_name}")
+          body = body.gsub("#{app_ns_underscore}/#{@source_name}", "#{app_ns_underscore}/#{@destination_name}")
           body = body.gsub("@#{@source_name}/", "@#{@destination_name}/")
           body = body.gsub(/^(\s*)key:\s*:#{Regexp.escape(@source_name)}\b/, "\\1key: :#{@destination_name}")
           # keep URL/path and permission prefixes stable per GEN-06
@@ -111,7 +114,7 @@ module Rafelo
         lines << "# frozen_string_literal: true"
         lines << ""
         lines << "# Kept for one release after renaming #{@source_name} to #{@destination_name} (GEN-06)."
-        lines << "module Rafelo"
+        lines << "module #{app_namespace}"
         lines << "  #{old_camel} = #{new_camel} unless const_defined?(:#{old_camel}, false)"
         lines << "end"
         File.write(path, lines.join("\n") + "\n")

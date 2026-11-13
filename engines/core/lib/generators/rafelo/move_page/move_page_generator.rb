@@ -36,6 +36,9 @@ module Rafelo
         raise Thor::Error, "target engine not found" unless Dir.exist?(root.join("engines", @target))
       end
 
+      def app_namespace = Rails.application.class.module_parent_name
+      def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
+
       def plural = @res.pluralize
       def singular = @res.singularize
 
@@ -44,10 +47,10 @@ module Rafelo
         move_tree("app/frontend/screens/#{plural}", "app/frontend/screens/#{plural}")
         move_tree("app/frontend/containers/#{plural}", "app/frontend/containers/#{plural}")
         move_tree("app/frontend/components/#{plural}", "app/frontend/components/#{plural}")
-        move_glob("app/controllers/rafelo/#{@source}", "app/controllers/rafelo/#{@target}", "*#{plural}*")
-        move_glob("app/policies/rafelo/#{@source}", "app/policies/rafelo/#{@target}", "*#{singular}*")
-        move_glob("app/props/rafelo/#{@source}", "app/props/rafelo/#{@target}", "*#{plural}*")
-        move_glob("app/forms/rafelo/#{@source}", "app/forms/rafelo/#{@target}", "*#{singular}*")
+        move_glob("app/controllers/#{app_ns_underscore}/#{@source}", "app/controllers/#{app_ns_underscore}/#{@target}", "*#{plural}*")
+        move_glob("app/policies/#{app_ns_underscore}/#{@source}", "app/policies/#{app_ns_underscore}/#{@target}", "*#{singular}*")
+        move_glob("app/props/#{app_ns_underscore}/#{@source}", "app/props/#{app_ns_underscore}/#{@target}", "*#{plural}*")
+        move_glob("app/forms/#{app_ns_underscore}/#{@source}", "app/forms/#{app_ns_underscore}/#{@target}", "*#{singular}*")
         move_tree("config/contracts/pages/#{plural}", "config/contracts/pages/#{plural}")
 
         rewrite_target_contents
@@ -82,7 +85,7 @@ module Rafelo
           next if body.include?("\x00")
 
           changed = body.dup
-          changed = changed.gsub("Rafelo::#{@source.camelize}", "Rafelo::#{@target.camelize}")
+          changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
           changed = changed.gsub("\"#{@source}/#{plural}\"", "\"#{@target}/#{plural}\"")
           changed = changed.gsub("'#{@source}/#{plural}'", "'#{@target}/#{plural}'")
