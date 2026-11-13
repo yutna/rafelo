@@ -1,0 +1,46 @@
+[
+  {
+    "format_version": 1,
+    "token_digest": "e5d4623d210f49fd4550eb80420de1ead59147a54ad0dac8600e06e6c6bd49dd",
+    "viewer_id": "fixture-1",
+    "payload_digest": "fixture-payload",
+    "status": "pending",
+    "attempt": 1,
+    "outcome": null,
+    "claimed_at": "2026-11-13T05:58:44.658760257Z",
+    "expires_at": "2026-11-13T06:58:44.658776649Z"
+  },
+  {
+    "format_version": 1,
+    "token_digest": "ede0e44347808af5a7e6f5f520f4877b149ad6c3e0161b187dd43ace098ec9fe",
+    "viewer_id": "fixture-1",
+    "payload_digest": "fixture-payload",
+    "status": "succeeded",
+    "attempt": 1,
+    "outcome": "/en/fixture",
+    "claimed_at": "2026-11-13T05:58:44.658789260Z",
+    "expires_at": "2026-11-13T06:58:44.658792638Z"
+  },
+  {
+    "format_version": 1,
+    "token_digest": "6ac53f76a7aba972d8937d648e17330ec32931fb9ba35e07c7339e0c610a693f",
+    "viewer_id": "fixture-1",
+    "payload_digest": "fixture-payload",
+    "status": "failed",
+    "attempt": 1,
+    "outcome": null,
+    "claimed_at": "2026-11-13T05:58:44.658798920Z",
+    "expires_at": "2026-11-13T06:58:44.658801389Z"
+  },
+  {
+    "format_version": 1,
+    "token_digest": "999cc66efce8767c30f64aedc06daf7edc74695b935f7874bfd243212f571b83",
+    "viewer_id": "fixture-1",
+    "payload_digest": "fixture-payload",
+    "status": "unknown",
+    "attempt": 1,
+    "outcome": null,
+    "claimed_at": "2026-11-13T05:58:44.658806249Z",
+    "expires_at": "2026-11-13T06:58:44.658808407Z"
+  }
+]
