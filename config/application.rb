@@ -11,6 +11,10 @@ module Rafelo
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
 
+    # Do not put job arguments in the log; jobs carry ids in their own fields
+    # and log lines use the allow-list (OPS-01).
+    config.active_job.log_arguments = false
+
     # Refuse a redirect to another host; ReturnTo checks the target first.
     config.action_controller.action_on_open_redirect = :raise
 

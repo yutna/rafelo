@@ -23,13 +23,25 @@ RSpec.describe Rafelo::Core::BaseJob do
 
   it "carries request and trace ids outside the declared arguments" do
     Rafelo::Core::Current.request_id = "request-1"
-    Rafelo::Core::Current.trace_id = "trace-1"
+    Rafelo::Core::Current.trace_id = "a" * 32
+    Rafelo::Core::Current.trace_sampled = true
 
     data = RafeloJobProbe.new("41").serialize
 
     expect(data["arguments"]).to eq([ "41" ])
     expect(data["rafelo_request_id"]).to eq("request-1")
-    expect(data["rafelo_trace_id"]).to eq("trace-1")
+    expect(data["rafelo_trace_id"]).to eq("a" * 32)
+    expect(data["rafelo_trace_sampled"]).to be(true)
+  end
+
+  it "carries the opaque viewer id for job lines" do
+    Rafelo::Core::Current.viewer = Rafelo::Core::Viewer.new(id: "7", name: "Ada")
+
+    data = RafeloJobProbe.new("41").serialize
+
+    expect(data["rafelo_viewer"]).to match(/\A[0-9a-f]{16}\z/)
+    expect(data["rafelo_viewer"]).not_to eq("7")
+    expect(data["rafelo_viewer"]).to eq(Rafelo::Core::LogPayload.opaque_viewer("7"))
   end
 
   it "restores the ids and sets them around perform" do
@@ -48,7 +60,8 @@ RSpec.describe Rafelo::Core::BaseJob do
     data = RafeloJobProbe.new("41").serialize
 
     expect(data["rafelo_request_id"]).to be_nil
-    expect(data["rafelo_trace_id"]).to match(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+    expect(data["rafelo_trace_id"]).to match(/\A[0-9a-f]{32}\z/)
+    expect(data["rafelo_trace_sampled"]).to be(false)
   end
 
   it "does not log arguments" do
@@ -77,6 +90,7 @@ RSpec.describe Rafelo::Core::BaseJob do
       next if klass == described_class
 
       expect(klass.ancestors).to include(described_class), "#{klass} must inherit Rafelo::Core::BaseJob"
+      expect(klass.log_arguments).to be(false), "#{klass} must not log its arguments"
     end
   end
 end

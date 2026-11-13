@@ -36,18 +36,51 @@ RSpec.describe Rafelo::Core::UpstreamClient do
 
   let(:client) do
     described_class.new(name: :test_api, config: config, token_provider: token,
-                        request_id: "request-1", trace_id: "trace-1")
+                        request_id: "request-1", trace_id: "a" * 32)
   end
 
-  it "performs a GET with the identity headers" do
+  it "performs a GET with the identity and trace headers" do
     stub = stub_request(:get, "http://upstream.test/invoices")
-           .with(headers: { "Authorization" => "Bearer secret", "X-Request-Id" => "request-1" })
+           .with(headers: {
+             "Authorization" => "Bearer secret",
+             "X-Request-Id" => "request-1",
+             "traceparent" => /\A00-#{'a' * 32}-[0-9a-f]{16}-00\z/
+           })
            .to_return(status: 200, body: '{"ok":true}')
 
     response = client.get("invoices")
 
     expect(response.body).to eq('{"ok":true}')
     expect(stub).to have_been_requested.once
+  end
+
+  it "passes only the incoming sampled bit and a fresh parent id" do
+    sampled = described_class.new(
+      name: :sampled, config: config, token_provider: token,
+      request_id: "request-1", trace_id: "a" * 32, trace_sampled: true
+    )
+    parents = []
+    stub_request(:get, "http://upstream.test/invoices")
+      .with { |request| parents << request.headers["Traceparent"]; true }
+      .to_return(status: 200, body: "{}")
+
+    2.times { sampled.get("invoices") }
+
+    expect(parents.length).to eq(2)
+    expect(parents).to all(match(/\A00-#{'a' * 32}-[0-9a-f]{16}-01\z/))
+    expect(parents.uniq.length).to eq(2)
+  end
+
+  it "sends no traceparent for an invalid trace id" do
+    invalid = described_class.new(
+      name: :invalid_trace, config: config, token_provider: token,
+      request_id: "request-1", trace_id: "trace-1"
+    )
+    stub_request(:get, "http://upstream.test/invoices")
+      .with { |request| !request.headers.key?("Traceparent") }
+      .to_return(status: 200, body: "{}")
+
+    expect(invalid.get("invoices").status).to eq(200)
   end
 
   it "rejects unsafe paths before any call" do

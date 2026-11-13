@@ -28,6 +28,8 @@ module Rafelo
         page = props.respond_to?(:to_inertia) ? props.to_inertia : props
         validate_page_keys!(page)
         shared = shared_props
+        request.env["rafelo.page"] = component.to_s
+        request.env["rafelo.props_bytes"] = shared.merge(page).to_json.bytesize
         request.env["rafelo.page_props"] = props if props.respond_to?(:to_inertia)
         request.env["rafelo.urls_built"] = page_context.urls.built
         render inertia: component, props: shared.merge(page), status: status
@@ -98,6 +100,7 @@ module Rafelo
         Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
         Current.permissions = PermissionSet.new(session.permission_grants)
         Current.token_provider = ViewerTokenProvider.new(session)
+        request.env["rafelo.log.viewer"] = LogPayload.opaque_viewer(session.viewer_id)
       end
 
       def refresh_stale_grants
@@ -110,7 +113,7 @@ module Rafelo
         gateway = AuthGateway.new(
           budget: CallBudget.new(api: 3),
           request_id: request.request_id,
-          trace_id: request.request_id
+          trace_id: Current.trace_id
         )
         SessionRefresher.new(
           session: Current.session,
@@ -248,11 +251,15 @@ module Rafelo
       def assign_request_context
         Current.request_id = request.request_id
         Current.trace_id = request.env["rafelo.trace_id"].presence || request.request_id
+        Current.trace_sampled = request.env["rafelo.trace_sampled"] == true
         share_trace
       end
 
       def with_locale(&block)
-        I18n.with_locale(params[:locale] || Locales.default, &block)
+        I18n.with_locale(params[:locale] || Locales.default) do
+          request.env["rafelo.locale"] = I18n.locale.to_s
+          block.call
+        end
       end
 
       def underscore_param_keys

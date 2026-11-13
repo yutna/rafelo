@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "faraday/net_http_persistent"
+require "securerandom"
 require "stoplight"
 
 module Rafelo
@@ -15,18 +16,20 @@ module Rafelo
       end
       self.transaction_baseline = 0
 
-      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil, kind: :page)
+      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, trace_sampled: nil, deadline: nil, kind: :page)
         new(name: name, config: config, token_provider: token_provider, budget: budget,
-            request_id: request_id, trace_id: trace_id, deadline: deadline, kind: kind)
+            request_id: request_id, trace_id: trace_id, trace_sampled: trace_sampled,
+            deadline: deadline, kind: kind)
       end
 
-      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, deadline: nil, kind: :page)
+      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, trace_sampled: nil, deadline: nil, kind: :page)
         @name = name.to_sym
         @config = config
         @token_provider = token_provider
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
+        @trace_sampled = trace_sampled.nil? ? Current.trace_sampled == true : trace_sampled
         @kind = kind.to_sym
         @deadline = deadline || RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
@@ -210,11 +213,20 @@ module Rafelo
         raise ArgumentError, "token provider must respond to #token" unless @token_provider.respond_to?(:token)
 
         result["X-Request-Id"] = @request_id.to_s if @request_id
-        result["traceparent"] = "00-#{@trace_id}-#{@request_id}-01" if @trace_id && @request_id
+        traceparent = traceparent_header
+        result["traceparent"] = traceparent if traceparent
         result["Authorization"] = "Bearer #{@token_provider.token}" if @token_provider.token
         result["Idempotency-Key"] = idempotency_key.to_s if idempotency_key && @config.idempotency_keys
         result["If-Match"] = if_match.to_s if if_match
         result
+      end
+
+      def traceparent_header
+        trace_id = @trace_id.to_s
+        return unless trace_id.match?(/\A[0-9a-f]{32}\z/)
+        return if trace_id == "0" * 32
+
+        "00-#{trace_id}-#{SecureRandom.hex(8)}-#{@trace_sampled ? '01' : '00'}"
       end
 
       def validate_headers!(headers)

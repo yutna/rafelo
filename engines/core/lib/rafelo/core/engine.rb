@@ -40,7 +40,8 @@ module Rafelo
         app.config.i18n.default_locale = Rafelo::Core::Locales.default.to_sym
         app.config.middleware.insert_after ActionDispatch::DebugExceptions, Rafelo::Core::LocaleMiddleware
         app.config.middleware.insert_after ActionDispatch::RequestId, Rafelo::Core::TraceMiddleware
-        app.config.middleware.insert_after Rafelo::Core::TraceMiddleware, Rafelo::Core::BodyLimit
+        app.config.middleware.insert_after Rafelo::Core::TraceMiddleware, Rafelo::Core::LogContextMiddleware
+        app.config.middleware.insert_after Rafelo::Core::LogContextMiddleware, Rafelo::Core::BodyLimit
         app.config.middleware.insert_before ActionDispatch::ShowExceptions, Rafelo::Core::PermissionsPolicy
         app.config.after_initialize { Rafelo::Core::Modules.validate! }
         app.config.exceptions_app = ->(env) { Rafelo::Core::ExceptionsApp.call(env) }

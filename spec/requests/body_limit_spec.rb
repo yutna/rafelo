@@ -9,7 +9,8 @@ RSpec.describe "Core report body limits", type: :request do
     body = JSON.parse(response.body).fetch("error")
     expect(body["code"]).to eq("request.entity_too_large")
     expect(body["requestId"]).to be_present
-    expect(body["traceId"]).to eq("trace-413")
+    expect(body["traceId"]).to match(/\A[0-9a-f]{32}\z/)
+    expect(body["traceId"]).not_to eq("trace-413")
     expect(response.headers["Cache-Control"]).to include("no-store")
     expect(response.headers["Permissions-Policy"]).to eq(Rafelo::Core::PermissionsPolicy::VALUE)
     expect(response.headers["X-Content-Type-Options"]).to eq("nosniff")

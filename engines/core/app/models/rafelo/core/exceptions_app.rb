@@ -13,7 +13,9 @@ module Rafelo
         code = code_for(status)
         locale = locale_for(env, request)
         request_id = request.request_id
-        trace_id = request.get_header("HTTP_X_REQUEST_ID").presence || request_id
+        trace_id = request.get_header("rafelo.trace_id").presence ||
+                   env["rafelo.trace_id"].presence ||
+                   SecureRandom.hex(16)
 
         payload = I18n.with_locale(locale) do
           {
