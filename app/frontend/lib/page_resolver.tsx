@@ -4,6 +4,7 @@ import { AppShell } from "../layouts/app_shell";
 import { AuthShell } from "../layouts/auth_shell";
 import { BareShell } from "../layouts/bare_shell";
 import { LayoutRoot } from "../layouts/layout_root";
+import { PageErrorBoundary } from "../components/page_error_boundary";
 import type { LayoutName } from "./layout_name";
 import { setLocale } from "./i18n";
 
@@ -65,7 +66,11 @@ function withLayout(component: PageComponent, name: string): PageComponent {
   const layoutName = component.layoutName ?? "app";
   const wrapper: PageComponent = (props) => {
     const Page = component;
-    return <Page {...props} />;
+    return (
+      <PageErrorBoundary>
+        <Page {...props} />
+      </PageErrorBoundary>
+    );
   };
   wrapper.layout = LAYOUTS[layoutName] ?? LAYOUTS.app;
   compiled.set(name, wrapper);

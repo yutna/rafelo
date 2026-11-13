@@ -7,12 +7,12 @@ type HomeScreenProps = {
 
 export function HomeScreen({ message }: HomeScreenProps) {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-24">
+    <section className="mx-auto max-w-2xl px-6 py-24">
       <PageHeading
         eyebrow={t("app:home.tagline")}
         title={message}
         description={t("app:home.description")}
       />
-    </main>
+    </section>
   );
 }
