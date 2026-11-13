@@ -115,6 +115,7 @@ module Rafelo
       def page_key_base = "#{mod}/#{resource_plural}"
       def permission_read = "#{mod}:#{resource_plural}:read"
       def permission_create = "#{mod}:#{resource_plural}:create"
+      def capability_key(permission_key) = permission_key.split(":")[1..].join(".")
 
       def locales
         Rafelo::Core::Locales.available.map(&:to_s)
@@ -453,7 +454,7 @@ module Rafelo
       def write_frontend
         if effective_actions.include?("index")
           # index
-          can_keys = effective_actions.include?("new") ? "[\"#{permission_create}\"] as const" : "[] as const"
+          can_keys = effective_actions.include?("new") ? "[\"#{capability_key(permission_create)}\"] as const" : "[] as const"
           data_props = if effective_actions.include?("new")
             "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
           else
@@ -492,7 +493,7 @@ module Rafelo
             #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
           TSX
           screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
-          new_link = effective_actions.include?("new") ? "\n          {can[\"#{permission_create}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
+          new_link = effective_actions.include?("new") ? "\n          {can[\"#{capability_key(permission_create)}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
           create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
             import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
 

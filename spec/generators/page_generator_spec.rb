@@ -179,7 +179,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      described_class.start([ "billing", "widgets", "--actions=new,edit", "--skip-post-write" ], destination_root: dir)
+      described_class.start([ "billing", "widgets", "--actions=index,new,edit", "--skip-post-write" ], destination_root: dir)
 
       gateway = root.join("engines/billing/app/gateways/rafelo/billing/widgets_gateway.rb").read
       expect(gateway).to include("def create(payload:, idempotency_key:)")
@@ -197,6 +197,12 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(controller).to include("gateway(Rafelo::Billing::WidgetsGateway).update")
       expect(controller).to include("Rafelo::Core::ValidationFailed")
       expect(controller).to include("resource.conflict")
+
+      index_schema = root.join("engines/billing/app/frontend/pages/widgets/index.schema.ts").read
+      expect(index_schema).to include('can: ["widgets.create"] as const')
+      expect(index_schema).not_to include("billing:widgets:create")
+      index_screen = root.join("engines/billing/app/frontend/screens/widgets/index_screen.tsx").read
+      expect(index_screen).to include('can["widgets.create"]?.allowed')
 
       request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
       expect(request_spec).to include("creates through the gateway, redirects with 303, and replays without a second call")
