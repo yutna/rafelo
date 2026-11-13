@@ -1,5 +1,12 @@
 {
   "errors": {
+    "fields": {
+      "blank": "can't be blank",
+      "too_long": "is too long",
+      "taken": "has already been taken",
+      "invalid": "is not valid",
+      "conflict": "The record changed since you opened it."
+    },
     "upstream_timeout": "The upstream service timed out.",
     "upstream_unavailable": "The upstream service is unavailable.",
     "upstream_circuit_open": "The upstream service is paused. Try again later.",

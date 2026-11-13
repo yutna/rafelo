@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "../app/models/dummy_engine/dummy_widgets_props"
+require_relative "../app/models/dummy_engine/dummy_widget_form"
 require_relative "../app/controllers/dummy_engine/widgets_controller"
 
 module DummyEngine
@@ -15,6 +16,10 @@ module DummyEngine
       get "flash", to: "widgets#set_flash"
       get "whoami", to: "widgets#whoami"
       get "expired", to: "widgets#expired"
+      post "widgets", to: "widgets#create"
+      post "widgets/validation", to: "widgets#validation"
+      post "widgets/conflict", to: "widgets#conflict"
+      post "widgets/boom", to: "widgets#boom"
     end
   end
 end

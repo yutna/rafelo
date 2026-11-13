@@ -34,6 +34,16 @@ module Rafelo
         end
       end
 
+      # Every write ends in a 303: success, shape failure, upstream 422 or a
+      # conflict. Only unexpected failures render the error page (BE-13).
+      def redirect_after_write(path, notice: nil, alert: nil, errors: nil)
+        flash[:notice] = notice if notice
+        flash[:alert] = alert if alert
+        options = { status: :see_other }
+        options[:inertia] = { errors: errors } if errors.present?
+        redirect_to path, **options
+      end
+
       def gateway(klass)
         klass.new(
           token_provider: Current.token_provider,
