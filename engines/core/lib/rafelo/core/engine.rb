@@ -9,6 +9,10 @@ module Rafelo
     class Engine < ::Rails::Engine
       isolate_namespace Rafelo::Core
 
+      initializer "rafelo_core.migrations" do |app|
+        app.config.paths["db/migrate"] << root.join("db/migrate")
+      end
+
       initializer "rafelo_core.runtime" do |app|
         app.config.x.executor_threads = 4
         app.config.x.puma_threads = ENV.fetch("RAILS_MAX_THREADS", 3).to_i
