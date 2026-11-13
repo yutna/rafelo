@@ -10,9 +10,26 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_12_120200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "core_sessions", force: :cascade do |t|
+    t.string "token_digest", null: false
+    t.string "viewer_id", null: false
+    t.string "viewer_name"
+    t.text "access_token"
+    t.text "refresh_token"
+    t.datetime "access_expires_at"
+    t.datetime "refreshing_since"
+    t.integer "refresh_version", default: 0, null: false
+    t.datetime "expires_at", null: false
+    t.string "locale", default: "en", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_core_sessions_on_expires_at"
+    t.index ["token_digest"], name: "index_core_sessions_on_token_digest", unique: true
+  end
 
   create_table "solid_cable_messages", force: :cascade do |t|
     t.binary "channel", null: false

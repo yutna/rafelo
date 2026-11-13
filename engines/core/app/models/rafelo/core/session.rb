@@ -1,0 +1,73 @@
+# frozen_string_literal: true
+
+require "digest"
+
+module Rafelo
+  module Core
+    class Session < ActiveRecord::Base
+      self.table_name = "core_sessions"
+
+      encrypts :access_token, :refresh_token
+
+      def self.start(viewer:, access_token:, refresh_token:, access_expires_at:, locale: Locales.default, ttl: 12.hours)
+        token = SecureRandom.urlsafe_base64(32)
+        session = create!(
+          token_digest: digest(token),
+          viewer_id: viewer.id.to_s,
+          viewer_name: viewer.respond_to?(:name) ? viewer.name.to_s : nil,
+          access_token: access_token,
+          refresh_token: refresh_token,
+          access_expires_at: access_expires_at,
+          expires_at: ttl.from_now,
+          locale: locale
+        )
+        [ session, token ]
+      end
+
+      def self.digest(token)
+        Digest::SHA256.hexdigest(token.to_s)
+      end
+
+      def self.find_by_token(token)
+        find_by(token_digest: digest(token))
+      end
+
+      def self.sweep
+        where("expires_at < ?", Time.current).delete_all
+      end
+
+      def claim_refresh!(timeout:)
+        self.class
+          .where(id: id, refresh_version: refresh_version)
+          .where("refreshing_since IS NULL OR refreshing_since < now() - make_interval(secs => ?)", timeout)
+          .update_all("refresh_version = refresh_version + 1, refreshing_since = now()")
+          .positive?
+      end
+
+      def complete_refresh!(access_token:, refresh_token:, access_expires_at:)
+        reload
+        update!(
+          access_token: access_token,
+          refresh_token: refresh_token,
+          access_expires_at: access_expires_at,
+          refreshing_since: nil
+        )
+      end
+
+      def fail_refresh!
+        update!(refreshing_since: nil)
+      end
+
+      def expires_at=(value)
+        super
+      end
+
+      def serializable_hash(options = nil)
+        options = (options || {}).merge(
+          except: Array(options&.fetch(:except, nil)) + %i[access_token refresh_token token_digest]
+        )
+        super(options)
+      end
+    end
+  end
+end
