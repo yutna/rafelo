@@ -1,29 +1,21 @@
-import type { InputHTMLAttributes } from "react";
+import { FieldError, Input, Label, TextField as AriaTextField } from "react-aria-components";
 
-type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
+type TextFieldProps = {
   testId: string;
   label: string;
+  name?: string;
+  type?: string;
   error?: string;
+  autoComplete?: string;
+  isRequired?: boolean;
 };
 
-export function TextField({ testId, label, error, id, ...props }: TextFieldProps) {
-  const inputId = id ?? testId;
+export function TextField({ testId, label, error, ...props }: TextFieldProps) {
   return (
-    <label className="block text-sm font-medium text-slate-700" htmlFor={inputId}>
-      {label}
-      <input
-        id={inputId}
-        data-testid={testId}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${inputId}-error` : undefined}
-        className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
-        {...props}
-      />
-      {error ? (
-        <span id={`${inputId}-error`} role="alert" className="mt-1 block text-danger">
-          {error}
-        </span>
-      ) : null}
-    </label>
+    <AriaTextField {...props} isInvalid={Boolean(error)} className="block text-sm font-medium text-slate-700">
+      <Label>{label}</Label>
+      <Input data-testid={testId} className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2" />
+      <FieldError className="mt-1 block text-danger">{error}</FieldError>
+    </AriaTextField>
   );
 }

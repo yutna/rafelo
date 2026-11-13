@@ -362,7 +362,7 @@ jobs:
 
       - name: Prepare database
         env:
-          RAILS_ENV: development
+          RAILS_ENV: test
           DB_HOST: localhost
           DB_USER: postgres
           DB_PASSWORD: postgres
@@ -370,7 +370,7 @@ jobs:
 
       - name: Run design-system e2e
         env:
-          RAILS_ENV: development
+          RAILS_ENV: test
           DB_HOST: localhost
           DB_USER: postgres
           DB_PASSWORD: postgres

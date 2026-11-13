@@ -1,6 +1,6 @@
 @import "../../../engines/design_system/app/frontend/theme.css";
 
-@source "../../../engines/*/app/frontend";
+@source "../../../engines";
 
 @theme {
   --font-sans:

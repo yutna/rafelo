@@ -1,21 +1,32 @@
-import { usePage } from "@inertiajs/react";
 import { useEffect, useRef } from "react";
 
+type NavigateDetail = { page?: { url?: string; props?: { trace?: { requestId?: string } } }; type?: string };
+
 export function PageAnnouncer() {
-  const page = usePage();
-  const lastUrl = useRef<string | null>(null);
-  const live = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLElement | null>(null);
+  const liveRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (lastUrl.current === page.url) return;
-    lastUrl.current = page.url;
-    const heading = document.querySelector<HTMLElement>("main h1, main [role='heading']");
-    heading?.setAttribute("tabindex", "-1");
-    heading?.focus();
-    if (live.current) {
-      live.current.textContent = document.title;
-    }
-  }, [page.url]);
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<NavigateDetail>).detail;
+      if (!detail || detail.type === "initial" || detail.type === "history") return;
+      const next = new URL(detail.page?.url ?? "", window.location.origin);
+      const current = new URL(window.location.href);
+      if (next.pathname === current.pathname) return;
 
-  return <div ref={live} aria-live="polite" aria-atomic="true" className="sr-only" data-testid="page-announcer" />;
+      requestAnimationFrame(() => {
+        const heading = document.querySelector<HTMLElement>("main h1, main [role='heading']");
+        if (!heading) return;
+        heading.setAttribute("tabindex", "-1");
+        heading.focus({ preventScroll: true });
+        headingRef.current = heading;
+        if (liveRef.current) liveRef.current.textContent = heading.textContent ?? "";
+      });
+    };
+
+    document.addEventListener("inertia:navigate", handler);
+    return () => document.removeEventListener("inertia:navigate", handler);
+  }, []);
+
+  return <div ref={liveRef} aria-live="polite" aria-atomic="true" className="sr-only" data-testid="page.announcer" />;
 }
