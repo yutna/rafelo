@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Post-restore drill step (OPS-07): empty core_sessions with the migration
+# role, then prove the restored database carries none before traffic.
+#
+# This script starts after the provider or pgBackRest has restored the base
+# backup and WAL into a scratch database. The runbook in
+# docs/operations/backup-restore.md describes the restore itself.
+set -euo pipefail
+
+: "${RESTORE_DATABASE_URL:?set RESTORE_DATABASE_URL to the scratch database}"
+: "${RESTORE_RECOVERY_POINT:?set RESTORE_RECOVERY_POINT to the chosen recovery target}"
+
+rails_env="${RAILS_ENV:-test}"
+started="$(date +%s)"
+
+DATABASE_URL="$RESTORE_DATABASE_URL" \
+RAILS_ENV="$rails_env" \
+RAFELO_DATABASE_ROLE=migration \
+RAFELO_RESTORE_CONFIRMED=1 \
+  bin/rails rafelo:restore:prepare
+
+sessions="$(
+  DATABASE_URL="$RESTORE_DATABASE_URL" \
+  RAILS_ENV="$rails_env" \
+    bin/rails runner 'puts Rafelo::Core::Session.count'
+)"
+
+if [ "$sessions" != "0" ]; then
+  echo "restore_drill: core_sessions still holds $sessions rows" >&2
+  exit 1
+fi
+
+elapsed="$(( $(date +%s) - started ))"
+printf 'restore_drill: recovery_point=%s recovery_time_seconds=%s sessions=%s\n' \
+  "$RESTORE_RECOVERY_POINT" "$elapsed" "$sessions"
