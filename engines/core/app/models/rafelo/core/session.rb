@@ -5,14 +5,20 @@ require "digest"
 module Rafelo
   module Core
     class Session < ActiveRecord::Base
+      FORMAT_VERSION = 1
+      READABLE_FORMAT_VERSIONS = [ FORMAT_VERSION ].freeze
+
       self.table_name = "core_sessions"
 
       encrypts :access_token, :refresh_token
+
+      scope :readable_format, -> { where(format_version: READABLE_FORMAT_VERSIONS) }
 
       def self.start(viewer:, access_token:, refresh_token:, access_expires_at:, locale: Locales.default, ttl: 12.hours, grants: [])
         token = SecureRandom.urlsafe_base64(32)
         session = create!(
           token_digest: digest(token),
+          format_version: FORMAT_VERSION,
           viewer_id: viewer.id.to_s,
           viewer_name: viewer.respond_to?(:name) ? viewer.name.to_s : nil,
           access_token: access_token,
@@ -34,7 +40,7 @@ module Rafelo
       end
 
       def self.find_by_token(token)
-        find_by(token_digest: digest(token))
+        readable_format.find_by(token_digest: digest(token))
       end
 
       def viewer
