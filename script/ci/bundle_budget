@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "yaml"
+require "zlib"
+
+root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+manifest_path = File.join(root, "public/vite/.vite/manifest.json")
+abort "bundle_budget: missing #{manifest_path}; run npm run build first" unless File.file?(manifest_path)
+
+manifest = JSON.parse(File.read(manifest_path))
+budgets = YAML.load_file(File.join(root, "config/budgets.yml")).fetch("defaults")
+
+def gzip_kb(root, manifest, key, seen = [])
+  return 0 if seen.include?(key)
+
+  seen << key
+  entry = manifest.fetch(key)
+  path = File.join(root, "public/vite", entry.fetch("file"))
+  bytes = File.file?(path) ? Zlib.gzip(File.binread(path)).bytesize : 0
+  imports = Array(entry["imports"])
+  bytes + imports.sum { |child| gzip_kb(root, manifest, child, seen) }
+end
+
+def kb(bytes) = (bytes / 1024.0).round(1)
+
+entry_key = "entrypoints/application.tsx"
+abort "bundle_budget: no application entry" unless manifest.key?(entry_key)
+page_keys = manifest.keys.select { |key| key.start_with?("pages/") }
+abort "bundle_budget: no page chunks" if page_keys.empty?
+
+failures = []
+entry = kb(gzip_kb(root, manifest, entry_key))
+failures << "entry #{entry}KB > #{budgets['js_entry_gzip_kb']}KB" if entry > budgets["js_entry_gzip_kb"]
+
+page_sizes = page_keys.to_h do |key|
+  bytes = gzip_kb(root, manifest, key) - gzip_kb(root, manifest, "entrypoints/application.tsx")
+  [ key, kb(bytes) ]
+end
+page_sizes.each do |key, size|
+  failures << "#{key} #{size}KB > #{budgets['js_page_chunk_gzip_kb']}KB" if size > budgets["js_page_chunk_gzip_kb"]
+end
+
+smallest = page_sizes.values.min
+initial = entry + smallest
+failures << "initial #{initial}KB > #{budgets['js_initial_gzip_kb']}KB" if initial > budgets["js_initial_gzip_kb"]
+
+if failures.any?
+  failures.each { |failure| warn "bundle_budget: #{failure}" }
+  exit 1
+end
+puts "bundle_budget: entry=#{entry}KB pages=#{page_sizes.values.max}KB initial=#{initial}KB"

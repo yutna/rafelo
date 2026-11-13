@@ -10,7 +10,7 @@ module Rafelo
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
       rescue_from ApplicationError, with: :render_application_error
 
-      allow_browser versions: :modern
+      allow_browser versions: :modern, block: :render_unsupported_browser, unless: :browser_check_exempt?
       before_action :load_session
       before_action :require_module_enabled
       before_action :set_response_headers
@@ -28,6 +28,11 @@ module Rafelo
 
       # Used by throttle handlers that run before the base callbacks. The
       # locale comes from the path, not from the around action.
+      def render_unsupported_browser
+        response.headers["Cache-Control"] = "no-store"
+        render template: "rafelo/core/unsupported_browser", layout: false, status: :not_acceptable
+      end
+
       def render_error(code)
         I18n.with_locale(params[:locale] || Locales.default) do
           render_application_error(ApplicationError.new(code))
@@ -135,6 +140,10 @@ module Rafelo
         return unless entry&.flag && !Flags.enabled?(entry.flag)
 
         raise ActionController::RoutingError, "Not Found"
+      end
+
+      def browser_check_exempt?
+        request.path.start_with?("/core/")
       end
 
       def require_viewer

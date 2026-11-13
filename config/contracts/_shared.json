@@ -86,8 +86,7 @@
                 ]
               },
               "href": {
-                "type": "string",
-                "pattern": "^\\/(?!\\/)"
+                "type": "string"
               }
             },
             "required": [
@@ -122,8 +121,7 @@
             "type": "string"
           },
           "path": {
-            "type": "string",
-            "pattern": "^\\/(?!\\/)"
+            "type": "string"
           },
           "icon": {
             "type": "string"

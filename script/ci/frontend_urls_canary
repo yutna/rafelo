@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/app/frontend"
+echo 'const x = <div dangerouslySetInnerHTML={{ __html: "x" }} />;' > "$tmp/app/frontend/bad.tsx"
+
+if "$root/script/ci/frontend_urls" "$tmp" >/dev/null 2>&1; then
+  echo "frontend_urls_canary: raw HTML passed" >&2
+  exit 1
+fi
+
+echo "frontend_urls_canary: checked 1 case"

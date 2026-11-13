@@ -9,3 +9,8 @@ export function designSystemName(): string {
 export function designSystemGem(): string {
   return DESIGN_SYSTEM_GEM;
 }
+
+export { Image } from "../image";
+export { Link } from "../link";
+export { Deferred } from "../deferred";
+export { isSafeUrl, isAppPath } from "../safe_url";
