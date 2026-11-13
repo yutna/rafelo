@@ -8,7 +8,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
   end
 
   it "does not expose the post-write escape hatch" do
-    expect(described_class.class_options).not_to have_key(:skip_post_write)
+    expect(described_class.class_options).not_to have_key(:skip_post_write) # see #288
   end
 
   it "refuses a resource the module already has without adding files" do
