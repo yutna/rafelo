@@ -388,3 +388,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** The format guard now excludes `engines/example_*` job classes (GEN-08 wins over SEC-16 for removable examples) and the v0.16.0 fixture is unchanged from its tag. The removal job deletes the examples and runs `bin/ci` without editing kernel fixtures. The export job now pages through the filtered collection and escapes CSV fields, the examples use their locale catalogs and `can`, pagination/filter links preserve query state, update requires a version, export uses `IdempotencyClaim`, and the show edit link is capability-gated. Remaining example-depth S2s (browser flow, shared `formatMoney`, root TypeScript example-import scope) are carried in #314.
 
 **Spec feedback.** GEN-08 should say whether example-engine jobs are part of the kernel persisted-format fixtures, or explicitly exempt them. It should also say whether examples need a browser flow when the template's Playwright config only names design_system. Related IDs: GEN-08; SEC-16; CT-08; FE-11; BE-15; TS-01; TS-07.
+
+## 2026-11-13 — v0.18.0 — issue #317
+
+**What happened.** The first example_orders browser journey found two runtime gaps that the request specs could not see: the deferred chart block raised `NameError` on every deferred reload, and a conflicting edit returned a base error in props that no screen rendered.
+
+**Root cause.** Inertia evaluates a deferred prop block with `instance_exec` on the controller, so a block that calls an instance method of the props object loses that receiver. The edit and new screens passed only field errors to the form fields, and the request specs asserted `props.errors.base` rather than a visible state.
+
+**What changed.** The index props compute the chart data before passing a block that closes over the value; the order form renders a base error with a test id on both new and edit; the browser flow signs in through the real form, reads the form token from the rendered page, asserts the PATCH carries it, hits the 409, and recovers with the fresh version. A stateful fake upstream serves the committed fixtures during `script/ci/e2e`, which now runs Rails with `E2E_SERVER=1` (CSRF on) and removes the BFF-owned test rows after the run.
+
+**Spec feedback.** TS-03 describes the fake upstream being mounted in the app, while this flow runs it as a separate Rack process; the spec could name the allowed process boundary for a browser-only upstream. Related IDs: GEN-08; TS-01; TS-03; BE-13; BE-15.

@@ -29,6 +29,7 @@ export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) 
         <OrderFormFields
           customerName={form.data.customerName}
           status={form.data.status}
+          baseError={errors.base}
           errors={errors}
           onCustomerNameChange={(value) => form.setData("customerName", value)}
           onStatusChange={(value) => form.setData("status", value)}

@@ -14,6 +14,7 @@ module Rafelo
       end
 
       def envelope
+        chart = chart_data
         {
           data: {
             items: @page.items.map { |order| row(order) },
@@ -22,7 +23,7 @@ module Rafelo
             filterHrefs: filter_hrefs,
             previousHref: page_href([ @query.page - 1, 1 ].max),
             nextHref: @query.page < page_count ? page_href(@query.page + 1) : nil,
-            chart: InertiaRails.defer { chart_data }
+            chart: InertiaRails.defer { chart }
           },
           meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
           query: @query.to_h,
