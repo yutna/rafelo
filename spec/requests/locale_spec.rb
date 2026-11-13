@@ -9,14 +9,14 @@ RSpec.describe "Locale routing", type: :request do
   end
 
   it "renders the locale-prefixed page in English" do
-    get "/en"
+    get "/en", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('"message":"Rafelo"')
   end
 
   it "renders the locale-prefixed page in Thai" do
-    get "/th"
+    get "/th", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("ราฟีโล")

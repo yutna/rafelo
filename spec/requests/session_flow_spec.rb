@@ -70,6 +70,16 @@ RSpec.describe "Session refresh and expiry", type: :request do
     ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
   end
 
+  it "re-fetches stale grants while the access token is still fresh" do
+    stub_upstream(:post, "/auth/refresh", fixture: "auth/refresh.json", base_url: "http://localhost:4000")
+    session, cookie = session_with(expires_at: 5.minutes.from_now, grants_at: 10.minutes.ago)
+
+    get "/en", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:ok)
+    expect(session.reload.permission_grants).to include("billing:invoice:create")
+  end
+
   it "clears the cookie and redirects to sign-in for a dead session error" do
     session, cookie = session_with
     get "/en/dummy/expired", headers: { "Cookie" => cookie }
@@ -97,7 +107,8 @@ RSpec.describe "Session refresh and expiry", type: :request do
 
     get "/en", headers: { "Cookie" => cookie }
 
-    expect(response).to have_http_status(:ok)
+    expect(response).to have_http_status(:found)
+    expect(response.location).to end_with("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
   end

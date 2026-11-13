@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Security headers", type: :request do
   it "sets the security headers and a nonce-based CSP" do
-    get "/en"
+    get "/en", headers: auth_headers
 
     expect(response.headers["X-Frame-Options"]).to eq("DENY")
     expect(response.headers["X-Content-Type-Options"]).to eq("nosniff")

@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Downloads", type: :request do
   it "streams the body with attachment headers and a sanitized filename" do
-    get "/en/dummy/download"
+    get "/en/dummy/download", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to eq("hello world")
@@ -14,7 +14,7 @@ RSpec.describe "Downloads", type: :request do
   end
 
   it "answers the error page before the first byte when the upstream fails" do
-    get "/en/dummy/download_failure"
+    get "/en/dummy/download_failure", headers: auth_headers
 
     expect(response).to have_http_status(:service_unavailable)
     expect(response.headers["Content-Disposition"]).to be_nil

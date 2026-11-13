@@ -5,6 +5,7 @@ port="${E2E_PORT:-3100}"
 log="$(mktemp)"
 rm -f tmp/pids/server.pid
 RAILS_ENV=test bin/vite build >/tmp/rafelo-e2e-vite-build.log 2>&1
+export E2E_SESSION_COOKIE="$(RAILS_ENV=test bin/rails runner 'viewer = Struct.new(:id, :name).new(7, "Ada"); _, token = Rafelo::Core::Session.start(viewer: viewer, access_token: "access", refresh_token: "refresh", access_expires_at: 5.minutes.from_now, grants: []); print "session_token=#{token}"')"
 RAILS_ENV=test bin/rails server -p "$port" >"$log" 2>&1 &
 rails_pid=$!
 trap 'kill "$rails_pid" 2>/dev/null || true; rm -f "$log"' EXIT

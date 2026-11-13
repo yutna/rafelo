@@ -32,7 +32,7 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "returns 403 auth.forbidden when an action forgets authorize" do
-    get "/en/probe/missing"
+    get "/en/probe/missing", headers: auth_headers
 
     expect(response).to have_http_status(:forbidden)
     expect(response.parsed_body.dig("error", "code")).to eq("auth.forbidden")
@@ -40,7 +40,7 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "renders the shared error page for an Inertia denial" do
-    get "/th/probe/denied", headers: { "X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call }
+    get "/th/probe/denied", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call)
 
     expect(response).to have_http_status(:forbidden)
     page = JSON.parse(response.body)
@@ -51,7 +51,7 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "renders the shared error page for an HTML denial" do
-    get "/th/probe/denied"
+    get "/th/probe/denied", headers: auth_headers
 
     expect(response).to have_http_status(:forbidden)
     expect(response.body).to include('"component":"errors/show"')
@@ -60,7 +60,7 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "renders the Thai error message and both ids when authorization is denied" do
-    get "/th/probe/missing"
+    get "/th/probe/missing", headers: auth_headers
 
     expect(response).to have_http_status(:forbidden)
     body = response.parsed_body.fetch("error")
@@ -72,7 +72,7 @@ RSpec.describe "Authorization", type: :request do
   end
 
   it "allows an action that authorizes through its policy" do
-    get "/en/probe/authorized?fooBar=probe"
+    get "/en/probe/authorized?fooBar=probe", headers: auth_headers
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to eq("authorized probe")
