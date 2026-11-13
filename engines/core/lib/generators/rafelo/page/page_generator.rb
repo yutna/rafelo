@@ -895,7 +895,7 @@ module Rafelo
                 .to_return(status: 200, body: { items: items }.to_json,
                            headers: { "Content-Type" => "application/json" })
 
-              expect { get "/en/#{mod}/#{resource_plural}", headers: headers }.to within_budgets("#{page_key_base}/index")
+              expect { get "/en/#{mod}/#{resource_plural}?per_page=\#{Rafelo::Core::ListQuery.max_per_page}", headers: headers }.to within_budgets("#{page_key_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/index")
               expect(response).to be_within_props_budget("#{page_key_base}/index")
