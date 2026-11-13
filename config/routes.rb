@@ -14,6 +14,9 @@ Rails.application.routes.draw do
   scope ":locale", locale: Rafelo::Core::Locales.route_constraint do
     Rafelo::Core::Modules.each do |mod|
       mount mod.engine => mod.path, as: mod.route_name
+      mod.legacy_paths.each do |old_prefix, target_path|
+        get "#{old_prefix}(/*rest)", to: Rafelo::Core::LegacyRedirect.new(mod, target_path)
+      end
     end
 
     get "sign_in", to: "sessions#new"
