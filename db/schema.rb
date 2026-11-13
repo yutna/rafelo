@@ -42,6 +42,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_035028) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "core_audits", force: :cascade do |t|
+    t.datetime "occurred_at", null: false
+    t.string "event", null: false
+    t.string "outcome", null: false
+    t.string "target"
+    t.string "viewer_id"
+    t.string "request_id"
+    t.string "trace_id"
+    t.string "ip"
+    t.string "user_agent_family"
+    t.datetime "created_at", null: false
+    t.index ["event", "occurred_at"], name: "index_core_audits_on_event_and_occurred_at"
+    t.index ["viewer_id"], name: "index_core_audits_on_viewer_id"
+  end
+
   create_table "core_exports", force: :cascade do |t|
     t.string "viewer_id", null: false
     t.string "status", default: "pending", null: false

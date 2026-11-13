@@ -22,6 +22,18 @@ Dir[File.join(patch_dir, "*.rb")].sort.each do |path|
   end
 end
 
+scan = Dir[File.join(root, "app/**/*.rb")] +
+       Dir[File.join(root, "engines/*/app/**/*.rb")] +
+       Dir[File.join(root, "lib/**/*.rb")] +
+       Dir[File.join(root, "engines/*/lib/**/*.rb")]
+scan.each do |path|
+  next if path.include?("/config/initializers/patches/")
+
+  if File.read(path).match?(/\.(class_eval|module_eval|prepend)\b/)
+    errors << "#{path.delete_prefix("#{root}/")}: patch outside config/initializers/patches"
+  end
+end
+
 if errors.any?
   errors.each { |error| warn "patches: #{error}" }
   exit 1
