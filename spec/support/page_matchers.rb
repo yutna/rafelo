@@ -27,8 +27,10 @@ module PageMatchers
     segments = page_key.to_s.split("/")
     raise ArgumentError, "invalid page key #{page_key.inspect}" if segments.empty? || segments.any? { |segment| segment.empty? || %w[. ..].include?(segment) }
 
+    module_prefix = page_key.to_s.split("/").first
+    engine_key = page_key.to_s.delete_prefix("#{module_prefix}/")
     candidates = [ Rails.root.join("config/contracts/pages", "#{page_key}.json") ] +
-                 Rails.root.glob("engines/*/config/contracts/pages/#{page_key}.json")
+                 Rails.root.glob("engines/#{module_prefix}/config/contracts/pages/#{engine_key}.json")
     candidates.find(&:file?) || raise(ArgumentError, "no schema for page #{page_key.inspect}")
   end
 
