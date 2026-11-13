@@ -1,7 +1,8 @@
 // For format details, see https://containers.dev/implementors/json_reference/.
 {
   "name": "rafelo",
-  "image": "ghcr.io/yutna/rafelo-devcontainer@sha256:4f9a4f82ce15d03b8ef96631d42334ee8cb0f88bbca85829db339b8a92a32356",
+  // Prebuilt image, also recorded in .devcontainer/image_digest:
+  // ghcr.io/yutna/rafelo-devcontainer@sha256:838f2409962d3b4d32c5e3acd5ae3befed3844e46e58eb9c57a47f6ea75e9038
   "dockerComposeFile": "compose.yaml",
   "service": "rails-app",
   "workspaceFolder": "/workspaces/rafelo",

@@ -2,7 +2,7 @@ name: rafelo
 
 services:
   rails-app:
-    image: ghcr.io/yutna/rafelo-devcontainer@sha256:4f9a4f82ce15d03b8ef96631d42334ee8cb0f88bbca85829db339b8a92a32356
+    image: ghcr.io/yutna/rafelo-devcontainer@sha256:838f2409962d3b4d32c5e3acd5ae3befed3844e46e58eb9c57a47f6ea75e9038
     volumes:
       - ..:/workspaces/rafelo:cached
     command: sleep infinity
