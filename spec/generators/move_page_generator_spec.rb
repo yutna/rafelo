@@ -85,6 +85,29 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
     end
   end
 
+  it "removes source root when moved resource was root and no index resource remains" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\n  resources :audits, only: [:show]\n  root to: \"widgets#index\"\nend\n",
+        permissions: { "billing" => { "widgets" => [ "read" ], "audits" => [ "read" ] } })
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      src_routes = File.read(root.join("engines/billing/config/routes.rb"))
+      expect(src_routes).not_to include("root to:")
+      expect(src_routes).to include("resources :audits")
+      expect(src_routes).not_to include("resources :widgets")
+    end
+  end
+
   it "restores the tree when move fails mid-run" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
