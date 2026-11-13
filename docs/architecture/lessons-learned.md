@@ -378,3 +378,13 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** Set the statement timeout to 2 minutes, added a migration guard spec that reads `deploy_timeout` from `config/deploy.yml` and a concurrent-index expand/contract fixture, and taught the preflight to require `RAILS_MASTER_KEY` in `.kamal/secrets` (or its example) and in `env.secret`, plus the scheduled advisory workflow. The canary now covers the unlucky secret file.
 
 **Spec feedback.** BE-22 should name whether the statement timeout equals or is merely bounded by `deploy_timeout`. OPS-06 should name the exact secret names a preflight must see. Related IDs: BE-22; OPS-06; WF-05.
+
+## 2026-11-13 — v0.17.0 — issues #306–#308, #313
+
+**What happened.** The GEN-08 examples landed after the independent gate audit found S1s: the v0.16.0 format fixture had been given an example job row (making a kernel compatibility check depend on an example engine), the removal job patched that fixture, and the example export CSV was formula-injectable and silently capped at 100 rows. The audit also found hardcoded English copy, an ungated edit link, dropped pagination/filter query state, an optional edit version, and a non-idempotent export POST.
+
+**Root cause.** The examples were built as a feature slice, while GEN-08 treats them as removable teaching code. The format fixture and the export job were treated as ordinary feature code rather than as kernel-adjacent proof.
+
+**What changed.** The format guard now excludes `engines/example_*` job classes (GEN-08 wins over SEC-16 for removable examples) and the v0.16.0 fixture is unchanged from its tag. The removal job deletes the examples and runs `bin/ci` without editing kernel fixtures. The export job now pages through the filtered collection and escapes CSV fields, the examples use their locale catalogs and `can`, pagination/filter links preserve query state, update requires a version, export uses `IdempotencyClaim`, and the show edit link is capability-gated. Remaining example-depth S2s (browser flow, shared `formatMoney`, root TypeScript example-import scope) are carried in #314.
+
+**Spec feedback.** GEN-08 should say whether example-engine jobs are part of the kernel persisted-format fixtures, or explicitly exempt them. It should also say whether examples need a browser flow when the template's Playwright config only names design_system. Related IDs: GEN-08; SEC-16; CT-08; FE-11; BE-15; TS-01; TS-07.
