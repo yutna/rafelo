@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "shellwords"
 require "yaml"
 
 module Rafelo
@@ -204,7 +205,20 @@ module Rafelo
           %w[bundle\ install script/ci/engine_graph npm\ run\ aliases:generate npm\ run\ permissions:generate npm\ run\ errors:generate npm\ run\ i18n:generate npm\ run\ contracts:generate].each do |cmd|
             raise Thor::Error, "post-write step failed: #{cmd}" unless run(cmd)
           end
+          format_written_files
         end
+      end
+
+      def format_written_files
+        files = Dir[root.join("engines", @target, "app/frontend/**/*.{ts,tsx,mts,json}")]
+          .concat(Dir[root.join("engines", @source, "app/frontend/**/*.{ts,tsx,mts,json}")])
+          .select { |p| File.file?(p) }
+        files.uniq!
+        return if files.empty?
+
+        rel = files.map { |p| Pathname.new(p).relative_path_from(root).to_s }
+        quoted = rel.map { |p| Shellwords.escape(p) }.join(" ")
+        raise Thor::Error, "post-write step failed: npx prettier --write" unless run("npx prettier --write #{quoted}")
       end
 
       def snapshot
