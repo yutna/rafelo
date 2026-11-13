@@ -44,6 +44,10 @@ RSpec.configure do |config|
   config.infer_spec_type_from_file_location!
   config.order = :random
 
+  # Rate limiting reads the cache when the controller class loads; clear the
+  # counters before every example so a limit is proved for real (TS-01).
+  config.before { Rails.cache.clear }
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [
     Rails.root.join('spec/fixtures')

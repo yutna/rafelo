@@ -4,6 +4,7 @@ module Rafelo
   module Core
     class BaseController < ActionController::Base
       include Pundit::Authorization
+      include Throttling
       include Rails.application.routes.mounted_helpers
 
       rescue_from Pundit::NotAuthorizedError, Pundit::AuthorizationNotPerformedError, with: :deny_access
@@ -23,6 +24,14 @@ module Rafelo
         page = props.respond_to?(:to_inertia) ? props.to_inertia : props
         validate_page_keys!(page)
         render inertia: component, props: shared_props.merge(page), status: status
+      end
+
+      # Used by throttle handlers that run before the base callbacks. The
+      # locale comes from the path, not from the around action.
+      def render_error(code)
+        I18n.with_locale(params[:locale] || Locales.default) do
+          render_application_error(ApplicationError.new(code))
+        end
       end
 
       def gateway(klass)

@@ -9,6 +9,7 @@
     "conflict": "The record changed since you opened it.",
     "validation_failed": "Check the highlighted fields.",
     "throttled": "Too many requests. Try again shortly.",
+    "entity_too_large": "The request body is too large.",
     "request_invalid": "The request was not valid.",
     "csrf_failed": "The form expired. Reload the page and try again.",
     "unexpected": "Something went wrong. Try again."

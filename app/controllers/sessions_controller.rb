@@ -4,6 +4,9 @@ class SessionsController < ApplicationController
   skip_before_action :load_session, only: %i[new create]
   before_action :skip_authorization
 
+  throttle to: 10, within: 1.minute, only: :create, name: "sign_in/ip"
+  throttle to: 30, within: 1.minute, only: :destroy, name: "sign_out/ip"
+
   def new
     render_page "sessions/new", props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token)
   end

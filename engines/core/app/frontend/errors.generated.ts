@@ -3,6 +3,7 @@ export const errors = {
   "auth.expired": { status: 401, retryable: false },
   "auth.forbidden": { status: 403, retryable: false },
   "request.csrf_failed": { status: 422, retryable: true },
+  "request.entity_too_large": { status: 413, retryable: false },
   "request.invalid": { status: 400, retryable: false },
   "request.throttled": { status: 429, retryable: true },
   "resource.conflict": { status: 409, retryable: false },
