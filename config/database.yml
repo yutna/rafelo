@@ -1,3 +1,15 @@
+<% production_password = if Rails.env.production?
+     ENV["DB_PASSWORD"].presence || Rails.application.credentials.dig(:database, :password)
+   else
+     ENV.fetch("DB_PASSWORD", "postgres")
+   end %>
+<% migration_password = if Rails.env.production?
+     ENV["DB_MIGRATION_PASSWORD"].presence || ENV["DB_PASSWORD"].presence || Rails.application.credentials.dig(:database, :migration_password)
+   else
+     ENV.fetch("DB_MIGRATION_PASSWORD", production_password)
+   end %>
+<% raise "database password is missing from the production credentials" if Rails.env.production? && production_password.blank? %>
+<% raise "migration database password is missing from the production credentials" if Rails.env.production? && migration_password.blank? %>
 default: &default
   adapter: postgresql
   encoding: unicode
@@ -5,7 +17,7 @@ default: &default
   host: <%= ENV.fetch("DB_HOST", "localhost") %>
   port: <%= ENV.fetch("DB_PORT", 5432) %>
   username: <%= ENV.fetch("DB_USER", "postgres") %>
-  password: <%= ENV.fetch("DB_PASSWORD", "postgres") %>
+  password: <%= production_password %>
 
 development:
   <<: *default
@@ -19,4 +31,4 @@ production:
   <<: *default
   database: <%= ENV.fetch("DB_NAME", "rafelo_production") %>
   username: <%= ENV["RAFELO_DATABASE_ROLE"] == "migration" ? ENV.fetch("DB_MIGRATION_USER", ENV.fetch("DB_USER", "postgres")) : ENV.fetch("DB_USER", "postgres") %>
-  password: <%= ENV["RAFELO_DATABASE_ROLE"] == "migration" ? ENV["DB_MIGRATION_PASSWORD"] : ENV["DB_PASSWORD"] %>
+  password: <%= ENV["RAFELO_DATABASE_ROLE"] == "migration" ? migration_password : production_password %>

@@ -440,14 +440,74 @@ jobs:
       - name: Remove examples and run the gate
         run: script/ci/example_removal
 
-  production-image:
+  production-image-needed:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide whether the production image build runs
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          run=false
+          reason="skip: no production image inputs changed"
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            run=true
+            reason="run: $EVENT_NAME"
+          elif [ -n "$BASE_SHA" ]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
+            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
+              run=true
+              reason="run: production image inputs changed"
+            fi
+          else
+            run=true
+            reason="run: no base to compare"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "$reason"
+
+  production-image:
+    needs: production-image-needed
+    if: needs.production-image-needed.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUNDLE_FROZEN: "false" # the throwaway module changes Gemfile.lock (OPS-06)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Create a throwaway module
+        run: bin/rails generate rafelo:module image_check
 
       - name: Build the production image
         run: docker build -t rafelo-ci .
@@ -540,7 +600,7 @@ jobs:
 
   ci-ok:
     if: always()
-    needs: [affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, examples-removable, concurrency, e2e, production-image, smoke-needed, generator-smoke]
+    needs: [affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, examples-removable, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

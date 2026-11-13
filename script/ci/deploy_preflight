@@ -6,6 +6,68 @@ require "yaml"
 root = ARGV[0] ? File.expand_path(ARGV[0]) : File.expand_path("../..", __dir__)
 Dir.chdir(root)
 
+errors = []
+def fail_with(errors, message)
+  errors << message
+end
+
+def read_yaml(errors, path)
+  unless File.file?(path)
+    errors << "#{path} is missing"
+    return {}
+  end
+
+  value = YAML.safe_load_file(path, aliases: true)
+  unless value.is_a?(Hash)
+    errors << "#{path} is not a mapping"
+    return {}
+  end
+
+  value
+rescue Psych::SyntaxError => error
+  errors << "#{path} is not valid YAML: #{error.message}"
+  {}
+end
+
+def host_count(role)
+  Array(role.is_a?(Hash) ? role["hosts"] : role).length
+end
+
+def effective_user(dockerfile)
+  stages = dockerfile.split(/^FROM\s+/i)
+  return nil if stages.length < 2
+
+  stage = stages.last
+  args = {}
+  stage.scan(/^ARG\s+([A-Za-z_][A-Za-z0-9_]*)(?:=(\S+))?/) do |name, value|
+    args[name] = value if value
+  end
+  users = stage.scan(/^USER\s+(.+)$/).flatten.map(&:strip)
+  return nil if users.empty?
+
+  user = users.last
+  user = user.gsub(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/) do
+    name = Regexp.last_match(1) || Regexp.last_match(3)
+    args[name] || Regexp.last_match(2) || ""
+  end
+  user
+end
+
+def root_user?(user)
+  return true if user.nil? || user.empty? || user.include?("$")
+
+  user.split(":").first.to_s.downcase.match?(/\A(?:root|0+)\z/)
+end
+
+def flatten_paths(value, prefix = [])
+  return [] unless value.is_a?(Hash)
+
+  value.flat_map do |key, child|
+    path = prefix + [ key.to_s ]
+    child.is_a?(Hash) ? flatten_paths(child, path) : [ path.join(".") ]
+  end
+end
+
 tracked = IO.popen(%w[git ls-files], err: File::NULL, &:read)
 abort "deploy_preflight: git ls-files failed" unless $?.success?
 
@@ -14,36 +76,192 @@ forbidden = tracked.lines(chomp: true).select do |path|
   key_file = path.start_with?("config/credentials/") && path.end_with?(".key") && path != "config/credentials/dummy.key"
   env_file || key_file || path == "config/master.key" || path == ".kamal/secrets"
 end
-abort "deploy_preflight: tracked secret files: #{forbidden.join(", ")}" if forbidden.any?
+fail_with(errors, "tracked secret files: #{forbidden.join(", ")}") if forbidden.any?
 
 secrets = ".kamal/secrets"
 if File.file?(secrets)
-  abort "deploy_preflight: .kamal/secrets must not be tracked" if tracked.include?(".kamal/secrets")
-  abort "deploy_preflight: .kamal/secrets must name RAILS_MASTER_KEY" unless File.read(secrets).include?("RAILS_MASTER_KEY")
+  fail_with(errors, ".kamal/secrets must not be tracked") if tracked.include?(".kamal/secrets")
+  fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless File.read(secrets).include?("RAILS_MASTER_KEY")
 else
   example = ".kamal/secrets.example"
   unless File.file?(example) && File.read(example).include?("RAILS_MASTER_KEY")
-    abort "deploy_preflight: .kamal/secrets.example must name RAILS_MASTER_KEY"
+    fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 end
 
-deploy = YAML.safe_load_file("config/deploy.yml", aliases: true)
-abort "deploy_preflight: config/deploy.yml is not a mapping" unless deploy.is_a?(Hash)
-abort "deploy_preflight: deploy_timeout is missing" unless deploy.key?("deploy_timeout")
-abort "deploy_preflight: proxy max_request_body is missing" unless deploy.dig("proxy", "buffering", "max_request_body")
-unless Array(deploy.dig("env", "secret")).include?("RAILS_MASTER_KEY")
-  abort "deploy_preflight: env.secret must name RAILS_MASTER_KEY"
+hook = ".kamal/hooks/pre-deploy"
+unless File.file?(hook) && File.executable?(hook)
+  fail_with(errors, "#{hook} must exist and be executable")
 end
 
 audit_workflow = ".github/workflows/audits.yml"
 abort "deploy_preflight: daily advisory workflow is missing" unless File.file?(audit_workflow)
 abort "deploy_preflight: daily advisory workflow is not scheduled" unless File.read(audit_workflow).match?(/^\s*schedule:/)
 
-servers = deploy.fetch("servers", {})
-hosts = servers.values.sum { |entry| Array(entry.is_a?(Hash) ? entry["hosts"] : entry).length }
-boot_limit = deploy.dig("boot", "limit")
-if hosts > 1 && boot_limit != 1
-  abort "deploy_preflight: more than one host needs boot.limit: 1"
+env_file = ".env.ci.production"
+unless File.file?(env_file)
+  fail_with(errors, "#{env_file} is missing")
+  env_keys = []
+else
+  env_keys = File.readlines(env_file, chomp: true)
+    .reject { |line| line.empty? || line.start_with?("#") }
+    .map { |line| line.split("=", 2).first }
 end
 
-puts "deploy_preflight: secrets, deploy timeout, advisory workflow, and boot limit safe"
+profiles = {
+  "single-host" => "config/deploy.yml",
+  "multi-host" => "config/deploy.multi.yml"
+}
+deploys = profiles.to_h { |name, path| [ name, read_yaml(errors, path) ] }
+deploys.each do |name, deploy|
+  next if deploy.empty?
+
+  path = profiles.fetch(name)
+  if File.read(path).match?(/\bSECRET_KEY_BASE(?:_DUMMY)?\b/)
+    fail_with(errors, "#{name}: #{path} must not name SECRET_KEY_BASE or SECRET_KEY_BASE_DUMMY")
+  end
+
+  unless deploy.key?("service") && deploy.key?("image")
+    fail_with(errors, "#{name}: service and image are required")
+  end
+  unless deploy["deploy_timeout"].is_a?(Integer) && deploy["deploy_timeout"].positive?
+    fail_with(errors, "#{name}: deploy_timeout must be a positive integer")
+  end
+  if deploy["asset_path"] != "/rails/public/vite"
+    fail_with(errors, "#{name}: asset_path must be /rails/public/vite")
+  end
+  unless deploy.dig("proxy", "buffering", "max_request_body").to_i.positive?
+    fail_with(errors, "#{name}: proxy.buffering.max_request_body is missing")
+  end
+  secret = Array(deploy.dig("env", "secret"))
+  unless secret == [ "RAILS_MASTER_KEY" ]
+    fail_with(errors, "#{name}: env.secret must be exactly RAILS_MASTER_KEY")
+  end
+  clear = deploy.dig("env", "clear")
+  unless clear.is_a?(Hash)
+    fail_with(errors, "#{name}: env.clear is missing")
+    clear = {}
+  end
+  missing = env_keys - clear.keys
+  fail_with(errors, "#{name}: env.clear is missing #{missing.join(", ")}") if missing.any?
+  if clear.key?("SOLID_QUEUE_IN_PUMA") && name == "multi-host"
+    fail_with(errors, "#{name}: SOLID_QUEUE_IN_PUMA must be absent when a job role runs")
+  end
+
+  hosts = deploy.fetch("servers", {}).values.sum { |role| host_count(role) }
+  if hosts > 1 && deploy.dig("boot", "limit") != 1
+    fail_with(errors, "#{name}: more than one host needs boot.limit: 1")
+  end
+  if name == "single-host" && hosts != 1
+    fail_with(errors, "#{name}: config/deploy.yml must list exactly one host")
+  end
+  if name == "multi-host" && hosts < 2
+    fail_with(errors, "#{name}: config/deploy.multi.yml must list more than one host")
+  end
+
+  storage = clear["ACTIVE_STORAGE_SERVICE"]
+  unless %w[local amazon].include?(storage)
+    fail_with(errors, "#{name}: ACTIVE_STORAGE_SERVICE must be local or amazon")
+  end
+  if name == "single-host"
+    fail_with(errors, "#{name}: ACTIVE_STORAGE_SERVICE must be local") unless storage == "local"
+    unless Array(deploy["volumes"]).any? { |volume| volume.to_s.include?("/rails/storage") }
+      fail_with(errors, "#{name}: Disk Active Storage needs the /rails/storage volume")
+    end
+  else
+    fail_with(errors, "#{name}: ACTIVE_STORAGE_SERVICE must be amazon") unless storage == "amazon"
+    fail_with(errors, "#{name}: managed Active Storage must not mount a host volume") if deploy.key?("volumes")
+    fail_with(errors, "#{name}: managed PostgreSQL must not use an accessory") if deploy.key?("accessories")
+    unless deploy.dig("servers", "job", "cmd") == "bin/jobs"
+      fail_with(errors, "#{name}: the job role must run bin/jobs")
+    end
+  end
+end
+
+single = deploys["single-host"]
+multi = deploys["multi-host"]
+unless single.empty? || multi.empty?
+  %w[service image deploy_timeout asset_path].each do |key|
+    fail_with(errors, "profiles use different #{key}") unless single[key] == multi[key]
+  end
+  unless single.dig("builder", "arch") == multi.dig("builder", "arch")
+    fail_with(errors, "profiles use different builder.arch")
+  end
+end
+
+postgres = single.dig("accessories", "db", "image")
+if postgres.nil?
+  fail_with(errors, "single-host: the PostgreSQL accessory is missing")
+elsif postgres !~ /\Apostgres:(\d+)\.\d+(?:\.\d+)?@sha256:[0-9a-f]{64}\z/
+  fail_with(errors, "single-host: the PostgreSQL accessory must be version and digest pinned")
+else
+  postgres_major = Regexp.last_match(1)
+  if File.file?(".devcontainer/compose.yaml")
+    devcontainer = File.read(".devcontainer/compose.yaml")
+    devcontainer_major = devcontainer[/image:\s+postgres:(\d+)\./, 1]
+    if devcontainer_major && devcontainer_major != postgres_major
+      fail_with(errors, "single-host: PostgreSQL major #{postgres_major} does not match the Dev Container major #{devcontainer_major}")
+    end
+  end
+end
+
+dockerfile = File.file?("Dockerfile") ? File.read("Dockerfile") : ""
+if dockerfile.empty?
+  fail_with(errors, "Dockerfile is missing")
+elsif root_user?(effective_user(dockerfile))
+  fail_with(errors, "the final image stage must run as a non-root user")
+end
+
+if File.file?(".kamal/secrets") || File.file?(".kamal/secrets.example")
+  secrets_text = File.file?(".kamal/secrets") ? File.read(".kamal/secrets") : File.read(".kamal/secrets.example")
+  accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
+  missing = accessory_secrets - secrets_text.scan(/^([A-Za-z_][A-Za-z0-9_]*)=/).flatten
+  fail_with(errors, "database accessory secrets are missing from .kamal/secrets: #{missing.join(", ")}") if missing.any?
+end
+
+production_key_available = ENV["RAILS_MASTER_KEY"].to_s.strip != "" || File.file?("config/credentials/production.key")
+if production_key_available
+  production_credentials = "config/credentials/production.yml.enc"
+  if !File.file?(production_credentials)
+    fail_with(errors, "#{production_credentials} is missing while a production key is available")
+  elsif !File.file?("config/credentials/dummy.yml.enc") || !File.file?("config/credentials/dummy.key")
+    fail_with(errors, "the dummy credentials are missing")
+  else
+    begin
+      require "active_support"
+      require "active_support/encrypted_configuration"
+
+      production = ActiveSupport::EncryptedConfiguration.new(
+        config_path: production_credentials,
+        key_path: "config/credentials/production.key",
+        env_key: "RAILS_MASTER_KEY",
+        raise_if_missing_key: true
+      )
+      dummy = ActiveSupport::EncryptedConfiguration.new(
+        config_path: "config/credentials/dummy.yml.enc",
+        key_path: "config/credentials/dummy.key",
+        env_key: "RAILS_MASTER_KEY",
+        raise_if_missing_key: true
+      )
+      production_paths = flatten_paths(production.config)
+      dummy_paths = flatten_paths(dummy.config)
+      if production_paths.sort != dummy_paths.sort
+        missing = dummy_paths - production_paths
+        extra = production_paths - dummy_paths
+        fail_with(errors, "production credentials differ from dummy paths; missing=#{missing.join(", ")} extra=#{extra.join(", ")}")
+      end
+    rescue StandardError => error
+      fail_with(errors, "production credentials could not be read: #{error.message}")
+    end
+  end
+else
+  puts "deploy_preflight: production credentials comparison skipped (no production key in this environment)"
+end
+
+if errors.any?
+  errors.each { |error| warn "deploy_preflight: #{error}" }
+  warn "deploy_preflight: errors=#{errors.length}"
+  exit 1
+end
+
+puts "deploy_preflight: profiles, secrets, storage, database, and image safe"

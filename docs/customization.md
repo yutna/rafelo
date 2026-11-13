@@ -46,13 +46,15 @@ half-configured component behind.
 
 ## Deployment
 
-Edit `config/deploy.yml` before the first deploy:
+Edit `config/deploy.yml` for the single-host profile or
+`config/deploy.multi.yml` for the multi-host profile before the first deploy:
 
 - `service` and `image`
-- the `servers.web` host list
+- the `servers` host lists
 - the registry server and credentials
-- the persistent volume path
-- `RAILS_MASTER_KEY` and any other secrets
+- the PostgreSQL accessory or managed host
+- the Active Storage service (`local` or `amazon`)
+- `RAILS_MASTER_KEY` and `POSTGRES_PASSWORD` in `.kamal/secrets`
 
 See [deployment.md](deployment.md).
 
