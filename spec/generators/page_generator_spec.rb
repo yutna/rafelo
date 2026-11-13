@@ -38,6 +38,30 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "refuses when gateway, props, or fixture artifacts already exist" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config"))
+      FileUtils.mkdir_p(root.join("engines/billing/app/gateways/rafelo/billing"))
+      File.write(root.join("engines/billing/app/gateways/rafelo/billing/widgets_gateway.rb"), "# existing\n")
+      routes = "Rafelo::Billing::Engine.routes.draw do\nend\n"
+      File.write(root.join("engines/billing/config/routes.rb"), routes)
+      before = Dir[root.join("**/*")].sort.map { |p| [ p, File.file?(p) ? File.binread(p) : :dir ] }
+
+      expect {
+        begin
+          described_class.start([ "billing", "widgets", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+
+      after = Dir[root.join("**/*")].sort.map { |p| [ p, File.file?(p) ? File.binread(p) : :dir ] }
+      expect(after).to eq(before)
+      expect(File.read(root.join("engines/billing/config/routes.rb"))).to eq(routes)
+    end
+  end
+
   it "rolls back generated files when a write step fails" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)

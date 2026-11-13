@@ -61,8 +61,16 @@ module Rafelo
         checks = [
           [ engine_file("config/routes.rb"), :routes ],
           [ engine_file("app/frontend/pages/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/screens/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/containers/#{resource_plural}"), :dir ],
+          [ engine_file("app/frontend/components/#{resource_plural}"), :dir ],
+          [ engine_file("config/contracts/pages/#{resource_plural}"), :dir ],
           [ engine_file("app/controllers/#{app_ns_underscore}/#{mod}/#{resource_plural}_controller.rb"), :file ],
           [ engine_file("app/policies/#{app_ns_underscore}/#{mod}/#{resource_singular}_policy.rb"), :file ],
+          [ engine_file("app/gateways/#{app_ns_underscore}/#{mod}/#{resource_plural}_gateway.rb"), :file ],
+          [ engine_file("app/forms/#{app_ns_underscore}/#{mod}/#{resource_singular}_form.rb"), :file ],
+          [ engine_file("app/props/#{app_ns_underscore}/#{mod}/#{resource_plural}_index_props.rb"), :file ],
+          [ engine_file("spec/fixtures/upstream/#{resource_plural}"), :dir ],
           [ "spec/requests/#{mod}/#{resource_plural}_spec.rb", :file ]
         ]
 
