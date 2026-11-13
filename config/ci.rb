@@ -47,6 +47,7 @@ CI.run do
   step "Contracts: errors", "npm run errors:check"
   step "Contracts: permissions", "npm run permissions:check"
   step "Contracts: i18n", "npm run i18n:check"
+  step "Formats: compatibility", "env RAILS_ENV=test bin/rails formats:check"
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
   step "Frontend: design-system API", "npm run api:check"
