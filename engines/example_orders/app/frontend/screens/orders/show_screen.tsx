@@ -1,5 +1,5 @@
 import { CustomerBadge } from "@example_customers/public/customer_badge";
-import { Link, formatDate, formatNumber, useLocale } from "@design_system/public";
+import { Link, formatDate, formatMoney, useLocale } from "@design_system/public";
 
 import { useOrdersTranslation } from "../../i18n";
 
@@ -35,7 +35,7 @@ export function OrderShowScreen({ order, editHref, indexPath, can }: Props) {
         <div>
           <dt className="font-medium">{t("orders.total")}</dt>
           <dd data-testid="example_orders.orders.show.total">
-            {formatNumber(order.total.minor / 100, locale)} {order.total.currency}
+            {formatMoney(order.total.minor, order.total.currency, order.total.exponent, locale)}
           </dd>
         </div>
         <div>

@@ -8,7 +8,7 @@ export { Toast } from "../toast";
 export { I18nProvider, useLocale } from "../i18n_provider";
 export { DateField } from "../date_field";
 export { isSafeUrl, isAppPath } from "../safe_url";
-export { calendarFor, formatDate, formatNumber, isValidIsoDate } from "../formatters";
+export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "../formatters";
 export { Link } from "../link";
 export { Image } from "../image";
 export { Deferred } from "../deferred";

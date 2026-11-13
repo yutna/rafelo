@@ -27,7 +27,7 @@
     "test": "vitest run",
     "aliases:generate": "ruby script/ci/aliases",
     "aliases:check": "ruby script/ci/aliases --check",
-    "arch:check": "depcruise --config .dependency-cruiser.cjs app engines",
+    "arch:check": "depcruise --config .dependency-cruiser.cjs app engines e2e script",
     "graph:generate": "ruby script/ci/engine_graph",
     "graph:check": "ruby script/ci/engine_graph --check",
     "contracts:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/generate.mts",

@@ -20,7 +20,7 @@ module.exports = {
     {
       name: "nothing-depends-on-example-engines",
       severity: "error",
-      from: { path: "^(app|engines)/", pathNot: "^engines/example_" },
+      from: { path: "^(app|engines|e2e|script)/", pathNot: "^engines/example_" },
       to: { path: "^engines/example_" },
     },
     {
