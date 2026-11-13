@@ -213,6 +213,7 @@ module Rafelo
         files = Dir[root.join("engines", @target, "app/frontend/**/*.{ts,tsx,mts,json}")]
           .concat(Dir[root.join("engines", @source, "app/frontend/**/*.{ts,tsx,mts,json}")])
           .select { |p| File.file?(p) }
+          .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
         files.uniq!
         return if files.empty?
 

@@ -188,6 +188,7 @@ module Rafelo
       def format_written_files
         files = Dir[root.join("engines", @destination_name, "app/frontend/**/*.{ts,tsx,mts,json}")]
           .select { |p| File.file?(p) }
+          .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
         files.uniq!
         return if files.empty?
 
