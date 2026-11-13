@@ -1,6 +1,6 @@
 import { TextField } from "@design_system/public";
 
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Props = {
   customerName: string;
@@ -17,6 +17,7 @@ export function OrderFormFields({
   onCustomerNameChange,
   onStatusChange,
 }: Props) {
+  const t = useOrdersTranslation();
   return (
     <>
       <TextField

@@ -1,7 +1,7 @@
 import { Button, Chart, Deferred, Link, Skeleton, formatNumber, useLocale } from "@design_system/public";
 import { router } from "@inertiajs/react";
 
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Order = {
   id: string;
@@ -37,6 +37,7 @@ export function OrdersScreen({
   meta,
 }: Props) {
   const { locale } = useLocale();
+  const t = useOrdersTranslation();
   return (
     <section className="mx-auto max-w-5xl px-6 py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">

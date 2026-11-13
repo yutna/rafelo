@@ -1,11 +1,12 @@
 import { Head } from "@inertiajs/react";
 import type { LayoutName } from "@core/contracts/layout.types";
 
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 import { OrdersNewScreen } from "../../screens/orders/new_screen";
 import { pageSchema } from "./new.schema";
 
 export default function OrdersNew(props: Record<string, unknown>) {
+  const t = useOrdersTranslation();
   const page = pageSchema.parse(props);
   return (
     <>

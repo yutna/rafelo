@@ -48,6 +48,7 @@ RSpec.describe "Example orders", type: :request do
     expect(response).to match_page_schema("example_orders/orders/show")
     expect(response).to be_within_props_budget("example_orders/orders/show")
     expect(response).to have_resolvable_hrefs("example_orders/orders/show")
+    expect(response).to match_policy_capabilities("example_orders/orders/show")
   end
 
   it "renders new and edit with the form token and the full page contract" do

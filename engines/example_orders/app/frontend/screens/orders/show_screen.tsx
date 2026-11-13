@@ -1,7 +1,7 @@
 import { CustomerBadge } from "@example_customers/public/customer_badge";
 import { Link, formatDate, formatNumber, useLocale } from "@design_system/public";
 
-import { t } from "../../i18n";
+import { useOrdersTranslation } from "../../i18n";
 
 type Props = {
   order: {
@@ -20,6 +20,7 @@ type Props = {
 
 export function OrderShowScreen({ order, editHref, indexPath, can }: Props) {
   const { locale, timeZone } = useLocale();
+  const t = useOrdersTranslation();
   return (
     <section className="mx-auto max-w-3xl px-6 py-16" data-testid="example_orders.orders.show.page">
       <div className="flex flex-wrap items-center justify-between gap-3">
