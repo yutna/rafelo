@@ -9,7 +9,7 @@ Rails.application.config.after_initialize do
 
   begin
     Rafelo::Core::AuditPartitions.new.ensure!
-  rescue ActiveRecord::NoDatabaseError, ActiveRecord::StatementInvalid => error
+  rescue ActiveRecord::ActiveRecordError, PG::Error => error
     Rails.logger.warn("audit partitions not ensured at boot: #{error.class}: #{error.message}")
   end
 end
