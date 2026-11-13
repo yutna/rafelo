@@ -1,0 +1,7 @@
+{
+  "viewer": { "id": 7, "name": "Ada" },
+  "access_token": "access-secret",
+  "refresh_token": "refresh-secret",
+  "expires_in": 300,
+  "grants": ["billing:invoice:read"]
+}

@@ -10,6 +10,7 @@ module Rafelo
       rescue_from ApplicationError, with: :render_application_error
 
       allow_browser versions: :modern
+      before_action :load_session
       before_action :set_response_headers
       before_action :assign_request_context
       before_action :share_trace
@@ -34,6 +35,23 @@ module Rafelo
 
       def shared_props
         SharedProps.new(context: page_context, request_path: request.path).to_h
+      end
+
+      def load_session
+        token = cookies[:session_token]
+        return unless token
+
+        session = Session.find_by_token(token)
+        return unless session && session.expires_at.future?
+
+        Current.session = session
+        Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
+        Current.permissions = PermissionSet.new(session.permission_grants)
+        Current.token_provider = ViewerTokenProvider.new(session)
+      end
+
+      def require_viewer
+        redirect_to "/#{params[:locale] || Locales.default}/sign_in" unless Current.viewer
       end
 
       def page_context

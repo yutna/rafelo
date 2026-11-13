@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_13_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_13_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -27,6 +27,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_13_000000) do
     t.string "locale", default: "en", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "permission_grants", default: [], null: false
+    t.string "grant_digest"
     t.index ["expires_at"], name: "index_core_sessions_on_expires_at"
     t.index ["token_digest"], name: "index_core_sessions_on_token_digest", unique: true
   end

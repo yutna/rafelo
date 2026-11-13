@@ -14,6 +14,10 @@ Rails.application.routes.draw do
       mount mod.engine => mod.path, as: mod.route_name
     end
 
+    get "sign_in", to: "sessions#new"
+    post "sign_in", to: "sessions#create"
+    delete "sign_out", to: "sessions#destroy"
+
     if Rails.env.test?
       require Rails.root.join("engines/core/spec/dummy_engine/lib/dummy_engine")
       mount DummyEngine::Engine => "/dummy", as: :dummy
