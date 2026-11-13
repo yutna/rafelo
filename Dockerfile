@@ -65,7 +65,11 @@ COPY . .
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
 # Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 RAFELO_API_BASE_URL=http://localhost:4000 ./bin/rails assets:precompile && \
+RUN SECRET_KEY_BASE_DUMMY=1 RAFELO_API_BASE_URL=http://localhost:4000 \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=00000000000000000000000000000001 \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=00000000000000000000000000000002 \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=00000000000000000000000000000003 \
+    ./bin/rails assets:precompile && \
     rm -rf node_modules
 
 
