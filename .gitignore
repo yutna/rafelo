@@ -20,6 +20,7 @@ Thumbs.db
 
 # Ignore bundler config.
 /.bundle
+/vendor/bundle
 
 # Ignore installed JavaScript packages.
 /node_modules

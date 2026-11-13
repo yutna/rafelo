@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# script/ci/generator_smoke
+set -euo pipefail
+export BUNDLE_FROZEN=false # each new engine changes Gemfile.lock; other CI jobs, except the production image build (OPS-06), run with BUNDLE_FROZEN=true (WF-06)
+
+# bin/ci runs this locally too: refuse to start on uncommitted or untracked work,
+# because the cleanup below restores the whole tree.
+if [ -n "$(git status --porcelain)" ]; then
+  echo "generator_smoke: needs a clean working tree; commit or stash first" >&2
+  git status --short >&2
+  exit 1
+fi
+
+cleanup() {
+  # The tree was clean at the start, so this removes only what the run created,
+  # inside and outside engines/ (Gemfile.lock, generated aliases). Ignored files stay.
+  git checkout -- . && git clean -fdq
+  bundle install --quiet
+}
+trap cleanup EXIT # also after a failed step
+
+verify() {
+  # Each generator ran its own post-write steps (GEN-09); prove they left nothing stale.
+  script/ci/engine_graph --check
+  for check in aliases permissions errors i18n contracts; do npm run "${check}:check"; done
+  for engine in "$@"; do bin/check "$engine"; done
+  npm run pages:check
+}
+
+# Create: a domain engine, two product modules, a read page and a write page.
+bin/rails generate rafelo:domain smoke_party
+bin/rails generate rafelo:module smoke_check
+bin/rails generate rafelo:module smoke_other
+bin/rails generate rafelo:page smoke_check widgets --actions=index,new
+verify smoke_party smoke_check smoke_other
+
+# Change: move the resource to the other module, then rename that module.
+bin/rails generate rafelo:move_page smoke_check smoke_other widgets
+bin/rails generate rafelo:rename_module smoke_other smoke_renamed
+verify smoke_check smoke_renamed

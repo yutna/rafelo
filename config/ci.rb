@@ -55,6 +55,7 @@ CI.run do
   step "Tests: page matchers", "npm run pages:check -- --matchers"
   step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: Seeds", "env RAILS_ENV=test bin/rails db:seed:replant"
+  step "Generators: smoke", "script/ci/generator_smoke"
 
   # Optional: set a green GitHub commit status to unblock PR merge.
   # Requires the `gh` CLI and `gh extension install basecamp/gh-signoff`.
