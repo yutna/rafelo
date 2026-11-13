@@ -1,9 +1,4 @@
 PATH
-  remote: engines/example_customers
-  specs:
-    rafelo_example_customers (0.1.0)
-
-PATH
   remote: engines/core
   specs:
     rafelo_core (0.1.0)
@@ -12,6 +7,11 @@ PATH
   remote: engines/design_system
   specs:
     rafelo_design_system (0.1.0)
+
+PATH
+  remote: engines/example_customers
+  specs:
+    rafelo_example_customers (0.1.0)
 
 GEM
   remote: https://rubygems.org/
