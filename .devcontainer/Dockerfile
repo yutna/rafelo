@@ -25,8 +25,11 @@ ENV BINDING="0.0.0.0" \
 # browser binaries (OPS-09).
 COPY --chown=vscode:vscode mise.toml package.json package-lock.json /tmp/
 RUN cd /tmp && \
+    node_version="$(sed -n 's/^node = "\(.*\)"/\1/p' mise.toml)" && \
+    npm_version="$(sed -n 's/^npm = "\(.*\)"/\1/p' mise.toml)" && \
     mise trust && \
     mise install && \
+    mise use -g "node@${node_version}" "npm@${npm_version}" && \
     mise reshim && \
     mise exec -- npm ci && \
     mise exec -- npx playwright install --with-deps && \
