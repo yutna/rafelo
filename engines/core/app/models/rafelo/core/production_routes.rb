@@ -39,7 +39,9 @@ module Rafelo
             prefix = "/:locale#{entry.path}"
             routes = walk(entry.engine.routes, prefix: prefix)
             routes + entry.legacy_paths.map do |old_prefix, _target|
-              Route.new(verb: "GET", path: normalize_path("#{prefix}/#{old_prefix}(/*rest)"),
+              legacy = "#{old_prefix}(/*rest)"
+              legacy = "/#{legacy}" unless legacy.start_with?("/")
+              Route.new(verb: "GET", path: normalize_path("/:locale#{legacy}"),
                         to: "legacy_redirect", kind: "legacy_redirect")
             end
           end

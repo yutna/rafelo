@@ -25,13 +25,36 @@ RSpec.describe Rafelo::Core::ProductionRoutes do
     expect(walked.first.to).to eq("Fake::Engine")
   end
 
-  it "normalizes a legacy path that already starts with a slash" do
+  it "normalizes a legacy path to the locale-level redirect shape" do
     engine = double(routes: double(routes: []))
     entry = double(path: "/orders", engine: engine, legacy_paths: { "/invoicing" => "/orders" })
 
     walked = described_class.module_routes([ entry ])
 
-    expect(walked.first.path).to eq("/:locale/orders/invoicing(/*rest)")
+    expect(walked.first.path).to eq("/:locale/invoicing(/*rest)")
+    expect(walked.first.kind).to eq("legacy_redirect")
+  end
+
+  it "walks a real locale-scoped LegacyRedirect with the same legacy shape" do
+    entry = Rafelo::Core::Modules::Entry.new(
+      key: :orders,
+      engine: Object,
+      path: "/orders",
+      permission_prefixes: [ "orders" ],
+      legacy_paths: { "/invoicing" => "/orders" },
+      nav: {},
+      flag: nil
+    )
+    routes = ActionDispatch::Routing::RouteSet.new
+    routes.draw do
+      scope ":locale", locale: /[a-z]{2}/ do
+        get "/invoicing(/*rest)", to: Rafelo::Core::LegacyRedirect.new(entry, "/orders")
+      end
+    end
+
+    walked = described_class.walk(routes)
+
+    expect(walked.first.path).to eq("/:locale/invoicing(/*rest)")
     expect(walked.first.kind).to eq("legacy_redirect")
   end
 
