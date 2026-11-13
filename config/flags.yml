@@ -1,0 +1,11 @@
+default: &default
+  billing: false
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default
