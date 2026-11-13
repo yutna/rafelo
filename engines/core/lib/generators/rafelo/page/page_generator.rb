@@ -92,18 +92,23 @@ module Rafelo
       end
 
       def write_controller(actions)
-        body = actions.map do |action|
-          if action == "index"
-            <<~RUBY
-              def index
-                authorize :#{@resource}, :index?, policy_class: #{module_class}::#{@resource.camelize}Policy
-                render_page "#{page_base}/index", props: #{module_class}::#{@resource.pluralize.camelize}IndexProps.new(context: page_context)
-              end
-            RUBY
-          else
-            "    # TODO: #{action} follows BE-13/BE-15.\n"
-          end
-        end.join("\n")
+        methods = []
+        if actions.include?("index")
+          methods << <<~RUBY
+                def index
+                  authorize :#{@resource}, :index?, policy_class: #{module_class}::#{@resource.camelize}Policy
+                  render_page "#{page_base}/index", props: #{module_class}::#{@resource.pluralize.camelize}IndexProps.new(context: page_context)
+                end
+          RUBY
+        end
+        if actions.include?("new")
+          methods << <<~RUBY
+                def new
+                  authorize :#{@resource}, :new?, policy_class: #{module_class}::#{@resource.camelize}Policy
+                  render_page "#{page_base}/new", props: #{module_class}::#{@resource.pluralize.camelize}NewProps.new(context: page_context, csrf_token: form_authenticity_token)
+                end
+          RUBY
+        end
         create_file "#{engine_dir}/app/controllers/rafelo/#{@module_name}/#{@resource.pluralize}_controller.rb", <<~RUBY
           # frozen_string_literal: true
 
@@ -111,7 +116,7 @@ module Rafelo
             class #{controller_class} < Rafelo::Core::BaseController
               layout "application"
 
-          #{body.gsub(/^/, "    ")}
+          #{methods.join("\n").rstrip}
             end
           end
         RUBY
@@ -217,7 +222,7 @@ module Rafelo
                 access_expires_at: 5.minutes.from_now,
                 grants: [ "#{@module_name}:#{@resource.pluralize}:read" ]
               )
-              cookie = "session_token=#{token}"
+              cookie = "session_token=\#{token}"
               expect { get "/en/#{@module_name}/#{@resource.pluralize}", headers: { "Cookie" => cookie } }.to within_budgets("#{page_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_base}/index")
