@@ -1,7 +1,7 @@
 [
   {
     "job_class": "Rafelo::Core::ExportSweepJob",
-    "job_id": "2051bc09-88d6-4a22-824c-fcb587196019",
+    "job_id": "01e0b6f8-7cef-44af-bb30-fabf3455ea15",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -10,14 +10,16 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T07:53:21.373540739Z",
+    "enqueued_at": "2026-11-13T21:53:40.226685473Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "940fe870-484c-489a-a316-1b47bccf4869"
+    "rafelo_trace_id": "56487290d0f6e5dcf7316b4d533804e2",
+    "rafelo_trace_sampled": false,
+    "rafelo_viewer": null
   },
   {
     "job_class": "Rafelo::Core::IdempotencySweepJob",
-    "job_id": "90b19e6a-fa66-40c1-8566-0df311464331",
+    "job_id": "8ba06c91-0e7e-4167-b1bb-6c0fce4b0715",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -26,14 +28,16 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T07:53:21.373607461Z",
+    "enqueued_at": "2026-11-13T21:53:40.226709136Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "146044a5-8e1a-4169-a16a-26658646c247"
+    "rafelo_trace_id": "4867bbd397ddd1540b7131f4ffa8fff7",
+    "rafelo_trace_sampled": false,
+    "rafelo_viewer": null
   },
   {
     "job_class": "Rafelo::Core::SessionSweepJob",
-    "job_id": "4707d1fe-d10a-496f-90e9-8aef8b9b1b65",
+    "job_id": "336829fc-d702-4608-abea-fd80335217e7",
     "provider_job_id": null,
     "queue_name": "default",
     "priority": null,
@@ -42,9 +46,11 @@
     "exception_executions": {},
     "locale": "en",
     "timezone": "UTC",
-    "enqueued_at": "2026-11-13T07:53:21.373621417Z",
+    "enqueued_at": "2026-11-13T21:53:40.226723002Z",
     "scheduled_at": null,
     "rafelo_request_id": null,
-    "rafelo_trace_id": "c7385949-7e35-4e1d-97e2-72097870a5f6"
+    "rafelo_trace_id": "d4a3f16d7b40bc8ff15b0b748249825f",
+    "rafelo_trace_sampled": false,
+    "rafelo_viewer": null
   }
 ]
