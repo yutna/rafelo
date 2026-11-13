@@ -62,12 +62,16 @@ RSpec.describe "Client error reports", :csrf, type: :request do
     expect(context.to_json).not_to include("viewer", "props", "headers", "cookie")
   end
 
-  it "requires a CSRF token" do
+  it "requires a CSRF token and reports the catalog code with the ids" do
     post "/core/client_errors",
          params: report_payload.to_json,
          headers: { "Content-Type" => "application/json" }
 
     expect(response).to have_http_status(:unprocessable_content)
+    context = forwarded.last.fetch(:context).stringify_keys
+    expect(context["code"]).to eq("request.csrf_failed")
+    expect(context["request_id"]).to be_present
+    expect(context["trace_id"]).to be_present
   end
 
   it "rejects a body over its cap before Rails parses it" do

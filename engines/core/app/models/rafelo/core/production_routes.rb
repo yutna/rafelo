@@ -10,17 +10,23 @@ module Rafelo
     # The allow-list is never derived from the route set under check.
     class ProductionRoutes
       Route = Data.define(:verb, :path, :to, :kind)
-      SUPPORTED_KINDS = %w[dispatch mount redirect legacy_redirect].freeze
+      SUPPORTED_KINDS = %w[dispatch mount legacy_redirect].freeze
+      ALLOWED_MOUNTS = %w[ActionCable::Server::Base].freeze
       SINGLE_VERB = /\A[A-Z]+\z/
 
       class << self
-        def walk(route_set, prefix: "")
+        def walk(route_set, prefix: "", known_engines: nil)
           routes = []
           route_set.routes.each do |route|
             path = join(prefix, route.path.spec.to_s)
             app = unwrap(route.app)
             if engine?(app)
-              routes.concat(walk(app.routes, prefix: path))
+              if known_engines.nil? || known_engines.include?(app)
+                routes.concat(walk(app.routes, prefix: path, known_engines: known_engines))
+              else
+                routes << Route.new(verb: route.verb.to_s, path: normalize_path(path),
+                                    to: app.name, kind: "unknown")
+              end
             else
               routes << classify(route, app, path)
             end
@@ -33,8 +39,10 @@ module Rafelo
             prefix = "/:locale#{entry.path}"
             routes = walk(entry.engine.routes, prefix: prefix)
             routes + entry.legacy_paths.map do |old_prefix, _target|
-              Route.new(verb: "GET", path: "#{prefix}/#{old_prefix}(/*rest)", to: "legacy_redirect",
-                        kind: "legacy_redirect")
+              legacy = "#{old_prefix}(/*rest)"
+              legacy = "/#{legacy}" unless legacy.start_with?("/")
+              Route.new(verb: "GET", path: normalize_path("/:locale#{legacy}"),
+                        to: "legacy_redirect", kind: "legacy_redirect")
             end
           end
         end
@@ -59,13 +67,12 @@ module Rafelo
           walked_keys = walked.map { |route| key(route) }
 
           walked.each do |route|
-            next if expected_keys.include?(key(route))
-
-            if route.kind == "unknown" || !SUPPORTED_KINDS.include?(route.kind)
+            if unclassifiable?(route)
               errors << "unclassified: #{describe(route)}"
-            else
-              errors << "not allow-listed: #{describe(route)}"
+              next
             end
+
+            errors << "not allow-listed: #{describe(route)}" unless expected_keys.include?(key(route))
           end
 
           expected.each do |route|
@@ -81,6 +88,13 @@ module Rafelo
 
         def key(route)
           [ route.verb, route.path, route.to, route.kind ]
+        end
+
+        def unclassifiable?(route)
+          return true unless SUPPORTED_KINDS.include?(route.kind)
+          return true if route.kind == "mount" && !ALLOWED_MOUNTS.include?(route.to)
+
+          false
         end
 
         def join(prefix, path)

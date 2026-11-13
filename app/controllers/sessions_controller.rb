@@ -40,6 +40,7 @@ class SessionsController < ApplicationController
     }
     redirect_to "/#{I18n.locale}", status: :see_other
   rescue Rafelo::Core::ApplicationError => error
+    Rafelo::Core::ErrorReporter.report(error, handled: true)
     render_page "sessions/new",
                 props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token, error: error.message),
                 status: error.status

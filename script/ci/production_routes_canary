@@ -41,14 +41,37 @@ run_case(script, root, "development route", routes: LEGAL_ROUTES + [
 ], expected: "not allow-listed")
 run_case(script, root, "mounted fake app", routes: LEGAL_ROUTES + [
   { "verb" => "", "path" => "/en/dummy", "to" => "DummyEngine::Engine", "kind" => "mount" }
-], expected: "not allow-listed")
+], expected: "unclassified")
+run_case(script, root, "allow-listed mounted fake app", routes: LEGAL_ROUTES + [
+  { "verb" => "", "path" => "/en/dummy", "to" => "DummyEngine::Engine", "kind" => "mount" }
+], allow: LEGAL_ROUTES + [
+  { "verb" => "", "path" => "/en/dummy", "to" => "DummyEngine::Engine", "kind" => "mount" }
+], expected: "unclassified")
 run_case(script, root, "stray redirect", routes: LEGAL_ROUTES + [
   { "verb" => "GET", "path" => "/old", "to" => "legacy_redirect", "kind" => "redirect" }
-], expected: "not allow-listed")
+], expected: "unclassified")
+run_case(script, root, "allow-listed stray redirect", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/old", "to" => "legacy_redirect", "kind" => "redirect" }
+], allow: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/old", "to" => "legacy_redirect", "kind" => "redirect" }
+], expected: "unclassified")
 run_case(script, root, "multi-verb route", routes: LEGAL_ROUTES + [
   { "verb" => "GET|POST", "path" => "/both", "to" => "home#show", "kind" => "unknown" }
+], expected: "unclassified")
+run_case(script, root, "allow-listed multi-verb route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET|POST", "path" => "/both", "to" => "home#show", "kind" => "unknown" }
+], allow: LEGAL_ROUTES + [
+  { "verb" => "GET|POST", "path" => "/both", "to" => "home#show", "kind" => "unknown" }
+], expected: "unclassified")
+run_case(script, root, "Proc route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/proc", "to" => "Proc", "kind" => "unknown" }
+], expected: "unclassified")
+run_case(script, root, "allow-listed Proc route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/proc", "to" => "Proc", "kind" => "unknown" }
+], allow: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/proc", "to" => "Proc", "kind" => "unknown" }
 ], expected: "unclassified")
 run_case(script, root, "listed route missing", routes: LEGAL_ROUTES - [ LEGAL_ROUTES.last ], expected: "listed but missing")
 run_case(script, root, "empty walk", routes: [], expected: "empty walk")
 
-puts "production_routes_canary: 7 cases passed"
+puts "production_routes_canary: 12 cases passed"
