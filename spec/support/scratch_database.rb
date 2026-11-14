@@ -7,7 +7,7 @@ require "securerandom"
 # specs. The specs need a superuser to run the role script and create roles;
 # in an environment without one they skip instead of weakening the checks.
 class ScratchDatabase
-  attr_reader :name
+  attr_reader :name, :admin
 
   def initialize(prefix)
     @config = ActiveRecord::Base.connection_db_config.configuration_hash

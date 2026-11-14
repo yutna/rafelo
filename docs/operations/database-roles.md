@@ -17,9 +17,12 @@ adopter decision.
 
 ## Create the roles
 
-Run once per database, as a superuser (the single-host accessory's
-`postgres` role, or the managed provider's admin), with the passwords supplied
-through psql variables:
+Run once per database, as a role that can create roles and administer the
+database: the single-host accessory's `postgres` superuser, or the managed
+provider's admin. The admin must own the database (or be a superuser) and, on
+PostgreSQL 16+, holds `ADMIN OPTION` on the roles it creates; the script
+grants itself membership in `rafelo_migrator` so it can transfer table
+ownership. Supply the passwords through psql variables:
 
 ```sh
 psql -v ON_ERROR_STOP=1 \

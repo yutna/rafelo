@@ -30,6 +30,21 @@ $$;
 ALTER ROLE rafelo_runtime WITH LOGIN PASSWORD :'runtime_password';
 ALTER ROLE rafelo_migrator WITH LOGIN PASSWORD :'migration_password';
 
+-- The admin that runs this script must be able to SET ROLE rafelo_migrator to
+-- transfer table ownership and set its default privileges. A managed
+-- provider's admin is not a superuser; on PostgreSQL 16+ the role that
+-- created rafelo_migrator holds ADMIN OPTION on it, so this grant succeeds.
+DO $$
+BEGIN
+  EXECUTE format('GRANT rafelo_migrator TO %I', current_user);
+EXCEPTION
+  WHEN insufficient_privilege THEN
+    RAISE EXCEPTION
+      'database_roles: % must be a superuser or hold ADMIN OPTION on rafelo_migrator',
+      current_user;
+END
+$$;
+
 DO $$
 BEGIN
   EXECUTE format(

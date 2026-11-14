@@ -4,7 +4,7 @@ require "rails_helper"
 # so the grants and ownership transfer are proved by PostgreSQL, not by
 # matching strings in the SQL file (OPS-06, OPS-08).
 RSpec.describe "Database role script" do
-  PASSWORD = "drill-password"
+  let(:password) { "drill-password" }
 
   let(:scratch) { ScratchDatabase.new("rafelo_roles") }
   let(:roles) { %w[rafelo_runtime rafelo_migrator] }
@@ -89,8 +89,8 @@ RSpec.describe "Database role script" do
 
     @connection.exec(
       script
-        .gsub(":'runtime_password'", @connection.escape_literal(PASSWORD))
-        .gsub(":'migration_password'", @connection.escape_literal(PASSWORD))
+        .gsub(":'runtime_password'", @connection.escape_literal(password))
+        .gsub(":'migration_password'", @connection.escape_literal(password))
     )
   end
 

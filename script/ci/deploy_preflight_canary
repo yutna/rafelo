@@ -78,7 +78,7 @@ env:
     SOLID_QUEUE_IN_PUMA: true
     DB_HOST: rafelo-db
     DB_NAME: rafelo_production
-    DB_USER: rafelo
+    DB_USER: rafelo_runtime
     DB_MIGRATION_USER: rafelo_migrator
 asset_path: /rails/public/vite
 volumes:
@@ -122,7 +122,7 @@ env:
     ACTIVE_STORAGE_SERVICE: amazon
     DB_HOST: db.example.com
     DB_NAME: rafelo_production
-    DB_USER: rafelo
+    DB_USER: rafelo_runtime
     DB_MIGRATION_USER: rafelo_migrator
     AWS_REGION: us-east-1
     AWS_BUCKET: rafelo-production
