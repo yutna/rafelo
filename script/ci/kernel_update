@@ -32,6 +32,7 @@ module KernelUpdate
     config/database.yml
     config/deploy.yml
     config/deploy.multi.yml
+    config/docs.yml
     config/errors.yml
     config/locales.yml
     config/permission_mapping.yml
