@@ -57,6 +57,14 @@ def higher?(left, right)
   (left <=> right) == 1
 end
 
+def locale_placeholders(root)
+  Dir[
+    File.join(root, "config", "locales", "**", "*.yml"),
+    File.join(root, "engines", "*", "config", "locales", "*.yml"),
+    File.join(root, "app", "frontend", "locales", "*.json")
+  ].select { |path| File.read(path).match?(/\[(?:<locale>|[a-z]{2})\]\s/) }
+end
+
 known_tags = tags(root, tag_list_file).filter_map { |tag| [ tag, semver(tag) ] }.to_h
 highest = known_tags.values.compact.max
 tag_name = "v#{version}"
@@ -69,6 +77,15 @@ if check
   end
   unless higher?(parts, highest)
     warn "release: #{version} is not higher than the highest release #{highest ? "v#{highest.join(".")}" : "none"}"
+    exit 1
+  end
+  unless Dir.exist?(File.join(root, "spec", "fixtures", "formats", tag_name))
+    warn "release: spec/fixtures/formats/#{tag_name} is missing"
+    exit 1
+  end
+  placeholders = locale_placeholders(root)
+  if placeholders.any?
+    warn "release: locale placeholders remain in #{placeholders.map { |path| path.delete_prefix("#{root}/") }.join(", ")}"
     exit 1
   end
   puts "release: checked #{version}; higher than #{highest ? "v#{highest.join(".")}" : "no tag"}"
@@ -98,11 +115,7 @@ else
     warn "release: #{version} is not higher than the highest release #{highest ? "v#{highest.join(".")}" : "none"}"
     exit 1
   end
-  placeholders = Dir[
-    File.join(root, "config", "locales", "**", "*.yml"),
-    File.join(root, "engines", "*", "config", "locales", "*.yml"),
-    File.join(root, "app", "frontend", "locales", "*.json")
-  ].select { |path| File.read(path).match?(/\[(?:<locale>|[a-z]{2})\]\s/) }
+  placeholders = locale_placeholders(root)
   if placeholders.any?
     warn "release: locale placeholders remain in #{placeholders.map { |path| path.delete_prefix("#{root}/") }.join(", ")}"
     exit 1

@@ -476,8 +476,9 @@ canaries.
 
 **What changed.** `script/ci/ratchet` aggregates the root and every engine
 ratchet, keyed by file; CODEOWNERS covers the missing guard paths; the release
-check fails an existing tag and a `script/ci/release_check` wrapper runs it
-only when `VERSION` changed, with a GitHub CI step and the tags fetched; the
+check fails an existing tag, a missing format folder, or a locale placeholder,
+and a `script/ci/release_check` wrapper runs it only when `VERSION` changed,
+with a GitHub CI step and the tags fetched; the
 scheduled `repo_rules` compares both exports; `docs:check` and `docs:canary`
 run in the CI test job; the release order is documented as merge → release
 workflow → confirm → close milestone; the canaries cover engine ratchets,
