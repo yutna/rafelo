@@ -11,7 +11,7 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 ruby_bin="$(cd "$repo" && ruby -e 'puts RbConfig.ruby')"
-bundle_bin="$(cd "$repo" && ruby -e 'puts File.join(Gem.bindir, "bundle")')"
+rails_bin="$(cd "$repo" && bundle exec ruby -e 'puts Gem.bin_path("railties", "rails")')"
 
 version="${ADOPTION_VERSION:-$(cat "$repo/VERSION")}"
 IFS=. read -r major minor patch <<< "$version"
@@ -30,7 +30,8 @@ archive() {
 
 adopt() {
   local source="$1" destination="$2" template="$3"
-  ( cd "$work" && BUNDLE_GEMFILE="$repo/Gemfile" "$ruby_bin" "$bundle_bin" exec rails new "$destination" \
+  ( cd "$work" && BUNDLE_GEMFILE="$repo/Gemfile" RUBYOPT=-rbundler/setup \
+      "$ruby_bin" "$rails_bin" new "$destination" \
       -d postgresql --devcontainer \
       --skip-javascript --skip-hotwire --skip-jbuilder --skip-test \
       --skip-bundle -m "$template" )
