@@ -159,6 +159,122 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+
+  it "updates the adopter .github from the payload directory" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(
+            base_root,
+            version: "0.1.0",
+            files: {
+              "template/.github/workflows/ci.yml" => "name: base\n",
+              "config/budgets.yml" => "max: 1\n"
+            }
+          )
+          write_release(
+            target_root,
+            version: "0.2.0",
+            files: {
+              "template/.github/workflows/ci.yml" => "name: target\n",
+              "config/budgets.yml" => "max: 1\n"
+            }
+          )
+          write_app(
+            app_root,
+            version: "0.1.0",
+            files: {
+              ".github/workflows/ci.yml" => "name: base\n",
+              "config/budgets.yml" => "max: 1\n"
+            }
+          )
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, ".github/workflows/ci.yml"))).to eq("name: target\n")
+        end
+      end
+    end
+  end
+
+  it "marks an add/add conflict and refuses --continue until it is resolved" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "config/budgets.yml" => "max: 1\n" })
+          write_release(
+            target_root,
+            version: "0.2.0",
+            files: { "config/budgets.yml" => "max: 1\n", "config/errors.yml" => "{}\n" }
+          )
+          write_app(
+            app_root,
+            version: "0.1.0",
+            files: { "config/budgets.yml" => "max: 1\n", "config/errors.yml" => "local: true\n" }
+          )
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+          expect(status.exitstatus).to eq(1)
+          expect(File.read(File.join(app_root, "config/errors.yml"))).to include("<<<<<<<")
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status.exitstatus).to eq(2)
+
+          File.write(File.join(app_root, "config/errors.yml"), "{}\n")
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
+  it "marks a delete/modify conflict and refuses --continue until the person decides" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "config/errors.yml" => "{}\n" })
+          write_release(target_root, version: "0.2.0", files: {})
+          write_app(app_root, version: "0.1.0", files: { "config/errors.yml" => "local: true\n" })
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+          expect(status.exitstatus).to eq(1)
+          expect(File.read(File.join(app_root, "config/errors.yml"))).to include("<<<<<<<")
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status.exitstatus).to eq(2)
+
+          FileUtils.rm_f(File.join(app_root, "config/errors.yml"))
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status).to be_success, err
+        end
+      end
+    end
+  end
+
+
+  it "finds an included design_system conflict on --continue without repeating --include" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "engines/design_system/forms/button.tsx" => "base\n" })
+          write_release(target_root, version: "0.2.0", files: { "engines/design_system/forms/button.tsx" => "target\n" })
+          write_app(app_root, version: "0.1.0", files: { "engines/design_system/forms/button.tsx" => "local\n" })
+
+          _out, _err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root,
+            "--include", "design_system/forms"
+          )
+          expect(status.exitstatus).to eq(1)
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status.exitstatus).to eq(2)
+        end
+      end
+    end
+  end
+
   it "leaves conflicts marked and updates KERNEL_VERSION only after --continue" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|

@@ -50,6 +50,7 @@ module KernelUpdate
     package.yml
     packwerk.yml
     spec/enforcement
+    .github
   ].freeze
 
   # The example engines are optional (GEN-08) and are never updated.
@@ -74,22 +75,25 @@ module KernelUpdate
     end
 
     def file(relative)
-      path = File.join(root, relative)
+      path = File.join(root, KernelUpdate.source_path(relative))
       File.file?(path) ? path : nil
     end
 
     def files_under(relative)
-      full = File.join(root, relative)
+      source = KernelUpdate.source_path(relative)
+      full = File.join(root, source)
       return [ relative ] if File.file?(full)
       return [] unless Dir.exist?(full)
 
       Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
-        .map { |path| path.delete_prefix("#{root}/") }
+        .map { |path| File.join(relative, path.delete_prefix("#{full}/")) }
         .reject { |path| KernelUpdate.untouched?(path) }
         .sort
     end
 
     def mode_for(relative)
+      return "github" if relative == ".github" || relative.start_with?(".github/")
+
       entry = @manifest.select { |candidate| KernelUpdate.covers?(candidate.fetch("source"), relative) }
         .max_by { |candidate| candidate.fetch("source").length }
       entry ? entry.fetch("mode", "copy") : fallback_mode(relative)
@@ -215,7 +219,14 @@ module KernelUpdate
         return
       end
 
-      if base.nil? || target.nil? || local.nil? || binary?(local) || binary?(base) || binary?(target)
+      if base.nil? || target.nil? || local.nil?
+        write_conflict(local_path, local, target)
+        results << Result.new(relative: relative, status: "conflict", conflict: true)
+        return
+      end
+
+      if binary?(local) || binary?(base) || binary?(target)
+        File.write("#{local_path}.conflict", "resolve this binary conflict by hand\n")
         results << Result.new(relative: relative, status: "conflict", conflict: true)
         return
       end
@@ -271,6 +282,18 @@ module KernelUpdate
       File.file?(path) ? File.stat(path).mode : nil
     end
 
+    def write_conflict(path, local, target)
+      FileUtils.mkdir_p(File.dirname(path))
+      body = if local.nil?
+        "<<<<<<< local (deleted)\n=======\n#{target}\n>>>>>>> target\n"
+      elsif target.nil?
+        "<<<<<<< local\n#{local}\n=======\n>>>>>>> target (deleted)\n"
+      else
+        "<<<<<<< local\n#{local}\n=======\n#{target}\n>>>>>>> target\n"
+      end
+      File.binwrite(path, body)
+    end
+
     def merge_text(local, base, target)
       Dir.mktmpdir("rafelo-merge-") do |directory|
         local_path = File.join(directory, "local")
@@ -304,6 +327,10 @@ module KernelUpdate
     UNTOUCHED_PREFIXES.any? { |prefix| relative.start_with?(prefix) }
   end
 
+  def source_path(relative)
+    relative.start_with?(".github/") || relative == ".github" ? File.join("template", relative) : relative
+  end
+
   def covers?(source, relative)
     relative == source || relative.start_with?("#{source}/")
   end
@@ -320,16 +347,13 @@ module KernelUpdate
     namespace.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
   end
 
-  def conflict_markers?(root, paths)
-    paths.flat_map do |path|
-      full = File.join(root, path)
-      if File.file?(full)
-        [ full ]
-      else
-        Dir.glob(File.join(full, "**", "*")).select { |candidate| File.file?(candidate) }
-      end
-    end.any? do |file|
-      next false if untouched?(file.delete_prefix("#{root}/"))
+  def conflict_markers?(root)
+    ignored = %w[.git node_modules tmp public/vite public/vite-dev public/vite-test test-results]
+    Dir.glob(File.join(root, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.any? do |file|
+      relative = file.delete_prefix("#{root}/")
+      next false if relative.split(File::SEPARATOR).any? { |part| ignored.include?(part) }
+      next false if untouched?(relative)
+      next true if relative.end_with?(".conflict")
 
       File.readlines(file, chomp: true).any? { |line| line.match?(CONFLICT_MARKER) }
     rescue ArgumentError
@@ -380,7 +404,8 @@ module KernelUpdate
       end
 
       if update.conflicts?
-        warn "kernel_update: conflicts remain; resolve them, then run bin/kernel_update #{@version} --continue"
+        includes = @options[:includes].flat_map { |folder| [ "--include", folder ] }
+        warn "kernel_update: conflicts remain; resolve them, then run bin/kernel_update #{@version} --continue #{includes.join(' ')}".strip
         return 1
       end
 
@@ -437,9 +462,8 @@ module KernelUpdate
 
     def continue_update(root)
       current = current_version(root)
-      paths = DEFAULT_PATHS + @options[:includes].map { |folder| "engines/#{folder}" }
-      if KernelUpdate.conflict_markers?(root, paths)
-        raise Error, "conflict markers remain; resolve them before --continue"
+      if KernelUpdate.conflict_markers?(root)
+        raise Error, "conflict markers or .conflict files remain; resolve them before --continue"
       end
 
       if current == @version
