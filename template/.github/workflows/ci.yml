@@ -572,7 +572,7 @@ jobs:
         run: bin/rails generate rafelo:module image_check
 
       - name: Build the production image
-        run: docker build -t rafelo-ci .
+        run: docker build -t acme-ci .
 
   smoke-needed:
     defaults:

@@ -21,7 +21,7 @@ non-root user.
 Build and run it locally:
 
 ```sh
-docker build -t rafelo .
+docker build -t acme .
 docker run -d -p 80:80 \
   -e RAILS_MASTER_KEY="$(cat config/master.key)" \
   -e DB_HOST=host.docker.internal \
@@ -29,8 +29,8 @@ docker run -d -p 80:80 \
   -e DB_NAME=acme_production \
   -e ACME_API_BASE_URL=http://host.docker.internal:4000 \
   -e RAILS_HOSTS=localhost \
-  --name rafelo \
-  rafelo
+  --name acme \
+  acme
 ```
 
 The image build sources `.env.ci.production` and uses the committed dummy
