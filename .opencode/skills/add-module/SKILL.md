@@ -27,31 +27,36 @@ Domain engine:
 bin/rails generate rafelo:domain <name>
 ```
 
-The generator writes the engine, guide, `package.yml`, registry entry (product
-modules only), routes, locale files, permission manifest, budgets, ratchets,
-frontend directories, specs, and regenerates the graph, aliases, contracts,
-and catalogs.
+The generator writes the engine, guide, `package.yml`, locale files, public
+surface, frontend directories, and specs, and regenerates the graph, aliases,
+contracts, and catalogs. A product module also gets routes, the registry entry,
+permissions, errors, budgets, ratchets, its contract folder, and `db/migrate/`.
 
 ## Fill in
 
 - `engines/<name>/package.yml`: declare only the engines this one uses; a new
   dependency is a guard change to name in the pull request.
-- `engines/<name>/config/module.rb` or the domain engine's public surface; keep
-  routes and pages out of domain engines.
+- `engines/<name>/config/module.rb` for a product module; a domain engine
+  exposes its concept through `engines/<name>/app/public/` and
+  `engines/<name>/app/frontend/public/`. Keep routes and pages out of domain
+  engines.
 - `engines/<name>/AGENTS.md`: the engine's kind, allowed dependencies, public
   surface, and what is special about it.
-- `engines/<name>/config/locales/*.yml`,
+- A product module's `engines/<name>/config/locales/*.yml`,
   `engines/<name>/config/permissions.yml`,
-  `engines/<name>/config/errors.yml`, and
-  `engines/<name>/config/budgets.yml`.
+  `engines/<name>/config/errors.yml`,
+  `engines/<name>/config/budgets.yml`,
+  `engines/<name>/config/ratchets.yml`, and `engines/<name>/db/migrate/`; a
+  domain engine keeps the locale copy it exposes and adds only the config files
+  it needs.
 - The public Ruby and TypeScript files under `engines/<name>/app/public/` and
   `engines/<name>/app/frontend/public/`; never copy code from another engine.
 - The smoke/request specs and any upstream fixture the module needs.
 
 ## Rules that apply
 
-GEN-01; GEN-05; ARCH-04; ARCH-06; ARCH-08; ARCH-09; ARCH-10; ARCH-12; BE-03;
-CT-08; WF-06.
+GEN-01; GEN-05; ARCH-03; ARCH-04; ARCH-06; ARCH-08; ARCH-09; ARCH-10; ARCH-12;
+BE-03; BE-10; CT-08; WF-06.
 
 ## Check
 

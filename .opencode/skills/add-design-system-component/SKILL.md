@@ -16,17 +16,21 @@ description: Use when adding or changing a reusable design_system component, its
 
 ## Build
 
-- Add the component under
-  `engines/design_system/app/frontend/components/<name>/`; design_system is a
-  leaf that imports nothing from the repository and only `Link` and
-  `Deferred` from Inertia.
-- Export it through the public surface and update
-  `engines/design_system/api.d.ts` with `npm run api:generate` if the
-  repository generates it; never hand-edit a generated file.
+- Add the component under `engines/design_system/app/frontend/<name>.tsx`;
+  design_system is a leaf that imports nothing from the repository and only
+  `Link` and `Deferred` from Inertia.
+- Export it from `engines/design_system/app/frontend/index.ts` and the public
+  surface in `engines/design_system/app/frontend/public/index.ts`; regenerate
+  the committed `engines/design_system/api.d.ts` with `npm run api:generate`.
+- Add the component to the catalog in
+  `app/frontend/screens/component_catalog/component_catalog_screen.tsx` with a
+  test id, so the screenshot covers it.
 - Use only design_system controls and wrappers; no raw `<button>`, `<input>`,
   `<select>`, or `<textarea>` in a page.
 - Add the component test with role/accessible-name or test-id selectors, and
-  the visual baseline under the design_system fixtures.
+  update the committed baselines under
+  `engines/design_system/e2e/catalog.spec.ts-snapshots/` with
+  `npm run e2e:update`.
 - Add copy in every configured locale; keep the design_system i18n namespace.
 - Keep ECharts and TanStack Table behind the design_system wrappers.
 

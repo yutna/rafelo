@@ -75,16 +75,50 @@ export function topicFiles(root: string): string[] {
     .sort();
 }
 
-export function aiFiles(root: string, config: DocsConfig): string[] {
+export function aiFiles(root: string, config: DocsConfig): { files: string[]; findings: Finding[] } {
   const files = new Set<string>();
+  const findings: Finding[] = [];
   for (const path of globSync("**/AGENTS.md", { cwd: root })) files.add(path.split("\\").join("/"));
   for (const path of globSync("**/CLAUDE.md", { cwd: root })) files.add(path.split("\\").join("/"));
   for (const pattern of config.ai_instruction_files) {
-    for (const path of globSync(pattern, { cwd: root })) files.add(path.split("\\").join("/"));
+    const matches = globSync(pattern, { cwd: root }).map((path) => path.split("\\").join("/"));
+    if (matches.length === 0) {
+      findings.push({ file: "config/docs.yml", message: `ai_instruction_files entry matches no file: ${pattern}` });
+      continue;
+    }
+    for (const path of matches) files.add(path);
   }
-  return [...files]
+  const selected = [...files]
     .filter((path) => !path.startsWith("node_modules/") && !path.startsWith("tmp/") && !path.startsWith("vendor/") && !path.startsWith(".git/"))
     .sort();
+  for (const path of selected) {
+    if (path.startsWith(".opencode/skills/") && path.endsWith("/SKILL.md")) validateSkill(root, path, findings);
+  }
+  return { files: selected, findings };
+}
+
+function validateSkill(root: string, path: string, findings: Finding[]): void {
+  const text = readFileSync(resolve(root, path), "utf8");
+  const frontMatter = text.match(/^---\n([\s\S]*?)\n---\n/);
+  if (!frontMatter) {
+    findings.push({ file: path, message: "skill has no front matter" });
+    return;
+  }
+  let data: unknown;
+  try {
+    data = parseYaml(frontMatter[1]);
+  } catch (error) {
+    findings.push({ file: path, message: `skill front matter is not valid YAML: ${(error as Error).message}` });
+    return;
+  }
+  const record = (data ?? {}) as Record<string, unknown>;
+  const directory = path.split("/").at(-2);
+  if (typeof record.name !== "string" || record.name !== directory) {
+    findings.push({ file: path, message: `skill name must match its directory (${directory})` });
+  }
+  if (typeof record.description !== "string" || record.description.trim() === "") {
+    findings.push({ file: path, message: "skill is missing a description" });
+  }
 }
 
 export function readTextFiles(root: string, paths: string[]): TextFile[] {

@@ -5,13 +5,6 @@ description: Use when code is shared by two engines, when a consumer needs anoth
 
 # Expose a public interface
 
-## Design skills
-
-Load `oo-design` before choosing the home. Load `oo-ruby` for Ruby value
-objects and `oo-typescript` for TypeScript classes; the framework skill applies
-when Rails or React builds the object. Load `oo-reviewing-object-design` when
-reviewing the resulting diff. A rule or ADR wins over the pack.
-
 ## Inputs to collect
 
 - The concept and the engine that owns it.
@@ -31,6 +24,10 @@ reviewing the resulting diff. A rule or ADR wins over the pack.
 - Add the dependency to the consumer's `package.yml`. This is a guard change: name it in the pull request for a person to approve.
 - Do not copy code between engines.
 
+## Rules that apply
+
+ARCH-05; ARCH-08; ARCH-09; GEN-05 when extracting a domain engine.
+
 ## Check
 
 - `bin/packwerk validate`
@@ -39,8 +36,13 @@ reviewing the resulting diff. A rule or ADR wins over the pack.
 - `script/ci/engine_graph --check`
 - `bin/ci`
 
+## Design skills
+
+Load `oo-design` before choosing the home. Load `oo-ruby` for Ruby value
+objects and `oo-typescript` for TypeScript classes; the framework skill applies
+when Rails or React builds the object. Load `oo-reviewing-object-design` when
+reviewing the resulting diff. A rule or ADR wins over the pack.
+
 ## Done when
 
 The consumer imports only the public surface, the declared graph is acyclic, the generated graph is current, and `bin/ci` is green.
-
-Rule IDs: ARCH-05, ARCH-08, ARCH-09; GEN-05 when extracting a domain engine.

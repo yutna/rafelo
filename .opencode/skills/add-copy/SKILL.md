@@ -5,7 +5,7 @@ description: Use when adding or changing a user-facing string, when a page needs
 
 # Add copy
 
-## Inputs
+## Inputs to collect
 
 - The owning engine (`core`, `design_system`, app, or a product module) and its namespace.
 - The key under that namespace and the English copy.
@@ -14,9 +14,13 @@ description: Use when adding or changing a user-facing string, when a page needs
 ## Build
 
 1. Add the English string to `engines/<engine>/config/locales/en.yml` under `<engine>:`; for app pages use `config/locales/en.yml` under `app:`.
-2. Add the same key to every other configured locale file. Do not leave a blank value; use a visible placeholder until a translator fills it.
+2. Add the same key to every other configured locale file. Do not leave a blank value; use a visible placeholder until a translator fills it, and translate every placeholder before the release (CT-08, WF-05).
 3. Run `npm run i18n:generate` and commit the generated JSON.
 4. Read the string in the page with the i18n resolver; never hardcode user-facing English.
+
+## Rules that apply
+
+CT-08; FE-11; ARCH-11.
 
 ## Check
 
@@ -27,8 +31,6 @@ description: Use when adding or changing a user-facing string, when a page needs
 ## Design skills
 
 Load `oo-design` before changing a props or page object. Load `oo-typescript` for TypeScript page code and `oo-working-within-a-framework` for React components. Load `oo-reviewing-object-design` when reviewing the diff. A rule or ADR wins over the pack.
-
-Rule IDs: CT-08; FE-11; ARCH-11.
 
 ## Done when
 

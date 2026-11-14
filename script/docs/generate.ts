@@ -43,7 +43,7 @@ if (!check) {
 
 const topics = topicFiles(root);
 if (topics.length === 0) fail("no topic file was found");
-const instructions = aiFiles(root, config);
+const { files: instructions, findings: instructionFindings } = aiFiles(root, config);
 const topicText = readTextFiles(root, topics);
 const instructionText = readTextFiles(root, instructions);
 const generated = readFileSync(contractsPath, "utf8");
@@ -63,6 +63,7 @@ if (paths.paths === 0) {
 
 const findings: Finding[] = [
   ...configFindings,
+  ...instructionFindings,
   ...definitions.findings,
   ...matrix.findings,
   ...citations.findings,

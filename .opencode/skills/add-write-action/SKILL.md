@@ -38,12 +38,15 @@ keys, request spec, and upstream fixture.
   form schema in `engines/<module>/config/contracts/pages/<resources>/`.
 - Copy in every configured locale and the request spec for success,
   validation failure, permission refusal, and replay.
-- The upstream fixture; the gateway remains the only upstream caller.
+- The upstream fixture under
+  `engines/<module>/spec/fixtures/upstream/<upstream>/` (the generator names
+  the folder after the resource; rename it when the module's upstream key
+  differs); the gateway remains the only upstream caller.
 
 ## Rules that apply
 
-GEN-02; BE-01; BE-13; BE-15; BE-16; BE-17; BE-20; BE-22; CT-01; CT-10; OOP-03;
-OOP-04; OOP-05; TS-02; TS-04; FE-07; FE-09; SEC-02.
+GEN-02; BE-01; BE-03; BE-06; BE-13; BE-15; BE-16; BE-17; BE-20; CT-01; CT-08;
+CT-10; OOP-03; OOP-04; OOP-05; TS-02; TS-04; FE-07; FE-09; SEC-02.
 
 ## Check
 
