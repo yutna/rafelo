@@ -164,13 +164,22 @@ people who are allowed to delete invoices."
 - **Questions:** none. The existing REST resource answered the upstream call
   (`DELETE /invoices/:id`); the issue records that assumption under
   "Dependencies and risks".
-- **Guard failures and fixes:** the new `billing:invoice:delete` permission was
-  added to the module manifest, and the first push (the permission commit)
-  failed `spec/upstream/drift_spec.rb`: the synthetic upstream grant catalog did
-  not offer the key. The trial added the key to
-  `engines/core/spec/fixtures/upstream/api/grants.json`, the fake upstream's
-  catalog, and reran. No guard, budget, ratchet, baseline, or check changed.
-  The first push was therefore not green; the final pull request was.
+- **Guard failures and fixes:**
+  - The first push (the permission commit alone) failed
+    `spec/upstream/drift_spec.rb`: the synthetic upstream grant catalog did not
+    offer `billing:invoice:delete`. The trial added the key to
+    `engines/core/spec/fixtures/upstream/api/grants.json`, the fake upstream's
+    catalog, and reran.
+  - `npm run arch:check` failed `pages-render-screens`: the page imported the
+    container directly. The trial moved the container behind
+    `screens/invoices/index_screen.tsx`, restoring page → screen → container
+    (FE-01).
+  - Two Vitest tests queried the row control before the lazy `DataTable`
+    finished loading. The test now awaits the loaded table and row control.
+  - `bin/ci`'s generator smoke refused a dirty tree; the trial committed the
+    slice and reran.
+  No guard, budget, ratchet, baseline, canary, workflow, or CI configuration
+  changed. The first push was not green; the final pull request was.
 - **What it did instead of the obvious break:** the row control is the
   design-system `Button`, the confirmation is the design-system `Dialog`, the
   delete is a server action with a form token and a `303` back to the list, and
@@ -178,7 +187,9 @@ people who are allowed to delete invoices."
   client-side fetch, or a guard edit.
 - **Files outside the task:** the core fake-upstream grants fixture, for the
   new synthetic permission. No other engine, guard, or CI file changed.
-- **Result:** pass in about 23 minutes and 252k input / 24k output tokens.
+- **Result:** pass in about 17 minutes from issue to merge and 23 minutes of
+  agent time, 252k input / 24k output tokens. CI on the PR took 6m28s; the
+  post-merge run on `main` passed in 5m28s.
 
 ## Trial 7 — ambiguous request
 
