@@ -10,7 +10,7 @@ repo="$(cd "$(dirname "$0")/../.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-version="$(cat "$repo/VERSION")"
+version="${ADOPTION_VERSION:-$(cat "$repo/VERSION")}"
 IFS=. read -r major minor patch <<< "$version"
 if [ "$patch" -gt 0 ]; then
   base_version="${major}.${minor}.$((patch - 1))"
@@ -63,29 +63,39 @@ gate() {
 
 echo "adoption: packing HEAD and adopting smoke_shop"
 archive HEAD "$work/current-src"
-adopt "$work/current-src" "$work/current" "$work/current-src/template/template.rb"
-gate "$work/current"
+if [ "$version" != "$(cat "$repo/VERSION")" ]; then
+  # The release-under-test version can be ahead of the committed VERSION while
+  # a release pull request is in review.
+  cp -a "$work/current-src" "$work/target-src"
+  printf '%s\n' "$version" > "$work/target-src/VERSION"
+  current_src="$work/target-src"
+else
+  current_src="$work/current-src"
+fi
+adopt "$current_src" "$work/smoke_shop" "$current_src/template/template.rb"
+gate "$work/smoke_shop"
+
+if ! git -C "$repo" cat-file -e "$base_tag:template/template.rb" 2>/dev/null &&
+   ! git -C "$repo" cat-file -e "$base_tag:docs/contracts.md" 2>/dev/null; then
+  echo "adoption: $base_tag predates the template payload; the N-1 update proof starts with v0.20.0"
+  exit 0
+fi
 
 echo "adoption: adopting release $base_tag and updating it to $version"
 archive "$base_tag" "$work/base-src"
 if [ ! -f "$work/base-src/template/template.rb" ]; then
-  # The first application-template release has no earlier template; use the
-  # template under test to adopt the N-1 kernel, then prove the update path.
-  cp -a "$work/current-src/template" "$work/base-src/template"
+  # v0.20.0 has the payload's documentation and scripts but no template yet;
+  # adopt its kernel with the template under test, then prove the update path.
+  cp -a "$current_src/template" "$work/base-src/template"
 fi
-if [ ! -f "$work/base-src/docs/contracts.md" ]; then
-  # v0.19.0 predates the generated contracts page; the current template's
-  # docs:check needs it in the app it tests.
-  cp "$work/current-src/docs/contracts.md" "$work/base-src/docs/contracts.md"
+adopt "$work/base-src" "$work/smoke_shop_prev" "$work/base-src/template/template.rb"
+if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
+  cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
+  cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
 fi
-adopt "$work/base-src" "$work/updated" "$work/base-src/template/template.rb"
-if [ ! -f "$work/updated/bin/kernel_update" ]; then
-  cp "$work/current-src/bin/kernel_update" "$work/updated/bin/kernel_update"
-  cp "$work/current-src/script/ci/kernel_update" "$work/updated/script/ci/kernel_update"
-fi
-( cd "$work/updated" && bin/kernel_update "$version" \
-    --base-source "$work/base-src" --source "$work/current-src" )
-( cd "$work/updated" && git add -A && git commit -q -m "chore: update the kernel to v$version" )
-gate "$work/updated"
+( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
+    --base-source "$work/base-src" --source "$current_src" )
+( cd "$work/smoke_shop_prev" && git add -A && git commit -q -m "chore: update the kernel to v$version" )
+gate "$work/smoke_shop_prev"
 
 echo "adoption: smoke_shop and the $base_tag to $version update passed"

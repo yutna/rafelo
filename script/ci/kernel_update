@@ -17,9 +17,13 @@ module KernelUpdate
   DEFAULT_PATHS = %w[
     engines/core
     script/ci
+    script/contracts/permissions
     bin/check
     bin/kernel_update
     spec/fixtures/hostile_urls.json
+    spec/core
+    spec/generators
+    spec/patches
     .rubocop.yml
     .dependency-cruiser.cjs
     config/budgets.yml

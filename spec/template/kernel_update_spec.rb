@@ -19,6 +19,7 @@ RSpec.describe "bin/kernel_update" do
         { "source" => "engines/design_system" },
         { "source" => "engines/example_orders" },
         { "source" => "script/ci" },
+        { "source" => "script/contracts" },
         { "source" => "bin", "mode" => "app" },
         { "source" => "spec/fixtures" },
         { "source" => "config", "mode" => "app" },
@@ -64,6 +65,7 @@ RSpec.describe "bin/kernel_update" do
     {
       "engines/core/app/models/core_file.rb" => "base core\n",
       "script/ci/tool" => "#!/usr/bin/env ruby\nputs :base\n",
+      "script/contracts/permissions" => "puts :base\n",
       "bin/check" => "#!/usr/bin/env ruby\nputs :base\n",
       "bin/kernel_update" => "#!/usr/bin/env ruby\nputs :base\n",
       "spec/fixtures/hostile_urls.json" => "[]\n",
@@ -80,6 +82,7 @@ RSpec.describe "bin/kernel_update" do
       "engines/core/app/models/core_file.rb" => "target core\n",
       "engines/core/app/models/new_file.rb" => "new core\n",
       "script/ci/tool" => "#!/usr/bin/env ruby\nputs :target\n",
+      "script/contracts/permissions" => "puts :target\n",
       "bin/check" => "#!/usr/bin/env ruby\nputs :target\n",
       "bin/kernel_update" => "#!/usr/bin/env ruby\nputs :target\n",
       "spec/fixtures/hostile_urls.json" => "[\"target\"]\n",
@@ -109,6 +112,7 @@ RSpec.describe "bin/kernel_update" do
           expect(File.read(File.join(app_root, "engines/core/app/models/core_file.rb"))).to eq("target core\n")
           expect(File.read(File.join(app_root, "engines/core/app/models/new_file.rb"))).to eq("new core\n")
           expect(File.read(File.join(app_root, "script/ci/tool"))).to include(":target")
+          expect(File.read(File.join(app_root, "script/contracts/permissions"))).to include(":target")
           expect(File.read(File.join(app_root, "bin/check"))).to include(":target")
           expect(File.read(File.join(app_root, "bin/kernel_update"))).to include(":target")
           expect(File.read(File.join(app_root, "spec/fixtures/hostile_urls.json"))).to include("target")
