@@ -85,9 +85,11 @@ docker compose -f .devcontainer/compose.yaml config
 Playwright browsers are installed by the Dev Container post-create hook once
 `@playwright/test` is part of `package.json`.
 
-Create local credentials with `bin/rails credentials:edit` when an
-integration needs them. The template does not ship an encrypted credentials
-file, so every clone starts with its own key.
+The template ships `config/credentials/production.yml.enc` with placeholder
+values and the committed dummy credentials used by the dummy boots. Re-encrypt
+the production file with your own secrets and key before deploying; never
+commit the key. Create local credentials with `bin/rails credentials:edit`
+when an integration needs them.
 
 ## Releases
 
