@@ -20,8 +20,8 @@ questions the files cannot answer, edits no guard, and leaves a clean tree. A
 supervisor may complete a mechanical hand-over if the run limit interrupts a
 trial; the record says when that happened.
 
-Paths under engines/billing and spec/requests/billing in this file refer to
-the trial app, not this repository. A first push is green when the first commit
+Paths under engines/billing, spec/requests/billing, and docs/billing in this
+file refer to the trial app, not this repository. A first push is green when the first commit
 the trial pushed passed CI; a fix made locally before that push is recorded
 under guard failures.
 
@@ -252,16 +252,18 @@ the invoice total at the bottom."
      `billing:invoice:read`;
   6. the maximum export size and behaviour past the job's upstream-call
      budget.
-- **What it did:** prepared the design in the PR description only — no code,
-  gem, font, lockfile, or migration is committed. The draft remains open for
-  the person to decide.
+- **What it did:** prepared the design in the PR description and one plan file
+  (docs/billing/invoice-pdf-export.md) — no implementation code, gem, font,
+  lockfile, or migration is committed. The draft remains open for the person to
+  decide.
 - **Guard failures and fixes:** none. The trial app's baseline was transiently
   red from generated smoke engines left by the previous trial; it did not
   change any code or check for that.
-- **Files outside the task:** none (no code was committed).
+- **Files outside the task:** docs/billing/invoice-pdf-export.md, the billing
+  decision record; no engine, guard, or CI file changed.
 - **Result:** pass, handed over. The open draft PR is the record; no person's
-  decision was made by the AI. About 21 minutes and 166k input / 14k output
-  tokens.
+  decision was made by the AI. PR CI was green in 6m41s; issue to green CI took
+  15m26s. About 21 minutes and 166k input / 14k output tokens.
 
 ## Fixes made from the trials
 
