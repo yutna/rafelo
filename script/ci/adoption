@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# script/ci/adoption
+#
+# The template's own CI proof (GEN-07): adopt the commit under test under a
+# two-word name, run the gate, then adopt release N-1, update it to N with
+# bin/kernel_update, and run the gate again.
+set -euo pipefail
+
+repo="$(cd "$(dirname "$0")/../.." && pwd)"
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+version="$(cat "$repo/VERSION")"
+IFS=. read -r major minor patch <<< "$version"
+if [ "$patch" -gt 0 ]; then
+  base_version="${major}.${minor}.$((patch - 1))"
+else
+  base_version="${major}.$((minor - 1)).0"
+fi
+base_tag="v${base_version}"
+
+archive() {
+  local revision="$1" destination="$2"
+  mkdir -p "$destination"
+  git -C "$repo" archive "$revision" | tar -x -C "$destination"
+}
+
+adopt() {
+  local source="$1" destination="$2" template="$3"
+  ( cd "$work" && BUNDLE_GEMFILE="$repo/Gemfile" bundle exec rails new "$destination" \
+      -d postgresql --devcontainer \
+      --skip-javascript --skip-hotwire --skip-jbuilder --skip-test \
+      --skip-bundle -m "$template" )
+}
+
+clean_tree() {
+  local app="$1"
+  git -C "$app" status --porcelain --untracked-files=all
+}
+
+check_no_placeholder() {
+  local app="$1"
+  local found
+  found="$(git -C "$app" ls-files | grep -i 'acme' || true)"
+  if [ -n "$found" ]; then
+    echo "adoption: placeholder path in $app: $found" >&2
+    exit 1
+  fi
+  if git -C "$app" grep -Iil 'acme' -- . >/dev/null 2>&1; then
+    echo "adoption: placeholder text in $app" >&2
+    git -C "$app" grep -Iil 'acme' -- . >&2
+    exit 1
+  fi
+}
+
+gate() {
+  local app="$1"
+  ( cd "$app" && bin/setup --skip-server )
+  ( cd "$app" && BASE_SHA="$(git rev-list --max-parents=0 HEAD)" bin/ci )
+  check_no_placeholder "$app"
+  test -z "$(clean_tree "$app")"
+}
+
+echo "adoption: packing HEAD and adopting smoke_shop"
+archive HEAD "$work/current-src"
+adopt "$work/current-src" "$work/current" "$work/current-src/template/template.rb"
+gate "$work/current"
+
+echo "adoption: adopting release $base_tag and updating it to $version"
+archive "$base_tag" "$work/base-src"
+if [ ! -f "$work/base-src/template/template.rb" ]; then
+  # The first application-template release has no earlier template; use the
+  # template under test to adopt the N-1 kernel, then prove the update path.
+  cp -a "$work/current-src/template" "$work/base-src/template"
+fi
+adopt "$work/base-src" "$work/updated" "$work/base-src/template/template.rb"
+if [ ! -f "$work/updated/bin/kernel_update" ]; then
+  cp "$work/current-src/bin/kernel_update" "$work/updated/bin/kernel_update"
+  cp "$work/current-src/script/ci/kernel_update" "$work/updated/script/ci/kernel_update"
+fi
+( cd "$work/updated" && bin/kernel_update "$version" \
+    --base-source "$work/base-src" --source "$work/current-src" )
+( cd "$work/updated" && git add -A && git commit -q -m "chore: update the kernel to v$version" )
+gate "$work/updated"
+
+echo "adoption: smoke_shop and the $base_tag to $version update passed"
