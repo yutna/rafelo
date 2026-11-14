@@ -648,3 +648,39 @@ design pack may assume a local domain model and that the adopter's ADRs decide
 where business rules and persistence live; otherwise an agent may treat the
 pack's aggregate/repository examples as the target architecture. Related IDs:
 ADR-32; ARCH-03; ARCH-05; ARCH-13; OOP-03; BE-01; BE-20; TS-03.
+
+## 2026-11-14 — v0.22.0 — issue #382 (final gate)
+
+**What happened.** The final gate audited the v0.22.0 AI-file changes
+(#383–#385), the eight request-workflow trials (#380), and the rule/ADR
+traceability table (#381). The independent audit found two release blockers
+and four S2 evidence defects. The enforcement matrix names 17 custom cops and
+20 ESLint-dependent rules; the repository implements 5 cops and has no ESLint.
+The root `AGENTS.md` "Never" bullet said "Put secrets or real personal data in
+code, tests, fixtures, logs, or issues" as a positive sentence. The trial
+record called trial 3's first push green when it was red, and said no baseline
+changed while the design-system trial updated the TS-11 screenshots. The
+traceability table cited an empty CT-10 glob and the wrong cop for BE-09. The
+`add-write-action` skill said a validation failure re-renders, contradicting
+BE-13.
+
+**What changed.** Root `AGENTS.md` now says "Put no secrets or real personal
+data in code, tests, fixtures, logs, or issues"; `spec-provenance.md` records
+that the gist copy is historical and not loaded. The engine guides cite their
+rule IDs and no longer say "once the engine has a test suite".
+`add-write-action` says every write outcome, including a validation failure,
+redirects with 303 and the translated errors. The trials record marks trial 3's
+first push red, records the TS-11 baseline update, defines the supervisor
+hand-over, and fixes the adoption wording. The traceability table uses the
+matrix statuses, marks each missing cop or ESLint tool as review with #387,
+fixes CT-10's glob, and cites the real `Current` path for BE-09. The 49-pack
+skill count and the `oo-inverting-dependencies` conflict row are corrected.
+The missing cops and ESLint rules are carried in #387; the S3 notes are in
+#390.
+
+**Spec feedback.** `09_enforcement.md` should not name a custom cop or ESLint
+rule that the template does not ship; mark the rule review until the tool
+exists. `docs:check` could fail an unlisted non-`oo-*` skill. The final
+traceability table is the place to record a spec-versus-code gap, not to repeat
+the matrix's claim. Related IDs: ADR-32; TS-07; CT-09; BE-13; BE-08; WF-06;
+ARCH-09; BE-09.
