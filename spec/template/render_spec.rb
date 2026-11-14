@@ -104,6 +104,9 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         expect(kernel).to include("module Rafelo")
         expect(kernel).not_to include("SmokeShop")
 
+        kernel_initializer = File.read(File.join(destination, "config", "initializers", "modules.rb"))
+        expect(kernel_initializer).to include("engines/core/app/models/rafelo/core/modules")
+
         example = File.read(File.join(destination, "engines", "example_orders", "lib", "rafelo", "example_orders", "engine.rb"))
         expect(example).to include("module Rafelo")
         expect(example).to include("ExampleOrders")

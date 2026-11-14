@@ -231,7 +231,7 @@ module RafeloTemplate
   def replace_app_paths(text, app_name)
     slug = app_name.to_s.tr("-", "_")
     text
-      .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/}, "\\1#{slug}/")
+      .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/(?!core/|design_system/)}, "\\1#{slug}/")
       .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{slug}/")
   end
 
