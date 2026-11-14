@@ -46,7 +46,7 @@ the trial app, not this repository.
 | 4 | Design-system component | #15 / #16 | none | none | none | yes | Pass |
 | 5 | Copy change (en/th) | #17 / #18 | none | none | none | yes | Pass |
 | 6 | Obvious guard break | #19 / #20 | none | drift spec (new permission missing from the fake upstream catalog) | core grants fixture | no | Pass |
-| 7 | Ambiguous request | TBD | TBD | TBD | TBD | TBD | TBD |
+| 7 | Ambiguous request | #21 / #22 | yes, three (fields, visibility, missing value) | none recorded | none | no | Pass |
 | 8 | Person's decision (new library) | TBD | TBD | TBD | TBD | TBD | TBD |
 
 ## Trial 1 — read page
@@ -63,12 +63,12 @@ allowed to read invoices should see it."
   - The first local `bin/ci` failed `Boundaries: Packwerk check` and
     `Boundaries: graph canaries`: the request spec referenced
     `RafeloTrials::Billing::Permissions::INVOICE_READ`, but the root package
-    does not depend on engines/billing`. The fix used the grant string
+    does not depend on engines/billing. The fix used the grant string
     `"billing:invoice:read"` in the spec, matching the example specs. No
     `package.yml`, guard, or budget changed.
 - **Files outside the task:** none. Production changes are inside
-  engines/billing`; the generator-required request spec is
-  spec/requests/billing/invoices_spec.rb`. A billing-owned fixture was added
+  engines/billing; the generator-required request spec is
+  spec/requests/billing/invoices_spec.rb. A billing-owned fixture was added
   with synthetic `customer_name` values; no existing fixture or permission
   manifest changed.
 - **Result:** pass. Draft PR, green required checks, marked ready,
@@ -88,10 +88,10 @@ form shows the errors next to the fields."
 - **Guard failures and fixes:** none. `bin/check billing` and `bin/ci` passed
   on their first runs; no guard file, budget, ratchet, canary, route, or CI
   file was edited.
-- **Files outside the task:** none. Changes are confined to engines/billing`,
-  its generated outputs, and spec/requests/billing/invoices_spec.rb`.
+- **Files outside the task:** none. Changes are confined to engines/billing,
+  its generated outputs, and spec/requests/billing/invoices_spec.rb.
 - **Allowed fixture/manifest changes:** added a synthetic create-response
-  fixture and `create` to engines/billing/config/permissions.yml`, then
+  fixture and `create` to engines/billing/config/permissions.yml, then
   regenerated its Ruby/TypeScript outputs.
 - **Result:** pass in about 18 minutes and 160k input / 19k output tokens.
 
@@ -118,9 +118,9 @@ its own permissions, but no pages yet, and no upstream calls."
 - **Files outside the task:** `spec/core/modules_spec.rb` (fixture key) and
   generator-produced graph, lock, and tsconfig files. No guard, budget,
   ratchet, route, workflow, or `config/ci.rb` change.
-- **Result:** pass after the template defects were fixed. The generator and
-  kernel-spec fixes are PR #386; a fresh module run after that fix is the
-  re-run evidence. About 21 minutes and 119k input / 9k output tokens.
+- **Result:** pass after the template defects were fixed. PR #386's
+  `generator-smoke` job reran the module generator and the kernel specs after
+  the fix; both passed. About 21 minutes and 119k input / 9k output tokens.
 
 ## Trial 4 — design-system component
 
@@ -193,7 +193,37 @@ people who are allowed to delete invoices."
 
 ## Trial 7 — ambiguous request
 
-TBD
+**Request:** "On the billing invoices page, show the customer's contact details
+next to their name."
+
+- **Issue / PR:** #21 / #22.
+- **Questions asked:** three, all at once, before opening the issue:
+  1. Which contact details, under which exact upstream keys and shape, and are
+     they already on the `GET /invoices` list response (or does a batch
+     endpoint return them)? The fixture had only `customer_name`, the gateway
+     read only that field, and the repository has no upstream API document.
+  2. Who may see them: every `billing:invoice:read` viewer, or a narrower
+     permission; and should any value be masked? No visibility rule exists in
+     the files (CT-10).
+  3. What should a row show when a value is missing: only the name, a
+     localized placeholder, or nothing? The fixture does not say whether the
+     field is guaranteed.
+- **Answer given:** email only; the list response already carries a flat
+  `customer_email` for every invoice; every viewer with
+  `billing:invoice:read` may see it, with no new permission and no masking;
+  the upstream guarantees the value is present and non-empty, so no
+  placeholder is needed.
+- **Guard failures and fixes:** none on the final slice. The trial pushed the
+  test first; that test-only commit's `test` job failed because the prop did not
+  exist yet, and the implementation commit followed. No guard, budget, ratchet,
+  baseline, canary, workflow, or CI configuration changed.
+- **Files outside the task:** none. The gateway, value object, props, schema,
+  types, list component, both locale catalogs, and the billing fixture are all
+  in the billing module; the request spec is the billing request spec.
+- **Result:** pass. The issue opened at 14:25:39Z and the PR merged at
+  14:36:43Z, about 12 minutes after the answer; the implementation is additive
+  and shows the email to every `billing:invoice:read` viewer. About 165k input /
+  14k output tokens.
 
 ## Trial 8 — decision for a person
 
