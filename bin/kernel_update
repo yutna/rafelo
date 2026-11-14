@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Three-way merge of a new kernel release into this app (GEN-07).
+exec RbConfig.ruby, File.expand_path("../script/ci/kernel_update", __dir__), *ARGV

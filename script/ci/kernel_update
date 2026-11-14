@@ -1,0 +1,457 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open-uri"
+require "open3"
+require "optparse"
+require "tmpdir"
+require "yaml"
+
+# Three-way merge of a new Rafelo kernel release into an adopted app (GEN-07,
+# ADR-27, ADR-28). Both releases are rendered with the adopter's namespace
+# before the merge; the kernel brand `Rafelo` stays in kernel-owned names.
+module KernelUpdate
+  REPOSITORY = ENV.fetch("RAFELO_REPOSITORY", "yutna/rafelo")
+
+  DEFAULT_PATHS = %w[
+    engines/core
+    script/ci
+    bin/check
+    bin/kernel_update
+    spec/fixtures/hostile_urls.json
+    .rubocop.yml
+    .dependency-cruiser.cjs
+    config/budgets.yml
+    config/ci.rb
+    config/contracts/_shared.json
+    config/database.yml
+    config/deploy.yml
+    config/deploy.multi.yml
+    config/errors.yml
+    config/locales.yml
+    config/permission_mapping.yml
+    config/production_routes.yml
+    config/puma.rb
+    config/queue.yml
+    config/routes.rb
+    config/upstreams.yml
+    config/environments
+    config/initializers
+    package.yml
+    packwerk.yml
+    spec/enforcement
+  ].freeze
+
+  # The example engines are optional (GEN-08) and are never updated.
+  UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/].freeze
+
+  CONFLICT_MARKER = /^(?:<{7}|={7}|>{7})/
+
+  # The documentation placeholder is assembled so the updater itself never
+  # carries a literal placeholder name into an adopted app (GEN-07).
+  APP_PLACEHOLDER = %w[A c m e].join.freeze
+
+  class Error < StandardError; end
+
+  class Release
+    attr_reader :root, :version
+
+    def initialize(version:, source: nil, workspace:)
+      @version = version
+      @root = source ? local_source(source) : download(workspace)
+      verify_version!
+      @manifest = load_manifest
+    end
+
+    def file(relative)
+      path = File.join(root, relative)
+      File.file?(path) ? path : nil
+    end
+
+    def files_under(relative)
+      full = File.join(root, relative)
+      return [ relative ] if File.file?(full)
+      return [] unless Dir.exist?(full)
+
+      Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
+        .map { |path| path.delete_prefix("#{root}/") }
+        .reject { |path| KernelUpdate.untouched?(path) }
+        .sort
+    end
+
+    def mode_for(relative)
+      entry = @manifest.select { |candidate| KernelUpdate.covers?(candidate.fetch("source"), relative) }
+        .max_by { |candidate| candidate.fetch("source").length }
+      entry ? entry.fetch("mode", "copy") : fallback_mode(relative)
+    end
+
+    private
+
+    def local_source(source)
+      path = File.expand_path(source)
+      raise Error, "release source is missing: #{path}" unless Dir.exist?(path)
+
+      path
+    end
+
+    def download(workspace)
+      directory = Dir.mktmpdir("rafelo-release-#{version}-", workspace)
+      archive = File.join(directory, "release.tar.gz")
+      url = "https://github.com/#{REPOSITORY}/archive/refs/tags/v#{version}.tar.gz"
+
+      begin
+        URI.open(url, "rb", read_timeout: 60, open_timeout: 20) do |input|
+          IO.copy_stream(input, archive)
+        end
+      rescue OpenURI::HTTPError => error
+        raise Error, "release v#{version} is not available: #{error.message}"
+      end
+
+      system("tar", "-xzf", archive, "-C", directory, exception: true)
+      candidates = Dir.children(directory).reject { |entry| entry == File.basename(archive) }
+      raise Error, "release v#{version} has no source directory" unless candidates.length == 1
+
+      File.join(directory, candidates.first)
+    end
+
+    def verify_version!
+      path = File.join(root, "VERSION")
+      raise Error, "release v#{version} has no VERSION" unless File.file?(path)
+
+      actual = File.read(path).strip
+      raise Error, "release source is v#{actual}, expected v#{version}" unless actual == version
+    end
+
+    def load_manifest
+      path = File.join(root, "template", "payload.yml")
+      return [] unless File.file?(path)
+
+      manifest = YAML.safe_load_file(path, aliases: false)
+      Array(manifest["paths"])
+    end
+
+    def fallback_mode(relative)
+      case relative
+      when %r{\A(?:config|bin)/} then "app"
+      when "AGENTS.md" then "app"
+      when %r{\Adocs/} then "placeholder"
+      else "copy"
+      end
+    end
+  end
+
+  class Update
+    Result = Struct.new(:relative, :status, :conflict, keyword_init: true)
+
+    attr_reader :results
+
+    def initialize(root:, base:, target:, includes:, namespace:, slug:)
+      @root = root
+      @base = base
+      @target = target
+      @includes = includes
+      @namespace = namespace
+      @slug = slug
+      @results = []
+    end
+
+    def paths
+      @paths ||= (
+        DEFAULT_PATHS + @includes.map { |folder| "engines/#{folder}" }
+      ).uniq
+    end
+
+    def run
+      paths.each do |path|
+        fresh = @target.files_under(path) - @base.files_under(path)
+        stale = @base.files_under(path) - @target.files_under(path)
+        changed = @base.files_under(path) & @target.files_under(path)
+        (fresh + stale + changed).uniq.each { |relative| merge(relative) }
+      end
+      self
+    end
+
+    def conflicts?
+      results.any?(&:conflict)
+    end
+
+    private
+
+    def merge(relative)
+      local_path = File.join(@root, relative)
+      local = File.file?(local_path) ? File.binread(local_path) : nil
+      base = rendered(@base, relative)
+      target = rendered(@target, relative)
+
+      return if base == target && local == base
+
+      if local == base
+        if target.nil?
+          FileUtils.rm_f(local_path)
+          results << Result.new(relative: relative, status: "deleted")
+        else
+          write(local_path, target, file_mode(@target, relative) || local_mode(local_path))
+          results << Result.new(relative: relative, status: "updated")
+        end
+        return
+      end
+
+      if base == target
+        results << Result.new(relative: relative, status: "kept")
+        return
+      end
+
+      if base.nil? || target.nil? || local.nil? || binary?(local) || binary?(base) || binary?(target)
+        results << Result.new(relative: relative, status: "conflict", conflict: true)
+        return
+      end
+
+      merged, conflict = merge_text(local, base, target)
+      write(local_path, merged, local_mode(local_path) || file_mode(@target, relative))
+      if conflict
+        results << Result.new(relative: relative, status: "conflict", conflict: true)
+      else
+        results << Result.new(relative: relative, status: "merged")
+      end
+    end
+
+    def rendered(release, relative)
+      path = release.file(relative)
+      return nil unless path
+
+      content = File.binread(path)
+      text = content.dup.force_encoding(Encoding::UTF_8)
+      return content unless text.valid_encoding?
+
+      render(text, release.mode_for(relative))
+    end
+
+    def render(text, mode)
+      case mode
+      when "app"
+        placeholders(text)
+          .gsub(/\bRafelo\b(?!::(?:Core|DesignSystem|Generators))/, @namespace)
+          .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/(?!core/|design_system/)}, "\\1#{@slug}/")
+          .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{@slug}/")
+      when "placeholder", "github"
+        placeholders(text)
+      else
+        text
+      end
+    end
+
+    def placeholders(text)
+      text.gsub(APP_PLACEHOLDER, @namespace)
+        .gsub(APP_PLACEHOLDER.upcase, @slug.upcase)
+        .gsub(APP_PLACEHOLDER.downcase, @slug)
+    end
+
+    def file_mode(release, relative)
+      path = release.file(relative)
+      path ? File.stat(path).mode : nil
+    end
+
+    def local_mode(path)
+      File.file?(path) ? File.stat(path).mode : nil
+    end
+
+    def merge_text(local, base, target)
+      Dir.mktmpdir("rafelo-merge-") do |directory|
+        local_path = File.join(directory, "local")
+        base_path = File.join(directory, "base")
+        target_path = File.join(directory, "target")
+        File.binwrite(local_path, local)
+        File.binwrite(base_path, base)
+        File.binwrite(target_path, target)
+
+        output, status = Open3.capture2("git", "merge-file", "-p", "--diff3", local_path, base_path, target_path)
+        raise Error, "git merge-file failed" if status.exitstatus > 1
+
+        [ output, status.exitstatus == 1 ]
+      end
+    end
+
+    def binary?(content)
+      content&.include?("\x00")
+    end
+
+    def write(path, content, mode)
+      FileUtils.mkdir_p(File.dirname(path))
+      File.binwrite(path, content)
+      File.chmod(mode, path) if mode
+    end
+  end
+
+  module_function
+
+  def untouched?(relative)
+    UNTOUCHED_PREFIXES.any? { |prefix| relative.start_with?(prefix) }
+  end
+
+  def covers?(source, relative)
+    relative == source || relative.start_with?("#{source}/")
+  end
+
+  def namespace(root)
+    source = File.read(File.join(root, "config", "application.rb"))
+    match = source.match(/^module\s+([A-Z]\w*)/)
+    raise Error, "cannot read the application namespace from config/application.rb" unless match
+
+    match[1]
+  end
+
+  def slug(namespace)
+    namespace.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+  end
+
+  def conflict_markers?(root, paths)
+    paths.flat_map do |path|
+      full = File.join(root, path)
+      if File.file?(full)
+        [ full ]
+      else
+        Dir.glob(File.join(full, "**", "*")).select { |candidate| File.file?(candidate) }
+      end
+    end.any? do |file|
+      next false if untouched?(file.delete_prefix("#{root}/"))
+
+      File.readlines(file, chomp: true).any? { |line| line.match?(CONFLICT_MARKER) }
+    rescue ArgumentError
+      false
+    end
+  end
+
+  class CLI
+    def initialize(argv)
+      @options = { root: Dir.pwd, includes: [], base_source: nil, source: nil, continue: false }
+      @version = parse(argv)
+    end
+
+    def run
+      root = File.expand_path(@options[:root])
+      raise Error, "root does not exist: #{root}" unless Dir.exist?(root)
+      raise Error, "root is not a Rafelo app" unless File.file?(File.join(root, "config", "application.rb"))
+
+      if @options[:continue]
+        continue_update(root)
+        return 0
+      end
+
+      current = current_version(root)
+      return report_current(current) if current == @version
+
+      workspace = Dir.mktmpdir("rafelo-kernel-update-")
+      base = Release.new(version: current, source: @options[:base_source], workspace: workspace)
+      target = Release.new(version: @version, source: @options[:source], workspace: workspace)
+      @options[:includes].each do |folder|
+        next if target.files_under("engines/#{folder}").any? || base.files_under("engines/#{folder}").any?
+
+        raise Error, "design_system folder is missing from both releases: #{folder}"
+      end
+
+      update = Update.new(
+        root: root,
+        base: base,
+        target: target,
+        includes: @options[:includes],
+        namespace: KernelUpdate.namespace(root),
+        slug: KernelUpdate.slug(KernelUpdate.namespace(root))
+      ).run
+
+      update.results.each do |result|
+        suffix = result.conflict ? " (conflict)" : ""
+        puts "kernel_update: #{result.status} #{result.relative}#{suffix}"
+      end
+
+      if update.conflicts?
+        warn "kernel_update: conflicts remain; resolve them, then run bin/kernel_update #{@version} --continue"
+        return 1
+      end
+
+      write_version(root, @version)
+      puts "kernel_update: updated KERNEL_VERSION to #{@version}"
+      0
+    ensure
+      FileUtils.remove_entry(workspace) if defined?(workspace) && workspace && Dir.exist?(workspace)
+    end
+
+    private
+
+    def parse(argv)
+      parser = OptionParser.new do |options|
+        options.banner = "Usage: bin/kernel_update VERSION [--root DIR] [--base-source DIR] [--source DIR] [--include design_system/FOLDER] [--continue]"
+        options.on("--root DIR") { |value| @options[:root] = value }
+        options.on("--base-source DIR") { |value| @options[:base_source] = value }
+        options.on("--source DIR") { |value| @options[:source] = value }
+        options.on("--include FOLDER") { |value| @options[:includes] << value }
+        options.on("--continue") { @options[:continue] = true }
+        options.on("-h", "--help") { puts options; exit 0 }
+      end
+
+      arguments = parser.parse(argv)
+      version = arguments.shift
+      raise Error, "VERSION is required\n#{parser}" if version.nil?
+      raise Error, "unexpected arguments: #{arguments.join(' ')}" unless arguments.empty?
+
+      version = version.delete_prefix("v")
+      unless version.match?(/\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\z/)
+        raise Error, "VERSION must be MAJOR.MINOR.PATCH: #{version.inspect}"
+      end
+
+      @options[:includes].each do |folder|
+        unless folder.match?(%r{\Adesign_system/[a-z0-9_]+(?:/[a-z0-9_]+)*\z})
+          raise Error, "--include must be design_system/<folder>: #{folder.inspect}"
+        end
+      end
+
+      version
+    rescue OptionParser::ParseError => error
+      raise Error, error.message
+    end
+
+    def current_version(root)
+      path = File.join(root, "KERNEL_VERSION")
+      raise Error, "KERNEL_VERSION is missing" unless File.file?(path)
+
+      version = File.read(path).strip
+      raise Error, "KERNEL_VERSION is not MAJOR.MINOR.PATCH: #{version.inspect}" unless version.match?(/\A\d+\.\d+\.\d+\z/)
+
+      version
+    end
+
+    def continue_update(root)
+      current = current_version(root)
+      paths = DEFAULT_PATHS + @options[:includes].map { |folder| "engines/#{folder}" }
+      if KernelUpdate.conflict_markers?(root, paths)
+        raise Error, "conflict markers remain; resolve them before --continue"
+      end
+
+      if current == @version
+        puts "kernel_update: KERNEL_VERSION is already #{@version}"
+        return
+      end
+
+      write_version(root, @version)
+      puts "kernel_update: resolved conflicts; updated KERNEL_VERSION to #{@version}"
+    end
+
+    def report_current(current)
+      puts "kernel_update: KERNEL_VERSION is already #{current}"
+      0
+    end
+
+    def write_version(root, version)
+      File.write(File.join(root, "KERNEL_VERSION"), "#{version}\n")
+    end
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  begin
+    exit KernelUpdate::CLI.new(ARGV).run
+  rescue KernelUpdate::Error => error
+    warn "kernel_update: #{error.message}"
+    exit 2
+  end
+end

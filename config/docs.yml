@@ -13,7 +13,6 @@ ai_instruction_files:
 # the check fails as soon as the path exists (remove the entry then). See
 # #21 for the staging decision.
 deferred_paths:
-  bin/kernel_update: "v0.21.0 GEN-07"
   script/ci/apply_check: "FE-06 guard, final hardening milestone"
   script/ci/eslint: "TS-05/FE-06 guards, final hardening milestone"
   script/ci/eslint/check_config.mjs: "TS-05/FE-06 guard, final hardening milestone"
