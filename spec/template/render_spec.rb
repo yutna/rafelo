@@ -107,9 +107,11 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         kernel_initializer = File.read(File.join(destination, "config", "initializers", "modules.rb"))
         expect(kernel_initializer).to include("engines/core/app/models/rafelo/core/modules")
 
-        example = File.read(File.join(destination, "engines", "example_orders", "lib", "rafelo", "example_orders", "engine.rb"))
-        expect(example).to include("module Rafelo")
-        expect(example).to include("ExampleOrders")
+        if Dir.exist?(File.join(source_root, "engines", "example_orders"))
+          example = File.read(File.join(destination, "engines", "example_orders", "lib", "rafelo", "example_orders", "engine.rb"))
+          expect(example).to include("module Rafelo")
+          expect(example).to include("ExampleOrders")
+        end
 
         expect(File).to exist(File.join(destination, ".github", "workflows", "ci.yml"))
         expect(File).not_to exist(File.join(destination, ".github", "workflows", "pr-check.yml"))

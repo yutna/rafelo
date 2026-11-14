@@ -71,8 +71,13 @@ paths:
     mode: app
   - source: engines/core
   - source: engines/design_system
+  # The examples are copied when present; GEN-08 allows an adopter to delete
+  # them, and the template repository's examples-removable job proves the
+  # kernel still passes without them.
   - source: engines/example_customers
+    optional: true
   - source: engines/example_orders
+    optional: true
   - source: lib
     mode: app
   - source: .kamal

@@ -102,6 +102,7 @@ module RafeloTemplate
     payload(source_root).each do |entry|
       source = File.expand_path(entry.fetch("source"), source_root)
       target_root = File.expand_path(entry.fetch("destination", entry.fetch("source")), destination)
+      next if entry["optional"] && !File.exist?(source)
       raise ArgumentError, "template: source is missing: #{source}" unless File.exist?(source)
 
       if File.file?(source)
