@@ -12,6 +12,7 @@ RSpec.describe "Database role script on a managed admin" do
   let(:admin_role) { "rafelo_managed_admin_#{Process.pid}_#{SecureRandom.hex(3)}" }
 
   before do
+    skip "role specs run in the primary test process only (see #333)" if ENV["TEST_ENV_NUMBER"].present?
     skip "requires a PostgreSQL superuser to create the managed admin (see #333)" unless scratch.supported?
 
     @admin = scratch.admin
@@ -33,14 +34,14 @@ RSpec.describe "Database role script on a managed admin" do
   end
 
   after do
-    @connection&.close unless @connection&.finished?
-    scratch.drop! if @created
     if @created
+      @connection&.close unless @connection&.finished?
+      scratch.drop!
       @admin.exec("DROP ROLE IF EXISTS rafelo_runtime")
       @admin.exec("DROP ROLE IF EXISTS rafelo_migrator")
       @admin.exec("DROP ROLE IF EXISTS #{@admin.escape_identifier(admin_role)}")
+      scratch.close
     end
-    scratch.close
   end
 
   it "transfers ownership and restricts the audit table without a superuser" do

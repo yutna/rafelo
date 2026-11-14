@@ -10,6 +10,7 @@ RSpec.describe "Database role script" do
   let(:roles) { %w[rafelo_runtime rafelo_migrator] }
 
   before do
+    skip "role specs run in the primary test process only (see #333)" if ENV["TEST_ENV_NUMBER"].present?
     skip "requires a PostgreSQL superuser to create roles (see #333)" unless scratch.supported?
 
     scratch.create!
@@ -37,10 +38,12 @@ RSpec.describe "Database role script" do
   end
 
   after do
-    @connection&.close unless @connection&.finished?
-    scratch.drop! if @created
-    scratch.drop_roles!(roles) if @created
-    scratch.close
+    if @created
+      @connection&.close unless @connection&.finished?
+      scratch.drop!
+      scratch.drop_roles!(roles)
+      scratch.close
+    end
   end
 
   it "creates both roles and hands existing tables to the migration role" do

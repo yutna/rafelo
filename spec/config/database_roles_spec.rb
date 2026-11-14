@@ -15,7 +15,9 @@ RSpec.describe "Database roles" do
 
   it "defines the runtime and migration connection configurations" do
     require "erb"
-    data = YAML.safe_load(ERB.new(File.read(Rails.root.join("config/database.yml"))).result, aliases: true)
+    data = without_database_env do
+      YAML.safe_load(ERB.new(File.read(Rails.root.join("config/database.yml"))).result, aliases: true)
+    end
     production = data.fetch("production")
 
     expect(production.dig("primary", "username")).to include("rafelo_runtime")
@@ -44,5 +46,15 @@ RSpec.describe "Database roles" do
     flags = ActiveRecord::Tasks::DatabaseTasks.structure_dump_flags
 
     expect(flags).to include("--exclude-table=core_audit_events_*")
+  end
+
+  # CI sets DB_USER=postgres for the test connection; this spec inspects the
+  # production defaults written in config/database.yml.
+  def without_database_env
+    keys = %w[DB_USER DB_PASSWORD DB_MIGRATION_USER DB_MIGRATION_PASSWORD DB_NAME RAFELO_DATABASE_ROLE]
+    saved = keys.to_h { |key| [ key, ENV.delete(key) ] }
+    yield
+  ensure
+    saved.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
   end
 end
