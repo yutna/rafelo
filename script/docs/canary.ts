@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 
 import {
+  aiFiles,
   checkCitations,
   checkGenerated,
   checkMatrix,
@@ -141,6 +142,52 @@ try {
   );
 } finally {
   rmSync(root, { recursive: true, force: true });
+}
+
+// AI instruction entries and skill front matter.
+const aiRoot = mkdtempSync(join(tmpdir(), "rafelo-docs-ai-"));
+try {
+  const skill = (directory: string, text: string) => {
+    mkdirSync(join(aiRoot, ".opencode", "skills", directory), { recursive: true });
+    writeFileSync(join(aiRoot, ".opencode", "skills", directory, "SKILL.md"), text);
+  };
+  mkdirSync(join(aiRoot, "docs"), { recursive: true });
+  writeFileSync(join(aiRoot, "docs", "opencode.md"), "Use `bin/ci`.\n");
+  skill("good", "---\nname: good\ndescription: Use when checking a skill.\n---\n\n# Good\n");
+
+  const config = {
+    ai_instruction_files: [".opencode/skills/good/SKILL.md", "docs/opencode.md"],
+    deferred_paths: {}
+  };
+  const valid = aiFiles(aiRoot, config);
+  expectNone("valid skill entry", valid.findings);
+  expect("valid skill file is read", valid.files.includes(".opencode/skills/good/SKILL.md"));
+
+  const missing = aiFiles(aiRoot, { ...config, ai_instruction_files: [".opencode/skills/missing/SKILL.md"] });
+  expectFinding("missing skill entry", missing.findings, /matches no file/);
+
+  skill("bad", "---\nname: other\ndescription: Use when checking a skill.\n---\n\n# Bad\n");
+  expectFinding(
+    "skill name mismatch",
+    aiFiles(aiRoot, { ai_instruction_files: [".opencode/skills/bad/SKILL.md"], deferred_paths: {} }).findings,
+    /name must match/
+  );
+
+  skill("nodesc", "---\nname: nodesc\n---\n\n# No description\n");
+  expectFinding(
+    "skill without a description",
+    aiFiles(aiRoot, { ai_instruction_files: [".opencode/skills/nodesc/SKILL.md"], deferred_paths: {} }).findings,
+    /missing a description/
+  );
+
+  skill("nofront", "# No front matter\n");
+  expectFinding(
+    "skill without front matter",
+    aiFiles(aiRoot, { ai_instruction_files: [".opencode/skills/nofront/SKILL.md"], deferred_paths: {} }).findings,
+    /no front matter/
+  );
+} finally {
+  rmSync(aiRoot, { recursive: true, force: true });
 }
 
 // Generated table.

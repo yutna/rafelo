@@ -589,3 +589,58 @@ the N-1 proof and the "adopter owns the kernel" rule pull in opposite
 directions. GEN-07 should also define a conflict as a remaining `<<<<<<<` or
 `>>>>>>>` line, not a lone `=======` separator. Related IDs: GEN-07; GEN-08;
 ADR-27; ADR-28; WF-03.
+
+## 2026-11-14 — v0.22.0 — issue #379 (skills audit)
+
+**What happened.** The final skills audit read the nine shipped skills (the
+request workflow and eight task skills) and all 50 `oo-*` pack skills, then
+compared them with the final rules and the code as built. It found drift in
+six task skills and sixteen places where the pack's general advice contradicts
+a project rule or ADR. The vendored pack was not edited.
+
+**Root cause.** The task skills were written before the generators and kernel
+settled, so a few paths and rule IDs described the intended shape rather than
+the generated one. The pack assumes a local domain model that owns its business
+rules and stores aggregates; Rafelo is a BFF whose upstreams own the business
+data and rules, whose engine boundaries decide code ownership, and whose React
+is functional with immutable TypeScript classes only in `domain/` and `forms/`.
+
+**What changed.** `add-design-system-component` now names the real flat
+component path, both export files, the catalog page, and the committed Playwright
+snapshots. `add-read-page` and `add-write-action` now put fixtures under the
+engine's `spec/fixtures/upstream/` and cite BE-03, BE-06, and CT-08; the
+irrelevant BE-11/BE-22 citations are gone. `add-module` now separates what a
+product module gets from what a domain engine gets and no longer claims the
+domain generator writes permissions, errors, budgets, or ratchets. `add-copy`
+and `expose-public-interface` follow the standard skill shape. `docs:check` now
+fails an `ai_instruction_files` entry that matches no file and a `SKILL.md`
+whose front matter is missing, whose `name` differs from its directory, or
+whose `description` is empty; `docs:canary` proves all four cases (32 cases).
+
+**Pack advice that the rules replace.** Each row names the pack skill and rule,
+then the project rule that wins and how the project resolves it. The root guide
+already states that a rule or ADR wins over the pack.
+
+| Pack advice | Project rule | Resolution in the project |
+| --- | --- | --- |
+| `oo-assigning-responsibilities` 5, `oo-placing-domain-logic` 2, `oo-layering-the-system` 1–2, `oo-designing-repositories` 1–2/5, `oo-taming-persistence` 4: send each request to a use-case object, load aggregates through repositories, and open one unit of work per use case. | ADR-05; BE-01; BE-10; BE-20 | The controller action is the use case: authorize → gateway → props → render. Reads use props/query objects; upstreams use gateways returning `Data` value objects. There is no repository, application-service, or unit-of-work layer; a new layer needs an ADR. Local BFF writes may use their own transaction, never around an upstream call. |
+| `oo-design` design-loop step 3 (`oo-layering-the-system` 2, `oo-placing-domain-logic` 5): put the business rules in an entity, value object, or domain service. | ARCH-03; OOP-08; ADR-01 | The upstreams own business data and rules. Local `domain/` and `forms/` code is only for presentation, derived values, invariants, and instant feedback; ask the upstream instead of mirroring or re-implementing its rules. |
+| `oo-constructing-valid-objects` 1/3/4, `oo-encapsulating-state-and-behaviour` 1, `oo-making-illegal-states-impossible` 3, `oo-modeling-values-and-entities` 5, `oo-designing-failure-behaviour` 1/4, `oo-modeling-lifecycles` 2, `oo-placing-domain-logic` 5: a constructor or command rejects invalid input by raising, so a forbidden state cannot exist. | OOP-03; BE-13; FE-15 | Input from a person is never validated by throwing. The form's plain type keeps the raw value, `fromPlain` accepts what its plain type allows, and `issues()` reports stable codes while the field renders. The value type is built only after `issues()` is empty; a server refusal becomes 303 with errors or 422/409, not an unhandled raise. Only invariant violations throw `DomainError`. |
+| `oo-designing-failure-behaviour` 3: never one error with a code field that callers test. | OOP-03; CT-06 | `DomainError` carries a stable code, and UI-visible errors use the catalog codes. Callers and the error responder translate codes; there is no class per code. |
+| `oo-modeling-values-and-entities` 5 / `oo-deciding-object-or-data` 2/4: a class per form is unnecessary, and a value must reject an invalid state at construction. | OOP-02; BE-13 | A write form gets a form model in `forms/` with its field rules, `issues()`, and payload conversion. Plain wire types stay plain; the form model is the one place that turns person input into a payload. |
+| `oo-ruby` 1: write each role contract as one Minitest module. | TS-01; ADR-20 | Ruby is tested with RSpec at every level. A role contract is an RSpec shared example group included by each implementation's spec; no Minitest suite or CI step is added. |
+| `oo-reviewing-object-design` 3: a broken pack `Rule.` or `Default.` blocks the merge. | ADR-32; WF-04 | The pack assists a person; it is not a guard. An AI review drafts findings, a person confirms their severity, and the project's P0–P3 gate decides what blocks. Only an adopted project rule or ADR can block. |
+| `oo-working-within-a-framework` 5: in a framework built of functions, keep the rules in functions and never force classes into the code. | ADR-14; OOP-01; OOP-02; OOP-07; FE-04 | React stays functional, and client domain logic stays in immutable classes in `domain/` and `forms/`. Hooks (`useDomainReducer`, `useUiState`) are the bridge; `toPlain()`/`fromPlain()` cross the boundary. |
+| `oo-managing-shared-state` 1/pattern/6: share a cache in memory between threads and give a slow dependency an active object with its own thread and queue. | ARCH-13; BE-17; BE-16; BE-11 | Cross-request state lives only in PostgreSQL or Active Storage. Cache through `ScopedCache` with a validated `module:`. Concurrent upstream calls use `Core::Executor`; background work uses Solid Queue. No in-process cache, lock, or active object. |
+| `oo-publishing-domain-events` 2–4 and `oo-separating-reads-from-writes` 3/6: record events in the aggregate, publish after commit through an outbox, and project read rows into a second store. | ARCH-03; BE-20; BE-07 | Upstream business changes are not local aggregates, so there is no outbox, event store, or read-model projection for them. Reads go gateway → value objects → props; after-commit work uses jobs. A BFF-owned event or second store needs an ADR and must live in PostgreSQL. |
+| `oo-designing-what-to-record` 2: write the audit record as domain data in the same transaction as the act. | OPS-08; BE-15; BE-20 | Core writes exactly one audit row from the write path or the error responder. The row is its own statement; no transaction spans the upstream call, and the audit is not an aggregate in a use-case object. |
+| `oo-crossing-system-boundaries` 4: never rename, remove, or retype a contract field; version an incompatible contract. | CT-05; CT-12; ADR-31 | Additive first. A breaking change takes two releases: add the new field, switch the UI, remove the old field later with `!`. Old tabs reload through the asset version; page props do not get a parallel contract version. |
+| `oo-bounding-contexts` 3 (shared kernel) and `oo-organising-modules` 4–5 (consumer-owned port): two teams share a model, or the depending module owns the interface and the provider implements it. | ARCH-05; ARCH-08; ARCH-09 | Shared code has exactly one owning engine and is exposed through its public surface; the consumer declares the dependency. No jointly owned shared kernel and no consumer-owned port that reverses the engine graph. If no engine owns the concept, extract a domain engine. |
+| `oo-testing-object-oriented-code` 7: check the adapter against the real outside system in a few slower tests. | TS-03 | Tests never reach the network. Each upstream has recorded fixtures and an in-process fake; `WebMock.disable_net_connect!` enforces it. A scheduled, non-blocking drift job checks the real system, not a test. |
+| `oo-designing-for-testability` 8: add no public field, getter, flag, or method that only tests use. | CT-12 | `AssetVersion.reset!` is a documented kernel test hook and stays. A new test-only public hook needs a person to decide it; the general rule does not silently remove this one. |
+
+**Spec feedback.** `14_working_with_ai.md` could say that a pinned general
+design pack may assume a local domain model and that the adopter's ADRs decide
+where business rules and persistence live; otherwise an agent may treat the
+pack's aggregate/repository examples as the target architecture. Related IDs:
+ADR-32; ARCH-03; ARCH-05; ARCH-13; OOP-03; BE-01; BE-20; TS-03.

@@ -36,14 +36,16 @@ permission key, request spec, and upstream fixture.
   and `engines/<module>/config/contracts/pages/<resources>/`.
 - `engines/<module>/config/locales/*.yml`,
   `engines/<module>/config/permissions.yml`, and
-  `spec/fixtures/upstream/<resources>/`.
+  `engines/<module>/spec/fixtures/upstream/<upstream>/` (the generator names
+  the folder after the resource; rename it when the module's upstream key
+  differs).
 - `spec/requests/<module>/<resources>_spec.rb`; keep the schema, SQL, upstream
   call budget, props budget, resolvable hrefs, and policy capability checks.
 
 ## Rules that apply
 
-GEN-02; BE-01; BE-04; BE-11; BE-16; BE-17; CT-01; CT-10; FE-01; FE-09; FE-11;
-TS-01; TS-02; TS-04; ARCH-09; ARCH-10; OOP-05.
+GEN-02; BE-01; BE-03; BE-04; BE-06; BE-16; BE-17; CT-01; CT-08; CT-10; FE-01;
+FE-09; FE-11; TS-01; TS-02; TS-04; ARCH-09; ARCH-10; OOP-05.
 
 ## Check
 
