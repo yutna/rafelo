@@ -79,6 +79,10 @@ fi
 adopt "$current_src" "$work/smoke_shop" "$current_src/template/template.rb"
 gate "$work/smoke_shop"
 
+if ! git -C "$repo" rev-parse -q --verify "refs/tags/$base_tag" >/dev/null; then
+  echo "adoption: $base_tag is missing; fetch the release tags" >&2
+  exit 1
+fi
 if ! git -C "$repo" cat-file -e "$base_tag:template/template.rb" 2>/dev/null &&
    ! git -C "$repo" cat-file -e "$base_tag:docs/contracts.md" 2>/dev/null; then
   echo "adoption: $base_tag predates the template payload; the N-1 update proof starts with v0.20.0"
@@ -99,7 +103,9 @@ if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
 fi
 ( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
     --base-source "$work/base-src" --source "$current_src" )
-( cd "$work/smoke_shop_prev" && git add -A && git commit -q -m "chore: update the kernel to v$version" )
+( cd "$work/smoke_shop_prev" && git add -A && \
+    git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
+      commit -q -m "chore: update the kernel to v$version" )
 gate "$work/smoke_shop_prev"
 
 echo "adoption: smoke_shop and the $base_tag to $version update passed"
