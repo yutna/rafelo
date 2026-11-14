@@ -454,3 +454,68 @@ runs before the first `db:prepare`, is re-runnable, and transfers ownership of
 existing tables during the expand release. OPS-06 should say whether the
 template commits placeholder production credentials or expects the adopter to
 create the file. Related IDs: OPS-06; OPS-07; OPS-08; OPS-09; SEC-16; ARCH-13.
+
+## 2026-11-14 — v0.20.0 — issue #345 (gate)
+
+**What happened.** The independent v0.20.0 gate found S1s the feature pull
+requests had missed: the ratchet check read only the root `config/ratchets.yml`
+and ignored every engine ratchet; CODEOWNERS did not own
+`config/production_routes.yml`, `spec/enforcement/`, or the engine
+`package.yml` files, so the guard check passed them; `release --check` passed
+a `VERSION` whose tag already existed; the release check was wired into local
+`bin/ci` but not into a GitHub CI job; the scheduled `repo_rules` compared
+only the branch ruleset; and `docs:check`/`docs:canary` were not GitHub CI
+steps. It also found stale milestone-triggered release wording in `README.md`,
+`CONTRIBUTING.md`, and the implementation protocol.
+
+**Root cause.** Each feature PR tested its own happy path. The gate is the
+first place that combines the checks: a required check that reads only one of
+several ratchet files, a CODEOWNERS file that does not cover the whole guard
+list, and a local gate step that has no CI counterpart all pass their own
+canaries.
+
+**What changed.** `script/ci/ratchet` aggregates the root and every engine
+ratchet, keyed by file; CODEOWNERS covers the missing guard paths; the release
+check fails an existing tag, a missing format folder, or a locale placeholder,
+and a `script/ci/release_check` wrapper runs it only when `VERSION` changed,
+with a GitHub CI step and the tags fetched; the
+scheduled `repo_rules` compares both exports; `docs:check` and `docs:canary`
+run in the CI test job; the release order is documented as merge → release
+workflow → confirm → close milestone; the canaries cover engine ratchets,
+canary fixtures, tag rulesets, and both release paths. The gate also found
+that WF-04 had no review-gate issue template despite the milestone naming it;
+`.github/ISSUE_TEMPLATE/review_gate.yml` now carries the severity table, the
+two-round limit, the evidence requirement, and the person's sign-off.
+
+**Round 2.** The independent re-audit found more gaps in the workflow payload:
+CI did not run on `merge_group` and `affected` ignored the merge-group base
+SHA; CODEOWNERS left the root `package.yml` and parts of the kernel
+uncovered; the ratchet canary raised the root and engine counts together, so
+it did not prove engine aggregation; the pull request and release canaries
+ran only locally; `repo_rules` compared the tag rules but not its
+`refs/tags/v*` scope; and the review-gate form did not prompt the whole-slice
+review areas. CI now runs on `merge_group`, uses its base SHA, owns the whole
+kernel and root package, runs the pull request and release canaries, and
+compares the tag conditions; `ratchet_canary` has an engine-only rise; the
+review-gate form asks for bugs, edge cases, security, performance,
+accessibility, and documentation. Two S1 findings are carried to v0.21.0:
+the single-owner guard approval fallback and the missing
+`script/ci/ratchet --update`/scheduled lowering job (#354, #355). CT-09's
+envelope table in the read-only spec copy is not a finding; #356 records the
+spec question, and the generated table lives in `docs/contracts.md`.
+
+**Single-owner fallback.** This repository has one CODEOWNERS owner, so an
+owner-authored PR cannot receive an independent approval. `guard_approval`
+records the guard files and passes only when the sole owner is the PR author;
+a non-owner author still needs that owner, and a repository with a second
+owner requires a real approval. This is the spec's fallback for a repository
+that lacks code-owner review; #347 asks the owner to add a second owner and
+apply the ruleset, and #355 tracks the finding. It is not used for ratchet
+rises.
+
+**Spec feedback.** WF-03 should name the single-owner case explicitly.
+WF-05 should say the VERSION check runs only when VERSION differs from the
+merge base; otherwise the latest release's own tag makes the check fail.
+CT-09 should state that a pre-release repository may stage paths owned by a
+later milestone in a list that fails when the path lands. Related IDs:
+CT-09; WF-03; WF-04; WF-05; WF-07; TS-07.

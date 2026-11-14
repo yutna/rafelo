@@ -24,8 +24,14 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
 
-      - name: Compare the rulesets
+      - name: Compare the branch ruleset
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: script/ci/repo_rules --open-issue
+
+      - name: Compare the release-tag ruleset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: script/ci/repo_rules --ruleset .github/rulesets/release_tags.json --open-issue

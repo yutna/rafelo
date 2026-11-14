@@ -1,0 +1,81 @@
+name: Review gate
+description: Review a completed feature slice before closing its gate (WF-04)
+assignees: [yutna]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A review gate covers one completed slice. Freeze its scope when the
+        review starts, and use at most two rounds: round one reviews the
+        slice; round two verifies the fixes and checks for regressions only.
+        An AI reviewer may draft findings; a person confirms their severity
+        and closes the gate.
+
+        | Severity | Meaning | Action |
+        | --- | --- | --- |
+        | P0 | security hole, data loss, broken core flow, red CI | fix before merge or release |
+        | P1 | user-facing bug, missing acceptance check, missing test for a critical edge | fix before closing the gate |
+        | P2 | polish, rare edge case, non-critical performance | backlog issue |
+        | P3 | refactor or idea | backlog issue |
+  - type: input
+    id: slice
+    attributes:
+      label: Slice and rule IDs
+      description: The completed slice and the spec rule IDs it delivers.
+      placeholder: WF-04; CT-09
+    validations:
+      required: true
+  - type: dropdown
+    id: round
+    attributes:
+      label: Review round
+      description: Round two verifies fixes and regressions only.
+      options:
+        - Round 1 — review the slice
+        - Round 2 — verify fixes and regressions
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: One row per finding. Each finding needs a rule ID and evidence (a failing test or file:line); otherwise it is a note.
+      placeholder: |
+        | Severity | Rule | Evidence | Finding |
+        | --- | --- | --- | --- |
+        | P1 | WF-03 | spec/...:42 | ... |
+    validations:
+      required: true
+  - type: textarea
+    id: review_areas
+    attributes:
+      label: Whole-slice review
+      description: Record what the review checked and what it found. Cover every area.
+      placeholder: |
+        - Bugs:
+        - Edge cases (empty, missing, largest; th/en and Buddhist Era; time zones; concurrency; retries; slow/4xx/5xx/malformed upstreams; permissions; CSRF; N+1; largest page; back/forward):
+        - Security (Brakeman, audits, OWASP over the new surface):
+        - Performance:
+        - Accessibility:
+        - Documentation:
+    validations:
+      required: true
+  - type: checkboxes
+    id: outcome
+    attributes:
+      label: Outcome
+      options:
+        - label: No open P0 or P1 finding remains.
+        - label: Every P2 and P3 finding is filed as a backlog issue.
+        - label: The scope stayed frozen after the review started.
+        - label: If a P0 or P1 remains after round two, I recorded the risk and split the work.
+        - label: The person closing the gate confirmed the severities.
+    validations:
+      required: true
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision and sign-off
+      description: The person closing the gate records the decision and any accepted risk.
+    validations:
+      required: true

@@ -46,9 +46,15 @@ Dir.mktmpdir("rafelo-release-canary-") do |dir|
   status, output = run_case(script, dir, "0.20.0", tags, [ "--check" ])
   cases, failures = expect("higher version", cases - 1, failures, status, 0, output, /higher than v0\.19\.0/)
 
+  FileUtils.rm_rf(File.join(dir, "spec", "fixtures", "formats", "v0.20.0"))
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--check" ])
+  cases, failures = expect("missing formats check", cases - 1, failures, status, 1, output, /formats\/v0\.20\.0 is missing/)
+  FileUtils.mkdir_p(File.join(dir, "spec", "fixtures", "formats", "v0.20.0"))
+
   cases += 1
   status, output = run_case(script, dir, "0.19.0", tags, [ "--check" ])
-  cases, failures = expect("existing tag", cases - 1, failures, status, 0, output, /already tagged/)
+  cases, failures = expect("existing tag", cases - 1, failures, status, 1, output, /already exists/)
 
   cases += 1
   status, output = run_case(script, dir, "0.17.0", tags, [ "--check" ])
@@ -80,6 +86,10 @@ Dir.mktmpdir("rafelo-release-canary-") do |dir|
   cases += 1
   status, output = run_case(script, dir, "0.20.0", tags, [ "--release-exists", "no", "--dry-run" ])
   cases, failures = expect("locale placeholder", cases - 1, failures, status, 1, output, /locale placeholders/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--check" ])
+  cases, failures = expect("locale placeholder check", cases - 1, failures, status, 1, output, /locale placeholders/)
 end
 
 if failures.positive?

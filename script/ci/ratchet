@@ -25,26 +25,44 @@ root = File.expand_path(root)
 abort "ratchet: root does not exist: #{root}" unless Dir.exist?(root)
 abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
 
-current_path = File.join(root, "config", "ratchets.yml")
-abort "ratchet: config/ratchets.yml is missing" unless File.file?(current_path)
+def ratchet_files(root)
+  [ "config/ratchets.yml" ] +
+    Dir[File.join(root, "engines", "*", "config", "ratchets.yml")]
+      .map { |path| path.delete_prefix("#{root}/") }
+      .sort
+end
 
-def load_ratchets(root, revision)
-  output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:config/ratchets.yml")
-  abort "ratchet: cannot read config/ratchets.yml at #{revision}" unless status.success?
+def load_ratchets(root, revision, file)
+  output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:#{file}")
+  return {} unless status.success?
+
   YAML.safe_load(output) || {}
 end
 
-current = YAML.safe_load_file(current_path) || {}
-base_counts = load_ratchets(root, base)
-rises = current.filter_map do |key, value|
-  next unless value.is_a?(Integer)
+current = {}
+base_counts = {}
+files = ratchet_files(root)
+abort "ratchet: no ratchet file was found" if files.empty?
 
+files.each do |file|
+  path = File.join(root, file)
+  abort "ratchet: #{file} is missing" unless File.file?(path)
+
+  (YAML.safe_load_file(path) || {}).each do |key, value|
+    current["#{file}:#{key}"] = value if value.is_a?(Integer)
+  end
+  load_ratchets(root, base, file).each do |key, value|
+    base_counts["#{file}:#{key}"] = value if value.is_a?(Integer)
+  end
+end
+
+rises = current.filter_map do |key, value|
   previous = base_counts[key]
   previous = 0 unless previous.is_a?(Integer)
   [ key, previous, value ] if value > previous
 end
 falls = current.filter_map do |key, value|
-  next unless value.is_a?(Integer) && base_counts[key].is_a?(Integer)
+  next unless base_counts[key].is_a?(Integer)
 
   [ key, base_counts[key], value ] if value < base_counts[key]
 end

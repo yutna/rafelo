@@ -1,7 +1,8 @@
-name: ci
+name: CI
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -58,7 +59,7 @@ jobs:
 
       - name: Select affected applications and engines
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD~1' }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
         run: script/ci/affected --base "$BASE_SHA"
 
   actionlint:
@@ -215,6 +216,16 @@ jobs:
           script/ci/engine_graph --check
           npm run aliases:check
 
+      - name: Check documentation
+        run: |
+          npm run docs:check
+          npm run docs:canary
+
+      - name: Check the release version
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+        run: script/ci/release_check
+
       - name: Check frontend boundaries
         run: |
           script/ci/frontend_boundary
@@ -324,6 +335,14 @@ jobs:
 
       - name: Run enforcement canaries
         run: script/ci/enforcement_canaries
+
+      - name: Run the pull request and release canaries
+        run: |
+          script/ci/title_canary
+          script/ci/ratchet_canary
+          script/ci/guard_approval_canary
+          script/ci/repo_rules_canary
+          script/ci/release_canary
 
       - name: Run the deploy preflight and its canary
         run: |

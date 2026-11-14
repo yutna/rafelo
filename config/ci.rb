@@ -56,7 +56,7 @@ CI.run do
   step "Docs: check", "npm run docs:check"
   step "Docs: canary", "npm run docs:canary"
   step "Formats: compatibility", "env RAILS_ENV=test bin/rails formats:check"
-  step "Release: VERSION", "script/ci/release --check"
+  step "Release: VERSION", "script/ci/release_check"
   step "Release: canary", "script/ci/release_canary"
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
