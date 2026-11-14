@@ -27,6 +27,7 @@ bin/setup --skip-server      # gems, npm packages, database
 bin/dev                      # Rails + Vite
 bin/check <engine>           # fast checks for one engine; run after each change
 bin/ci                       # the full gate; must pass before a PR is ready
+bin/kernel_update <version>  # merge a new kernel release into this app
 npm run e2e                  # Playwright
 
 bin/rails generate rafelo:module <name>                  # product module
