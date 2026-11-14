@@ -1,8 +1,9 @@
 # Pages and files that `docs:check` treats as AI instructions (CT-09).
 #
-# Every `AGENTS.md` and `CLAUDE.md` at any depth is scanned automatically; this
-# list adds the skills, the maintainer notes, and the glossary. Paths are
-# relative to the repository root and may be globs.
+# Every `AGENTS.md` and `CLAUDE.md` at any depth is scanned automatically, as
+# are the maintainer notes under `docs/development/` when they exist. This list
+# adds the skills and the glossary. Paths are relative to the repository root
+# and may be globs.
 ai_instruction_files:
   - ".opencode/skills/deliver-request/SKILL.md"
   - ".opencode/skills/add-copy/SKILL.md"
@@ -13,7 +14,6 @@ ai_instruction_files:
   - ".opencode/skills/expose-public-interface/SKILL.md"
   - ".opencode/skills/fix-failing-guard/SKILL.md"
   - ".opencode/skills/migrate-a-feature/SKILL.md"
-  - "docs/development/*.md"
   - "docs/opencode.md"
 
 # CT-09 checks every backticked repository path. A path owned by a later

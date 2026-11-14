@@ -80,6 +80,7 @@ export function aiFiles(root: string, config: DocsConfig): { files: string[]; fi
   const findings: Finding[] = [];
   for (const path of globSync("**/AGENTS.md", { cwd: root })) files.add(path.split("\\").join("/"));
   for (const path of globSync("**/CLAUDE.md", { cwd: root })) files.add(path.split("\\").join("/"));
+  for (const path of globSync("docs/development/*.md", { cwd: root })) files.add(path.split("\\").join("/"));
   for (const pattern of config.ai_instruction_files) {
     const matches = globSync(pattern, { cwd: root }).map((path) => path.split("\\").join("/"));
     if (matches.length === 0) {
