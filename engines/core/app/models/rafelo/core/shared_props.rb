@@ -42,7 +42,7 @@ module Rafelo
 
       def app
         {
-          name: "Rafelo",
+          name: Rails.application.class.module_parent_name,
           locale: @context.locale.to_s,
           locales: Locales.available,
           localeHrefs: @context.urls.locale_hrefs(@request_path),

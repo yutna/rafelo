@@ -1,0 +1,681 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  BUNDLE_FROZEN: "true"
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: "safe.directory"
+  GIT_CONFIG_VALUE_0: "*"
+
+jobs:
+  image:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      ref: ${{ steps.read.outputs.ref }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Read the prebuilt Dev Container reference
+        id: read
+        run: echo "ref=$(cat .devcontainer/image_digest)" >> "$GITHUB_OUTPUT"
+  affected:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Select affected applications and engines
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
+        run: script/ci/affected --base "$BASE_SHA"
+
+  actionlint:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: actionlint
+        run: |
+          curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.12/scripts/download-actionlint.bash -o /tmp/actionlint.sh
+          bash /tmp/actionlint.sh 1.7.12
+          ./actionlint -color
+
+  scan_ruby:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Scan for common Rails security vulnerabilities using static analysis
+        run: bin/brakeman --no-pager
+
+      - name: Scan for known security vulnerabilities in gems used
+        run: bin/bundler-audit
+
+  scan_js:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Scan for security vulnerabilities in JavaScript dependencies
+        run: npm audit --audit-level=high
+
+  lint:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 10
+    env:
+      RUBOCOP_CACHE_ROOT: tmp/rubocop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Prepare RuboCop cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        env:
+          DEPENDENCIES_HASH: ${{ hashFiles('.ruby-version', '**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
+        with:
+          path: ${{ env.RUBOCOP_CACHE_ROOT }}
+          key: rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
+          restore-keys: |
+            rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-
+
+      - name: Lint code for consistent style
+        run: bin/rubocop -f github
+
+  test:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # script/ci/release --check reads the local v* tags (WF-05)
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check contracts
+        run: |
+          npm run contracts:check
+          npm run errors:check
+          npm run i18n:check
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Check the frontend architecture
+        run: npm run arch:check
+
+      - name: Check generated graph and aliases
+        run: |
+          script/ci/engine_graph --check
+          npm run aliases:check
+
+      - name: Check documentation
+        run: |
+          npm run docs:check
+          npm run docs:canary
+
+      - name: Check the release version
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+        run: script/ci/release_check
+
+      - name: Check frontend boundaries
+        run: |
+          script/ci/frontend_boundary
+          script/ci/page_props
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Run tests
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/rspec
+
+      - name: Run engine specs
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/engine_specs
+
+      - name: Check page matcher coverage
+        run: npm run pages:check -- --matchers
+
+  guards:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check runtime and package pins
+        run: script/ci/pins
+
+      - name: Check GitHub Actions pins
+        run: script/ci/actions_pinned
+
+      - name: Check workflow policy
+        run: script/ci/workflow_policy
+
+      - name: Check production routes
+        run: |
+          script/ci/production_routes
+          script/ci/production_routes_canary
+
+      - name: Check the Packwerk cycle canary
+        run: script/ci/packwerk_canary
+
+      - name: Check the graph canaries
+        run: script/ci/graph_canaries
+
+      - name: Check affected selection
+        run: |
+          script/ci/affected_canary
+          script/ci/fan_in_canary
+
+      - name: Check growth and fan-in
+        run: |
+          script/ci/growth
+          script/ci/fan_in
+          script/ci/growth_canary
+
+      - name: Check cross-engine clones
+        run: |
+          script/ci/clones
+          script/ci/clones_canary
+
+  canaries:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Run enforcement canaries
+        run: script/ci/enforcement_canaries
+
+      - name: Run the pull request and release canaries
+        run: |
+          script/ci/title_canary
+          script/ci/ratchet_canary
+          script/ci/guard_approval_canary
+          script/ci/repo_rules_canary
+          script/ci/release_canary
+
+      - name: Run the deploy preflight and its canary
+        run: |
+          script/ci/deploy_preflight
+          script/ci/deploy_preflight_canary
+
+      - name: Check test skips
+        run: script/ci/skips
+
+      - name: Check test selectors
+        run: script/ci/test_selectors
+
+      - name: Check boundary cops
+        run: script/ci/cops_canary
+
+  concurrency:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Run concurrency specs
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/concurrency
+
+  e2e:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Prepare database
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bin/rails db:prepare
+
+      - name: Run design-system e2e
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/e2e
+
+
+  examples-removable:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Remove examples and run the gate
+        run: script/ci/example_removal
+
+  production-image-needed:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide whether the production image build runs
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          run=false
+          reason="skip: no production image inputs changed"
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            run=true
+            reason="run: $EVENT_NAME"
+          elif [ -n "$BASE_SHA" ]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
+            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
+              run=true
+              reason="run: production image inputs changed"
+            fi
+          else
+            run=true
+            reason="run: no base to compare"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "$reason"
+
+  production-image:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: [image, production-image-needed]
+    if: needs.production-image-needed.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BUNDLE_FROZEN: "false" # the throwaway module changes Gemfile.lock (OPS-06)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Create a throwaway module
+        run: bin/rails generate rafelo:module image_check
+
+      - name: Build the production image
+        run: docker build -t rafelo-ci .
+
+  smoke-needed:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide whether generator smoke runs
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          run=false
+          reason="skip: no generator/core/registry/routes changes"
+          if [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            run=true
+            reason="run: $EVENT_NAME"
+          elif [ -n "$BASE_SHA" ]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
+            if echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
+              run=true
+              reason="run: triggering paths changed"
+            fi
+          else
+            run=true
+            reason="run: no base to compare"
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "$reason"
+
+  generator-smoke:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: [image, smoke-needed]
+    if: needs.smoke-needed.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run generator smoke
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/generator_smoke
+
+  ci-ok:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    if: always()
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    needs: [image, affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, examples-removable, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: All required jobs passed
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false

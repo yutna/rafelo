@@ -1,0 +1,58 @@
+# Review ownership for the kernel and the guard files (WF-03).
+#
+# The ratchet files (config/ratchets.yml and engines/*/config/ratchets.yml)
+# deliberately have no entry: a rise needs the separate ratchet check and an
+# owner's approval, and a fall lands through a pull request.
+
+# Kernel
+/engines/core/                           @OWNER
+/engines/design_system/                  @OWNER
+
+# The root package declares the application's engine dependencies.
+/package.yml                             @OWNER
+
+# Configuration guards
+/config/budgets.yml                      @OWNER
+/config/ci.rb                            @OWNER
+/config/contracts/_shared.json           @OWNER
+/config/database.yml                     @OWNER
+/config/deploy.yml                       @OWNER
+/config/deploy.multi.yml                 @OWNER
+/config/errors.yml                       @OWNER
+/config/locales.yml                      @OWNER
+/config/permission_mapping.yml           @OWNER
+/config/production_routes.yml            @OWNER
+/config/puma.rb                          @OWNER
+/config/queue.yml                        @OWNER
+/config/routes.rb                        @OWNER
+/config/upstreams.yml                    @OWNER
+/config/environments/                    @OWNER
+/config/initializers/                    @OWNER
+
+# Engine manifests and canary fixtures are guard files.
+/engines/*/package.yml                   @OWNER
+/spec/enforcement/                       @OWNER
+
+# Scripts, CI, and the image definition
+/script/                                 @OWNER
+/bin/                                    @OWNER
+/.github/CODEOWNERS                      @OWNER
+/.github/workflows/                      @OWNER
+/.github/rulesets/                       @OWNER
+/.devcontainer/                          @OWNER
+/Dockerfile                              @OWNER
+/.dockerignore                           @OWNER
+
+# Dependency and lint guards
+/Gemfile                                 @OWNER
+/Gemfile.lock                            @OWNER
+/package.json                            @OWNER
+/package-lock.json                       @OWNER
+/.npmrc                                  @OWNER
+/.rubocop.yml                            @OWNER
+/.dependency-cruiser.cjs                 @OWNER
+/eslint.config.mjs                      @OWNER
+/packwerk.yml                            @OWNER
+/renovate.json5                          @OWNER
+/mise.toml                               @OWNER
+/.ruby-version                           @OWNER
