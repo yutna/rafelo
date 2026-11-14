@@ -91,6 +91,14 @@ file, so every clone starts with its own key.
 
 ## Releases
 
-`VERSION` tracks the template release. Before closing a version milestone,
-update `VERSION` to the version without the `v` prefix, for example `0.2.0`.
-The release workflow checks it before tagging.
+`VERSION` holds the release being prepared, for example `0.20.0`. The release
+pull request sets it, runs `bin/rails formats:dump`, and commits
+`spec/fixtures/formats/v<VERSION>/`. CI fails a pull request that leaves the
+format invalid, uses a tag that already exists, or does not raise the version
+above the highest `v*` tag (`script/ci/release --check`).
+
+After the release pull request merges, the first green CI run of that push to
+`main` creates the tag and the GitHub Release in one API call
+(`script/ci/release`). A run with nothing to release logs that and exits.
+Closing the version milestone does not create the release; it records the
+gate result after the release exists.
