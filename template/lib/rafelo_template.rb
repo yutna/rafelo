@@ -19,6 +19,7 @@ module RafeloTemplate
 
   TEMPLATE_AUTHOR_NAME = "Rafelo template"
   TEMPLATE_AUTHOR_EMAIL = "template@rafelo.invalid"
+  APP_VERSION = "0.1.0"
 
   # The flags GEN-07 requires from `rails new`. The database flag accepts
   # both the short and the long spelling.
@@ -123,6 +124,12 @@ module RafeloTemplate
 
   def write_kernel_version!(destination:, version:)
     File.write(File.join(destination, "KERNEL_VERSION"), "#{version.to_s.strip}\n")
+  end
+
+  # A fresh app starts at 0.1.0. `Rafelo::Core::Release` reads this file, and
+  # the release workflow treats it like any other app version (WF-05).
+  def write_app_version!(destination:, version: APP_VERSION)
+    File.write(File.join(destination, "VERSION"), "#{version}\n")
   end
 
   # Fails on a rendered app that still carries the placeholder app name. A

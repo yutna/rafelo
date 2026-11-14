@@ -44,7 +44,7 @@ module KernelUpdate
   ].freeze
 
   # The example engines are optional (GEN-08) and are never updated.
-  UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/].freeze
+  UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
 
   CONFLICT_MARKER = /^(?:<{7}|={7}|>{7})/
 

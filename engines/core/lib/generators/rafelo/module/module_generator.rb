@@ -28,11 +28,11 @@ module Rafelo
 
       def write_engine
         create_file "#{engine_dir}/#{gemspec_name}.gemspec", <<~RUBY
-          require_relative "lib/rafelo/#{name}/version"
+          require_relative "lib/#{app_ns_underscore}/#{name}/version"
 
           Gem::Specification.new do |spec|
             spec.name = "#{gemspec_name}"
-            spec.version = Rafelo::#{module_name}::VERSION
+            spec.version = #{namespace}::#{module_name}::VERSION
             spec.authors = [ "Yutthana Siphuengchai" ]
             spec.summary = "Rafelo #{name} module"
             spec.description = "The #{name} product module of the Rafelo BFF template."
@@ -41,17 +41,17 @@ module Rafelo
             spec.require_paths = [ "lib" ]
           end
         RUBY
-        create_file "#{engine_dir}/lib/rafelo/#{name}/version.rb", <<~RUBY
+        create_file "#{engine_dir}/lib/#{app_ns_underscore}/#{name}/version.rb", <<~RUBY
           # frozen_string_literal: true
 
-          module Rafelo
+          module #{namespace}
             module #{module_name}
               VERSION = "0.1.0"
             end
           end
         RUBY
-        create_file "#{engine_dir}/lib/rafelo_#{name}.rb", "require \"rafelo/#{name}/engine\"\n"
-        create_file "#{engine_dir}/lib/rafelo/#{name}/engine.rb", <<~RUBY
+        create_file "#{engine_dir}/lib/#{app_ns_underscore}_#{name}.rb", "require \"#{app_ns_underscore}/#{name}/engine\"\n"
+        create_file "#{engine_dir}/lib/#{app_ns_underscore}/#{name}/engine.rb", <<~RUBY
           # frozen_string_literal: true
 
           require "rails/engine"
@@ -62,7 +62,7 @@ module Rafelo
               class Engine < ::Rails::Engine
                 isolate_namespace #{namespace}::#{module_name}
 
-                initializer "rafelo_#{name}.migration_paths" do |app|
+                initializer "#{app_ns_underscore}_#{name}.migration_paths" do |app|
                   config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
                 end
 
@@ -123,7 +123,7 @@ module Rafelo
         create_file "#{engine_dir}/config/ratchets.yml", "eslint_disable: 0\nuse_no_memo: 0\n"
         create_file "#{engine_dir}/config/contracts/.keep", ""
         create_file "#{engine_dir}/db/migrate/.keep", ""
-        create_file "#{engine_dir}/app/public/#{namespace.downcase}/#{name}/.keep", ""
+        create_file "#{engine_dir}/app/public/#{app_ns_underscore}/#{name}/.keep", ""
         create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
         create_file "#{engine_dir}/e2e/.keep", ""
       end
@@ -192,11 +192,15 @@ module Rafelo
       end
 
       def gemspec_name
-        "rafelo_#{name}"
+        "#{app_ns_underscore}_#{name}"
       end
 
       def namespace
         Rails.application.class.module_parent_name
+      end
+
+      def app_ns_underscore
+        namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
       end
 
       def icon_names

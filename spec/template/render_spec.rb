@@ -71,11 +71,13 @@ RSpec.describe RafeloTemplate, "payload rendering" do
           version: version
         )
         described_class.write_kernel_version!(destination: destination, version: version)
+        described_class.write_app_version!(destination: destination)
 
         expect(described_class.leftover_paths(destination)).to be_empty
         expect { described_class.verify_no_placeholders!(destination) }.not_to raise_error
 
         expect(File.read(File.join(destination, "KERNEL_VERSION"))).to eq("#{version}\n")
+        expect(File.read(File.join(destination, "VERSION"))).to eq("#{described_class::APP_VERSION}\n")
         expect(written).to include("config/application.rb", "engines/core/lib/rafelo/core/engine.rb")
         expect(written).not_to include("template/template.rb", "spec/template/app_name_spec.rb", "docs/development/ai-files.md")
 

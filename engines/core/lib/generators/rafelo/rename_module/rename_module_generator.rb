@@ -43,8 +43,8 @@ module Rafelo
         target = root.join("engines", @destination_name)
         FileUtils.mv(source, target)
 
-        rename_if_exists(target.join("rafelo_#{@source_name}.gemspec"), target.join("rafelo_#{@destination_name}.gemspec"))
-        rename_if_exists(target.join("lib/rafelo_#{@source_name}.rb"), target.join("lib/rafelo_#{@destination_name}.rb"))
+        rename_if_exists(target.join("#{app_ns_underscore}_#{@source_name}.gemspec"), target.join("#{app_ns_underscore}_#{@destination_name}.gemspec"))
+        rename_if_exists(target.join("lib/#{app_ns_underscore}_#{@source_name}.rb"), target.join("lib/#{app_ns_underscore}_#{@destination_name}.rb"))
 
         [
           [ "lib/#{app_ns_underscore}", @source_name, @destination_name ],
