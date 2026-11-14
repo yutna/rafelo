@@ -97,7 +97,7 @@ Rule statuses use the four in `09_enforcement.md`: **enforced** (a tool fails th
 
 | Rule | Title | Code | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| FE-01 | Respect the layers | `app/frontend/pages` · `app/frontend/screens` · `engines/example_orders/app/frontend/containers` · `app/frontend/components` | `npm run typecheck` · `npm run pages:check` | enforced |
+| FE-01 | Respect the layers | `app/frontend/pages` · `app/frontend/screens` · `engines/*/app/frontend/containers` · `app/frontend/components` | `npm run typecheck` · `npm run pages:check` | enforced |
 | FE-02 | Layouts are persistent and chosen by name | `app/frontend/layouts` · `app/frontend/lib/layout_name.ts` · `app/frontend/lib/page_resolver.tsx` | `npm run typecheck` · `npm test` | enforced |
 | FE-03 † | One router, no second data layer | `app/frontend/entrypoints/application.tsx` · `config/initializers/inertia_rails.rb` | `npm run typecheck` · `npm test` | review (ESLint restriction missing, #387) |
 | FE-04 † | Local state goes through two core wrappers | `engines/core/app/frontend/lib/use_ui_state.ts` · `engines/core/app/frontend/lib/use_domain_reducer.ts` | `npm test` · `script/ci/frontend_state_canary` | enforced (frontend_state) · review (ESLint rule missing, #387) |
@@ -161,7 +161,7 @@ Rule statuses use the four in `09_enforcement.md`: **enforced** (a tool fails th
 | GEN-05 | `rafelo:domain` creates a domain engine | `engines/core/lib/generators/rafelo/domain/domain_generator.rb` | `bundle exec rspec spec/generators` | enforced |
 | GEN-06 | Modules can be renamed, split, and moved | `engines/core/lib/generators/rafelo/rename_module/rename_module_generator.rb` · `engines/core/lib/generators/rafelo/move_page/move_page_generator.rb` | `bundle exec rspec spec/generators` · `script/ci/generator_smoke` | enforced |
 | GEN-07 | Adoption by application template; tracked kernel updates | `template/template.rb` · `bin/kernel_update` · `script/ci/kernel_update` | `script/ci/adoption` · `script/ci/kernel_update` · `script/ci/generator_smoke` | tested in kernel |
-| GEN-08 | The example engines are examples | `engines/example_orders` · `engines/example_customers` · `script/ci/example_removal` | `script/ci/example_removal` | enforced (removal: tested in kernel) |
+| GEN-08 | The example engines are examples | `engines/example_*` · `script/ci/example_removal` | `script/ci/example_removal` | enforced (removal: tested in kernel) |
 | GEN-09 | Generators are all or nothing | `engines/core/lib/generators/rafelo/base/base_generator.rb` | `bundle exec rspec spec/generators` · `script/ci/generator_smoke` | enforced |
 
 ### Workflow (`11_workflow.md`)
