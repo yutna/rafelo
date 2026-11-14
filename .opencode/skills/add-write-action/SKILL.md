@@ -31,7 +31,7 @@ keys, request spec, and upstream fixture.
   `engines/<module>/app/forms/<app>/<module>/<resource>_form.rb`; input from a
   person is checked by `issues()`, not exceptions.
 - The controller `new`, `create`, `edit`, and `update` actions; a successful
-  write redirects with 303, a validation failure re-renders with issues.
+  write redirects with 303, and so does a validation failure, with the translated errors.
 - The idempotency claim and form token; do not use a cache for idempotency.
 - The policy methods and permission keys for `create` and `update`.
 - The `new`/`edit` props, frontend pages/screens/containers/components, and the
@@ -64,5 +64,5 @@ the pack.
 ## Done when
 
 The write is authorized, validated by `issues()`, idempotent, redirects with
-303 or re-renders with issues, has copy in every configured locale, and
+303 and the translated errors, has copy in every configured locale, and
 `bin/ci` is green.
