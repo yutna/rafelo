@@ -4,7 +4,15 @@
 # list adds the skills, the maintainer notes, and the glossary. Paths are
 # relative to the repository root and may be globs.
 ai_instruction_files:
-  - ".opencode/skills/**/SKILL.md"
+  - ".opencode/skills/deliver-request/SKILL.md"
+  - ".opencode/skills/add-copy/SKILL.md"
+  - ".opencode/skills/add-design-system-component/SKILL.md"
+  - ".opencode/skills/add-module/SKILL.md"
+  - ".opencode/skills/add-read-page/SKILL.md"
+  - ".opencode/skills/add-write-action/SKILL.md"
+  - ".opencode/skills/expose-public-interface/SKILL.md"
+  - ".opencode/skills/fix-failing-guard/SKILL.md"
+  - ".opencode/skills/migrate-a-feature/SKILL.md"
   - "docs/development/*.md"
   - "docs/opencode.md"
 
