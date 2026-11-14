@@ -547,3 +547,45 @@ app token.
 **Spec feedback.** WF-03 should say that `--update` reports a rise instead of
 failing when the committed ceiling is stale, and that the scheduled workflow
 needs a token that can trigger CI. Related IDs: WF-03; TS-05; ARCH-05.
+
+## 2026-11-14 — v0.21.0 — issue #361 (gate)
+
+**What happened.** The independent v0.21.0 gate found one S1 and six S2s in
+the new template and updater. Round 1 fixed the N-1 commit identity (#368),
+the app-owned names and docs (#369), and the `.github`/conflict state in the
+updater (#370). Round 2 found that the N-1 proof would fail once `VERSION`
+moved to 0.21.0: the updater did not carry the app-owned specs, tasks,
+packaging and container files whose names #369 had changed. It also found
+app-owned `rafelo` names left in two documents and a `--continue` false
+positive on a Markdown setext separator; #371–#373 fixed those. Round 3 found
+one regression from #373: a partially resolved marker (only `<<<<<<<` or
+only `>>>>>>>`) no longer blocked `--continue`; #374 fixed it and added the
+four partial-marker cases. No S1/S2 remains.
+
+**Root cause.** The template renderer and the updater kept two hand-written
+lists of what follows the app name, so #369 changed the copied files but not
+the default update paths. The N-1 branch is skipped until `VERSION` names a
+release whose predecessor has the payload, so feature CI at 0.20.0 could not
+see the break; only an explicit `ADOPTION_VERSION=0.21.0` run did. The first
+conflict-scan fix then over-corrected: requiring a full marker pair let a
+partially resolved conflict through, while treating any seven-character
+separator as a marker blocked ordinary Markdown.
+
+**What changed.** `bin/kernel_update` now updates `spec/config`,
+`spec/requests`, `spec/support`, `spec/tasks`, `lib/tasks/restore.rake`,
+`config/storage.yml`, `package.json`, `package-lock.json`, `.devcontainer`
+and `Dockerfile`; the source documents use the `acme` placeholder for
+app-owned image, stanza, repository and database names; `--continue` requires
+no `<<<<<<<` or `>>>>>>>` line (a lone `=======` is not a conflict) and
+ignores `public/vite*` paths; the render spec asserts the rendered docs;
+`ADOPTION_VERSION=0.21.0 script/ci/adoption` proved the v0.20.0 → 0.21.0
+update before the release. S3 notes are in #375; the single-owner guard
+finding (#355) is carried to v0.22.0.
+
+**Spec feedback.** GEN-07 should say that a kernel update includes the
+app-owned files whose names the template renders (config, specs, tasks,
+packaging and container files), or name them in the update list; otherwise
+the N-1 proof and the "adopter owns the kernel" rule pull in opposite
+directions. GEN-07 should also define a conflict as a remaining `<<<<<<<` or
+`>>>>>>>` line, not a lone `=======` separator. Related IDs: GEN-07; GEN-08;
+ADR-27; ADR-28; WF-03.
