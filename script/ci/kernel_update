@@ -66,7 +66,8 @@ module KernelUpdate
   # The example engines are optional (GEN-08) and are never updated.
   UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
 
-  CONFLICT_MARKER = /^(?:<{7}|={7}|>{7})/
+  CONFLICT_START = /^<{7}/
+  CONFLICT_END = /^>{7}/
 
   # The documentation placeholder is assembled so the updater itself never
   # carries a literal placeholder name into an adopted app (GEN-07).
@@ -361,11 +362,14 @@ module KernelUpdate
     ignored = %w[.git node_modules tmp public/vite public/vite-dev public/vite-test test-results]
     Dir.glob(File.join(root, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.any? do |file|
       relative = file.delete_prefix("#{root}/")
-      next false if relative.split(File::SEPARATOR).any? { |part| ignored.include?(part) }
+      next false if ignored.any? do |entry|
+        relative == entry || relative.start_with?("#{entry}/") || relative.split(File::SEPARATOR).include?(entry)
+      end
       next false if untouched?(relative)
       next true if relative.end_with?(".conflict")
 
-      File.readlines(file, chomp: true).any? { |line| line.match?(CONFLICT_MARKER) }
+      lines = File.readlines(file, chomp: true)
+      lines.any? { |line| line.match?(CONFLICT_START) } && lines.any? { |line| line.match?(CONFLICT_END) }
     rescue ArgumentError
       false
     end
