@@ -1,0 +1,20 @@
+name: Debug container
+on: push
+permissions:
+  contents: read
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container:
+      image: ghcr.io/yutna/rafelo-devcontainer@sha256:838f2409962d3b4d32c5e3acd5ae3befed3844e46e58eb9c57a47f6ea75e9038
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Inspect
+        run: |
+          pwd
+          ls -la | head
+          ls -la .git | head || true
+          git status --short || true
+          git ls-files | head || true
