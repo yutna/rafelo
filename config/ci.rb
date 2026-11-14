@@ -38,6 +38,7 @@ CI.run do
   step "Policy: title canary", "script/ci/title_canary"
   step "Policy: ratchet canary", "script/ci/ratchet_canary"
   step "Policy: guard approval canary", "script/ci/guard_approval_canary"
+  step "Policy: repo rules canary", "script/ci/repo_rules_canary"
   step "Policy: deploy preflight", "script/ci/deploy_preflight"
   step "Policy: deploy preflight canary", "script/ci/deploy_preflight_canary"
   step "Policy: production routes", "script/ci/production_routes"

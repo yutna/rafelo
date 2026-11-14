@@ -25,6 +25,7 @@ WRITE_ALLOW_LIST = {
   "pr-check" => %w[pull-requests issues],
   "release" => %w[contents issues],
   "audits" => %w[issues],
+  "repo_rules" => %w[issues],
   "devcontainer" => %w[packages]
 }.freeze
 PRIVILEGED_TRIGGERS = %w[pull_request_target workflow_run].freeze
