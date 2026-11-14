@@ -4,23 +4,23 @@ RSpec.describe Rafelo::Core::Modules do
   after { described_class.reset! }
 
   it "registers a module with defaults" do
-    entry = described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    entry = described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
 
-    expect(entry.path).to eq("/billing")
-    expect(entry.permission_prefixes).to eq([ "billing" ])
-    expect(described_class.fetch(:billing)).to eq(entry)
+    expect(entry.path).to eq("/ledger")
+    expect(entry.permission_prefixes).to eq([ "ledger" ])
+    expect(described_class.fetch(:ledger)).to eq(entry)
   end
 
   it "rejects a duplicate key" do
-    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
-    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/other")
+    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/other")
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /duplicate module key/)
   end
 
   it "rejects a duplicate path" do
-    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
-    described_class.register(key: :payments, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/billing")
+    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    described_class.register(key: :payments, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/ledger")
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /duplicate module path/)
   end
@@ -48,8 +48,8 @@ RSpec.describe Rafelo::Core::Modules do
   end
 
   it "does not reject a module because its own mounted route exists" do
-    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
-    fake_route = Struct.new(:name, :path).new("billing", Struct.new(:spec).new("/:locale/billing(.:format)"))
+    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    fake_route = Struct.new(:name, :path).new("ledger", Struct.new(:spec).new("/:locale/ledger(.:format)"))
     allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
 
     expect { described_class.validate! }.not_to raise_error
@@ -65,19 +65,19 @@ RSpec.describe Rafelo::Core::Modules do
   end
 
   it "rejects a duplicate navigation order" do
-    described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, nav: { order: 10 })
+    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, nav: { order: 10 })
     described_class.register(key: :payments, engine: ->(_env) { [ 200, {}, [ "ok" ] ] }, path: "/payments", nav: { order: 10 })
 
     expect { described_class.validate! }.to raise_error(ArgumentError, /navigation order/)
   end
 
   it "finds a module by its locale-prefixed first path segment" do
-    entry = described_class.register(key: :billing, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
+    entry = described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
 
-    expect(described_class.for_path("/en/billing/invoices/7?tab=1")).to eq(entry)
-    expect(described_class.for_path("/th/billing")).to eq(entry)
-    expect(described_class.for_path("/billing")).to eq(entry)
-    expect(described_class.for_path("/en/other/billing")).to be_nil
+    expect(described_class.for_path("/en/ledger/invoices/7?tab=1")).to eq(entry)
+    expect(described_class.for_path("/th/ledger")).to eq(entry)
+    expect(described_class.for_path("/ledger")).to eq(entry)
+    expect(described_class.for_path("/en/other/ledger")).to be_nil
     expect(described_class.for_path("/en")).to be_nil
   end
 end

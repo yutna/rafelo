@@ -66,7 +66,6 @@ module Rafelo
                   config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
                 end
 
-
               end
             end
           end
