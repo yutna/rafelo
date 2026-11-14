@@ -185,6 +185,10 @@ module KernelUpdate
       target = rendered(@target, relative)
 
       return if base == target && local == base
+      if local == target
+        results << Result.new(relative: relative, status: "kept")
+        return
+      end
 
       if local == base
         if target.nil?

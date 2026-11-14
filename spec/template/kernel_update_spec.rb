@@ -123,6 +123,38 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "keeps a bootstrapped updater that already matches the target release" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "engines/core/app/models/core_file.rb" => "base\n" })
+          write_release(
+            target_root,
+            version: "0.2.0",
+            files: {
+              "engines/core/app/models/core_file.rb" => "target\n",
+              "bin/kernel_update" => "#!/usr/bin/env ruby\nputs :target\n"
+            }
+          )
+          write_app(
+            app_root,
+            version: "0.1.0",
+            files: {
+              "engines/core/app/models/core_file.rb" => "base\n",
+              "bin/kernel_update" => "#!/usr/bin/env ruby\nputs :target\n"
+            }
+          )
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "bin/kernel_update"))).to include(":target")
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
   it "leaves conflicts marked and updates KERNEL_VERSION only after --continue" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|

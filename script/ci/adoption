@@ -73,6 +73,11 @@ if [ ! -f "$work/base-src/template/template.rb" ]; then
   # template under test to adopt the N-1 kernel, then prove the update path.
   cp -a "$work/current-src/template" "$work/base-src/template"
 fi
+if [ ! -f "$work/base-src/docs/contracts.md" ]; then
+  # v0.19.0 predates the generated contracts page; the current template's
+  # docs:check needs it in the app it tests.
+  cp "$work/current-src/docs/contracts.md" "$work/base-src/docs/contracts.md"
+fi
 adopt "$work/base-src" "$work/updated" "$work/base-src/template/template.rb"
 if [ ! -f "$work/updated/bin/kernel_update" ]; then
   cp "$work/current-src/bin/kernel_update" "$work/updated/bin/kernel_update"
