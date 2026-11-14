@@ -132,6 +132,23 @@ module RafeloTemplate
     File.write(File.join(destination, "VERSION"), "#{version}\n")
   end
 
+  # Writes an empty production credentials file with the app's own
+  # `config/master.key`. The template's encrypted file would use a key the
+  # adopter does not have, and a fresh app cannot boot production without a
+  # credentials key (OPS-06).
+  def write_production_credentials!(destination:)
+    require "active_support"
+    require "active_support/encrypted_configuration"
+
+    config = ActiveSupport::EncryptedConfiguration.new(
+      config_path: File.join(destination, "config", "credentials", "production.yml.enc"),
+      key_path: File.join(destination, "config", "master.key"),
+      env_key: "RAILS_MASTER_KEY",
+      raise_if_missing_key: true
+    )
+    config.write("--- {}\n")
+  end
+
   # Fails on a rendered app that still carries the placeholder app name. A
   # leftover would mean a payload file missed the namespace rendering.
   def leftover_paths(destination)

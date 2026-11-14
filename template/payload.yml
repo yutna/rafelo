@@ -58,6 +58,7 @@ paths:
     mode: app
     exclude:
       - master.key
+      - credentials/production.yml.enc
       - credentials/production.key
   - source: db
   - source: docs/architecture

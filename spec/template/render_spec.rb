@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "open3"
 require "tmpdir"
 require "rails_helper"
@@ -72,6 +73,9 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         )
         described_class.write_kernel_version!(destination: destination, version: version)
         described_class.write_app_version!(destination: destination)
+        FileUtils.mkdir_p(File.join(destination, "config"))
+        File.write(File.join(destination, "config", "master.key"), "0" * 32)
+        described_class.write_production_credentials!(destination: destination)
 
         expect(described_class.leftover_paths(destination)).to be_empty
         expect { described_class.verify_no_placeholders!(destination) }.not_to raise_error
