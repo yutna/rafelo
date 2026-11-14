@@ -18,6 +18,13 @@ product modules with routes and pages. An engine uses only the engines its
 `app/` composes the engines; no engine imports it. `engines/example_*` are
 examples to learn from; nothing else depends on them.
 
+## When the user asks for a change
+
+Load the `deliver-request` skill and follow it. The user says what they want in
+plain words; you take it to a merged pull request, ask only what the code and
+the docs cannot answer, and list anything a person must decide instead of
+deciding it (ADR-32).
+
 ## Commands
 
 Everything runs inside the Dev Container (OPS-09).
@@ -124,10 +131,13 @@ ADR change; do not work around it.
 
 ## Skills and layers
 
-Task skills live in `.opencode/skills/` and load when a task matches. Each
-starts from a generator and names the rule IDs that apply; never hand-write
-what a generator writes. The template currently ships:
+The request workflow and task skills live in `.opencode/skills/` and load
+when a task matches. Each starts from a generator, the guard's own message, or
+the approved map, and names the rule IDs that apply; never hand-write what a
+generator writes. The template currently ships:
 
+- `deliver-request`: the workflow from a plain-language request to a merged
+  change (WF-01, WF-02, WF-03, WF-04).
 - `add-copy`: add a string in every configured locale (CT-08).
 - `add-design-system-component`: add a reusable UI control with its API,
   tests, and visual baseline (FE-07, FE-09, FE-21, TS-11).
@@ -139,10 +149,10 @@ what a generator writes. The template currently ships:
 - `expose-public-interface`: the ARCH-05 ladder when another engine needs the
   code; a new `dependencies:` entry is a guard change, so say so in the pull
   request (ARCH-08, ARCH-09).
-
-More task skills for the guard, brownfield migration, and the request
-workflow arrive with the final AI-file milestone; until then, start from the
-generator and the engine guide.
+- `fix-failing-guard`: read the guard's message, fix the code, rerun the
+  check; a suspected guard bug is a proposal for a person (ADR-32).
+- `migrate-a-feature`: move one legacy feature from the approved migration
+  map, one feature per pull request (WF-02).
 
 Design skills (`.opencode/skills/oo-*`, a pinned copy of the object-oriented
 design skills pack; never edit it):
