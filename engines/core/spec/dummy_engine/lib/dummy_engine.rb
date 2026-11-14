@@ -15,6 +15,7 @@ module DummyEngine
       get "missing_key", to: "widgets#missing_key"
       get "extra_key", to: "widgets#extra_key"
       get "denied", to: "widgets#denied"
+      post "denied", to: "widgets#denied"
       get "flash", to: "widgets#set_flash"
       get "whoami", to: "widgets#whoami"
       get "expired", to: "widgets#expired"

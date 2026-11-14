@@ -3,8 +3,8 @@
 module DummyEngine
   class WidgetsController < Rafelo::Core::BaseController
     layout "application"
-    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired create validation conflict boom not_found upstream]
-    throttle to: 30, within: 1.minute, only: %i[create validation conflict boom crash upstream], name: "dummy/write"
+    before_action :skip_authorization, only: %i[index missing_key extra_key set_flash whoami expired denied create validation conflict boom not_found upstream]
+    throttle to: 30, within: 1.minute, only: %i[denied create validation conflict boom crash upstream], name: "dummy/write"
 
     def index
       render_page "dummy/widgets", props: DummyWidgetsProps.new(context: page_context, message: "dummy")

@@ -18,6 +18,8 @@ module Rafelo
 
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
+    config.time_zone = "UTC"
+    config.active_record.default_timezone = :utc
 
     if Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].blank?
       if ENV["RAILS_MASTER_KEY"].blank? && ENV["SECRET_KEY_BASE"].blank?
@@ -46,6 +48,10 @@ module Rafelo
     # Audit triggers and partitions cannot be expressed in schema.rb (OPS-08).
     config.active_record.schema_format = :sql
     config.active_record.dump_schema_after_migration = false
+    config.after_initialize do
+      require "active_record/tasks/database_tasks"
+      ActiveRecord::Tasks::DatabaseTasks.structure_dump_flags = [ "--exclude-table=core_audit_events_*" ]
+    end
 
     # Do not put job arguments in the log; jobs carry ids in their own fields
     # and log lines use the allow-list (OPS-01).

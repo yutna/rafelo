@@ -174,7 +174,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -324,6 +324,11 @@ jobs:
       - name: Run enforcement canaries
         run: script/ci/enforcement_canaries
 
+      - name: Run the deploy preflight and its canary
+        run: |
+          script/ci/deploy_preflight
+          script/ci/deploy_preflight_canary
+
       - name: Check test skips
         run: script/ci/skips
 
@@ -345,7 +350,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -385,7 +390,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -407,9 +412,6 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
 
       - name: Prepare database
         env:
@@ -440,7 +442,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -530,6 +532,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -590,10 +605,13 @@ jobs:
     needs: [image, smoke-needed]
     if: needs.smoke-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18.6
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

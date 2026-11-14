@@ -408,3 +408,49 @@ expectations. Related IDs: SEC-01, SEC-03, SEC-05, SEC-06, SEC-09, SEC-13, SEC-1
 **What changed.** `TraceMiddleware` now sets `Current`'s request id, trace id and sampled bit before any controller callback; early error paths share `trace` before rendering. CSRF failures have their own rescue handler and report `request.csrf_failed`. Sign-in refusals report through the same `ErrorReporter`. The route walker receives the registry engines, marks any other engine mount unknown, and `ProductionRoutes.check` rejects unsupported or disallowed kinds before allow-list matching; the canary covers allow-listed multi-verb, `Proc`, redirect and fake-mount routes, and the walker/legacy-path cases have unit specs. OPS-04 remains a SHOULD: the implemented series cover request rate/latency, upstream calls/time, catalog errors, refreshes, dropped grants, jobs and pool gauges; dashboards, alert routing, circuit-breaker/bulkhead, CSP and database dead-tuple/HOT series are deployment-monitoring work, recorded here as the reason rather than silently omitted.
 
 **Spec feedback.** OPS-02 should state that throttles and CSRF failures must publish the ids before controller callbacks, and SEC-12 should say whether an allow-listed route whose kind is `Proc`, redirect or multi-verb can ever pass. OPS-04 should name which series are mandatory for a SHOULD and where dashboards/alerts live. Related IDs: OPS-01; OPS-02; OPS-03; OPS-04; OPS-05; SEC-12.
+
+## 2026-11-14 — v0.19.0 — issue #333 (gate)
+
+**What happened.** The independent v0.19.0 gate found S1/S2 issues the feature
+pull requests had missed: the role bootstrap script ran before the tables it
+granted on, so it aborted on a fresh database, and it never gave the migration
+role ownership of the tables a v0.18.0 database already had, so `db:prepare`
+as the migrator could not run the expand migration. The runtime role kept
+`UPDATE`/`DELETE` on the legacy `core_audits` table, and a rollback copied
+every already-copied audit row into `core_audits` a second time. The
+production credentials file was missing, the pgBackRest stanza pointed at the
+PostgreSQL 17 data directory, #336 had rewritten the v0.18.0 format fixtures,
+and the Dev Container workflow did not rebuild when `mise.toml` or the npm
+lockfile changed.
+
+**Root cause.** The role work was specified from the finished state (both
+roles, both audit tables) while the expand release runs with a pre-existing
+database and a legacy table. Source-shaped specs (`include "REVOKE ..."`)
+proved the text rather than the PostgreSQL privileges. The production
+credentials contract was described in the spec but no release-owned file was
+created. The Dev Container workflow copied the `paths` filter from the spec's
+example even though its Dockerfile consumes root-level pin files.
+
+**What changed.** The role script is re-runnable, creates the roles when
+missing, transfers ownership of existing tables and sequences to the migrator,
+uses the database's own name, sets default privileges, and restricts
+`core_audits` as well as `core_audit_events`. A real-database spec creates a
+scratch database, runs the script twice, and checks ownership and every
+privilege; a second spec runs the expand migration up and down against a
+v0.18.0-shaped table and proves no row is duplicated. The rollback uses a
+`NOT EXISTS` copy, and `restrict_grants!` covers the legacy table while it
+exists. `config/credentials/production.yml.enc` is committed with placeholder
+values (key never committed); the pgBackRest path is the pinned image's
+`/var/lib/postgresql/18/docker`; the v0.18.0 fixtures are restored from tag
+`v0.18.0` and v0.19.0 is dumped from this release; the Dev Container workflow
+also watches `mise.toml`, `package.json`, and `package-lock.json`.
+
+**Spec feedback.** OPS-09's literal filter (`paths: [".devcontainer/**",
+"!.devcontainer/image_digest"]`) contradicts the same rule's requirement that
+the image install Node and npm from `mise.toml`; proposed wording: "also
+trigger on the root pin files the image Dockerfile copies (`mise.toml`,
+`package.json`, `package-lock.json`)". OPS-08 should say that the role script
+runs before the first `db:prepare`, is re-runnable, and transfers ownership of
+existing tables during the expand release. OPS-06 should say whether the
+template commits placeholder production credentials or expects the adopter to
+create the file. Related IDs: OPS-06; OPS-07; OPS-08; OPS-09; SEC-16; ARCH-13.

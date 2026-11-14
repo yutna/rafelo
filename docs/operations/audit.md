@@ -32,6 +32,10 @@ The parent table is partitioned by month on `occurred_at`:
 - `core_audit_events_default` catches a row when its month partition is
   missing, so the insert does not fail.
 
+The v0.18.0 release still writes to `core_audits`, so this expand migration
+keeps that table and its trigger beside the new one. A later release, after
+old containers are gone, archives and drops `core_audits` (BE-22).
+
 The routine creates the current and next month plus the default. It runs in
 the entrypoint as the migration role before the web server starts, in
 development and test at boot, and from `AuditPartitionMaintenanceJob` every

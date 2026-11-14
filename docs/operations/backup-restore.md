@@ -30,17 +30,20 @@ the database volume. A minimal stanza:
 
 ```ini
 [rafelo]
-pg1-path=/var/lib/postgresql/data
+pg1-path=/var/lib/postgresql/18/docker
 repo1-path=/backup/rafelo
 repo1-retention-full=14
 repo1-retention-archive=14
 archive-async=y
 ```
 
-The database server runs with `archive_mode=on`, an `archive_command` that
-writes to `repo1`, and `wal_level=replica`. Keep at least 14 daily full
-backups and enough WAL to cover the retention window. The backup repository
-must live off the database host; a volume on the same host is not a backup.
+`pg1-path` is the data directory of the pinned `postgres:18.6` accessory
+image (`SHOW data_directory` reports `/var/lib/postgresql/18/docker`; the
+volume mounts at `/var/lib/postgresql`). The database server runs with
+`archive_mode=on`, an `archive_command` that writes to `repo1`, and
+`wal_level=replica`. Keep at least 14 daily full backups and enough WAL to
+cover the retention window. The backup repository must live off the database
+host; a volume on the same host is not a backup.
 
 **Multi host or managed PostgreSQL.** Turn on the provider's point-in-time
 recovery, set the same 14-day retention, and record the provider's restore
@@ -85,6 +88,7 @@ procedure in this file. The application-side steps below do not change.
    RESTORE_DATABASE_URL=postgres://.../rafelo \
    RAILS_ENV=production \
    RESTORE_RECOVERY_POINT="2026-11-13 22:39:25.268097+00" \
+   RESTORE_EXPECTED_ROLE=rafelo_migrator \
      script/ops/restore_drill
    ```
 

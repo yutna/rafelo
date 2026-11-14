@@ -33,15 +33,37 @@ RSpec.describe "Audited outcomes", type: :request do
 
     post "/en/dummy/widgets", params: { name: "" }, headers: { "Cookie" => cookie }
     expect(rows("write").count).to eq(1)
+    expect(rows("write").last.outcome).to eq("failure")
 
     post "/en/dummy/widgets/conflict", headers: { "Cookie" => cookie }
     expect(rows("write").count).to eq(2)
+    expect(rows("write").last.outcome).to eq("failure")
 
     stub_upstream(:post, "/widgets", fixture: "widgets/error.json", status: 503, base_url: "http://localhost:4000")
     post "/en/dummy/widgets/upstream", headers: { "Cookie" => cookie }
 
     expect(rows("write").count).to eq(3)
-    expect(rows("write").pluck(:outcome)).to all(eq("failure"))
+    expect(rows("write").last.outcome).to eq("failure")
+  end
+
+  it "records a write refused with 403 as the denial and not a second row" do
+    post "/en/dummy/denied", headers: auth_headers
+
+    expect(response).to have_http_status(:forbidden)
+    expect(rows("authorization").count).to eq(1)
+    expect(rows("write").count).to eq(0)
+    event = rows("authorization").last
+    expect(event.policy).to be_present
+    expect(event.page).to be_present
+  end
+
+  it "records sign-in failure" do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/sign_in.json", status: 401, base_url: "http://localhost:4000")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "secret" }
+
+    expect(rows("sign_in").count).to eq(1)
+    expect(rows("sign_in").last.outcome).to eq("failure")
   end
 
   it "records no write row for a GET that fails upstream" do

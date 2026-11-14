@@ -84,7 +84,10 @@ module Rafelo
         exists = @connection.select_value("SELECT 1 FROM pg_roles WHERE rolname = #{@connection.quote(role)}")
         return false unless exists
 
-        ([ TABLE ] + partitions.keys).each do |name|
+        names = [ TABLE, DEFAULT_TABLE ] + partitions.keys
+        names << "core_audits" if @connection.table_exists?("core_audits")
+
+        names.each do |name|
           @connection.execute("REVOKE UPDATE, DELETE, TRUNCATE ON #{@connection.quote_table_name(name)} FROM #{quoted_role}")
           @connection.execute("GRANT SELECT, INSERT ON #{@connection.quote_table_name(name)} TO #{quoted_role}")
         end
@@ -108,7 +111,7 @@ module Rafelo
             FOR VALUES FROM ('#{month.strftime("%Y-%m-%d")}') TO ('#{month.next_month.strftime("%Y-%m-%d")}')
         SQL
       rescue ActiveRecord::StatementInvalid => error
-        if default_rows.positive?
+        if error.cause.is_a?(PG::CheckViolation) && default_rows.positive?
           alert_default!
           raise DefaultPartitionOccupied, "#{DEFAULT_TABLE} holds rows for #{month.strftime("%Y-%m")}: #{error.message}"
         end
