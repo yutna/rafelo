@@ -99,8 +99,15 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         rename_spec = File.read(File.join(destination, "spec", "generators", "rename_module_generator_spec.rb"))
         expect(rename_spec).to include("lib/smoke_shop/billing")
         expect(rename_spec).to include("module SmokeShop::Billing")
+        module_spec = File.read(File.join(destination, "spec", "generators", "module_generator_spec.rb"))
+        expect(module_spec).to include("smoke_shop_billing_probe.gemspec")
         domain_spec = File.read(File.join(destination, "spec", "generators", "domain_generator_spec.rb"))
-        expect(domain_spec).to include("lib/rafelo/customers_probe")
+        expect(domain_spec).to include("smoke_shop_customers_probe.gemspec")
+        expect(domain_spec).to include("lib/smoke_shop/customers_probe")
+
+        expect(File).to exist(File.join(destination, "spec", "fixtures", "formats", "v0.1.0", "sessions.json"))
+        expect(File).to exist(File.join(destination, "config", "credentials", "production.yml.enc"))
+        expect(File).not_to exist(File.join(destination, "config", "credentials", "production.key"))
 
         kernel = File.read(File.join(destination, "engines", "core", "lib", "rafelo", "core", "engine.rb"))
         expect(kernel).to include("module Rafelo")

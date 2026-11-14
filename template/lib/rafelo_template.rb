@@ -241,6 +241,8 @@ module RafeloTemplate
     text
       .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/(?!core/|design_system/)}, "\\1#{slug}/")
       .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{slug}/")
+      .gsub(%r{(engines/[a-z0-9_]+/)rafelo_([a-z0-9_]+)}, "\\1#{slug}_\\2")
+      .gsub(%r{\blib/rafelo_([a-z0-9_]+)\.rb}, "lib/#{slug}_\\1.rb")
   end
 
   def replace_placeholders(text, app_name, namespace)
