@@ -92,6 +92,8 @@ paths:
   - source: public/icon.svg
   - source: public/robots.txt
   - source: script
+    exclude:
+      - ci/adoption
   - source: spec/config
     mode: app
   - source: spec/contracts
