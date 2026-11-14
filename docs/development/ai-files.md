@@ -17,7 +17,7 @@ and keeps maintainer-only material out of the payload.
 | Design skills pack | `.opencode/skills/oo-*` | on demand | present, pinned `v0.17.1` |
 | Request workflow | `.opencode/skills/deliver-request/SKILL.md` | when the user asks for a change | `v0.14.0` |
 | Task skills | `.opencode/skills/<name>/SKILL.md` | on demand | see below |
-| Docs registry | `config/docs.yml` | `docs:check` | `v0.20.0` |
+| Docs registry | `config/docs.yml` | `docs:check` | present |
 | Domain glossary | adopter-created, for example `docs/ai/glossary.md` | on demand | never shipped |
 
 The root guide is the only always-on file. Engine guides are not loaded by
