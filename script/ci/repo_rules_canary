@@ -117,13 +117,14 @@ Dir.mktmpdir("rafelo-repo-rules-canary-") do |dir|
   tag_ruleset = {
     "name" => "release tags",
     "target" => "tag",
+    "conditions" => { "ref_name" => { "include" => [ "refs/tags/v*" ], "exclude" => [] } },
     "rules" => [ { "type" => "creation" }, { "type" => "deletion" } ]
   }
   File.write(File.join(dir, ".github", "rulesets", "release_tags.json"), JSON.generate(tag_ruleset))
   cases += 1
   output, status = Open3.capture2e(
     script, "--root", dir, "--ruleset", File.join(dir, ".github", "rulesets", "release_tags.json"),
-    "--payload", payload.call("tag-matching", tag_ruleset["rules"])
+    "--payload", payload.call("tag-matching", tag_ruleset)
   )
   if status.exitstatus != 0
     failures += 1
@@ -132,11 +133,23 @@ Dir.mktmpdir("rafelo-repo-rules-canary-") do |dir|
   cases += 1
   output, status = Open3.capture2e(
     script, "--root", dir, "--ruleset", File.join(dir, ".github", "rulesets", "release_tags.json"),
-    "--payload", payload.call("tag-missing", tag_ruleset["rules"].first(1))
+    "--payload", payload.call("tag-missing", { "conditions" => tag_ruleset["conditions"], "rules" => tag_ruleset["rules"].first(1) })
   )
   if status.exitstatus != 1
     failures += 1
     warn "repo_rules_canary: tag missing rule: exited #{status.exitstatus}: #{output}"
+  end
+  cases += 1
+  output, status = Open3.capture2e(
+    script, "--root", dir, "--ruleset", File.join(dir, ".github", "rulesets", "release_tags.json"),
+    "--payload", payload.call("tag-scope", {
+      "conditions" => { "ref_name" => { "include" => [ "refs/tags/*" ], "exclude" => [] } },
+      "rules" => tag_ruleset["rules"]
+    })
+  )
+  if status.exitstatus != 1
+    failures += 1
+    warn "repo_rules_canary: tag scope: exited #{status.exitstatus}: #{output}"
   end
 end
 

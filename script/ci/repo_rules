@@ -28,14 +28,12 @@ expected = JSON.parse(File.read(ruleset_file))
 expected_rules = expected.fetch("rules")
 target = expected["target"] || "branch"
 
-def active_rules(root, payload_file, target)
+def active_ruleset(root, payload_file, target)
   if payload_file
     path = File.expand_path(payload_file, root)
     abort "repo_rules: payload is missing at #{path}" unless File.file?(path)
     payload = JSON.parse(File.read(path))
-    return payload if payload.is_a?(Array)
-
-    return payload.fetch("rules", [])
+    return payload.is_a?(Hash) ? payload : { "rules" => payload }
   end
 
   repository = ENV["GITHUB_REPOSITORY"].to_s
@@ -43,21 +41,21 @@ def active_rules(root, payload_file, target)
 
   if target == "branch"
     output, status = Open3.capture2("gh", "api", "repos/#{repository}/rules/branches/main")
-    return [] unless status.success?
+    return {} unless status.success?
 
-    return JSON.parse(output)
+    return { "rules" => JSON.parse(output) }
   end
 
   list, list_status = Open3.capture2("gh", "api", "repos/#{repository}/rulesets")
-  return [] unless list_status.success?
+  return {} unless list_status.success?
 
   ruleset = JSON.parse(list).find { |entry| entry["target"] == "tag" && entry["enforcement"] == "active" }
-  return [] if ruleset.nil?
+  return {} if ruleset.nil?
 
   output, status = Open3.capture2("gh", "api", "repos/#{repository}/rulesets/#{ruleset["id"]}")
-  return [] unless status.success?
+  return {} unless status.success?
 
-  JSON.parse(output).fetch("rules", [])
+  JSON.parse(output)
 end
 
 def compare_rule(expected_rule, actual_rule)
@@ -109,23 +107,28 @@ def open_drift_issue(findings)
 end
 
 begin
-  active = active_rules(root, payload_file, target)
+  active = active_ruleset(root, payload_file, target)
+  active_rules = active.fetch("rules", [])
   findings = []
-  if active.empty?
+  if active_rules.empty?
     findings << "the active ruleset has no rules"
   elsif expected_rules.empty?
     findings << "the ruleset export has no rules"
   else
     expected_rules.each do |expected_rule|
-      actual = active.find { |rule| rule["type"] == expected_rule["type"] }
+      actual = active_rules.find { |rule| rule["type"] == expected_rule["type"] }
       if actual.nil?
         findings << "the active ruleset is missing #{expected_rule["type"]}"
       else
         findings.concat(compare_rule(expected_rule, actual))
       end
     end
-    extras = active.map { |rule| rule["type"] } - expected_rules.map { |rule| rule["type"] }
+    extras = active_rules.map { |rule| rule["type"] } - expected_rules.map { |rule| rule["type"] }
     extras.each { |type| findings << "the active ruleset has an extra rule: #{type}" }
+  end
+
+  if target == "tag" && expected["conditions"] != active["conditions"]
+    findings << "the active tag ruleset conditions are #{active["conditions"].inspect}, expected #{expected["conditions"].inspect}"
   end
 
   required = expected_rules.filter_map do |rule|

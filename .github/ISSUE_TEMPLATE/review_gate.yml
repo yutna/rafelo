@@ -46,6 +46,20 @@ body:
         | P1 | WF-03 | spec/...:42 | ... |
     validations:
       required: true
+  - type: textarea
+    id: review_areas
+    attributes:
+      label: Whole-slice review
+      description: Record what the review checked and what it found. Cover every area.
+      placeholder: |
+        - Bugs:
+        - Edge cases (empty, missing, largest; th/en and Buddhist Era; time zones; concurrency; retries; slow/4xx/5xx/malformed upstreams; permissions; CSRF; N+1; largest page; back/forward):
+        - Security (Brakeman, audits, OWASP over the new surface):
+        - Performance:
+        - Accessibility:
+        - Documentation:
+    validations:
+      required: true
   - type: checkboxes
     id: outcome
     attributes:
@@ -54,6 +68,7 @@ body:
         - label: No open P0 or P1 finding remains.
         - label: Every P2 and P3 finding is filed as a backlog issue.
         - label: The scope stayed frozen after the review started.
+        - label: If a P0 or P1 remains after round two, I recorded the risk and split the work.
         - label: The person closing the gate confirmed the severities.
     validations:
       required: true

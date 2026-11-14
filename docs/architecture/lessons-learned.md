@@ -487,13 +487,31 @@ that WF-04 had no review-gate issue template despite the milestone naming it;
 `.github/ISSUE_TEMPLATE/review_gate.yml` now carries the severity table, the
 two-round limit, the evidence requirement, and the person's sign-off.
 
+**Round 2.** The independent re-audit found more gaps in the workflow payload:
+CI did not run on `merge_group` and `affected` ignored the merge-group base
+SHA; CODEOWNERS left the root `package.yml` and parts of the kernel
+uncovered; the ratchet canary raised the root and engine counts together, so
+it did not prove engine aggregation; the pull request and release canaries
+ran only locally; `repo_rules` compared the tag rules but not its
+`refs/tags/v*` scope; and the review-gate form did not prompt the whole-slice
+review areas. CI now runs on `merge_group`, uses its base SHA, owns the whole
+kernel and root package, runs the pull request and release canaries, and
+compares the tag conditions; `ratchet_canary` has an engine-only rise; the
+review-gate form asks for bugs, edge cases, security, performance,
+accessibility, and documentation. Two S1 findings are carried to v0.21.0:
+the single-owner guard approval fallback and the missing
+`script/ci/ratchet --update`/scheduled lowering job (#354, #355). CT-09's
+envelope table in the read-only spec copy is not a finding; #356 records the
+spec question, and the generated table lives in `docs/contracts.md`.
+
 **Single-owner fallback.** This repository has one CODEOWNERS owner, so an
 owner-authored PR cannot receive an independent approval. `guard_approval`
 records the guard files and passes only when the sole owner is the PR author;
 a non-owner author still needs that owner, and a repository with a second
 owner requires a real approval. This is the spec's fallback for a repository
 that lacks code-owner review; #347 asks the owner to add a second owner and
-apply the ruleset. It is not used for ratchet rises.
+apply the ruleset, and #355 tracks the finding. It is not used for ratchet
+rises.
 
 **Spec feedback.** WF-03 should name the single-owner case explicitly.
 WF-05 should say the VERSION check runs only when VERSION differs from the

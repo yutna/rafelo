@@ -72,6 +72,19 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     warn "ratchet_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
   end
 
+  # An engine-only rise fails; this proves the engine ratchet is aggregated,
+  # not just the root file whose value is unchanged here.
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\n")
+  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "engine rise")
+  cases += 1
+  status, output = run_case(script, dir, base, outsider)
+  if status != 1 || !output.include?("engines/core/config/ratchets.yml:skipped_tests")
+    failures += 1
+    warn "ratchet_canary: engine-only rise: exited #{status}: #{output}"
+  end
+
   # A fall passes without an approval.
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 1\n")
   File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
