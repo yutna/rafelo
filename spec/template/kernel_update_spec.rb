@@ -349,6 +349,60 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "ignores a lone setext separator when --continue checks for conflicts" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "config/budgets.yml" => "max: 1\n" })
+          write_release(target_root, version: "0.2.0", files: { "config/budgets.yml" => "max: 3\n" })
+          write_app(
+            app_root,
+            version: "0.1.0",
+            files: {
+              "config/budgets.yml" => "max: 2\n",
+              "docs/notes.md" => "Adopter notes\n=============\n"
+            }
+          )
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+          expect(status.exitstatus).to eq(1)
+
+          File.write(File.join(app_root, "config/budgets.yml"), "max: 2\n")
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
+  it "ignores conflict-like text in built frontend assets on --continue" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "config/budgets.yml" => "max: 1\n" })
+          write_release(target_root, version: "0.2.0", files: { "config/budgets.yml" => "max: 3\n" })
+          write_app(
+            app_root,
+            version: "0.1.0",
+            files: {
+              "config/budgets.yml" => "max: 2\n",
+              "public/vite/assets/app.js" => "const a = 1;\n<<<<<<< local\n=======\n>>>>>>> target\n"
+            }
+          )
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+          expect(status.exitstatus).to eq(1)
+
+          File.write(File.join(app_root, "config/budgets.yml"), "max: 2\n")
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
   it "updates a design_system folder only when --include names it" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
