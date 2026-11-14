@@ -1,0 +1,82 @@
+name: Pull request
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+
+      - name: Lint the title
+        env:
+          EVENT: ${{ github.event_name }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: script/ci/title
+
+  ratchet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+
+      - name: Check the ratchets
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: script/ci/ratchet
+
+  guard_approval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+
+      - name: Check guard approvals
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: script/ci/guard_approval

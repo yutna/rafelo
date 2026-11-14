@@ -1,0 +1,119 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "guard_approval")
+failures = 0
+cases = 0
+
+def git(dir, *args)
+  output, error, status = Open3.capture3("git", "-C", dir, *args)
+  abort "guard_approval_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
+
+  output
+end
+
+def reviews(dir, name, entries)
+  path = File.join(dir, "#{name}.json")
+  File.write(path, JSON.generate(entries))
+  path
+end
+
+def run_case(script, dir, base, reviews_file, event = "pull_request", author = nil)
+  args = [ script, "--root", dir, "--base", base, "--event", event ]
+  args += [ "--reviews", reviews_file ] if reviews_file
+  args += [ "--author", author ] if author
+  output, status = Open3.capture2e(*args)
+  [ status.exitstatus, output ]
+end
+
+Dir.mktmpdir("rafelo-guard-canary-") do |dir|
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(dir, ".github"))
+  FileUtils.mkdir_p(File.join(dir, "script", "ci"))
+  FileUtils.mkdir_p(File.join(dir, "config"))
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner\n/engines/core/app/ @owner\n")
+  File.write(File.join(dir, "script", "ci", "guard"), "one\n")
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\n")
+  File.write(File.join(dir, "README.md"), "base\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "base")
+  base = git(dir, "rev-parse", "HEAD").strip
+
+  File.write(File.join(dir, "script", "ci", "guard"), "two\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "guard")
+
+  owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
+  outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
+  rejected = reviews(dir, "rejected", [
+    { "user" => { "login" => "owner" }, "state" => "APPROVED" },
+    { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
+  ])
+
+  [
+    [ "guard without approval", nil, 1 ],
+    [ "guard with an owner approval", owner, 0 ],
+    [ "guard with a non-owner approval", outsider, 1 ],
+    [ "guard with a later change request", rejected, 1 ],
+    [ "merge queue", nil, 0, "merge_group" ],
+    [ "single-owner author", nil, 0, "pull_request", "owner" ]
+  ].each do |name, file, expected, event, author|
+    cases += 1
+    status, output = run_case(script, dir, base, file, event || "pull_request", author)
+    next if status == expected
+
+    failures += 1
+    warn "guard_approval_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  end
+
+  # A second owner removes the single-owner fallback.
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner @second\n/engines/core/app/ @owner\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "second owner")
+  File.write(File.join(dir, "script", "ci", "guard"), "three\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "guard again")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "owner")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: two owners still needs an approval: exited #{status}: #{output}"
+  end
+
+  # A ratchet file changed is not a guard.
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 1\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "ratchet")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: ratchet file: exited #{status}: #{output}"
+  end
+
+  # A non-guard file changed passes.
+  File.write(File.join(dir, "README.md"), "changed\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "readme")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: non-guard file: exited #{status}: #{output}"
+  end
+end
+
+if failures.positive?
+  warn "guard_approval_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "guard_approval_canary: checked #{cases} cases; failures=0"

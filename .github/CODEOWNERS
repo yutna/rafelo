@@ -1,0 +1,72 @@
+# Review ownership for the kernel and the guard files (WF-03).
+#
+# The ratchet files (config/ratchets.yml and engines/*/config/ratchets.yml)
+# deliberately have no entry: a rise needs the separate ratchet check and an
+# owner's approval, and a fall lands through a pull request.
+
+# Kernel
+/engines/core/app/                       @yutna
+/engines/core/lib/                       @yutna
+/engines/core/db/                        @yutna
+/engines/core/spec/                      @yutna
+/engines/core/config/locales/            @yutna
+/engines/core/config/contracts/          @yutna
+/engines/core/config/errors.yml          @yutna
+/engines/core/config/module.rb           @yutna
+/engines/core/config/permissions.yml     @yutna
+/engines/core/config/routes.rb           @yutna
+/engines/core/package.yml                @yutna
+/engines/core/tsconfig.json              @yutna
+/engines/core/*.gemspec                  @yutna
+
+# Design system
+/engines/design_system/app/              @yutna
+/engines/design_system/lib/              @yutna
+/engines/design_system/spec/             @yutna
+/engines/design_system/config/locales/   @yutna
+/engines/design_system/config/contracts/ @yutna
+/engines/design_system/config/errors.yml @yutna
+/engines/design_system/package.yml       @yutna
+/engines/design_system/tsconfig.json     @yutna
+/engines/design_system/*.gemspec         @yutna
+
+# Configuration guards
+/config/budgets.yml                      @yutna
+/config/ci.rb                            @yutna
+/config/contracts/_shared.json           @yutna
+/config/database.yml                     @yutna
+/config/deploy.yml                       @yutna
+/config/deploy.multi.yml                 @yutna
+/config/errors.yml                       @yutna
+/config/locales.yml                      @yutna
+/config/permission_mapping.yml           @yutna
+/config/puma.rb                          @yutna
+/config/queue.yml                        @yutna
+/config/routes.rb                        @yutna
+/config/upstreams.yml                    @yutna
+/config/environments/                    @yutna
+/config/initializers/                    @yutna
+
+# Scripts, CI, and the image definition
+/script/                                 @yutna
+/bin/                                    @yutna
+/.github/CODEOWNERS                      @yutna
+/.github/workflows/                      @yutna
+/.github/rulesets/                       @yutna
+/.devcontainer/                          @yutna
+/Dockerfile                              @yutna
+/.dockerignore                           @yutna
+
+# Dependency and lint guards
+/Gemfile                                 @yutna
+/Gemfile.lock                            @yutna
+/package.json                            @yutna
+/package-lock.json                       @yutna
+/.npmrc                                  @yutna
+/.rubocop.yml                            @yutna
+/.dependency-cruiser.cjs                 @yutna
+/eslint.config.mjs                      @yutna
+/packwerk.yml                            @yutna
+/renovate.json5                          @yutna
+/mise.toml                               @yutna
+/.ruby-version                           @yutna

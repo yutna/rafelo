@@ -21,8 +21,31 @@ process is small and the same for every change.
 5. **Link the issue** with `Closes #N` in the description. The pull request
    takes the issue's milestone, and it can only be merged while it is in a
    version milestone (`vX.Y.Z`).
-6. **CI must pass**: the `ci-ok` and `pr-check / check` checks.
+6. **CI must pass**: the `ci-ok` and `pr-check / check` checks. Once the
+   repository applies the v0.20.0 ruleset, the required checks are `ci-ok`,
+   `title`, `ratchet`, and `guard_approval`.
 7. **Squash merge only.** The branch is deleted after the merge.
+
+## Pull request workflow
+
+`.github/workflows/pull_request.yml` runs three cheap jobs on every pull
+request, title edit, review, and merge-queue entry (WF-03):
+
+- `title` lints the Conventional Commits title; a `merge_group` entry passes
+  because the title was linted on the pull request.
+- `ratchet` compares `config/ratchets.yml` and each engine ratchet with the
+  merge base. A fall passes; a rise needs an approving review from a
+  CODEOWNERS owner.
+- `guard_approval` compares the changed files with `.github/CODEOWNERS`. A
+  change to a guard file (any owned path except the ratchet files) needs an
+  approving review from an owner; a `merge_group` entry passes because the
+  approval was checked on the pull request.
+
+A repository with a single owner cannot produce an independent approval. In
+that case `guard_approval` records the guard files and passes only when the
+pull request author is that owner; add a second owner to enable independent
+review. The ratchet check never uses that fallback: a rise still needs an
+approval.
 
 A release is made when its version milestone is complete: closing the
 milestone creates the GitHub Release with generated notes. The release notes

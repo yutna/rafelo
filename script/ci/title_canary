@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "title")
+cases = [
+  [ "feat(ci): add checks", "pull_request", 0 ],
+  [ "fix: correct the redirect", "pull_request", 0 ],
+  [ "feat(core)!: break the contract", "pull_request", 0 ],
+  [ "chore(deps): update packages", "pull_request", 0 ],
+  [ "Feat: capitalized type", "pull_request", 1 ],
+  [ "feat(scope):", "pull_request", 1 ],
+  [ "feat: ", "pull_request", 1 ],
+  [ "wip something", "pull_request", 1 ],
+  [ "not a title", "merge_group", 0 ]
+]
+
+failures = 0
+cases.each do |title, event, expected|
+  _output, status = Open3.capture2e(script, "--title", title, "--event", event)
+  next if status.exitstatus == expected
+
+  failures += 1
+  warn "title_canary: #{title.inspect} (#{event}) exited #{status.exitstatus}, expected #{expected}"
+end
+
+if failures.positive?
+  warn "title_canary: checked #{cases.length} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "title_canary: checked #{cases.length} cases; failures=0"
