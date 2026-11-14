@@ -64,8 +64,8 @@ tag_exists = known_tags.key?(tag_name)
 
 if check
   if tag_exists
-    puts "release: #{tag_name} is already tagged; nothing to check"
-    exit 0
+    warn "release: #{tag_name} already exists"
+    exit 1
   end
   unless higher?(parts, highest)
     warn "release: #{version} is not higher than the highest release #{highest ? "v#{highest.join(".")}" : "none"}"

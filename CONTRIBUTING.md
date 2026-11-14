@@ -47,9 +47,10 @@ pull request author is that owner; add a second owner to enable independent
 review. The ratchet check never uses that fallback: a rise still needs an
 approval.
 
-A release is made when its version milestone is complete: closing the
-milestone creates the GitHub Release with generated notes. The release notes
-on GitHub are the changelog.
+A release is made when its version milestone is complete: the release pull
+request sets `VERSION`, and after it merges the green CI push to `main` runs
+the release workflow, which creates the tag and the GitHub Release with
+generated notes. The release notes on GitHub are the changelog.
 
 ## Local development
 

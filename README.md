@@ -173,9 +173,10 @@ The remaining work follows the architecture specification:
 
 ## Versioning and releases
 
-`VERSION` tracks the template release. The repository uses SemVer and
-`vX.Y.Z` milestones; closing a complete milestone creates the tag and GitHub
-Release, and GitHub Releases are the changelog. See
+`VERSION` holds the release being prepared. The repository uses SemVer and
+`vX.Y.Z` milestones. The release pull request sets `VERSION`; after it merges,
+the first green CI push to `main` creates the tag and GitHub Release, and
+GitHub Releases are the changelog. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the day-to-day flow.
 
 ## Contributing

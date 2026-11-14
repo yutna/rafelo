@@ -1,4 +1,4 @@
-name: ci
+name: CI
 
 on:
   pull_request:
@@ -214,6 +214,16 @@ jobs:
         run: |
           script/ci/engine_graph --check
           npm run aliases:check
+
+      - name: Check documentation
+        run: |
+          npm run docs:check
+          npm run docs:canary
+
+      - name: Check the release version
+        env:
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+        run: script/ci/release_check
 
       - name: Check frontend boundaries
         run: |

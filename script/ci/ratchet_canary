@@ -37,14 +37,17 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   git(dir, "config", "user.name", "Canary")
   FileUtils.mkdir_p(File.join(dir, "config"))
   FileUtils.mkdir_p(File.join(dir, "engines", "core", "app"))
+  FileUtils.mkdir_p(File.join(dir, "engines", "core", "config"))
   FileUtils.mkdir_p(File.join(dir, ".github"))
   File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/core/app/ @owner\n")
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\n")
+  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "base")
   base = git(dir, "rev-parse", "HEAD").strip
 
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 1\nrubocop_disable: 1\n")
+  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "rise")
 
@@ -71,6 +74,7 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
 
   # A fall passes without an approval.
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 1\n")
+  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "fall")
   cases += 1

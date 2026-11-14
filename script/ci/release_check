@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+
+root = File.expand_path("../..", __dir__)
+base = ENV["BASE_SHA"].to_s
+if base.empty?
+  output, status = Open3.capture2("git", "-C", root, "merge-base", "origin/main", "HEAD")
+  base = status.success? ? output.strip : "HEAD~1"
+end
+
+output, status = Open3.capture2("git", "-C", root, "diff", "--name-only", "#{base}...HEAD", "--", "VERSION")
+abort "release_check: cannot compare VERSION with #{base}" unless status.success?
+
+if output.strip.empty?
+  puts "release_check: VERSION is unchanged"
+  exit 0
+end
+
+exec File.join(root, "script", "ci", "release"), "--check"

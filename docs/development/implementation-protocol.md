@@ -50,7 +50,8 @@ definition of "complete" in section 10 is met.
    .opencode/skills/oo-* (v0.17.1; see AGENTS.md and docs/opencode.md). Keep
    the pack where it is and never edit it by hand.
 4. You close each version milestone yourself once its gate passes (section 6).
-   Closing a milestone publishes a GitHub Release.
+   The release workflow creates the GitHub Release from `VERSION` on the
+   green push to `main`; closing the milestone records the gate result.
 
 ## 3. The most important early work: how AI works on this template
 
@@ -187,11 +188,12 @@ Fix budget:
 The gate passes when no S1 or S2 is open in the milestone (or each was
 carried over by the rule above), CI is green, the traceability table is
 posted, and lessons learned has the milestone's entry. Then:
-- a pull request "chore(release): vX.Y.Z" that sets VERSION to X.Y.Z;
+- a pull request "chore(release): vX.Y.Z" that sets VERSION to X.Y.Z, with the
+  format fixtures from `bin/rails formats:dump`;
+- merge it, then wait for the release workflow on the green push to `main` to
+  create the tag and Release, and confirm `gh release view vX.Y.Z`;
 - close the milestone (gh api -X PATCH repos/yutna/rafelo/milestones/<number>
-  -f state=closed) and confirm the release exists (gh release view vX.Y.Z). If
-  the release workflow reopened the milestone, read why, fix it, and close it
-  again;
+  -f state=closed);
 - start the next milestone at once.
 
 ## 7. Lessons learned

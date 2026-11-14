@@ -40,12 +40,17 @@
 /config/errors.yml                       @yutna
 /config/locales.yml                      @yutna
 /config/permission_mapping.yml           @yutna
+/config/production_routes.yml            @yutna
 /config/puma.rb                          @yutna
 /config/queue.yml                        @yutna
 /config/routes.rb                        @yutna
 /config/upstreams.yml                    @yutna
 /config/environments/                    @yutna
 /config/initializers/                    @yutna
+
+# Engine manifests and canary fixtures are guard files.
+/engines/*/package.yml                   @yutna
+/spec/enforcement/                       @yutna
 
 # Scripts, CI, and the image definition
 /script/                                 @yutna

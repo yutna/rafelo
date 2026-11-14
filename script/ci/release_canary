@@ -48,7 +48,7 @@ Dir.mktmpdir("rafelo-release-canary-") do |dir|
 
   cases += 1
   status, output = run_case(script, dir, "0.19.0", tags, [ "--check" ])
-  cases, failures = expect("existing tag", cases - 1, failures, status, 0, output, /already tagged/)
+  cases, failures = expect("existing tag", cases - 1, failures, status, 1, output, /already exists/)
 
   cases += 1
   status, output = run_case(script, dir, "0.17.0", tags, [ "--check" ])

@@ -39,9 +39,11 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   FileUtils.mkdir_p(File.join(dir, ".github"))
   FileUtils.mkdir_p(File.join(dir, "script", "ci"))
   FileUtils.mkdir_p(File.join(dir, "config"))
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner\n/engines/core/app/ @owner\n")
+  FileUtils.mkdir_p(File.join(dir, "spec", "enforcement", "fixtures"))
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner\n/engines/core/app/ @owner\n/spec/enforcement/ @owner\n")
   File.write(File.join(dir, "script", "ci", "guard"), "one\n")
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\n")
+  File.write(File.join(dir, "spec", "enforcement", "fixtures", "guard"), "one\n")
   File.write(File.join(dir, "README.md"), "base\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "base")
@@ -75,7 +77,7 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   end
 
   # A second owner removes the single-owner fallback.
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner @second\n/engines/core/app/ @owner\n")
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner @second\n/engines/core/app/ @owner\n/spec/enforcement/ @owner\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "second owner")
   File.write(File.join(dir, "script", "ci", "guard"), "three\n")
@@ -108,6 +110,17 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   if status != 0
     failures += 1
     warn "guard_approval_canary: non-guard file: exited #{status}: #{output}"
+  end
+
+  # A canary fixture is a guard file.
+  File.write(File.join(dir, "spec", "enforcement", "fixtures", "guard"), "two\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "fixture")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: canary fixture: exited #{status}: #{output}"
   end
 end
 
