@@ -29,9 +29,9 @@ a second host, an S3-compatible bucket, or a mounted backup volume that is not
 the database volume. A minimal stanza:
 
 ```ini
-[rafelo]
+[acme]
 pg1-path=/var/lib/postgresql/18/docker
-repo1-path=/backup/rafelo
+repo1-path=/backup/acme
 repo1-retention-full=14
 repo1-retention-archive=14
 archive-async=y
@@ -57,7 +57,7 @@ procedure in this file. The application-side steps below do not change.
    over the serving database. With pgBackRest:
 
    ```sh
-   pgbackrest --stanza=rafelo --type=time \
+   pgbackrest --stanza=acme --type=time \
      --target="2026-11-13 22:39:25.268097+00" --target-action=promote restore
    ```
 
@@ -69,7 +69,7 @@ procedure in this file. The application-side steps below do not change.
    table:
 
    ```sh
-   RESTORE_DATABASE_URL=postgres://.../rafelo \
+   RESTORE_DATABASE_URL=postgres://.../acme \
    RAILS_ENV=production \
    ACME_DATABASE_ROLE=migration \
    ACME_RESTORE_CONFIRMED=1 \
@@ -85,7 +85,7 @@ procedure in this file. The application-side steps below do not change.
    zero rows:
 
    ```sh
-   RESTORE_DATABASE_URL=postgres://.../rafelo \
+   RESTORE_DATABASE_URL=postgres://.../acme \
    RAILS_ENV=production \
    RESTORE_RECOVERY_POINT="2026-11-13 22:39:25.268097+00" \
    RESTORE_EXPECTED_ROLE=acme_migrator \
