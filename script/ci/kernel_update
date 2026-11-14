@@ -17,9 +17,13 @@ module KernelUpdate
   DEFAULT_PATHS = %w[
     engines/core
     script/ci
+    script/contracts/permissions
     bin/check
     bin/kernel_update
     spec/fixtures/hostile_urls.json
+    spec/core
+    spec/generators
+    spec/patches
     .rubocop.yml
     .dependency-cruiser.cjs
     config/budgets.yml
@@ -28,6 +32,7 @@ module KernelUpdate
     config/database.yml
     config/deploy.yml
     config/deploy.multi.yml
+    config/docs.yml
     config/errors.yml
     config/locales.yml
     config/permission_mapping.yml
@@ -44,7 +49,7 @@ module KernelUpdate
   ].freeze
 
   # The example engines are optional (GEN-08) and are never updated.
-  UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/].freeze
+  UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
 
   CONFLICT_MARKER = /^(?:<{7}|={7}|>{7})/
 
@@ -185,6 +190,10 @@ module KernelUpdate
       target = rendered(@target, relative)
 
       return if base == target && local == base
+      if local == target
+        results << Result.new(relative: relative, status: "kept")
+        return
+      end
 
       if local == base
         if target.nil?
@@ -234,6 +243,8 @@ module KernelUpdate
           .gsub(/\bRafelo\b(?!::(?:Core|DesignSystem|Generators))/, @namespace)
           .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/(?!core/|design_system/)}, "\\1#{@slug}/")
           .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{@slug}/")
+          .gsub(%r{(engines/[a-z0-9_]+/)rafelo_([a-z0-9_]+)}, "\\1#{@slug}_\\2")
+          .gsub(%r{\blib/rafelo_([a-z0-9_]+)\.rb}, "lib/#{@slug}_\\1.rb")
       when "placeholder", "github"
         placeholders(text)
       else

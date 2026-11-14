@@ -19,6 +19,7 @@ module RafeloTemplate
 
   TEMPLATE_AUTHOR_NAME = "Rafelo template"
   TEMPLATE_AUTHOR_EMAIL = "template@rafelo.invalid"
+  APP_VERSION = "0.1.0"
 
   # The flags GEN-07 requires from `rails new`. The database flag accepts
   # both the short and the long spelling.
@@ -123,6 +124,29 @@ module RafeloTemplate
 
   def write_kernel_version!(destination:, version:)
     File.write(File.join(destination, "KERNEL_VERSION"), "#{version.to_s.strip}\n")
+  end
+
+  # A fresh app starts at 0.1.0. `Rafelo::Core::Release` reads this file, and
+  # the release workflow treats it like any other app version (WF-05).
+  def write_app_version!(destination:, version: APP_VERSION)
+    File.write(File.join(destination, "VERSION"), "#{version}\n")
+  end
+
+  # Writes an empty production credentials file with the app's own
+  # `config/master.key`. The template's encrypted file would use a key the
+  # adopter does not have, and a fresh app cannot boot production without a
+  # credentials key (OPS-06).
+  def write_production_credentials!(destination:)
+    require "active_support"
+    require "active_support/encrypted_configuration"
+
+    config = ActiveSupport::EncryptedConfiguration.new(
+      config_path: File.join(destination, "config", "credentials", "production.yml.enc"),
+      key_path: File.join(destination, "config", "master.key"),
+      env_key: "RAILS_MASTER_KEY",
+      raise_if_missing_key: true
+    )
+    config.write("--- {}\n")
   end
 
   # Fails on a rendered app that still carries the placeholder app name. A
@@ -234,6 +258,8 @@ module RafeloTemplate
     text
       .gsub(%r{(app/(?:controllers|policies|props|forms|gateways|models|jobs|public)/)rafelo/(?!core/|design_system/)}, "\\1#{slug}/")
       .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{slug}/")
+      .gsub(%r{(engines/[a-z0-9_]+/)rafelo_([a-z0-9_]+)}, "\\1#{slug}_\\2")
+      .gsub(%r{\blib/rafelo_([a-z0-9_]+)\.rb}, "lib/#{slug}_\\1.rb")
   end
 
   def replace_placeholders(text, app_name, namespace)

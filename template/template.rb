@@ -19,6 +19,8 @@ RafeloTemplate.render!(
   version: version
 )
 RafeloTemplate.write_kernel_version!(destination: destination, version: version)
+RafeloTemplate.write_app_version!(destination: destination)
+RafeloTemplate.write_production_credentials!(destination: destination)
 RafeloTemplate.verify_no_placeholders!(destination)
 RafeloTemplate.commit!(destination: destination)
 

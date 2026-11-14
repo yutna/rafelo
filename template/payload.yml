@@ -92,6 +92,8 @@ paths:
   - source: public/icon.svg
   - source: public/robots.txt
   - source: script
+    exclude:
+      - ci/adoption
   - source: spec/config
     mode: app
   - source: spec/contracts
@@ -99,8 +101,15 @@ paths:
   - source: spec/core
   - source: spec/enforcement
   - source: spec/fixtures
+    exclude:
+      - formats
+      - formats/**/*
+  - source: template/adopter/spec/fixtures/formats/v0.1.0
+    destination: spec/fixtures/formats/v0.1.0
   - source: spec/generators/domain_generator_spec.rb
+    mode: app
   - source: spec/generators/module_generator_spec.rb
+    mode: app
   - source: spec/generators/move_page_generator_spec.rb
     mode: app
   - source: spec/generators/page_generator_spec.rb

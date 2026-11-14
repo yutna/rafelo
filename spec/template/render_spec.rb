@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "fileutils"
 require "open3"
 require "tmpdir"
 require "rails_helper"
@@ -71,11 +72,16 @@ RSpec.describe RafeloTemplate, "payload rendering" do
           version: version
         )
         described_class.write_kernel_version!(destination: destination, version: version)
+        described_class.write_app_version!(destination: destination)
+        FileUtils.mkdir_p(File.join(destination, "config"))
+        File.write(File.join(destination, "config", "master.key"), "0" * 32)
+        described_class.write_production_credentials!(destination: destination)
 
         expect(described_class.leftover_paths(destination)).to be_empty
         expect { described_class.verify_no_placeholders!(destination) }.not_to raise_error
 
         expect(File.read(File.join(destination, "KERNEL_VERSION"))).to eq("#{version}\n")
+        expect(File.read(File.join(destination, "VERSION"))).to eq("#{described_class::APP_VERSION}\n")
         expect(written).to include("config/application.rb", "engines/core/lib/rafelo/core/engine.rb")
         expect(written).not_to include("template/template.rb", "spec/template/app_name_spec.rb", "docs/development/ai-files.md")
 
@@ -97,8 +103,15 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         rename_spec = File.read(File.join(destination, "spec", "generators", "rename_module_generator_spec.rb"))
         expect(rename_spec).to include("lib/smoke_shop/billing")
         expect(rename_spec).to include("module SmokeShop::Billing")
+        module_spec = File.read(File.join(destination, "spec", "generators", "module_generator_spec.rb"))
+        expect(module_spec).to include("smoke_shop_billing_probe.gemspec")
         domain_spec = File.read(File.join(destination, "spec", "generators", "domain_generator_spec.rb"))
-        expect(domain_spec).to include("lib/rafelo/customers_probe")
+        expect(domain_spec).to include("smoke_shop_customers_probe.gemspec")
+        expect(domain_spec).to include("lib/smoke_shop/customers_probe")
+
+        expect(File).to exist(File.join(destination, "spec", "fixtures", "formats", "v0.1.0", "sessions.json"))
+        expect(File).to exist(File.join(destination, "config", "credentials", "production.yml.enc"))
+        expect(File).not_to exist(File.join(destination, "config", "credentials", "production.key"))
 
         kernel = File.read(File.join(destination, "engines", "core", "lib", "rafelo", "core", "engine.rb"))
         expect(kernel).to include("module Rafelo")
