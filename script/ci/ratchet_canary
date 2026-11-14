@@ -5,6 +5,7 @@ require "fileutils"
 require "json"
 require "open3"
 require "tmpdir"
+require "yaml"
 
 root = File.expand_path("../..", __dir__)
 script = File.join(root, "script", "ci", "ratchet")
@@ -31,6 +32,11 @@ def run_case(script, dir, base, reviews_file)
   [ status.exitstatus, output ]
 end
 
+def run_update(script, dir)
+  output, status = Open3.capture2e(script, "--root", dir, "--update", "--no-clones")
+  [ status.exitstatus, output ]
+end
+
 Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   git(dir, "init", "-q")
   git(dir, "config", "user.email", "canary@rafelo.invalid")
@@ -40,7 +46,7 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   FileUtils.mkdir_p(File.join(dir, "engines", "core", "config"))
   FileUtils.mkdir_p(File.join(dir, ".github"))
   File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/core/app/ @owner\n")
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\n")
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\nclone_min_tokens: 5\n")
   File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "base")
@@ -95,6 +101,34 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   if status != 0
     failures += 1
     warn "ratchet_canary: fall without approval: exited #{status}: #{output}"
+  end
+
+  # --update lowers a ceiling and preserves settings.
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\nclone_min_tokens: 5\n")
+  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "update candidates")
+  cases += 1
+  status, output = run_update(script, dir)
+  updated = YAML.load_file(File.join(dir, "config", "ratchets.yml"))
+  engine_updated = YAML.load_file(File.join(dir, "engines", "core", "config", "ratchets.yml"))
+  if status != 0 || updated["rubocop_disable"] != 0 || engine_updated["skipped_tests"] != 0 || updated["clone_min_tokens"] != 5
+    failures += 1
+    warn "ratchet_canary: update falls: exited #{status}: #{output}"
+  end
+
+  # --update reports a rise but never raises a ceiling.
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 0\nclone_min_tokens: 5\n")
+  FileUtils.mkdir_p(File.join(dir, "app"))
+  File.write(File.join(dir, "app", "rise.rb"), "# rubocop:disable Rails/Thing\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "rise candidate")
+  cases += 1
+  status, output = run_update(script, dir)
+  updated = YAML.load_file(File.join(dir, "config", "ratchets.yml"))
+  if status != 0 || updated["rubocop_disable"] != 0 || !output.include?("above its ceiling")
+    failures += 1
+    warn "ratchet_canary: update rise: exited #{status}: #{output}"
   end
 end
 
