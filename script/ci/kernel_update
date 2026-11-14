@@ -28,8 +28,17 @@ module KernelUpdate
     spec/core
     spec/generators
     spec/patches
+    spec/config
+    spec/requests
+    spec/support
+    spec/tasks
+    lib/tasks
     .rubocop.yml
     .dependency-cruiser.cjs
+    .devcontainer
+    Dockerfile
+    package.json
+    package-lock.json
     config/budgets.yml
     config/ci.rb
     config/contracts/_shared.json
@@ -44,6 +53,7 @@ module KernelUpdate
     config/puma.rb
     config/queue.yml
     config/routes.rb
+    config/storage.yml
     config/upstreams.yml
     config/environments
     config/initializers

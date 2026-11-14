@@ -21,8 +21,13 @@ RSpec.describe "bin/kernel_update" do
         { "source" => "script/ci" },
         { "source" => "script/contracts" },
         { "source" => "bin", "mode" => "app" },
-        { "source" => "spec/fixtures" },
+        { "source" => "spec", "mode" => "app" },
+        { "source" => "lib", "mode" => "app" },
         { "source" => "config", "mode" => "app" },
+        { "source" => "package.json", "mode" => "app" },
+        { "source" => "package-lock.json", "mode" => "app" },
+        { "source" => ".devcontainer", "mode" => "app" },
+        { "source" => "Dockerfile", "mode" => "app" },
         { "source" => ".opencode" }
       ]
     }
@@ -122,6 +127,50 @@ RSpec.describe "bin/kernel_update" do
           expect(File.read(File.join(app_root, "engines/design_system/forms/button.tsx"))).to eq("forms base\n")
           expect(File.read(File.join(app_root, "engines/example_orders/lib/example_orders/engine.rb"))).to eq("example base\n")
           expect(File.read(File.join(app_root, ".opencode/skills/oo-test/SKILL.md"))).to eq("skill base\n")
+        end
+      end
+    end
+  end
+
+  it "updates the app-owned specs, tasks, packaging and container names that follow the app name" do
+    base = {
+      "config/database.yml" => "role: rafelo_runtime\n",
+      "config/storage.yml" => "bucket: rafelo-production\n",
+      "spec/config/database_roles_spec.rb" => "ENV[\"RAFELO_DATABASE_ROLE\"]\n",
+      "spec/requests/write_flow_spec.rb" => "cookie: rafelo_session\n",
+      "spec/support/authentication.rb" => "rafelo_session\n",
+      "spec/tasks/restore_spec.rb" => "ENV[\"RAFELO_DATABASE_ROLE\"]\n",
+      "lib/tasks/restore.rake" => "ENV[\"RAFELO_DATABASE_ROLE\"]\n",
+      "package.json" => "{\"name\":\"rafelo\"}\n",
+      "package-lock.json" => "{\"name\":\"rafelo\"}\n",
+      ".devcontainer/compose.yaml" => "image: rafelo-devcontainer\n",
+      "Dockerfile" => "ARG RAFELO_NAME\n"
+    }
+    target = base.transform_values do |content|
+      content.gsub("RAFELO", "ACME").gsub("rafelo", "acme")
+    end
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "config/database.yml"))).to eq("role: smoke_shop_runtime\n")
+          expect(File.read(File.join(app_root, "spec/config/database_roles_spec.rb"))).to eq("ENV[\"SMOKE_SHOP_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "spec/requests/write_flow_spec.rb"))).to eq("cookie: smoke_shop_session\n")
+          expect(File.read(File.join(app_root, "spec/support/authentication.rb"))).to eq("smoke_shop_session\n")
+          expect(File.read(File.join(app_root, "spec/tasks/restore_spec.rb"))).to eq("ENV[\"SMOKE_SHOP_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "lib/tasks/restore.rake"))).to eq("ENV[\"SMOKE_SHOP_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "config/storage.yml"))).to eq("bucket: smoke_shop-production\n")
+          expect(File.read(File.join(app_root, "package.json"))).to eq("{\"name\":\"smoke_shop\"}\n")
+          expect(File.read(File.join(app_root, "package-lock.json"))).to eq("{\"name\":\"smoke_shop\"}\n")
+          expect(File.read(File.join(app_root, ".devcontainer/compose.yaml"))).to eq("image: smoke_shop-devcontainer\n")
+          expect(File.read(File.join(app_root, "Dockerfile"))).to eq("ARG SMOKE_SHOP_NAME\n")
         end
       end
     end
