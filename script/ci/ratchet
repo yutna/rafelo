@@ -5,6 +5,7 @@ require "optparse"
 require "yaml"
 
 require_relative "approvals"
+require_relative "ratchet_counts"
 
 root = Dir.pwd
 base = ENV["BASE_SHA"]
@@ -12,18 +13,21 @@ reviews_file = nil
 pr = ENV["PR_NUMBER"]
 head_ref = ENV["HEAD_REF"]
 repository = ENV["GITHUB_REPOSITORY"]
+update = false
+clones = true
 
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/ratchet [--root DIR] [--base REV] [--reviews FILE] [--pr NUMBER]"
+  parser.banner = "Usage: script/ci/ratchet [--root DIR] [--base REV] [--reviews FILE] [--pr NUMBER] [--update] [--no-clones]"
   parser.on("--root DIR") { |value| root = value }
   parser.on("--base REV") { |value| base = value }
   parser.on("--reviews FILE") { |value| reviews_file = value }
   parser.on("--pr NUMBER") { |value| pr = value }
+  parser.on("--update") { update = true }
+  parser.on("--no-clones") { clones = false }
 end.parse!
 
 root = File.expand_path(root)
 abort "ratchet: root does not exist: #{root}" unless Dir.exist?(root)
-abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
 
 def ratchet_files(root)
   [ "config/ratchets.yml" ] +
@@ -39,10 +43,45 @@ def load_ratchets(root, revision, file)
   YAML.safe_load(output) || {}
 end
 
-current = {}
-base_counts = {}
 files = ratchet_files(root)
 abort "ratchet: no ratchet file was found" if files.empty?
+
+if update
+  rises = []
+  updates = []
+  files.each do |file|
+    path = File.join(root, file)
+    abort "ratchet: #{file} is missing" unless File.file?(path)
+
+    current = YAML.safe_load_file(path) || {}
+    RatchetCounts.for(root, file, clones: clones).each do |key, value|
+      next unless current[key].is_a?(Integer) && value.is_a?(Integer)
+
+      if value > current[key]
+        rises << [ file, key, current[key], value ]
+      elsif value < current[key]
+        updates << [ file, key, current[key], value ]
+      end
+    end
+  end
+
+  rises.each { |file, key, previous, value| warn "ratchet: #{file}:#{key} is above its ceiling (#{previous} < #{value}); an owner must approve the rise" }
+
+  updates.each do |file, key, previous, value|
+    path = File.join(root, file)
+    text = File.read(path)
+    text.sub!(/^#{Regexp.escape(key)}:\s*\d+/, "#{key}: #{value}") || abort("ratchet: cannot rewrite #{file}:#{key}")
+    File.write(path, text)
+    puts "ratchet: #{file}:#{key} #{previous} -> #{value}"
+  end
+  puts "ratchet: updated #{updates.size} count(s); rises=#{rises.size} need an owner"
+  exit 0
+end
+
+abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
+
+current = {}
+base_counts = {}
 
 files.each do |file|
   path = File.join(root, file)

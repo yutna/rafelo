@@ -1,0 +1,66 @@
+name: Ratchet update
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ratchet_update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the lowering branch
+      pull-requests: write # open the lowering pull request
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26.13.0
+
+      - name: Pin npm
+        run: npm install --global npm@12.2.2
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Lower the ratchets
+        run: script/ci/ratchet --update
+
+      # A pull request opened with the workflow GITHUB_TOKEN does not start CI.
+      # Set RATCHET_TOKEN to a GitHub App or personal-access token so the
+      # required checks run on the lowering pull request.
+      - name: Open a lowering pull request
+        env:
+          GH_TOKEN: ${{ secrets.RATCHET_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet; then
+            echo "ratchet: no count fell"
+            exit 0
+          fi
+
+          branch="chore/ratchet-lowering-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add config/ratchets.yml engines/*/config/ratchets.yml
+          git commit -m "chore(ci): lower ratchet counts"
+          git push origin "$branch"
+          gh pr create \
+            --title "chore(ci): lower ratchet counts" \
+            --base main \
+            --head "$branch" \
+            --body "The scheduled ratchet job found counts that fell below their ceilings. This pull request lowers them. It is opened by the scheduled job; set \`RATCHET_TOKEN\` so CI runs on it."

@@ -519,3 +519,31 @@ merge base; otherwise the latest release's own tag makes the check fail.
 CT-09 should state that a pre-release repository may stage paths owned by a
 later milestone in a list that fails when the path lands. Related IDs:
 CT-09; WF-03; WF-04; WF-05; WF-07; TS-07.
+
+## 2026-11-14 — v0.21.0 — issue #354 (ratchet update)
+
+**What happened.** The v0.20.0 gate carried the missing `script/ci/ratchet
+--update` and its scheduled lowering job. Implementing the update showed that
+the committed `skipped_tests: 0` is below the six annotated skips in the
+repository: a scheduled job cannot raise it without an owner, so it reports
+the rise and lowers only the counts that fell. The scheduled workflow must
+open its pull request with a GitHub App or personal token; a pull request
+opened with the workflow `GITHUB_TOKEN` does not start CI.
+
+**Root cause.** The ratchet check was written as a comparator first; the
+first delivery did not add the counting side that maintains the ceilings. The
+existing skipped tests were never counted into the ceiling.
+
+**What changed.** `script/ci/ratchet_counts.rb` computes the frontend
+disable/no-memo counts, Ruby `rubocop:disable`, annotated skips, page-budget
+overrides, legacy table prefixes/constants, and the clone baseline through
+`script/ci/clones`. `--update` writes only falls and reports rises without
+raising them; `--no-clones` keeps the canary fast. `.github/workflows/ratchet.yml`
+runs daily and opens one lowering pull request; it uses
+`secrets.RATCHET_TOKEN` when set. Canaries cover a fall, a rise, and the
+setting-preserving write. #363 tracks the stale skip ceiling; #364 tracks the
+app token.
+
+**Spec feedback.** WF-03 should say that `--update` reports a rise instead of
+failing when the committed ceiling is stale, and that the scheduled workflow
+needs a token that can trigger CI. Related IDs: WF-03; TS-05; ARCH-05.
