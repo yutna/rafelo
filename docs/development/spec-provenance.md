@@ -14,6 +14,14 @@ Do not edit these files by hand. When the owner says the gist changed, sync
 the copies in a dedicated pull request and update this record. Never push to
 the gist.
 
+`docs/architecture/AGENTS.md` is the historical gist copy of the guide, not
+the guide any agent loads. OpenCode loads the repository root `AGENTS.md`; the
+shipped and corrected guide is that file. The gist copy is preserved verbatim
+as part of the read-only specification, including its old "Put secrets or real
+personal data in code" sentence. That sentence is not an instruction: the
+root guide says "Put no secrets or real personal data in code, tests, fixtures,
+logs, or issues" (BE-08). Do not copy the gist sentence into an AI file.
+
 ## Verification
 
 ```sh

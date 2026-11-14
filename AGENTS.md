@@ -116,8 +116,8 @@ ADR change; do not work around it.
   (ARCH-05, ARCH-09, ARCH-10).
 - Read or print `.env`, `config/master.key`, `config/credentials/production.key`,
   the decrypted production credentials (`bin/rails credentials:show
-  --environment production`), or tokens. Put secrets or real personal data in
-  code, tests, fixtures, logs, or issues; a new secret goes into the dummy
+  --environment production`), or tokens. Put no secrets or real personal data
+  in code, tests, fixtures, logs, or issues; a new secret goes into the dummy
   credentials with a dummy value, and a person adds the real one (BE-08).
 - Disable Brakeman, an audit, or a CI step. A disable comment needs a reason
   (FE-10), a skip a linked issue (TS-05); both count against the ratchet.
@@ -132,9 +132,11 @@ ADR change; do not work around it.
 ## Skills and layers
 
 The request workflow and task skills live in `.opencode/skills/` and load
-when a task matches. Each starts from a generator, the guard's own message, or
-the approved map, and names the rule IDs that apply; never hand-write what a
-generator writes. The template currently ships:
+when a task matches. Each starts from the mechanical part the task already
+has: a generator, the guard's own message, the existing locale files or
+component catalogue, the sharing ladder, or the approved map. Each names the
+rule IDs that apply; never hand-write what a generator writes. The template
+currently ships:
 
 - `deliver-request`: the workflow from a plain-language request to a merged
   change (WF-01, WF-02, WF-03, WF-04).

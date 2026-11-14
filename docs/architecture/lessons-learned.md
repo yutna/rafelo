@@ -593,7 +593,7 @@ ADR-27; ADR-28; WF-03.
 ## 2026-11-14 — v0.22.0 — issue #379 (skills audit)
 
 **What happened.** The final skills audit read the nine shipped skills (the
-request workflow and eight task skills) and all 50 `oo-*` pack skills, then
+request workflow and eight task skills) and all 49 `oo-*` pack skills, then
 compared them with the final rules and the code as built. It found drift in
 six task skills and sixteen places where the pack's general advice contradicts
 a project rule or ADR. The vendored pack was not edited.
@@ -636,11 +636,51 @@ already states that a rule or ADR wins over the pack.
 | `oo-designing-what-to-record` 2: write the audit record as domain data in the same transaction as the act. | OPS-08; BE-15; BE-20 | Core writes exactly one audit row from the write path or the error responder. The row is its own statement; no transaction spans the upstream call, and the audit is not an aggregate in a use-case object. |
 | `oo-crossing-system-boundaries` 4: never rename, remove, or retype a contract field; version an incompatible contract. | CT-05; CT-12; ADR-31 | Additive first. A breaking change takes two releases: add the new field, switch the UI, remove the old field later with `!`. Old tabs reload through the asset version; page props do not get a parallel contract version. |
 | `oo-bounding-contexts` 3 (shared kernel) and `oo-organising-modules` 4–5 (consumer-owned port): two teams share a model, or the depending module owns the interface and the provider implements it. | ARCH-05; ARCH-08; ARCH-09 | Shared code has exactly one owning engine and is exposed through its public surface; the consumer declares the dependency. No jointly owned shared kernel and no consumer-owned port that reverses the engine graph. If no engine owns the concept, extract a domain engine. |
+| `oo-inverting-dependencies` 1–5: put a port beside the domain, make the provider implement it, and wire adapters at a composition root. | ARCH-04; ARCH-08; ARCH-09; ADR-05; BE-01 | The controller action is the composition edge. An engine declares its dependencies in `package.yml` and calls the owning engine's gateway or public object directly; there is no port/adapters layer and no separate composition root. A new layer or a consumer-owned port needs an ADR. |
 | `oo-testing-object-oriented-code` 7: check the adapter against the real outside system in a few slower tests. | TS-03 | Tests never reach the network. Each upstream has recorded fixtures and an in-process fake; `WebMock.disable_net_connect!` enforces it. A scheduled, non-blocking drift job checks the real system, not a test. |
 | `oo-designing-for-testability` 8: add no public field, getter, flag, or method that only tests use. | CT-12 | `AssetVersion.reset!` is a documented kernel test hook and stays. A new test-only public hook needs a person to decide it; the general rule does not silently remove this one. |
+
+The remaining 23 pack skills were read and had no conflict with a project rule
+or ADR; the table names every conflict, not every skill.
 
 **Spec feedback.** `14_working_with_ai.md` could say that a pinned general
 design pack may assume a local domain model and that the adopter's ADRs decide
 where business rules and persistence live; otherwise an agent may treat the
 pack's aggregate/repository examples as the target architecture. Related IDs:
 ADR-32; ARCH-03; ARCH-05; ARCH-13; OOP-03; BE-01; BE-20; TS-03.
+
+## 2026-11-14 — v0.22.0 — issue #382 (final gate)
+
+**What happened.** The final gate audited the v0.22.0 AI-file changes
+(#383–#385), the eight request-workflow trials (#380), and the rule/ADR
+traceability table (#381). The independent audit found two release blockers
+and four S2 evidence defects. The enforcement matrix names 17 custom cops and
+20 ESLint-dependent rules; the repository implements 5 cops and has no ESLint.
+The root `AGENTS.md` "Never" bullet said "Put secrets or real personal data in
+code, tests, fixtures, logs, or issues" as a positive sentence. The trial
+record called trial 3's first push green when it was red, and said no baseline
+changed while the design-system trial updated the TS-11 screenshots. The
+traceability table cited an empty CT-10 glob and the wrong cop for BE-09. The
+`add-write-action` skill said a validation failure re-renders, contradicting
+BE-13.
+
+**What changed.** Root `AGENTS.md` now says "Put no secrets or real personal
+data in code, tests, fixtures, logs, or issues"; `spec-provenance.md` records
+that the gist copy is historical and not loaded. The engine guides cite their
+rule IDs and no longer say "once the engine has a test suite".
+`add-write-action` says every write outcome, including a validation failure,
+redirects with 303 and the translated errors. The trials record marks trial 3's
+first push red, records the TS-11 baseline update, defines the supervisor
+hand-over, and fixes the adoption wording. The traceability table uses the
+matrix statuses, marks each missing cop or ESLint tool as review with #387,
+fixes CT-10's glob, and cites the real `Current` path for BE-09. The 49-pack
+skill count and the `oo-inverting-dependencies` conflict row are corrected.
+The missing cops and ESLint rules are carried in #387; the S3 notes are in
+#390.
+
+**Spec feedback.** `09_enforcement.md` should not name a custom cop or ESLint
+rule that the template does not ship; mark the rule review until the tool
+exists. `docs:check` could fail an unlisted non-`oo-*` skill. The final
+traceability table is the place to record a spec-versus-code gap, not to repeat
+the matrix's claim. Related IDs: ADR-32; TS-07; CT-09; BE-13; BE-08; WF-06;
+ARCH-09; BE-09.
