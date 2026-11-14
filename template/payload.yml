@@ -103,6 +103,7 @@ paths:
   - source: spec/fixtures
     exclude:
       - formats
+      - formats/**/*
   - source: template/adopter/spec/fixtures/formats/v0.1.0
     destination: spec/fixtures/formats/v0.1.0
   - source: spec/generators/domain_generator_spec.rb
