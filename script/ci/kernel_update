@@ -369,7 +369,7 @@ module KernelUpdate
       next true if relative.end_with?(".conflict")
 
       lines = File.readlines(file, chomp: true)
-      lines.any? { |line| line.match?(CONFLICT_START) } && lines.any? { |line| line.match?(CONFLICT_END) }
+      lines.any? { |line| line.match?(CONFLICT_START) || line.match?(CONFLICT_END) }
     rescue ArgumentError
       false
     end

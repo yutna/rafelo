@@ -349,6 +349,34 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "still blocks --continue when a person leaves a partial conflict marker" do
+    [
+      "<<<<<<< local\nmax: 2\n",
+      "max: 2\n>>>>>>> target\n",
+      "<<<<<<< local\nmax: 2\n=======\n",
+      "max: 2\n=======\n>>>>>>> target\n"
+    ].each do |partial|
+      Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+        Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+          Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+            write_release(base_root, version: "0.1.0", files: { "config/budgets.yml" => "max: 1\n" })
+            write_release(target_root, version: "0.2.0", files: { "config/budgets.yml" => "max: 3\n" })
+            write_app(app_root, version: "0.1.0", files: { "config/budgets.yml" => "max: 2\n" })
+
+            _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+            expect(status.exitstatus).to eq(1)
+
+            File.write(File.join(app_root, "config/budgets.yml"), partial)
+            _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+            expect(status.exitstatus).to eq(2), "expected a partial marker to block: #{partial.inspect}"
+            expect(err).to include("conflict markers")
+            expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.1.0\n")
+          end
+        end
+      end
+    end
+  end
+
   it "ignores a lone setext separator when --continue checks for conflicts" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
