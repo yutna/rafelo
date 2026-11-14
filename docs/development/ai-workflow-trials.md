@@ -5,8 +5,9 @@ not part of the template payload (`docs/development/` never ships).
 
 ## Method
 
-The trials ran in a fresh app adopted from `main` at `9642692` (template
-`v0.21.0`) with `template/template.rb`, pushed to the public
+The trials ran in a fresh app adopted from `main` at `9642692` (kernel
+`VERSION` 0.21.0; the app includes the v0.22.0 AI changes merged before the
+adoption) with `template/template.rb`, pushed to the public
 [`yutna/rafelo-trials`](https://github.com/yutna/rafelo-trials) repository on
 2026-11-14. That repository is the only repository outside `rafelo` the
 maintainer created or changed.
@@ -14,11 +15,15 @@ maintainer created or changed.
 Each trial ran in a fresh subagent with no earlier conversation. The request
 was the one sentence a user would type; the app's own `AGENTS.md`, skills, and
 guards were the only instructions. A trial passes when it reaches a merged
-pull request with green CI and no human edit, asks only questions the files
-cannot answer, edits no guard, and leaves a clean tree.
+pull request with green CI and no human edit to the code or checks, asks only
+questions the files cannot answer, edits no guard, and leaves a clean tree. A
+supervisor may complete a mechanical hand-over if the run limit interrupts a
+trial; the record says when that happened.
 
 Paths under engines/billing and spec/requests/billing in this file refer to
-the trial app, not this repository.
+the trial app, not this repository. A first push is green when the first commit
+the trial pushed passed CI; a fix made locally before that push is recorded
+under guard failures.
 
 ### Repository setup
 
@@ -38,16 +43,19 @@ the trial app, not this repository.
 
 ## Results
 
-| # | Trial | Issue / PR | Questions | Guard failures | Files outside the task | First push green | Result |
+| # | Trial | Issue / PR | Questions | Guard failures | Files outside the task | First push of the slice green | Result |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Read page | #11 / #12 | none | Packwerk and graph canaries (spec used a module constant) | none | yes, after the local fix | Pass |
 | 2 | Write action | #13 / #14 | none | none | none | yes | Pass |
-| 3 | New product module | #9 / #10 | none | RuboCop blank line, kernel spec key collision, drift spec permission | kernel spec fixture, generated graph/lock files | yes, after in-app fixes | Pass after template fix (#386) |
+| 3 | New product module | #9 / #10 | none | RuboCop blank line, kernel spec key collision, drift spec permission | kernel spec fixture, generated graph/lock files | no (first commit failed test/lint/ci-ok; second green) | Pass after template fix (#386) |
 | 4 | Design-system component | #15 / #16 | none | none | none | yes | Pass |
-| 5 | Copy change (en/th) | #17 / #18 | none | none | none | yes | Pass |
+| 5 | Copy change (en/th) | #17 / #18 | none | none | none | yes | Pass (supervisor hand-over) |
 | 6 | Obvious guard break | #19 / #20 | none | drift spec (new permission missing from the fake upstream catalog) | core grants fixture | no | Pass |
 | 7 | Ambiguous request | #21 / #22 | yes, three (fields, visibility, missing value) | none recorded | none | no | Pass |
-| 8 | Person's decision (new library) | TBD | TBD | TBD | TBD | TBD | TBD |
+| 8 | Person's decision (new library) | #23 / #24 (open) | none; six decisions listed | none | none | n/a (no code) | Pass, handed over |
+
+The list is by task type, not chronology: the module trial (3) ran first and
+created the billing module the later trials used.
 
 ## Trial 1 — read page
 
@@ -227,12 +235,39 @@ next to their name."
 
 ## Trial 8 — decision for a person
 
-TBD
+**Request:** "Add a PDF export of the billing invoice list, with a title and
+the invoice total at the bottom."
+
+- **Issue / PR:** #23 / #24, left open as a draft plan; nothing merged.
+- **Questions / decisions:** no question was needed to write the plan, but the
+  trial listed six decisions for a person at the top of the PR:
+  1. the new framework-level library and its ADR (WF-06) — it recommends
+     `prawn` with `prawn-table`, gives alternatives, and does not add either;
+  2. the dependency issue and owner confirmation (WF-06);
+  3. the Thai font and its licence, because Prawn's built-in fonts cannot
+     render Thai;
+  4. what "the invoice total at the bottom" means for a paginated,
+     multi-currency list;
+  5. whether export needs a new `billing:invoice:export` permission or uses
+     `billing:invoice:read`;
+  6. the maximum export size and behaviour past the job's upstream-call
+     budget.
+- **What it did:** prepared the design in the PR description only — no code,
+  gem, font, lockfile, or migration is committed. The draft remains open for
+  the person to decide.
+- **Guard failures and fixes:** none. The trial app's baseline was transiently
+  red from generated smoke engines left by the previous trial; it did not
+  change any code or check for that.
+- **Files outside the task:** none (no code was committed).
+- **Result:** pass, handed over. The open draft PR is the record; no person's
+  decision was made by the AI. About 21 minutes and 166k input / 14k output
+  tokens.
 
 ## Fixes made from the trials
 
 - **PR #386** — `rafelo:module` no longer writes the blank line RuboCop
   rejects, and the kernel `Modules` spec uses the neutral `:ledger` fixture key
   so a generated `billing` module cannot collide with it.
-- No trial edited a guard, budget, ratchet, baseline, canary, workflow, or CI
-  step.
+- No trial edited a guard, budget, ratchet, canary, workflow, or CI step. The
+  design-system trial did update the two TS-11 catalog screenshot baselines, as
+  that task requires.
