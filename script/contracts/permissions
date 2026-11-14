@@ -19,9 +19,21 @@ end.parse!
 root = File.expand_path(root)
 errors = []
 
+def app_namespace(root)
+  application = File.join(root, "config", "application.rb")
+  if File.file?(application)
+    match = File.read(application).match(/^module\s+([A-Z]\w*)/)
+    return match[1] if match
+  end
+
+  ENV.fetch("RAFELO_APP_NAMESPACE", "Rafelo")
+end
+
 Dir[File.join(root, "engines/*/config/permissions.yml")].sort.each do |path|
   engine = File.basename(File.dirname(File.dirname(path)))
-  namespace = ENV.fetch("RAFELO_APP_NAMESPACE", "Rafelo")
+  # The example engines keep the kernel brand; generated modules use the
+  # adopter's namespace.
+  namespace = engine.start_with?("example_") ? "Rafelo" : app_namespace(root)
   engine_camel = camelize(engine)
   manifest = YAML.safe_load(File.read(path), aliases: false) || {}
   ruby = +"# frozen_string_literal: true\n\nmodule #{namespace}\n  module #{engine_camel}\n    module Permissions\n"

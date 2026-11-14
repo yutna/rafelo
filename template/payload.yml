@@ -1,0 +1,121 @@
+# The application template's payload (GEN-07).
+#
+# Paths are relative to the template repository root. `mode` decides how a
+# text file is rendered:
+#
+#   copy        byte-for-byte, for the kernel and the example engines
+#   app         the template app's own namespace (`Rafelo` -> `SmokeShop`)
+#   placeholder the documentation's example app name (`Acme` -> `SmokeShop`)
+#   github      an adopter `.github/` file (placeholders only; the kernel
+#               brand stays)
+#
+# `template/` is the payload source for adopter-only files: the template
+# repository's own `.github/` (its oss-kit callers) is never copied.
+paths:
+  - source: .dependency-cruiser.cjs
+  - source: .dependency-cruiser.engines.generated.json
+  - source: .dockerignore
+  - source: .editorconfig
+  - source: .env.ci.production
+  - source: .gitattributes
+  - source: .gitignore
+  - source: .npmrc
+  - source: .rspec
+  - source: .rubocop.yml
+  - source: .ruby-version
+  - source: AGENTS.md
+    mode: app
+  - source: Dockerfile
+  - source: Gemfile
+  - source: Gemfile.lock
+  - source: LICENSE
+  - source: Rakefile
+  - source: THIRD_PARTY_NOTICES.md
+  - source: config.ru
+  - source: docs/contracts.md
+    mode: placeholder
+  - source: docs/deployment.md
+    mode: placeholder
+  - source: docs/opencode.md
+    mode: placeholder
+  - source: mise.toml
+  - source: package-lock.json
+  - source: package.json
+  - source: package.yml
+  - source: packwerk.yml
+  - source: playwright.config.ts
+  - source: tsconfig.base.json
+  - source: tsconfig.json
+  - source: tsconfig.tooling.json
+  - source: vite.config.mts
+  - source: vitest.config.mts
+  - source: vitest.setup.ts
+  - source: app
+    mode: app
+  - source: bin
+    mode: app
+  - source: config
+    mode: app
+    exclude:
+      - master.key
+      - credentials/production.yml.enc
+      - credentials/production.key
+  - source: db
+  - source: docs/architecture
+    mode: placeholder
+    exclude:
+      - lessons-learned.md
+  - source: docs/operations
+    mode: placeholder
+  - source: e2e
+    mode: app
+  - source: engines/core
+  - source: engines/design_system
+  - source: engines/example_customers
+  - source: engines/example_orders
+  - source: lib
+    mode: app
+  - source: .kamal
+  - source: .opencode
+  - source: .devcontainer
+  - source: public/400.html
+  - source: public/404.html
+  - source: public/406-unsupported-browser.html
+  - source: public/422.html
+  - source: public/500.html
+  - source: public/icon.png
+  - source: public/icon.svg
+  - source: public/robots.txt
+  - source: script
+  - source: spec/config
+    mode: app
+  - source: spec/contracts
+    mode: app
+  - source: spec/core
+  - source: spec/enforcement
+  - source: spec/fixtures
+  - source: spec/generators/domain_generator_spec.rb
+  - source: spec/generators/module_generator_spec.rb
+  - source: spec/generators/move_page_generator_spec.rb
+    mode: app
+  - source: spec/generators/page_generator_spec.rb
+    mode: app
+  - source: spec/generators/rename_module_generator_spec.rb
+    mode: app
+  - source: spec/i18n
+    mode: app
+  - source: spec/patches
+    mode: app
+  - source: spec/rails_helper.rb
+  - source: spec/requests
+    mode: app
+  - source: spec/spec_helper.rb
+  - source: spec/support
+  - source: spec/tasks
+  - source: spec/upstream
+  - source: template/.github
+    destination: .github
+    mode: github
+  - source: template/adopter/README.md
+    destination: README.md
+    mode: placeholder

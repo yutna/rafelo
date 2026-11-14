@@ -19,7 +19,7 @@ RSpec.describe Rafelo::Core::SharedProps do
     expect(props.to_h).to eq(
       auth: { viewer: nil },
       app: {
-        name: "Rafelo",
+        name: Rails.application.class.module_parent_name,
         locale: "th",
         locales: %w[en th],
         localeHrefs: [ { locale: "en", href: "/en" }, { locale: "th", href: "/th" } ],
