@@ -8,7 +8,7 @@ RSpec.describe "Production configuration" do
     "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY" => "rafelo-test-primary-key-0000001",
     "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" => "rafelo-test-deterministic-0001",
     "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT" => "rafelo-test-salt-000000000001",
-    "RAFELO_API_BASE_URL" => "http://localhost:4000",
+    "ACME_API_BASE_URL" => "http://localhost:4000",
     "DB_PASSWORD" => "production-spec-password"
   }.freeze
 
@@ -54,10 +54,10 @@ RSpec.describe "Production configuration" do
     controller = ApplicationController.new
     jar = double("cookies")
     allow(controller).to receive(:cookies).and_return(jar)
-    allow(controller).to receive(:session_cookie_name).and_return("__Host-rafelo_session_token")
+    allow(controller).to receive(:session_cookie_name).and_return("__Host-acme_session_token")
     allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
 
-    expect(jar).to receive(:delete).with("__Host-rafelo_session_token", secure: true, path: "/")
+    expect(jar).to receive(:delete).with("__Host-acme_session_token", secure: true, path: "/")
     controller.send(:delete_session_cookie!)
   end
 end

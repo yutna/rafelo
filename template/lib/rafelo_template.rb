@@ -165,7 +165,11 @@ module RafeloTemplate
     end.sort
   end
 
-  def verify_no_placeholders!(destination)
+  def verify_no_placeholders!(destination, app_name:)
+    # `acme` is the documented example app name; a legitimate Acme app owns
+    # those occurrences.
+    return if namespace(app_name) == "Acme"
+
     leftovers = leftover_paths(destination)
     return if leftovers.empty?
 
@@ -246,11 +250,27 @@ module RafeloTemplate
       replace_placeholders(text, app_name, namespace)
         .gsub(/\bRafelo\b(?!::(?:Core|DesignSystem|Generators))/, namespace)
         .yield_self { |rendered| replace_app_paths(rendered, app_name) }
+    when "docs"
+      restore_kernel_names(text).then { |rendered| replace_placeholders(rendered, app_name, namespace) }
     when "placeholder", "github"
       replace_placeholders(text, app_name, namespace)
     else
       text
     end
+  end
+
+  # The specification copies use `Acme` as the example app. The kernel names
+  # in those examples stay `Rafelo` in every adopter (GEN-07).
+  def restore_kernel_names(text)
+    text
+      .gsub("Acme::Core", "Rafelo::Core")
+      .gsub("Acme::DesignSystem", "Rafelo::DesignSystem")
+      .gsub("Acme::ExampleOrders", "Rafelo::ExampleOrders")
+      .gsub("Acme::ExampleCustomers", "Rafelo::ExampleCustomers")
+      .gsub("acme/core", "rafelo/core")
+      .gsub("acme/design_system", "rafelo/design_system")
+      .gsub("acme/example_orders", "rafelo/example_orders")
+      .gsub("acme/example_customers", "rafelo/example_customers")
   end
 
   def replace_app_paths(text, app_name)

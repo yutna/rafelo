@@ -37,8 +37,8 @@ RSpec.describe "Database role script on a managed admin" do
     if @created
       @connection&.close unless @connection&.finished?
       scratch.drop!
-      @admin.exec("DROP ROLE IF EXISTS rafelo_runtime")
-      @admin.exec("DROP ROLE IF EXISTS rafelo_migrator")
+      @admin.exec("DROP ROLE IF EXISTS acme_runtime")
+      @admin.exec("DROP ROLE IF EXISTS acme_migrator")
       @admin.exec("DROP ROLE IF EXISTS #{@admin.escape_identifier(admin_role)}")
       scratch.close
     end
@@ -47,8 +47,8 @@ RSpec.describe "Database role script on a managed admin" do
   it "transfers ownership and restricts the audit table without a superuser" do
     run_script
 
-    expect(owner("core_audits")).to eq("rafelo_migrator")
-    expect(owner("core_sessions")).to eq("rafelo_migrator")
+    expect(owner("core_audits")).to eq("acme_migrator")
+    expect(owner("core_sessions")).to eq("acme_migrator")
     expect(privilege("core_audits", "INSERT")).to be(true)
     expect(privilege("core_audits", "UPDATE")).to be(false)
     expect(privilege("core_audits", "DELETE")).to be(false)
@@ -75,7 +75,7 @@ RSpec.describe "Database role script on a managed admin" do
 
   def privilege(table, privilege)
     @connection.exec_params(
-      "SELECT has_table_privilege('rafelo_runtime', $1, $2)",
+      "SELECT has_table_privilege('acme_runtime', $1, $2)",
       [ table, privilege ]
     ).getvalue(0, 0) == "t"
   end

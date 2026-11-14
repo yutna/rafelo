@@ -13,7 +13,7 @@ RSpec.describe "Client error reports", :csrf, type: :request do
   def csrf_headers
     get "/en/sign_in"
     session_cookie = Array(response.headers["Set-Cookie"]).flat_map { |header| header.split("\n") }
-      .find { |value| value.start_with?("rafelo_session=") }
+      .find { |value| value.start_with?("acme_session=") }
     {
       "Content-Type" => "application/json",
       "X-CSRF-Token" => csrf_token_from_response,

@@ -35,7 +35,7 @@ RSpec.describe Rafelo::Core::AuditPartitions do
 
   it "restricts a runtime role on the parent, DEFAULT, and monthly partitions" do
     connection = ActiveRecord::Base.connection
-    role = "rafelo_runtime_spec"
+    role = "acme_runtime_spec"
     connection.execute("DROP ROLE IF EXISTS #{role}")
     connection.execute("CREATE ROLE #{role} NOSUPERUSER")
 

@@ -15,8 +15,8 @@ started="$(date +%s)"
 
 DATABASE_URL="$RESTORE_DATABASE_URL" \
 RAILS_ENV="$rails_env" \
-RAFELO_DATABASE_ROLE=migration \
-RAFELO_RESTORE_CONFIRMED=1 \
+ACME_DATABASE_ROLE=migration \
+ACME_RESTORE_CONFIRMED=1 \
   bin/rails rafelo:restore:prepare
 
 sessions="$(

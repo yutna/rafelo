@@ -31,8 +31,8 @@ RSpec.describe "Deployment profiles" do
   let(:multi) { load_deploy("config/deploy.multi.yml") }
 
   it "describes one single-host profile with PostgreSQL and Disk Active Storage" do
-    expect(single.fetch("service")).to eq("rafelo")
-    expect(single.fetch("image")).to eq("rafelo")
+    expect(single.fetch("service")).to eq("acme")
+    expect(single.fetch("image")).to eq("acme")
     expect(single.fetch("deploy_timeout")).to be >= 120
     expect(single.dig("boot", "limit")).to eq(1)
     expect(single.fetch("servers").keys).to eq([ "web" ])
@@ -41,7 +41,7 @@ RSpec.describe "Deployment profiles" do
     expect(single.dig("env", "secret")).to eq([ "RAILS_MASTER_KEY" ])
     expect(single.dig("env", "clear", "SOLID_QUEUE_IN_PUMA")).to be(true)
     expect(single.dig("env", "clear", "ACTIVE_STORAGE_SERVICE")).to eq("local")
-    expect(Array(single["volumes"])).to include("rafelo_storage:/rails/storage")
+    expect(Array(single["volumes"])).to include("acme_storage:/rails/storage")
   end
 
   it "pins the single-host PostgreSQL accessory to the Dev Container major and a digest" do
@@ -116,8 +116,8 @@ RSpec.describe "Deployment profiles" do
   it "prepares the database as the migration role before the web server starts" do
     entrypoint = File.read(Rails.root.join("bin/docker-entrypoint"))
 
-    expect(entrypoint).to include('RAFELO_DATABASE_ROLE=migration ./bin/rails db:prepare')
-    expect(entrypoint).to include('RAFELO_DATABASE_ROLE=migration ./bin/rails rafelo:audit:partitions')
+    expect(entrypoint).to include('ACME_DATABASE_ROLE=migration ./bin/rails db:prepare')
+    expect(entrypoint).to include('ACME_DATABASE_ROLE=migration ./bin/rails rafelo:audit:partitions')
     expect(entrypoint).to include('exec "${@}"')
     expect(File.read(Rails.root.join("config/puma.rb")))
       .to include('plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]')

@@ -71,8 +71,8 @@ procedure in this file. The application-side steps below do not change.
    ```sh
    RESTORE_DATABASE_URL=postgres://.../rafelo \
    RAILS_ENV=production \
-   RAFELO_DATABASE_ROLE=migration \
-   RAFELO_RESTORE_CONFIRMED=1 \
+   ACME_DATABASE_ROLE=migration \
+   ACME_RESTORE_CONFIRMED=1 \
      bin/rails rafelo:restore:prepare
    ```
 
@@ -88,7 +88,7 @@ procedure in this file. The application-side steps below do not change.
    RESTORE_DATABASE_URL=postgres://.../rafelo \
    RAILS_ENV=production \
    RESTORE_RECOVERY_POINT="2026-11-13 22:39:25.268097+00" \
-   RESTORE_EXPECTED_ROLE=rafelo_migrator \
+   RESTORE_EXPECTED_ROLE=acme_migrator \
      script/ops/restore_drill
    ```
 

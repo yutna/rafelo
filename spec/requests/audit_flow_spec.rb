@@ -132,7 +132,7 @@ RSpec.describe "Audited outcomes", type: :request do
   it "records no write row for a session-less endpoint", :csrf do
     get "/en/sign_in"
     session_cookie = Array(response.headers["Set-Cookie"]).flat_map { |header| header.split("\n") }
-      .find { |value| value.start_with?("rafelo_session=") }
+      .find { |value| value.start_with?("acme_session=") }
 
     post "/core/client_errors",
          params: { message: "boom", path: "/en", release: "a" * 40 }.to_json,

@@ -17,6 +17,7 @@ paths:
   - source: .dockerignore
   - source: .editorconfig
   - source: .env.ci.production
+    mode: app
   - source: .gitattributes
   - source: .gitignore
   - source: .npmrc
@@ -26,6 +27,7 @@ paths:
   - source: AGENTS.md
     mode: app
   - source: Dockerfile
+    mode: app
   - source: Gemfile
   - source: Gemfile.lock
   - source: LICENSE
@@ -33,14 +35,16 @@ paths:
   - source: THIRD_PARTY_NOTICES.md
   - source: config.ru
   - source: docs/contracts.md
-    mode: placeholder
+    mode: docs
   - source: docs/deployment.md
-    mode: placeholder
+    mode: docs
   - source: docs/opencode.md
-    mode: placeholder
+    mode: docs
   - source: mise.toml
   - source: package-lock.json
+    mode: app
   - source: package.json
+    mode: app
   - source: package.yml
   - source: packwerk.yml
   - source: playwright.config.ts
@@ -62,11 +66,11 @@ paths:
       - credentials/production.key
   - source: db
   - source: docs/architecture
-    mode: placeholder
+    mode: docs
     exclude:
       - lessons-learned.md
   - source: docs/operations
-    mode: placeholder
+    mode: docs
   - source: e2e
     mode: app
   - source: engines/core
@@ -83,6 +87,7 @@ paths:
   - source: .kamal
   - source: .opencode
   - source: .devcontainer
+    mode: app
   - source: public/400.html
   - source: public/404.html
   - source: public/406-unsupported-browser.html
@@ -94,11 +99,18 @@ paths:
   - source: script
     exclude:
       - ci/adoption
+  - source: script/ci/e2e
+    mode: app
+  - source: script/ops/database_roles.sql
+    mode: app
+  - source: script/ops/restore_drill
+    mode: app
   - source: spec/config
     mode: app
   - source: spec/contracts
     mode: app
   - source: spec/core
+    mode: app
   - source: spec/enforcement
   - source: spec/fixtures
     exclude:
@@ -125,7 +137,9 @@ paths:
     mode: app
   - source: spec/spec_helper.rb
   - source: spec/support
+    mode: app
   - source: spec/tasks
+    mode: app
   - source: spec/upstream
   - source: template/.github
     destination: .github

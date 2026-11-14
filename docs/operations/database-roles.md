@@ -5,8 +5,8 @@ the application uses at runtime.
 
 | Role | Used by | Owns tables | Audit tables |
 | --- | --- | --- | --- |
-| `rafelo_migrator` | `bin/rails db:prepare` in the entrypoint, migrations, the partition routine, backups | Yes | Owns them; may drop whole partitions for retention |
-| `rafelo_runtime` | Puma, Solid Queue, consoles | No | `INSERT` and `SELECT` only: no `UPDATE`, `DELETE`, or `TRUNCATE` |
+| `acme_migrator` | `bin/rails db:prepare` in the entrypoint, migrations, the partition routine, backups | Yes | Owns them; may drop whole partitions for retention |
+| `acme_runtime` | Puma, Solid Queue, consoles | No | `INSERT` and `SELECT` only: no `UPDATE`, `DELETE`, or `TRUNCATE` |
 
 The runtime role cannot disable the append-only trigger without table
 ownership, and `TRUNCATE` bypasses row triggers, so it has no `TRUNCATE`
@@ -21,7 +21,7 @@ Run once per database, as a role that can create roles and administer the
 database: the single-host accessory's `postgres` superuser, or the managed
 provider's admin. The admin must own the database (or be a superuser) and, on
 PostgreSQL 16+, holds `ADMIN OPTION` on the roles it creates; the script
-grants itself membership in `rafelo_migrator` so it can transfer table
+grants itself membership in `acme_migrator` so it can transfer table
 ownership. Supply the passwords through psql variables:
 
 ```sh
@@ -41,7 +41,7 @@ audit-only `INSERT`/`SELECT` grants to `core_audits` as well as
 Then put the same passwords in the `database.password` and
 `database.migration_password` credentials (BE-08) and set `DB_USER`,
 `DB_MIGRATION_USER`, and `DB_NAME` in the deploy profile. The entrypoint runs
-`db:prepare` with `RAFELO_DATABASE_ROLE=migration`, so only that one command
+`db:prepare` with `ACME_DATABASE_ROLE=migration`, so only that one command
 uses the migration credentials (BE-22).
 
 `AuditPartitions#restrict_grants!` repeats the audit grant on every new
@@ -52,10 +52,10 @@ the partitioned parent rejects every `UPDATE` and `DELETE`.
 ## Verify
 
 ```sql
-SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'INSERT');
-SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'UPDATE');   -- false
-SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'DELETE');   -- false
-SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'TRUNCATE'); -- false
+SELECT has_table_privilege('acme_runtime', 'core_audit_events', 'INSERT');
+SELECT has_table_privilege('acme_runtime', 'core_audit_events', 'UPDATE');   -- false
+SELECT has_table_privilege('acme_runtime', 'core_audit_events', 'DELETE');   -- false
+SELECT has_table_privilege('acme_runtime', 'core_audit_events', 'TRUNCATE'); -- false
 ```
 
 During the expand release the v0.18.0 containers still write to

@@ -78,7 +78,7 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         described_class.write_production_credentials!(destination: destination)
 
         expect(described_class.leftover_paths(destination)).to be_empty
-        expect { described_class.verify_no_placeholders!(destination) }.not_to raise_error
+        expect { described_class.verify_no_placeholders!(destination, app_name: "smoke_shop") }.not_to raise_error
 
         expect(File.read(File.join(destination, "KERNEL_VERSION"))).to eq("#{version}\n")
         expect(File.read(File.join(destination, "VERSION"))).to eq("#{described_class::APP_VERSION}\n")
@@ -109,6 +109,21 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         expect(domain_spec).to include("smoke_shop_customers_probe.gemspec")
         expect(domain_spec).to include("lib/smoke_shop/customers_probe")
 
+
+        expect(File.read(File.join(destination, "package.json"))).to include('"name": "smoke_shop"')
+        database = File.read(File.join(destination, "config", "database.yml"))
+        expect(database).to include("smoke_shop_development", "smoke_shop_production", "smoke_shop_runtime", "SMOKE_SHOP_DATABASE_ROLE")
+        deploy = File.read(File.join(destination, "config", "deploy.yml"))
+        expect(deploy).to include("service: smoke_shop", "image: smoke_shop", "SMOKE_SHOP_API_BASE_URL")
+        expect(File.read(File.join(destination, ".env.ci.production"))).to include("SMOKE_SHOP_API_BASE_URL")
+        expect(File.read(File.join(destination, "config", "initializers", "session_store.rb"))).to include("smoke_shop_session")
+
+        backend_docs = File.read(File.join(destination, "docs", "architecture", "02_backend.md"))
+        expect(backend_docs).to include("Rafelo::Core")
+        expect(backend_docs).to include("SMOKE_SHOP_API_BASE_URL")
+        expect(backend_docs).not_to include("SmokeShop::Core")
+        expect(File.read(File.join(destination, "docs", "architecture", "01_architecture.md"))).to include("Rafelo::DesignSystem")
+        expect(File.read(File.join(destination, "docs", "architecture", "08_generators.md"))).to include("SmokeShop::Billing")
         expect(File).to exist(File.join(destination, "spec", "fixtures", "formats", "v0.1.0", "sessions.json"))
         expect(File).to exist(File.join(destination, "config", "credentials", "production.yml.enc"))
         expect(File).not_to exist(File.join(destination, "config", "credentials", "production.key"))
@@ -148,13 +163,33 @@ RSpec.describe RafeloTemplate, "payload rendering" do
     end
   end
 
+
+  describe "the documented acme app name" do
+    it "is accepted without treating the app's own name as a placeholder" do
+      Dir.mktmpdir("rafelo-template-acme-") do |destination|
+        expect do
+          described_class.render!(
+            source_root: source_root,
+            destination: destination,
+            app_name: "acme",
+            version: version
+          )
+        end.not_to raise_error
+
+        expect(File.read(File.join(destination, "config", "application.rb"))).to include("module Acme")
+        expect(File.read(File.join(destination, "package.json"))).to include('"name": "acme"')
+        expect { described_class.verify_no_placeholders!(destination, app_name: "acme") }.not_to raise_error
+      end
+    end
+  end
+
   describe ".leftover_paths" do
     it "reports a rendered app that still contains the placeholder name" do
       Dir.mktmpdir("rafelo-template-leftover-") do |destination|
         File.write(File.join(destination, "leftover.md"), "Acme still here\n")
 
         expect(described_class.leftover_paths(destination)).to eq([ "leftover.md" ])
-        expect { described_class.verify_no_placeholders!(destination) }
+        expect { described_class.verify_no_placeholders!(destination, app_name: "smoke_shop") }
           .to raise_error(ArgumentError, /acme/)
       end
     end

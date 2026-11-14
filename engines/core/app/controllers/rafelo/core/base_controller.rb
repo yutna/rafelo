@@ -80,7 +80,9 @@ module Rafelo
       end
 
       def session_cookie_name
-        Rails.env.production? ? "__Host-rafelo_session_token" : "session_token"
+        return "session_token" unless Rails.env.production?
+
+        "__Host-#{Rails.application.class.module_parent_name.underscore}_session_token"
       end
 
       def load_session

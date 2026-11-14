@@ -21,7 +21,7 @@ RafeloTemplate.render!(
 RafeloTemplate.write_kernel_version!(destination: destination, version: version)
 RafeloTemplate.write_app_version!(destination: destination)
 RafeloTemplate.write_production_credentials!(destination: destination)
-RafeloTemplate.verify_no_placeholders!(destination)
+RafeloTemplate.verify_no_placeholders!(destination, app_name: app_name)
 RafeloTemplate.commit!(destination: destination)
 
 puts "Rafelo template: created #{RafeloTemplate.namespace(app_name)} from v#{version}"

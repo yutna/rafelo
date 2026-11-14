@@ -4,7 +4,7 @@ RSpec.describe "Database roles" do
   it "defines the runtime and migration credentials in database.yml" do
     database = File.read(Rails.root.join("config/database.yml"))
 
-    expect(database).to include("RAFELO_DATABASE_ROLE")
+    expect(database).to include("ACME_DATABASE_ROLE")
     expect(database).to include("DB_MIGRATION_USER")
     expect(database).to include("DB_MIGRATION_PASSWORD")
     expect(database).to include("primary:")
@@ -20,8 +20,8 @@ RSpec.describe "Database roles" do
     end
     production = data.fetch("production")
 
-    expect(production.dig("primary", "username")).to include("rafelo_runtime")
-    expect(production.dig("migration", "username")).to eq("rafelo_migrator")
+    expect(production.dig("primary", "username")).to include("acme_runtime")
+    expect(production.dig("migration", "username")).to eq("acme_migrator")
     expect(production.dig("migration", "database_tasks")).to be(false)
   end
 
@@ -31,7 +31,7 @@ RSpec.describe "Database roles" do
     expect(sql).to include("'core_audits', 'core_audit_events'")
     expect(sql).to include("REVOKE UPDATE, DELETE, TRUNCATE ON public.%I")
     expect(sql).to include("GRANT SELECT, INSERT ON public.%I")
-    expect(sql).to include("ALTER TABLE public.%I OWNER TO rafelo_migrator")
+    expect(sql).to include("ALTER TABLE public.%I OWNER TO acme_migrator")
   end
 
   it "keeps the grants restricted when a new partition is created" do
@@ -51,7 +51,7 @@ RSpec.describe "Database roles" do
   # CI sets DB_USER=postgres for the test connection; this spec inspects the
   # production defaults written in config/database.yml.
   def without_database_env
-    keys = %w[DB_USER DB_PASSWORD DB_MIGRATION_USER DB_MIGRATION_PASSWORD DB_NAME RAFELO_DATABASE_ROLE]
+    keys = %w[DB_USER DB_PASSWORD DB_MIGRATION_USER DB_MIGRATION_PASSWORD DB_NAME ACME_DATABASE_ROLE]
     saved = keys.to_h { |key| [ key, ENV.delete(key) ] }
     yield
   ensure
