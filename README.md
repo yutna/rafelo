@@ -56,10 +56,11 @@ for you.
 ## Development environment
 
 Development runs in the Dev Container definition under `.devcontainer/`. It
-uses the Rails Dev Container image pinned by tag and digest, installs Ruby
-4.0.9, Node 26.13.0 and npm 12.2.2 from `mise.toml`, and starts PostgreSQL
-18.6 as a service pinned by digest. The post-create command installs the
-pinned tools and prepares the application.
+uses a prebuilt image published to GitHub Container Registry and pinned by
+digest in `.devcontainer/image_digest`: the Ruby 4.0.9 base, Node 26.13.0 and
+npm 12.2.2 from `mise.toml`, the Playwright browsers, and the PostgreSQL
+client. PostgreSQL 18.6 runs as a service pinned by digest. The same image is
+what CI runs, so a local pass and a CI pass use the same tools.
 
 Forwarded ports:
 

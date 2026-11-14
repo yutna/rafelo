@@ -27,7 +27,7 @@ GLOBAL_INPUTS = %w[
   config/ci.rb config/errors.yml config/budgets.yml config/ratchets.yml config/locales.yml
   config/upstreams.yml config/permission_mapping.yml config/contracts/_shared.json
   bin/ db/ spec/enforcement/ spec/fixtures/formats/ spec/fixtures/hostile_urls.json
-  .devcontainer/ .github/ script/ tsconfig.base.json engines/core/ engines/design_system/
+  .devcontainer/ .devcontainer/image_digest .github/ script/ tsconfig.base.json engines/core/ engines/design_system/
 ].freeze
 
 APP_ONLY = %w[app/ e2e/ spec/ config/locales/ config/contracts/].freeze

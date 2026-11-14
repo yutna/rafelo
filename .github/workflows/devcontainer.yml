@@ -1,0 +1,53 @@
+name: Dev Container image
+
+on:
+  push:
+    paths:
+      - ".devcontainer/**"
+      - "!.devcontainer/image_digest"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  devcontainer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Log in to the container registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push by digest
+        id: build
+        run: |
+          set -euo pipefail
+          docker buildx create --use
+          docker buildx build \
+            --push \
+            --platform linux/amd64 \
+            --tag "ghcr.io/${GITHUB_REPOSITORY}-devcontainer:latest" \
+            --metadata-file /tmp/metadata.json \
+            --file .devcontainer/Dockerfile \
+            .
+          digest="$(jq -r '."containerimage.digest"' /tmp/metadata.json)"
+          ref="ghcr.io/${GITHUB_REPOSITORY}-devcontainer@${digest}"
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Dev Container image"
+            echo
+            echo "\`${ref}\`"
+            echo
+            echo "Commit this reference to \`.devcontainer/image_digest\` through a pull request."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show the digest
+        run: echo "Commit ${{ steps.build.outputs.ref }} to .devcontainer/image_digest"
