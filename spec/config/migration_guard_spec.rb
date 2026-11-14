@@ -23,8 +23,8 @@ RSpec.describe "Migration guard" do
   end
 
   it "runs db:prepare as the migration role" do
-    expect(Rails.root.join("bin/docker-entrypoint").read).to include("RAFELO_DATABASE_ROLE=migration ./bin/rails db:prepare")
-    expect(Rails.root.join("config/database.yml").read).to include("RAFELO_DATABASE_ROLE")
+    expect(Rails.root.join("bin/docker-entrypoint").read).to include("ACME_DATABASE_ROLE=migration ./bin/rails db:prepare")
+    expect(Rails.root.join("config/database.yml").read).to include("ACME_DATABASE_ROLE")
   end
 
   it "boots one host at a time with an explicit deploy timeout" do

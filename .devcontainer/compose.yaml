@@ -1,10 +1,10 @@
-name: rafelo
+name: acme
 
 services:
   rails-app:
     image: ghcr.io/yutna/rafelo-devcontainer@sha256:838f2409962d3b4d32c5e3acd5ae3befed3844e46e58eb9c57a47f6ea75e9038
     volumes:
-      - ..:/workspaces/rafelo:cached
+      - ..:/workspaces/acme:cached
     command: sleep infinity
     depends_on:
       postgres:

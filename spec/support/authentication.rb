@@ -26,7 +26,7 @@ module AuthenticationHelpers
   # explicit, while Rails' own session carries Inertia errors and flash.
   def follow_redirect(cookie)
     rails = Array(response.headers["Set-Cookie"]).filter_map do |value|
-      value.split(";").first if value.start_with?("rafelo_session=")
+      value.split(";").first if value.start_with?("acme_session=")
     end.first
     get response.location, headers: { "Cookie" => [ cookie, rails ].compact.join("; ") }
   end

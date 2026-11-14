@@ -18,8 +18,12 @@ module KernelUpdate
     engines/core
     script/ci
     script/contracts/permissions
+    script/ops/database_roles.sql
+    script/ops/restore_drill
     bin/check
+    bin/docker-entrypoint
     bin/kernel_update
+    .env.ci.production
     spec/fixtures/hostile_urls.json
     spec/core
     spec/generators

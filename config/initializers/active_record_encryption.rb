@@ -4,9 +4,9 @@
 # fallbacks exist for the production boot specs, which run without a
 # production credentials key; deployment never sets those variables.
 if Rails.env.local?
-  Rails.application.config.active_record.encryption.primary_key = "rafelo-test-primary-key-0000001"
-  Rails.application.config.active_record.encryption.deterministic_key = "rafelo-test-deterministic-0001"
-  Rails.application.config.active_record.encryption.key_derivation_salt = "rafelo-test-salt-000000000001"
+  Rails.application.config.active_record.encryption.primary_key = "acme-test-primary-key-0000001"
+  Rails.application.config.active_record.encryption.deterministic_key = "acme-test-deterministic-0001"
+  Rails.application.config.active_record.encryption.key_derivation_salt = "acme-test-salt-000000000001"
 else
   settings = {
     primary_key: [ "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", :primary_key ],

@@ -10,7 +10,7 @@ RSpec.describe "Write action flow", type: :request do
   def follow(cookie)
     location = response.location
     rails = Array(response.headers["Set-Cookie"]).filter_map do |value|
-      value.split(";").first if value.start_with?("rafelo_session=")
+      value.split(";").first if value.start_with?("acme_session=")
     end.first
     get location, headers: { "Cookie" => [ cookie, rails ].compact.join("; ") }
   end

@@ -18,29 +18,29 @@
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rafelo_runtime') THEN
-    CREATE ROLE rafelo_runtime LOGIN;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'acme_runtime') THEN
+    CREATE ROLE acme_runtime LOGIN;
   END IF;
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rafelo_migrator') THEN
-    CREATE ROLE rafelo_migrator LOGIN;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'acme_migrator') THEN
+    CREATE ROLE acme_migrator LOGIN;
   END IF;
 END
 $$;
 
-ALTER ROLE rafelo_runtime WITH LOGIN PASSWORD :'runtime_password';
-ALTER ROLE rafelo_migrator WITH LOGIN PASSWORD :'migration_password';
+ALTER ROLE acme_runtime WITH LOGIN PASSWORD :'runtime_password';
+ALTER ROLE acme_migrator WITH LOGIN PASSWORD :'migration_password';
 
--- The admin that runs this script must be able to SET ROLE rafelo_migrator to
+-- The admin that runs this script must be able to SET ROLE acme_migrator to
 -- transfer table ownership and set its default privileges. A managed
 -- provider's admin is not a superuser; on PostgreSQL 16+ the role that
--- created rafelo_migrator holds ADMIN OPTION on it, so this grant succeeds.
+-- created acme_migrator holds ADMIN OPTION on it, so this grant succeeds.
 DO $$
 BEGIN
-  EXECUTE format('GRANT rafelo_migrator TO %I', current_user);
+  EXECUTE format('GRANT acme_migrator TO %I', current_user);
 EXCEPTION
   WHEN insufficient_privilege THEN
     RAISE EXCEPTION
-      'database_roles: % must be a superuser or hold ADMIN OPTION on rafelo_migrator',
+      'database_roles: % must be a superuser or hold ADMIN OPTION on acme_migrator',
       current_user;
 END
 $$;
@@ -48,16 +48,16 @@ $$;
 DO $$
 BEGIN
   EXECUTE format(
-    'GRANT CONNECT ON DATABASE %I TO rafelo_runtime, rafelo_migrator',
+    'GRANT CONNECT ON DATABASE %I TO acme_runtime, acme_migrator',
     current_database()
   );
 END
 $$;
 
-GRANT USAGE ON SCHEMA public TO rafelo_runtime, rafelo_migrator;
+GRANT USAGE ON SCHEMA public TO acme_runtime, acme_migrator;
 
 -- The migration role owns the schema and everything it creates.
-ALTER SCHEMA public OWNER TO rafelo_migrator;
+ALTER SCHEMA public OWNER TO acme_migrator;
 
 -- A database created before this script has tables owned by the deploy
 -- superuser. Partition creation and migrations need the owner, so hand every
@@ -74,7 +74,7 @@ BEGIN
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public'
       AND c.relkind IN ('r', 'p', 'S')
-      AND pg_get_userbyid(c.relowner) <> 'rafelo_migrator'
+      AND pg_get_userbyid(c.relowner) <> 'acme_migrator'
       -- A serial/identity sequence follows its table's owner; changing it
       -- directly is refused while the dependency exists.
       AND NOT (
@@ -88,17 +88,17 @@ BEGIN
       )
   LOOP
     IF object_kind = 'S' THEN
-      EXECUTE format('ALTER SEQUENCE public.%I OWNER TO rafelo_migrator', object_name);
+      EXECUTE format('ALTER SEQUENCE public.%I OWNER TO acme_migrator', object_name);
     ELSE
-      EXECUTE format('ALTER TABLE public.%I OWNER TO rafelo_migrator', object_name);
+      EXECUTE format('ALTER TABLE public.%I OWNER TO acme_migrator', object_name);
     END IF;
   END LOOP;
 END
 $$;
 
 -- Runtime DML outside the audit tables.
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO rafelo_runtime;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO rafelo_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO acme_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO acme_runtime;
 
 -- Audit tables: append-only through the runtime role. The database trigger
 -- is the second guard, so UPDATE/DELETE fail even if a grant is missed. The
@@ -119,8 +119,8 @@ BEGIN
         OR c.relname ~ '^core_audit_events_'
       )
   LOOP
-    EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON public.%I FROM rafelo_runtime', table_name);
-    EXECUTE format('GRANT SELECT, INSERT ON public.%I TO rafelo_runtime', table_name);
+    EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON public.%I FROM acme_runtime', table_name);
+    EXECUTE format('GRANT SELECT, INSERT ON public.%I TO acme_runtime', table_name);
   END LOOP;
 END
 $$;
@@ -128,7 +128,7 @@ $$;
 -- Future tables and audit partitions created by the migration role. Set the
 -- defaults before the first migration so a fresh database needs no second
 -- pass; the partition routine narrows the audit tables after each creation.
-ALTER DEFAULT PRIVILEGES FOR ROLE rafelo_migrator IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO rafelo_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE rafelo_migrator IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO rafelo_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE acme_migrator IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO acme_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE acme_migrator IN SCHEMA public
+  GRANT USAGE, SELECT ON SEQUENCES TO acme_runtime;

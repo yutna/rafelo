@@ -11,18 +11,18 @@ RSpec.describe "rafelo:restore:prepare" do
 
   after do
     task.reenable
-    ENV.delete("RAFELO_DATABASE_ROLE")
-    ENV.delete("RAFELO_RESTORE_CONFIRMED")
+    ENV.delete("ACME_DATABASE_ROLE")
+    ENV.delete("ACME_RESTORE_CONFIRMED")
   end
 
   it "refuses without the migration role" do
-    ENV["RAFELO_RESTORE_CONFIRMED"] = "1"
+    ENV["ACME_RESTORE_CONFIRMED"] = "1"
 
     expect { task.invoke }.to raise_error(SystemExit)
   end
 
   it "refuses without the explicit confirmation" do
-    ENV["RAFELO_DATABASE_ROLE"] = "migration"
+    ENV["ACME_DATABASE_ROLE"] = "migration"
 
     expect { task.invoke }.to raise_error(SystemExit)
   end
@@ -33,8 +33,8 @@ RSpec.describe "rafelo:restore:prepare" do
       viewer_id: "7",
       expires_at: 1.hour.from_now
     )
-    ENV["RAFELO_DATABASE_ROLE"] = "migration"
-    ENV["RAFELO_RESTORE_CONFIRMED"] = "1"
+    ENV["ACME_DATABASE_ROLE"] = "migration"
+    ENV["ACME_RESTORE_CONFIRMED"] = "1"
 
     expect { task.invoke }.not_to raise_error
 

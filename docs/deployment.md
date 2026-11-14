@@ -5,7 +5,7 @@ code (OPS-06):
 
 | Profile | File | PostgreSQL | Active Storage | Solid Queue |
 | --- | --- | --- | --- | --- |
-| Single host (default) | `config/deploy.yml` | Kamal accessory on a named volume, or a managed service | Disk on the `rafelo_storage` volume, or S3-compatible | In the web Puma process |
+| Single host (default) | `config/deploy.yml` | Kamal accessory on a named volume, or a managed service | Disk on the `acme_storage` volume, or S3-compatible | In the web Puma process |
 | Multi host | `config/deploy.multi.yml` | Managed service shared by every host | S3-compatible | Separate `job` role (`bin/jobs`) |
 
 Nothing else is host-local (ARCH-13). Request and job scratch files live in
@@ -25,9 +25,9 @@ docker build -t rafelo .
 docker run -d -p 80:80 \
   -e RAILS_MASTER_KEY="$(cat config/master.key)" \
   -e DB_HOST=host.docker.internal \
-  -e DB_USER=rafelo_runtime \
-  -e DB_NAME=rafelo_production \
-  -e RAFELO_API_BASE_URL=http://host.docker.internal:4000 \
+  -e DB_USER=acme_runtime \
+  -e DB_NAME=acme_production \
+  -e ACME_API_BASE_URL=http://host.docker.internal:4000 \
   -e RAILS_HOSTS=localhost \
   --name rafelo \
   rafelo

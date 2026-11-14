@@ -7,7 +7,7 @@ RSpec.describe "Database role script" do
   let(:password) { "drill-password" }
 
   let(:scratch) { ScratchDatabase.new("rafelo_roles") }
-  let(:roles) { %w[rafelo_runtime rafelo_migrator] }
+  let(:roles) { %w[acme_runtime acme_migrator] }
 
   before do
     skip "role specs run in the primary test process only (see #333)" if ENV["TEST_ENV_NUMBER"].present?
@@ -49,42 +49,42 @@ RSpec.describe "Database role script" do
   it "creates both roles and hands existing tables to the migration role" do
     run_script
 
-    expect(role?("rafelo_runtime")).to be(true)
-    expect(role?("rafelo_migrator")).to be(true)
-    expect(owner("core_audits")).to eq("rafelo_migrator")
-    expect(owner("core_sessions")).to eq("rafelo_migrator")
-    expect(owner("core_audits_id_seq")).to eq("rafelo_migrator")
+    expect(role?("acme_runtime")).to be(true)
+    expect(role?("acme_migrator")).to be(true)
+    expect(owner("core_audits")).to eq("acme_migrator")
+    expect(owner("core_sessions")).to eq("acme_migrator")
+    expect(owner("core_audits_id_seq")).to eq("acme_migrator")
   end
 
   it "keeps every audit table append-only for the runtime role" do
     run_script
 
     %w[core_audits core_audit_events core_audit_events_2026_11].each do |table|
-      expect(privilege(table, "SELECT", "rafelo_runtime")).to be(true)
-      expect(privilege(table, "INSERT", "rafelo_runtime")).to be(true)
-      expect(privilege(table, "UPDATE", "rafelo_runtime")).to be(false)
-      expect(privilege(table, "DELETE", "rafelo_runtime")).to be(false)
-      expect(privilege(table, "TRUNCATE", "rafelo_runtime")).to be(false)
+      expect(privilege(table, "SELECT", "acme_runtime")).to be(true)
+      expect(privilege(table, "INSERT", "acme_runtime")).to be(true)
+      expect(privilege(table, "UPDATE", "acme_runtime")).to be(false)
+      expect(privilege(table, "DELETE", "acme_runtime")).to be(false)
+      expect(privilege(table, "TRUNCATE", "acme_runtime")).to be(false)
     end
 
-    expect(privilege("core_sessions", "UPDATE", "rafelo_runtime")).to be(true)
+    expect(privilege("core_sessions", "UPDATE", "acme_runtime")).to be(true)
   end
 
   it "grants the runtime role DML on tables the migration role creates later" do
     run_script
-    @connection.exec("SET ROLE rafelo_migrator")
+    @connection.exec("SET ROLE acme_migrator")
     @connection.exec("CREATE TABLE later_table (id bigserial PRIMARY KEY)")
     @connection.exec("RESET ROLE")
 
-    expect(privilege("later_table", "UPDATE", "rafelo_runtime")).to be(true)
-    expect(sequence_privilege("later_table_id_seq", "USAGE", "rafelo_runtime")).to be(true)
+    expect(privilege("later_table", "UPDATE", "acme_runtime")).to be(true)
+    expect(sequence_privilege("later_table_id_seq", "USAGE", "acme_runtime")).to be(true)
   end
 
   it "is re-runnable without changing the result" do
     run_script
     expect { run_script }.not_to raise_error
-    expect(owner("core_audits")).to eq("rafelo_migrator")
-    expect(privilege("core_audits", "UPDATE", "rafelo_runtime")).to be(false)
+    expect(owner("core_audits")).to eq("acme_migrator")
+    expect(privilege("core_audits", "UPDATE", "acme_runtime")).to be(false)
   end
 
   def run_script

@@ -4,7 +4,7 @@
 # Both profiles use this image and code. Data lives in PostgreSQL and files in
 # the Active Storage service (ARCH-13); the only host-local state here is the
 # PostgreSQL accessory volume and the Disk Active Storage volume.
-service: rafelo
+service: acme
 
 # The first host runs db:prepare before /up; size this for boot migrations.
 deploy_timeout: 120
@@ -14,7 +14,7 @@ boot:
   limit: 1
 
 # Name of the container image (use your-user/app-name on external registries).
-image: rafelo
+image: acme
 
 # Deploy to these servers. Add a job role here only after moving Solid Queue
 # out of Puma; the multi-host profile shows that shape.
@@ -44,16 +44,16 @@ env:
     # because any value (including "false") turns the plugin on.
     SOLID_QUEUE_IN_PUMA: true
 
-    # local is the Disk service on the rafelo_storage volume below; choose
+    # local is the Disk service on the acme_storage volume below; choose
     # amazon (and set AWS_REGION/AWS_BUCKET) for an S3-compatible service.
     ACTIVE_STORAGE_SERVICE: local
 
-    DB_HOST: rafelo-db
-    DB_NAME: rafelo_production
-    DB_USER: rafelo_runtime
-    DB_MIGRATION_USER: rafelo_migrator
+    DB_HOST: acme-db
+    DB_NAME: acme_production
+    DB_USER: acme_runtime
+    DB_MIGRATION_USER: acme_migrator
 
-    RAFELO_API_BASE_URL: https://api.example.com
+    ACME_API_BASE_URL: https://api.example.com
     RAILS_HOSTS: app.example.com
 
     RAILS_MAX_THREADS: 5
@@ -71,7 +71,7 @@ aliases:
 # Disk Active Storage for the single-host profile. It is a persistent volume,
 # not request or job scratch space.
 volumes:
-  - "rafelo_storage:/rails/storage"
+  - "acme_storage:/rails/storage"
 
 # Bridge fingerprinted assets, like JS and CSS, between versions to avoid
 # hitting 404 on in-flight requests. Combines all files from new and old
@@ -92,9 +92,9 @@ accessories:
     port: "127.0.0.1:5432:5432"
     env:
       clear:
-        POSTGRES_DB: rafelo_production
+        POSTGRES_DB: acme_production
         POSTGRES_USER: postgres
       secret:
         - POSTGRES_PASSWORD
     volumes:
-      - "rafelo-db-data:/var/lib/postgresql"
+      - "acme-db-data:/var/lib/postgresql"

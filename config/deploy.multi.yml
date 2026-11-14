@@ -6,14 +6,14 @@
 # Storage are managed services, so no data lives on a host (ARCH-13). Kamal
 # boots one host at a time because each web host runs db:prepare before /up
 # (BE-22, OPS-06).
-service: rafelo
+service: acme
 
 deploy_timeout: 120
 
 boot:
   limit: 1
 
-image: rafelo
+image: acme
 
 servers:
   web:
@@ -45,11 +45,11 @@ env:
 
     # Managed PostgreSQL, shared by every web and job host.
     DB_HOST: db.example.com
-    DB_NAME: rafelo_production
-    DB_USER: rafelo_runtime
-    DB_MIGRATION_USER: rafelo_migrator
+    DB_NAME: acme_production
+    DB_USER: acme_runtime
+    DB_MIGRATION_USER: acme_migrator
 
-    RAFELO_API_BASE_URL: https://api.example.com
+    ACME_API_BASE_URL: https://api.example.com
     RAILS_HOSTS: app.example.com
 
     RAILS_MAX_THREADS: 5
@@ -59,7 +59,7 @@ env:
     # S3-compatible Active Storage service. The bucket and region are clear
     # settings; the access keys are in the production credentials (BE-08).
     AWS_REGION: us-east-1
-    AWS_BUCKET: rafelo-production
+    AWS_BUCKET: acme-production
 
 aliases:
   console: app exec --interactive --reuse "bin/rails console"

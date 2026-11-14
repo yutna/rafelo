@@ -2,8 +2,8 @@
 
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
-  RAFELO_DATABASE_ROLE=migration ./bin/rails db:prepare
-  RAFELO_DATABASE_ROLE=migration ./bin/rails rafelo:audit:partitions
+  ACME_DATABASE_ROLE=migration ./bin/rails db:prepare
+  ACME_DATABASE_ROLE=migration ./bin/rails rafelo:audit:partitions
 fi
 
 exec "${@}"
