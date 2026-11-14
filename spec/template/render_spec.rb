@@ -158,6 +158,10 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         expect(File).not_to exist(File.join(destination, ".github", "workflows", "issue-check.yml"))
         expect(File.read(File.join(destination, ".github", "CODEOWNERS"))).to include("@OWNER")
 
+        %w[add-read-page add-write-action add-module add-design-system-component].each do |skill|
+          expect(File).to exist(File.join(destination, ".opencode", "skills", skill, "SKILL.md"))
+        end
+
         expect(Dir).not_to exist(File.join(destination, "docs", "development"))
         expect(Dir).not_to exist(File.join(destination, "spec", "template"))
         expect(Dir).not_to exist(File.join(destination, "template"))

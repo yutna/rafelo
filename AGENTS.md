@@ -129,14 +129,20 @@ starts from a generator and names the rule IDs that apply; never hand-write
 what a generator writes. The template currently ships:
 
 - `add-copy`: add a string in every configured locale (CT-08).
+- `add-design-system-component`: add a reusable UI control with its API,
+  tests, and visual baseline (FE-07, FE-09, FE-21, TS-11).
+- `add-module`: start a product module or domain engine from the generator
+  and keep the declared graph acyclic (GEN-01, GEN-05).
+- `add-read-page`: add an index or show slice from `rafelo:page` (GEN-02).
+- `add-write-action`: add a new/edit write slice with validation, idempotency,
+  and 303/error behavior (GEN-02, BE-13, BE-15).
 - `expose-public-interface`: the ARCH-05 ladder when another engine needs the
   code; a new `dependencies:` entry is a guard change, so say so in the pull
   request (ARCH-08, ARCH-09).
 
-More task skills for the generators (`rafelo:page`, `rafelo:module`,
-`rafelo:domain`, rename, move, and brownfield migration) arrive with the
-final AI-file milestone; until then, start from the generator and the engine
-guide.
+More task skills for the guard, brownfield migration, and the request
+workflow arrive with the final AI-file milestone; until then, start from the
+generator and the engine guide.
 
 Design skills (`.opencode/skills/oo-*`, a pinned copy of the object-oriented
 design skills pack; never edit it):
