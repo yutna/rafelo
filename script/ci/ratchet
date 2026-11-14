@@ -1,0 +1,65 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "yaml"
+
+require_relative "approvals"
+
+root = Dir.pwd
+base = ENV["BASE_SHA"]
+reviews_file = nil
+pr = ENV["PR_NUMBER"]
+head_ref = ENV["HEAD_REF"]
+repository = ENV["GITHUB_REPOSITORY"]
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/ratchet [--root DIR] [--base REV] [--reviews FILE] [--pr NUMBER]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--base REV") { |value| base = value }
+  parser.on("--reviews FILE") { |value| reviews_file = value }
+  parser.on("--pr NUMBER") { |value| pr = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "ratchet: root does not exist: #{root}" unless Dir.exist?(root)
+abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
+
+current_path = File.join(root, "config", "ratchets.yml")
+abort "ratchet: config/ratchets.yml is missing" unless File.file?(current_path)
+
+def load_ratchets(root, revision)
+  output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:config/ratchets.yml")
+  abort "ratchet: cannot read config/ratchets.yml at #{revision}" unless status.success?
+  YAML.safe_load(output) || {}
+end
+
+current = YAML.safe_load_file(current_path) || {}
+base_counts = load_ratchets(root, base)
+rises = current.filter_map do |key, value|
+  next unless value.is_a?(Integer)
+
+  previous = base_counts[key]
+  previous = 0 unless previous.is_a?(Integer)
+  [ key, previous, value ] if value > previous
+end
+falls = current.filter_map do |key, value|
+  next unless value.is_a?(Integer) && base_counts[key].is_a?(Integer)
+
+  [ key, base_counts[key], value ] if value < base_counts[key]
+end
+
+if rises.empty?
+  puts "ratchet: checked #{current.size} counters; rises=0 falls=#{falls.size}"
+  exit 0
+end
+
+number = Approvals.pull_request_number(pr, head_ref)
+reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
+unless Approvals.approved_by_owner?(root, reviews)
+  rises.each { |key, previous, value| warn "ratchet: #{key} rose from #{previous} to #{value}" }
+  warn "ratchet: a rise needs an approving review from a CODEOWNERS owner"
+  exit 1
+end
+
+puts "ratchet: checked #{current.size} counters; rises=#{rises.size} approved, falls=#{falls.size}"

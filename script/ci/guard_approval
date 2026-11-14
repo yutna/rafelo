@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+require_relative "approvals"
+
+root = Dir.pwd
+base = ENV["BASE_SHA"]
+reviews_file = nil
+pr = ENV["PR_NUMBER"]
+head_ref = ENV["HEAD_REF"]
+repository = ENV["GITHUB_REPOSITORY"]
+event = ENV["EVENT"]
+author = ENV["PR_AUTHOR"]
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/guard_approval [--root DIR] [--base REV] [--reviews FILE] [--pr NUMBER] [--event EVENT] [--author LOGIN]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--base REV") { |value| base = value }
+  parser.on("--reviews FILE") { |value| reviews_file = value }
+  parser.on("--pr NUMBER") { |value| pr = value }
+  parser.on("--event EVENT") { |value| event = value }
+  parser.on("--author LOGIN") { |value| author = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "guard_approval: root does not exist: #{root}" unless Dir.exist?(root)
+
+if event == "merge_group"
+  puts "guard_approval: approval was checked on the pull request"
+  exit 0
+end
+
+abort "guard_approval: --base or BASE_SHA is required" if base.to_s.empty?
+
+changed = Approvals.changed_files(root, base)
+guards = changed.select { |path| Approvals.guard_entry?(root, path) }
+if guards.empty?
+  puts "guard_approval: checked #{changed.size} changed file(s); guard files=0"
+  exit 0
+end
+
+owners = Approvals.owner_logins(root).uniq
+if owners.length == 1 && owners.include?(author)
+  guards.each { |path| warn "guard_approval: single-owner repository; record the owner's review for #{path}" }
+  puts "guard_approval: checked #{changed.size} changed file(s); guard files=#{guards.size} owner-authored"
+  exit 0
+end
+
+number = Approvals.pull_request_number(pr, head_ref)
+reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
+unless Approvals.approved_by_owner?(root, reviews)
+  guards.each { |path| warn "guard_approval: guard file changed without an owner approval: #{path}" }
+  exit 1
+end
+
+puts "guard_approval: checked #{changed.size} changed file(s); guard files=#{guards.size} approved"

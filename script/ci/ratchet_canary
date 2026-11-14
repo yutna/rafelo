@@ -1,0 +1,89 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "ratchet")
+failures = 0
+cases = 0
+
+def git(dir, *args)
+  output, error, status = Open3.capture3("git", "-C", dir, *args)
+  abort "ratchet_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
+
+  output
+end
+
+def reviews(dir, name, entries)
+  path = File.join(dir, "#{name}.json")
+  File.write(path, JSON.generate(entries))
+  path
+end
+
+def run_case(script, dir, base, reviews_file)
+  args = [ script, "--root", dir, "--base", base ]
+  args += [ "--reviews", reviews_file ] if reviews_file
+  output, status = Open3.capture2e(*args)
+  [ status.exitstatus, output ]
+end
+
+Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(dir, "config"))
+  FileUtils.mkdir_p(File.join(dir, "engines", "core", "app"))
+  FileUtils.mkdir_p(File.join(dir, ".github"))
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/core/app/ @owner\n")
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "base")
+  base = git(dir, "rev-parse", "HEAD").strip
+
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 1\nrubocop_disable: 1\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "rise")
+
+  owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
+  outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
+  rejected = reviews(dir, "rejected", [
+    { "user" => { "login" => "owner" }, "state" => "APPROVED" },
+    { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
+  ])
+
+  [
+    [ "rise without approval", nil, 1 ],
+    [ "rise with an owner approval", owner, 0 ],
+    [ "rise with a non-owner approval", outsider, 1 ],
+    [ "rise with a later change request", rejected, 1 ]
+  ].each do |name, file, expected|
+    cases += 1
+    status, output = run_case(script, dir, base, file)
+    next if status == expected
+
+    failures += 1
+    warn "ratchet_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  end
+
+  # A fall passes without an approval.
+  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 1\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "fall")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 0
+    failures += 1
+    warn "ratchet_canary: fall without approval: exited #{status}: #{output}"
+  end
+end
+
+if failures.positive?
+  warn "ratchet_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "ratchet_canary: checked #{cases} cases; failures=0"
