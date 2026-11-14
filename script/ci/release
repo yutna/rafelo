@@ -1,0 +1,140 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+check = false
+dry_run = false
+tag_list_file = nil
+release_exists = nil
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/release [--root DIR] [--check] [--dry-run] [--tag-list FILE] [--release-exists yes|no]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--check") { check = true }
+  parser.on("--dry-run") { dry_run = true }
+  parser.on("--tag-list FILE") { |value| tag_list_file = value }
+  parser.on("--release-exists yes|no") { |value| release_exists = value == "yes" }
+end.parse!
+
+root = File.expand_path(root)
+abort "release: root does not exist: #{root}" unless Dir.exist?(root)
+
+version_path = File.join(root, "VERSION")
+abort "release: VERSION is missing" unless File.file?(version_path)
+
+raw = File.binread(version_path)
+match = raw.match(/\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\n?\z/)
+abort "release: VERSION must be MAJOR.MINOR.PATCH and nothing else" if match.nil?
+
+version = "#{match[1]}.#{match[2]}.#{match[3]}"
+parts = [ match[1], match[2], match[3] ].map(&:to_i)
+
+def tags(root, file)
+  if file
+    path = File.expand_path(file, root)
+    abort "release: tag list is missing at #{path}" unless File.file?(path)
+    return File.readlines(path, chomp: true).map(&:strip).reject(&:empty?)
+  end
+
+  output, status = Open3.capture2("git", "-C", root, "tag", "--list", "v*")
+  abort "release: git tag failed" unless status.success?
+
+  output.lines.map(&:strip).reject(&:empty?)
+end
+
+def semver(tag)
+  matched = tag.match(/\Av(\d+)\.(\d+)\.(\d+)\z/)
+  matched && [ matched[1], matched[2], matched[3] ].map(&:to_i)
+end
+
+def higher?(left, right)
+  return true if right.nil?
+
+  (left <=> right) == 1
+end
+
+known_tags = tags(root, tag_list_file).filter_map { |tag| [ tag, semver(tag) ] }.to_h
+highest = known_tags.values.compact.max
+tag_name = "v#{version}"
+tag_exists = known_tags.key?(tag_name)
+
+if check
+  if tag_exists
+    puts "release: #{tag_name} is already tagged; nothing to check"
+    exit 0
+  end
+  unless higher?(parts, highest)
+    warn "release: #{version} is not higher than the highest release #{highest ? "v#{highest.join(".")}" : "none"}"
+    exit 1
+  end
+  puts "release: checked #{version}; higher than #{highest ? "v#{highest.join(".")}" : "no tag"}"
+  exit 0
+end
+
+repository = ENV["GITHUB_REPOSITORY"].to_s
+abort "release: GITHUB_REPOSITORY is required" if repository.empty?
+
+exists = if release_exists.nil?
+  output, status = Open3.capture2e("gh", "api", "repos/#{repository}/releases/tags/#{tag_name}")
+  status.success? ? true : (output.include?("404") ? false : abort("release: the release API failed: #{output}"))
+else
+  release_exists
+end
+
+if exists
+  puts "release: #{tag_name} already has a Release; nothing to release"
+  exit 0
+end
+
+sha = ENV["RELEASE_SHA"].to_s
+if tag_exists
+  create_payload = { "tag_name" => tag_name, "name" => tag_name, "generate_release_notes" => true }
+else
+  unless higher?(parts, highest)
+    warn "release: #{version} is not higher than the highest release #{highest ? "v#{highest.join(".")}" : "none"}"
+    exit 1
+  end
+  placeholders = Dir[
+    File.join(root, "config", "locales", "**", "*.yml"),
+    File.join(root, "engines", "*", "config", "locales", "*.yml"),
+    File.join(root, "app", "frontend", "locales", "*.json")
+  ].select { |path| File.read(path).match?(/\[(?:<locale>|[a-z]{2})\]\s/) }
+  if placeholders.any?
+    warn "release: locale placeholders remain in #{placeholders.map { |path| path.delete_prefix("#{root}/") }.join(", ")}"
+    exit 1
+  end
+
+  unless Dir.exist?(File.join(root, "spec", "fixtures", "formats", tag_name))
+    warn "release: spec/fixtures/formats/#{tag_name} is missing"
+    exit 1
+  end
+  if sha.empty?
+    warn "release: RELEASE_SHA is required to create a tag"
+    exit 1
+  end
+
+  create_payload = {
+    "tag_name" => tag_name,
+    "target_commitish" => sha,
+    "name" => tag_name,
+    "generate_release_notes" => true
+  }
+end
+
+if dry_run
+  puts JSON.generate(create_payload)
+  exit 0
+end
+
+args = [ "gh", "api", "--method", "POST", "repos/#{repository}/releases" ]
+create_payload.each do |key, value|
+  args += value == true ? [ "-F", "#{key}=true" ] : [ "-f", "#{key}=#{value}" ]
+end
+output, status = Open3.capture2e(*args)
+abort "release: the release API failed: #{output}" unless status.success?
+
+puts "release: created #{tag_name}"

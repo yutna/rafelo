@@ -1,0 +1,90 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "release")
+failures = 0
+cases = 0
+
+def run_case(script, dir, version, tags, arguments, env = {})
+  File.write(File.join(dir, "VERSION"), version)
+  tag_file = File.join(dir, "tags.txt")
+  File.write(tag_file, tags.join("\n") + (tags.empty? ? "" : "\n"))
+  output, status = Open3.capture2e(
+    { "GITHUB_REPOSITORY" => "canary/repo", "RELEASE_SHA" => "a" * 40 }.merge(env),
+    script, "--root", dir, "--tag-list", tag_file, *arguments
+  )
+  [ status.exitstatus, output ]
+end
+
+def expect(name, cases, failures, status, expected, output, pattern = nil)
+  if status != expected || (pattern && !output.match?(pattern))
+    failures += 1
+    warn "release_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  end
+  [ cases + 1, failures ]
+end
+
+Dir.mktmpdir("rafelo-release-canary-") do |dir|
+  FileUtils.mkdir_p(File.join(dir, "spec", "fixtures", "formats", "v0.20.0"))
+  FileUtils.mkdir_p(File.join(dir, "config", "locales"))
+  File.write(File.join(dir, "config", "locales", "en.yml"), "en:\n  invoices: Invoices\n")
+
+  tags = [ "v0.18.0", "v0.19.0" ]
+
+  [ "bad", "0.20", "v0.20.0", "1.2.3.4" ].each do |version|
+    cases += 1
+    status, output = run_case(script, dir, version, tags, [ "--check" ])
+    cases, failures = expect("format #{version.inspect}", cases - 1, failures, status, 1, output)
+  end
+
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--check" ])
+  cases, failures = expect("higher version", cases - 1, failures, status, 0, output, /higher than v0\.19\.0/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.19.0", tags, [ "--check" ])
+  cases, failures = expect("existing tag", cases - 1, failures, status, 0, output, /already tagged/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.17.0", tags, [ "--check" ])
+  cases, failures = expect("lower version", cases - 1, failures, status, 1, output, /not higher/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--release-exists", "no", "--dry-run" ])
+  cases, failures = expect("create", cases - 1, failures, status, 0, output, /"tag_name":"v0\.20\.0".*target_commitish/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--release-exists", "yes", "--dry-run" ])
+  cases, failures = expect("release exists", cases - 1, failures, status, 0, output, /nothing to release/)
+
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", [ "v0.19.0", "v0.20.0" ], [ "--release-exists", "no", "--dry-run" ])
+  cases, failures = expect("tag without a release", cases - 1, failures, status, 0, output, /"tag_name":"v0\.20\.0"/)
+  if output.include?("target_commitish")
+    failures += 1
+    warn "release_canary: tag without a release must not move the tag"
+  end
+
+  FileUtils.rm_rf(File.join(dir, "spec", "fixtures", "formats", "v0.20.0"))
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--release-exists", "no", "--dry-run" ])
+  cases, failures = expect("missing formats", cases - 1, failures, status, 1, output, /formats\/v0\.20\.0 is missing/)
+
+  FileUtils.mkdir_p(File.join(dir, "spec", "fixtures", "formats", "v0.20.0"))
+  File.write(File.join(dir, "config", "locales", "en.yml"), "en:\n  invoices: \"[th] Invoices\"\n")
+  cases += 1
+  status, output = run_case(script, dir, "0.20.0", tags, [ "--release-exists", "no", "--dry-run" ])
+  cases, failures = expect("locale placeholder", cases - 1, failures, status, 1, output, /locale placeholders/)
+end
+
+if failures.positive?
+  warn "release_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "release_canary: checked #{cases} cases; failures=0"
