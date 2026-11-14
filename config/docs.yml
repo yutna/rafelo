@@ -14,12 +14,9 @@ ai_instruction_files:
 # #21 for the staging decision.
 deferred_paths:
   bin/kernel_update: "v0.21.0 GEN-07"
-  .github/rulesets/main.json: "v0.20.0 #342"
-  .github/rulesets/release_tags.json: "v0.20.0 #342"
   script/ci/apply_check: "FE-06 guard, final hardening milestone"
   script/ci/eslint: "TS-05/FE-06 guards, final hardening milestone"
   script/ci/eslint/check_config.mjs: "TS-05/FE-06 guard, final hardening milestone"
   script/ci/eslint/rafelo.mjs: "TS-05 guard, final hardening milestone"
   script/ci/release: "v0.20.0 #343"
-  script/ci/repo_rules: "v0.20.0 #342"
   script/ci/touch_rate: "ARCH-12 scheduled metric; enabled at three product modules"

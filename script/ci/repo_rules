@@ -1,0 +1,153 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "open3"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+payload_file = nil
+ruleset_file = nil
+open_issue = false
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/repo_rules [--root DIR] [--payload FILE] [--ruleset FILE] [--open-issue]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--payload FILE") { |value| payload_file = value }
+  parser.on("--ruleset FILE") { |value| ruleset_file = value }
+  parser.on("--open-issue") { open_issue = true }
+end.parse!
+
+root = File.expand_path(root)
+abort "repo_rules: root does not exist: #{root}" unless Dir.exist?(root)
+ruleset_file ||= File.join(root, ".github", "rulesets", "main.json")
+abort "repo_rules: ruleset export is missing at #{ruleset_file}" unless File.file?(ruleset_file)
+
+expected = JSON.parse(File.read(ruleset_file))
+expected_rules = expected.fetch("rules")
+target = expected["target"] || "branch"
+
+def active_rules(root, payload_file, target)
+  if payload_file
+    path = File.expand_path(payload_file, root)
+    abort "repo_rules: payload is missing at #{path}" unless File.file?(path)
+    payload = JSON.parse(File.read(path))
+    return payload if payload.is_a?(Array)
+
+    return payload.fetch("rules", [])
+  end
+
+  repository = ENV["GITHUB_REPOSITORY"].to_s
+  abort "repo_rules: GITHUB_REPOSITORY is required without --payload" if repository.empty?
+
+  if target == "branch"
+    output, status = Open3.capture2("gh", "api", "repos/#{repository}/rules/branches/main")
+    return [] unless status.success?
+
+    return JSON.parse(output)
+  end
+
+  list, list_status = Open3.capture2("gh", "api", "repos/#{repository}/rulesets")
+  return [] unless list_status.success?
+
+  ruleset = JSON.parse(list).find { |entry| entry["target"] == "tag" && entry["enforcement"] == "active" }
+  return [] if ruleset.nil?
+
+  output, status = Open3.capture2("gh", "api", "repos/#{repository}/rulesets/#{ruleset["id"]}")
+  return [] unless status.success?
+
+  JSON.parse(output).fetch("rules", [])
+end
+
+def compare_rule(expected_rule, actual_rule)
+  findings = []
+  type = expected_rule["type"]
+  expected_parameters = expected_rule["parameters"] || {}
+  actual_parameters = actual_rule["parameters"] || {}
+  expected_parameters.each do |key, expected_value|
+    actual_value = actual_parameters[key]
+    if key == "required_status_checks"
+      expected_contexts = Array(expected_value).map { |entry| entry["context"] }.sort
+      actual_contexts = Array(actual_value).map { |entry| entry["context"] }.sort
+      findings << "#{type}: required checks #{expected_contexts.inspect} differ from #{actual_contexts.inspect}" if expected_contexts != actual_contexts
+    elsif expected_value.is_a?(Hash)
+      expected_value.each do |nested_key, nested_value|
+        actual_nested = actual_value.is_a?(Hash) ? actual_value[nested_key] : nil
+        findings << "#{type}: #{key}.#{nested_key} is #{actual_nested.inspect}, expected #{nested_value.inspect}" if actual_nested != nested_value
+      end
+    elsif actual_value != expected_value
+      findings << "#{type}: #{key} is #{actual_value.inspect}, expected #{expected_value.inspect}"
+    end
+  end
+  findings
+end
+
+def workflow_check_names(root)
+  names = []
+  Dir[File.join(root, ".github", "workflows", "*.{yml,yaml}")].each do |path|
+    jobs = YAML.load_file(path, aliases: true)["jobs"] || {}
+    jobs.each do |id, job|
+      names << id.to_s
+      name = job["name"] if job.is_a?(Hash)
+      names << name if name.is_a?(String) && !name.include?("${{")
+    end
+  end
+  names.uniq
+end
+
+def open_drift_issue(findings)
+  repository = ENV["GITHUB_REPOSITORY"].to_s
+  abort "repo_rules: GITHUB_REPOSITORY is required to open an issue" if repository.empty?
+
+  output, status = Open3.capture2("gh", "issue", "list", "--state", "open", "--search", "ruleset drift in:title", "--json", "number")
+  return if status.success? && !JSON.parse(output).empty?
+
+  body = ([ "The committed ruleset export and the active GitHub rules differ:" ] + findings.map { |finding| "- #{finding}" }).join("\n")
+  _output, create_status = Open3.capture2("gh", "issue", "create", "--title", "chore: ruleset drift", "--body", body)
+  warn "repo_rules: could not open the drift issue" unless create_status.success?
+end
+
+begin
+  active = active_rules(root, payload_file, target)
+  findings = []
+  if active.empty?
+    findings << "the active ruleset has no rules"
+  elsif expected_rules.empty?
+    findings << "the ruleset export has no rules"
+  else
+    expected_rules.each do |expected_rule|
+      actual = active.find { |rule| rule["type"] == expected_rule["type"] }
+      if actual.nil?
+        findings << "the active ruleset is missing #{expected_rule["type"]}"
+      else
+        findings.concat(compare_rule(expected_rule, actual))
+      end
+    end
+    extras = active.map { |rule| rule["type"] } - expected_rules.map { |rule| rule["type"] }
+    extras.each { |type| findings << "the active ruleset has an extra rule: #{type}" }
+  end
+
+  required = expected_rules.filter_map do |rule|
+    next unless rule["type"] == "required_status_checks"
+
+    Array(rule.dig("parameters", "required_status_checks")).map { |entry| entry["context"] }
+  end.flatten
+  unless required.empty?
+    checks = workflow_check_names(root)
+    required.each do |context|
+      findings << "required check #{context} matches no workflow job" unless checks.include?(context)
+    end
+  end
+
+  if findings.any?
+    findings.each { |finding| warn "repo_rules: #{finding}" }
+    open_drift_issue(findings) if open_issue
+    warn "repo_rules: checked #{expected_rules.length} rule(s) and #{required.length} required check(s); findings=#{findings.length}"
+    exit 1
+  end
+
+  puts "repo_rules: checked #{expected_rules.length} rule(s) and #{required.length} required check(s); findings=0"
+rescue JSON::ParserError => error
+  abort "repo_rules: invalid JSON: #{error.message}"
+end

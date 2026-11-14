@@ -1,0 +1,122 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "repo_rules")
+failures = 0
+cases = 0
+
+def run_case(script, dir, payload)
+  output, status = Open3.capture2e(script, "--root", dir, "--payload", payload)
+  [ status.exitstatus, output ]
+end
+
+Dir.mktmpdir("rafelo-repo-rules-canary-") do |dir|
+  FileUtils.mkdir_p(File.join(dir, ".github", "rulesets"))
+  FileUtils.mkdir_p(File.join(dir, ".github", "workflows"))
+
+  ruleset = {
+    "name" => "main",
+    "target" => "branch",
+    "rules" => [
+      { "type" => "deletion" },
+      { "type" => "non_fast_forward" },
+      {
+        "type" => "required_status_checks",
+        "parameters" => {
+          "strict_required_status_checks_policy" => true,
+          "required_status_checks" => [
+            { "context" => "ci-ok" },
+            { "context" => "title" },
+            { "context" => "ratchet" },
+            { "context" => "guard_approval" }
+          ]
+        }
+      },
+      {
+        "type" => "pull_request",
+        "parameters" => {
+          "required_approving_review_count" => 0,
+          "required_review_thread_resolution" => true
+        }
+      }
+    ]
+  }
+  File.write(File.join(dir, ".github", "rulesets", "main.json"), JSON.generate(ruleset))
+  File.write(File.join(dir, ".github", "workflows", "ci.yml"), <<~YAML)
+    jobs:
+      ci-ok:
+        runs-on: ubuntu-latest
+      title:
+        runs-on: ubuntu-latest
+      ratchet:
+        runs-on: ubuntu-latest
+      guard_approval:
+        runs-on: ubuntu-latest
+  YAML
+
+  matching = ruleset["rules"]
+  payload = lambda do |name, value|
+    path = File.join(dir, "#{name}.json")
+    File.write(path, JSON.generate(value))
+    path
+  end
+
+  missing = matching.reject { |rule| rule["type"] == "pull_request" }
+  changed = matching.map do |rule|
+    next rule unless rule["type"] == "required_status_checks"
+
+    copy = JSON.parse(JSON.generate(rule))
+    copy["parameters"]["required_status_checks"] = [ { "context" => "ci-ok" } ]
+    copy
+  end
+  extra = matching + [ { "type" => "creation" } ]
+  parameter_drift = matching.map do |rule|
+    next rule unless rule["type"] == "pull_request"
+
+    copy = JSON.parse(JSON.generate(rule))
+    copy["parameters"]["required_approving_review_count"] = 2
+    copy
+  end
+
+  [
+    [ "matching payload", payload.call("matching", matching), 0 ],
+    [ "missing rule", payload.call("missing", missing), 1 ],
+    [ "changed required checks", payload.call("changed", changed), 1 ],
+    [ "extra rule", payload.call("extra", extra), 1 ],
+    [ "parameter drift", payload.call("parameter", parameter_drift), 1 ],
+    [ "empty payload", payload.call("empty", []), 1 ]
+  ].each do |name, file, expected|
+    cases += 1
+    status, output = run_case(script, dir, file)
+    next if status == expected
+
+    failures += 1
+    warn "repo_rules_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  end
+
+  # A required check name that matches no workflow job fails even when the
+  # active and committed rules agree.
+  unknown = JSON.parse(JSON.generate(ruleset))
+  unknown["rules"].find { |rule| rule["type"] == "required_status_checks" }["parameters"]["required_status_checks"] << { "context" => "missing" }
+  File.write(File.join(dir, ".github", "rulesets", "main.json"), JSON.generate(unknown))
+  cases += 1
+  status, output = run_case(script, dir, payload.call("unknown", unknown["rules"]))
+  if status != 1 || !output.include?("required check missing matches no workflow job")
+    failures += 1
+    warn "repo_rules_canary: unknown required check: exited #{status}: #{output}"
+  end
+  File.write(File.join(dir, ".github", "rulesets", "main.json"), JSON.generate(ruleset))
+end
+
+if failures.positive?
+  warn "repo_rules_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "repo_rules_canary: checked #{cases} cases; failures=0"
