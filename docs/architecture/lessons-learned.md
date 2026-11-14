@@ -481,7 +481,10 @@ only when `VERSION` changed, with a GitHub CI step and the tags fetched; the
 scheduled `repo_rules` compares both exports; `docs:check` and `docs:canary`
 run in the CI test job; the release order is documented as merge → release
 workflow → confirm → close milestone; the canaries cover engine ratchets,
-canary fixtures, tag rulesets, and both release paths.
+canary fixtures, tag rulesets, and both release paths. The gate also found
+that WF-04 had no review-gate issue template despite the milestone naming it;
+`.github/ISSUE_TEMPLATE/review_gate.yml` now carries the severity table, the
+two-round limit, the evidence requirement, and the person's sign-off.
 
 **Single-owner fallback.** This repository has one CODEOWNERS owner, so an
 owner-authored PR cannot receive an independent approval. `guard_approval`
