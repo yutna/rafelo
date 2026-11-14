@@ -25,11 +25,22 @@ sessions="$(
     bin/rails runner 'puts Rafelo::Core::Session.count'
 )"
 
+role="$(
+  DATABASE_URL="$RESTORE_DATABASE_URL" \
+  RAILS_ENV="$rails_env" \
+    bin/rails runner 'puts ActiveRecord::Base.connection.select_value("select current_user")'
+)"
+
+if [ -n "${RESTORE_EXPECTED_ROLE:-}" ] && [ "$role" != "$RESTORE_EXPECTED_ROLE" ]; then
+  echo "restore_drill: expected role $RESTORE_EXPECTED_ROLE, connected as $role" >&2
+  exit 1
+fi
+
 if [ "$sessions" != "0" ]; then
   echo "restore_drill: core_sessions still holds $sessions rows" >&2
   exit 1
 fi
 
 elapsed="$(( $(date +%s) - started ))"
-printf 'restore_drill: recovery_point=%s recovery_time_seconds=%s sessions=%s\n' \
-  "$RESTORE_RECOVERY_POINT" "$elapsed" "$sessions"
+printf 'restore_drill: recovery_point=%s recovery_time_seconds=%s sessions=%s role=%s\n' \
+  "$RESTORE_RECOVERY_POINT" "$elapsed" "$sessions" "$role"

@@ -53,6 +53,30 @@ RSpec.describe "Deployment profiles" do
       .to match(/image:\s+postgres:18\.6@sha256:[0-9a-f]{64}/)
   end
 
+  it "backups use the pinned PostgreSQL 18 data directory" do
+    runbook = File.read(Rails.root.join("docs/operations/backup-restore.md"))
+
+    expect(runbook).to include("pg1-path=/var/lib/postgresql/18/docker")
+    expect(single.dig("accessories", "db", "volumes").join(" ")).to include("/var/lib/postgresql")
+  end
+
+  it "commits the encrypted production credentials contract" do
+    path = Rails.root.join("config/credentials/production.yml.enc")
+
+    expect(path).to be_file
+    expect(path.size).to be_positive
+    expect(path.binread).not_to include("secret_key_base")
+  end
+
+  it "rebuilds the Dev Container image when a pinned input changes" do
+    workflow = File.read(Rails.root.join(".github/workflows/devcontainer.yml"))
+
+    %w[mise.toml package.json package-lock.json].each do |path|
+      expect(workflow).to include(%(- "#{path}"))
+    end
+    expect(workflow).to include(%(- "!.devcontainer/image_digest"))
+  end
+
   it "describes a multi-host profile on the same image and code with managed services" do
     expect(multi.fetch("service")).to eq(single.fetch("service"))
     expect(multi.fetch("image")).to eq(single.fetch("image"))

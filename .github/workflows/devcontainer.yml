@@ -5,6 +5,9 @@ on:
     paths:
       - ".devcontainer/**"
       - "!.devcontainer/image_digest"
+      - "mise.toml"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:

@@ -17,13 +17,23 @@ adopter decision.
 
 ## Create the roles
 
-Run once per database, as a superuser, with the passwords supplied through
-psql variables:
+Run once per database, as a superuser (the single-host accessory's
+`postgres` role, or the managed provider's admin), with the passwords supplied
+through psql variables:
 
 ```sh
-psql -v runtime_password='...' -v migration_password='...' \
+psql -v ON_ERROR_STOP=1 \
+  -v runtime_password='...' -v migration_password='...' \
   -f script/ops/database_roles.sql
 ```
+
+The script is re-runnable. Run it before the first `db:prepare` on a fresh
+database, and before the first v0.19.0 deploy on an existing one. It creates
+the roles when they are missing, gives the migration role ownership of the
+tables and sequences that already exist (a pre-v0.19.0 database was created by
+the deploy superuser), grants the runtime role its DML, and applies the
+audit-only `INSERT`/`SELECT` grants to `core_audits` as well as
+`core_audit_events`.
 
 Then put the same passwords in the `database.password` and
 `database.migration_password` credentials (BE-08) and set `DB_USER`,
@@ -44,3 +54,7 @@ SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'UPDATE');   -
 SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'DELETE');   -- false
 SELECT has_table_privilege('rafelo_runtime', 'core_audit_events', 'TRUNCATE'); -- false
 ```
+
+During the expand release the v0.18.0 containers still write to
+`core_audits`; the same four statements must hold for that table until the
+contract release drops it.

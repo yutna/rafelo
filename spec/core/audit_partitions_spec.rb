@@ -7,6 +7,7 @@ RSpec.describe Rafelo::Core::AuditPartitions do
   it "creates the current and next month plus the DEFAULT partition" do
     partitions.ensure!
 
+    expect(Rails.application.config.time_zone).to eq("UTC")
     now = Time.current.beginning_of_month
     expect(partitions.partitions.keys).to include(
       "core_audit_events_#{now.strftime("%Y_%m")}",
@@ -30,6 +31,28 @@ RSpec.describe Rafelo::Core::AuditPartitions do
     )
 
     expect(partitions.alert_default!).to be(true)
+  end
+
+  it "restricts a runtime role on the parent, DEFAULT, and monthly partitions" do
+    connection = ActiveRecord::Base.connection
+    role = "rafelo_runtime_spec"
+    connection.execute("DROP ROLE IF EXISTS #{role}")
+    connection.execute("CREATE ROLE #{role} NOSUPERUSER")
+
+    partitions.ensure!(restrict_role: role)
+
+    [ "core_audit_events", "core_audit_events_default", *partitions.partitions.keys ].each do |table|
+      expect(connection.select_value("SELECT has_table_privilege('#{role}', '#{table}', 'INSERT')")).to be(true)
+      expect(connection.select_value("SELECT has_table_privilege('#{role}', '#{table}', 'SELECT')")).to be(true)
+      expect(connection.select_value("SELECT has_table_privilege('#{role}', '#{table}', 'UPDATE')")).to be(false)
+      expect(connection.select_value("SELECT has_table_privilege('#{role}', '#{table}', 'DELETE')")).to be(false)
+      expect(connection.select_value("SELECT has_table_privilege('#{role}', '#{table}', 'TRUNCATE')")).to be(false)
+    end
+  ensure
+    if connection
+      connection.execute("DROP OWNED BY #{role}") rescue nil
+      connection.execute("DROP ROLE IF EXISTS #{role}") rescue nil
+    end
   end
 
   it "runs the hourly maintenance job" do

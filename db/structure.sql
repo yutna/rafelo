@@ -43,6 +43,19 @@ END;
 $$;
 
 
+--
+-- Name: rafelo_core_audits_append_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rafelo_core_audits_append_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'core_audits is append-only';
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -201,6 +214,45 @@ CREATE SEQUENCE public.core_audit_events_id_seq
 --
 
 ALTER SEQUENCE public.core_audit_events_id_seq OWNED BY public.core_audit_events.id;
+
+
+--
+-- Name: core_audits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.core_audits (
+    id bigint NOT NULL,
+    occurred_at timestamp(6) without time zone NOT NULL,
+    event character varying NOT NULL,
+    outcome character varying NOT NULL,
+    target character varying,
+    viewer_id character varying,
+    request_id character varying,
+    trace_id character varying,
+    ip character varying,
+    user_agent_family character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    format_version integer DEFAULT 1 NOT NULL
+);
+
+
+--
+-- Name: core_audits_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.core_audits_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: core_audits_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.core_audits_id_seq OWNED BY public.core_audits.id;
 
 
 --
@@ -870,6 +922,13 @@ ALTER TABLE ONLY public.core_audit_events ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- Name: core_audits id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_audits ALTER COLUMN id SET DEFAULT nextval('public.core_audits_id_seq'::regclass);
+
+
+--
 -- Name: core_exports id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1025,6 +1084,14 @@ ALTER TABLE ONLY public.active_storage_variant_records
 
 ALTER TABLE ONLY public.ar_internal_metadata
     ADD CONSTRAINT ar_internal_metadata_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: core_audits core_audits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.core_audits
+    ADD CONSTRAINT core_audits_pkey PRIMARY KEY (id);
 
 
 --
@@ -1226,6 +1293,20 @@ CREATE INDEX index_core_audit_events_on_id ON ONLY public.core_audit_events USIN
 --
 
 CREATE INDEX index_core_audit_events_on_viewer_id ON ONLY public.core_audit_events USING btree (viewer_id);
+
+
+--
+-- Name: index_core_audits_on_event_and_occurred_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_core_audits_on_event_and_occurred_at ON public.core_audits USING btree (event, occurred_at);
+
+
+--
+-- Name: index_core_audits_on_viewer_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_core_audits_on_viewer_id ON public.core_audits USING btree (viewer_id);
 
 
 --
@@ -1544,6 +1625,13 @@ CREATE TRIGGER rafelo_core_audit_events_no_update BEFORE DELETE OR UPDATE ON pub
 
 
 --
+-- Name: core_audits rafelo_core_audits_no_update; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER rafelo_core_audits_no_update BEFORE DELETE OR UPDATE ON public.core_audits FOR EACH ROW EXECUTE FUNCTION public.rafelo_core_audits_append_only();
+
+
+--
 -- Name: solid_queue_recurring_executions fk_rails_318a5533ed; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1626,10 +1714,6 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 --
 -- PostgreSQL database dump complete
 --
-
-
-
-SET search_path TO public;
 
 SET search_path TO public;
 

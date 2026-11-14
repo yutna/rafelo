@@ -11,6 +11,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
     expect(described_class.family("")).to eq("other")
     expect(described_class.family("x" * 600)).to eq("other")
     expect(described_class.family("Mozilla/5.0 Chrome/140.0")).to eq("chrome")
+    expect(described_class.family("curl/8.0")).to eq("other")
   end
 
   it "writes one row per request even when called twice" do
@@ -81,5 +82,21 @@ RSpec.describe Rafelo::Core::AuditRecorder do
 
     expect { event.update!(outcome: "failure") }.to raise_error(ActiveRecord::StatementInvalid, /append-only/)
     expect { event.destroy }.to raise_error(ActiveRecord::StatementInvalid, /append-only/)
+  end
+
+  it "rejects updates and deletes on the DEFAULT and a future partition" do
+    events = [
+      Rafelo::Core::AuditEvent.create!(
+        occurred_at: 2.years.from_now, event: "write", outcome: "success", created_at: Time.current
+      ),
+      Rafelo::Core::AuditEvent.create!(
+        occurred_at: 1.month.from_now, event: "write", outcome: "success", created_at: Time.current
+      )
+    ]
+
+    events.each do |event|
+      expect { event.update!(outcome: "failure") }.to raise_error(ActiveRecord::StatementInvalid, /append-only/)
+      expect { event.destroy }.to raise_error(ActiveRecord::StatementInvalid, /append-only/)
+    end
   end
 end

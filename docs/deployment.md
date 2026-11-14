@@ -61,17 +61,19 @@ edit the production credentials with the production key:
 RAILS_MASTER_KEY=<the key> bin/rails credentials:edit --environment production
 ```
 
-Put the key in `.kamal/secrets` through a password manager or the deploy
-environment; never commit it. The single-host PostgreSQL accessory also reads
-`POSTGRES_PASSWORD` from `.kamal/secrets`.
+The committed file holds placeholder values so the template never ships a
+real secret (SEC-07); re-encrypt it with the deployment's real secrets before
+the first deploy. Put the key in `.kamal/secrets` through a password manager
+or the deploy environment; never commit it. The single-host PostgreSQL
+accessory also reads `POSTGRES_PASSWORD` from `.kamal/secrets`.
 
 Create the runtime and migration database roles before the first deploy (the
-accessory creates only the runtime `rafelo` role), and put their passwords in
-the `database` credentials above. See
-[operations/database-roles.md](operations/database-roles.md) for the grants.
-The entrypoint runs `db:prepare` as the migration role while the old release
-still serves (BE-22); the web server and the job role then connect as the
-runtime role.
+accessory starts as the `postgres` superuser and creates no application role),
+and put their passwords in the `database` credentials above. See
+[operations/database-roles.md](operations/database-roles.md) for the grants
+and the `psql` command. The entrypoint runs `db:prepare` as the migration role
+while the old release still serves (BE-22); the web server and the job role
+then connect as the runtime role.
 
 ## Single host
 

@@ -95,8 +95,10 @@ unless File.file?(hook) && File.executable?(hook)
 end
 
 audit_workflow = ".github/workflows/audits.yml"
-abort "deploy_preflight: daily advisory workflow is missing" unless File.file?(audit_workflow)
-abort "deploy_preflight: daily advisory workflow is not scheduled" unless File.read(audit_workflow).match?(/^\s*schedule:/)
+fail_with(errors, "the daily advisory workflow is missing") unless File.file?(audit_workflow)
+if File.file?(audit_workflow) && !File.read(audit_workflow).match?(/^\s*schedule:/)
+  fail_with(errors, "the daily advisory workflow is not scheduled")
+end
 
 env_file = ".env.ci.production"
 unless File.file?(env_file)
@@ -240,7 +242,7 @@ if production_key_available
       dummy = ActiveSupport::EncryptedConfiguration.new(
         config_path: "config/credentials/dummy.yml.enc",
         key_path: "config/credentials/dummy.key",
-        env_key: "RAILS_MASTER_KEY",
+        env_key: "RAFELO_DUMMY_CREDENTIALS_KEY",
         raise_if_missing_key: true
       )
       production_paths = flatten_paths(production.config)

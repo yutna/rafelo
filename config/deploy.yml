@@ -50,7 +50,7 @@ env:
 
     DB_HOST: rafelo-db
     DB_NAME: rafelo_production
-    DB_USER: rafelo
+    DB_USER: rafelo_runtime
     DB_MIGRATION_USER: rafelo_migrator
 
     RAFELO_API_BASE_URL: https://api.example.com
@@ -93,7 +93,7 @@ accessories:
     env:
       clear:
         POSTGRES_DB: rafelo_production
-        POSTGRES_USER: rafelo
+        POSTGRES_USER: postgres
       secret:
         - POSTGRES_PASSWORD
     volumes:

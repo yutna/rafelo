@@ -46,7 +46,7 @@ env:
     # Managed PostgreSQL, shared by every web and job host.
     DB_HOST: db.example.com
     DB_NAME: rafelo_production
-    DB_USER: rafelo
+    DB_USER: rafelo_runtime
     DB_MIGRATION_USER: rafelo_migrator
 
     RAFELO_API_BASE_URL: https://api.example.com
