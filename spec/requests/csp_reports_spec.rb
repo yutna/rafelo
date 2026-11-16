@@ -88,7 +88,7 @@ RSpec.describe "CSP reports", type: :request do
   end
 
   it "throttles reports per IP" do
-    limits = Core::CspReportsController.throttle_limits.fetch(:create)
+    limits = Rafelo::Core::CspReportsController.throttle_limits.fetch(:create)
     expect(limits).to include(hash_including(name: "csp_reports/ip", to: 60))
   end
 end

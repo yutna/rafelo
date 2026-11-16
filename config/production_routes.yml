@@ -22,7 +22,7 @@ routes:
   kind: dispatch
 - verb: POST
   path: "/core/csp_reports"
-  to: core/csp_reports#create
+  to: rafelo/core/csp_reports#create
   kind: dispatch
 - verb: GET
   path: "/core/ready"
