@@ -2,7 +2,7 @@
 
 Rails code in Rafelo is small and explicit. Controllers handle HTTP,
 policies decide access, gateways talk to named upstreams, and props objects
-shape what React receives. The core engine (`Acme::Core`) provides the shared
+shape what React receives. The core engine (`Rafelo::Core`) provides the shared
 pieces; product modules and domain engines use them (ARCH-04).
 
 ## Rules
@@ -19,11 +19,11 @@ Every page action follows the same four steps and nothing else:
 ```ruby
 # engines/billing/app/controllers/acme/billing/invoices_controller.rb
 module Acme::Billing
-  class InvoicesController < ApplicationController # < Acme::Core::BaseController
+  class InvoicesController < ApplicationController # < Rafelo::Core::BaseController
     def index
       authorize :invoice, :index?, policy_class: InvoicePolicy
 
-      query  = Acme::Core::ListQuery.from(params, sort: %w[issued_on total], filters: %w[status])
+      query  = Rafelo::Core::ListQuery.from(params, sort: %w[issued_on total], filters: %w[status])
       result = gateway(InvoicesGateway).list(query)
 
       render inertia: "billing/invoices/index",
@@ -36,9 +36,9 @@ end
 No business workflow, no response shaping, and no upstream HTTP in the
 controller. The core base controller provides two helpers:
 
-- `page_context`, built by the core factory `Acme::Core::PageContextFactory`
+- `page_context`, built by the core factory `Rafelo::Core::PageContextFactory`
   from the session, the evaluated feature flags (BE-25), the locale, the
-  request id, and an `Acme::Core::Urls` object that the base controller builds
+  request id, and an `Rafelo::Core::Urls` object that the base controller builds
   for the request's locale (BE-04). The factory is the only way to obtain a
   `PageContext` (BE-04). A cop forbids `PageContext.new` (and
   `PageContext[...]`) outside core, so adding a member breaks exactly one
@@ -49,12 +49,12 @@ controller. The core base controller provides two helpers:
   session's viewer provider for `token :viewer`, the default, or the
   upstream's service provider for `token :service`, SEC-10), the request's
   call budget (BE-16), and the request id and trace id (BE-05). The gateway
-  hands them to `Acme::Core::UpstreamClient.for(...)` for the upstream it
+  hands them to `Rafelo::Core::UpstreamClient.for(...)` for the upstream it
   declares (BE-06).
 
 ```ruby
-# engines/core/lib/acme/core/page_context_factory.rb
-module Acme::Core
+# engines/core/lib/rafelo/core/page_context_factory.rb
+module Rafelo::Core
   # The only code that builds a PageContext (BE-01).
   class PageContextFactory
     def self.build(session:, flags:, locale:, request_id:, urls:)
@@ -64,7 +64,7 @@ module Acme::Core
         flags: flags,
         locale: locale,
         request_id: request_id,
-        urls: urls, # Acme::Core::Urls for the request's locale (BE-04)
+        urls: urls, # Rafelo::Core::Urls for the request's locale (BE-04)
       )
     end
   end
@@ -175,7 +175,7 @@ INVOICE_CLERK: ["billing:invoice:read", "billing:invoice:create"]
 ```
 
 **One matcher.** The matching lives in one value object,
-`Acme::Core::PermissionSet`. Nothing else parses permission strings. Besides
+`Rafelo::Core::PermissionSet`. Nothing else parses permission strings. Besides
 `allows?(key)`, it answers `reads_any?(prefixes)`: true when any grant allows a
 `read` action somewhere under one of the prefixes (`*`, `billing:*`,
 `billing:<resource>:*`, or `billing:<resource>:read`). Navigation keeps a
@@ -186,7 +186,7 @@ attribute-based rules stay in the upstream.
 ```ruby
 # engines/billing/app/policies/acme/billing/invoice_policy.rb
 module Acme::Billing
-  class InvoicePolicy < Acme::Core::BasePolicy
+  class InvoicePolicy < Rafelo::Core::BasePolicy
     def index?  = permissions.allows?(Permissions::INVOICE_READ)
     def create? = permissions.allows?(Permissions::INVOICE_CREATE)
     def export? = permissions.allows?(Permissions::INVOICE_EXPORT)
@@ -201,8 +201,8 @@ returns a hash from `to_inertia`. It does not read `Current`, the session,
 `params`, flags, or the environment.
 
 ```ruby
-# engines/core/lib/acme/core/page_context.rb
-module Acme::Core
+# engines/core/lib/rafelo/core/page_context.rb
+module Rafelo::Core
   # Built only by PageContextFactory (BE-01).
   PageContext = Data.define(:viewer, :permissions, :flags, :locale, :request_id, :urls)
 end
@@ -211,7 +211,7 @@ end
 ```ruby
 # engines/billing/app/props/acme/billing/invoice_index_props.rb
 module Acme::Billing
-  class InvoiceIndexProps < Acme::Core::PageProps
+  class InvoiceIndexProps < Rafelo::Core::PageProps
     def initialize(context:, result:)
       super(context: context) # the base keeps it as #context for helpers such as #capabilities
       @result = result
@@ -235,7 +235,7 @@ module Acme::Billing
 
     def row(invoice)
       { id: invoice.id.to_s, number: invoice.number, status: invoice.status, # ids go out as strings (CT-02)
-        total: Acme::Core::Money.wire(invoice.total_minor, invoice.currency), # { minor:, currency:, exponent: } (CT-02)
+        total: Rafelo::Core::Money.wire(invoice.total_minor, invoice.currency), # { minor:, currency:, exponent: } (CT-02)
         issued_on: invoice.issued_on.iso8601,
         href: context.urls.route(:billing, :invoice, id: invoice.id) }
     end
@@ -249,7 +249,7 @@ has any other top-level key, so a page cannot shadow a shared prop (`auth`,
 `errors`, `trace`, …) or smuggle in a key that only the page schema would
 catch. A core props spec returns an extra key and expects the raise.
 
-`Acme::Core::PageProps#capabilities` builds the `can` map (CT-01) from the
+`Rafelo::Core::PageProps#capabilities` builds the `can` map (CT-01) from the
 context's permission set and flags (BE-25). Each key is the permission key
 without its prefix (`invoice.export`), matching the capability keys the page
 schema declares (CT-01); the boundary transform camelCases any snake_case part
@@ -264,7 +264,7 @@ and prefix wildcards, the guarding flag off, BE-25) and fails when
 `can[key].allowed` and the method's answer differ. The generator templates
 (GEN-02) write that spec for every generated page.
 
-Every URL a page needs comes from `context.urls`, an `Acme::Core::Urls` object
+Every URL a page needs comes from `context.urls`, an `Rafelo::Core::Urls` object
 that the core base controller builds for the request's locale.
 `route(engine_key, route_name, **params)` takes the module's registry key
 (ARCH-06), a route name, and the route's parameters, and returns the
@@ -281,8 +281,8 @@ route proxies when adopting.
 
 The BFF may call more than one upstream. Each has a name and an entry in
 `config/upstreams.yml` (BE-08); the template ships one, `api`.
-`Acme::Core::UpstreamClient` is the only object that performs HTTP to any
-upstream. `Acme::Core::UpstreamClient.for(:api)` returns the client for one
+`Rafelo::Core::UpstreamClient` is the only object that performs HTTP to any
+upstream. `Rafelo::Core::UpstreamClient.for(:api)` returns the client for one
 named upstream; the gateway passes in the token provider, the request's
 budget, and the request id and trace id that the base controller gave it
 (BE-01). For each upstream, the client owns:
@@ -382,7 +382,7 @@ objects, and returns them. Raw JSON never leaves the gateway.
 ```ruby
 # engines/billing/app/gateways/acme/billing/invoices_gateway.rb (excerpt)
 module Acme::Billing
-  class InvoicesGateway < Acme::Core::Gateway
+  class InvoicesGateway < Rafelo::Core::Gateway
     upstream :api # a name from config/upstreams.yml; an unknown name raises when the class loads
     token :viewer # the default; token :service only for a gateway on SEC-10's allow-list
 
@@ -400,7 +400,7 @@ end
 
 ### BE-07 — Lists are paginated by the upstream (MUST · ADR-06)
 
-`Acme::Core::ListQuery` turns request params into a safe query: page at least
+`Rafelo::Core::ListQuery` turns request params into a safe query: page at least
 1 or an opaque cursor, `per_page` 25 by default (zero or negative becomes the
 default; above 100 is clamped to 100), sort and filter keys limited to an
 allow-list, and a sort direction of `asc` or `desc` (anything else gives the
@@ -451,10 +451,10 @@ production:
 ```
 
 ```ruby
-# engines/core/lib/acme/core/engine.rb (excerpt)
-initializer "acme_core.upstreams" do |app|
+# engines/core/lib/rafelo/core/engine.rb (excerpt)
+initializer "rafelo_core.upstreams" do |app|
   # One frozen Data object per upstream; a missing or unknown key raises at boot.
-  app.config.x.upstreams = Acme::Core::UpstreamConfig.load_all(app.config_for(:upstreams))
+  app.config.x.upstreams = Rafelo::Core::UpstreamConfig.load_all(app.config_for(:upstreams))
 end
 ```
 
@@ -521,9 +521,9 @@ end
 
 ### BE-09 — `Current` stays at the edge (MUST · ADR-05)
 
-`Acme::Core::Current` holds the request id, trace id, session, and viewer. Only
+`Rafelo::Core::Current` holds the request id, trace id, session, and viewer. Only
 controllers, middleware, the request log payload
-(`Acme::Core::LogPayload`, OPS-01), the `Rails.error` subscriber (OPS-03), and
+(`Rafelo::Core::LogPayload`, OPS-01), the `Rails.error` subscriber (OPS-03), and
 core's job base class when a job is enqueued (BE-11) read it; the last three
 run at the end of a request or outside the controller and still need the
 request's ids. Everything deeper receives what it needs as arguments (BE-04,
@@ -576,7 +576,7 @@ and publishes external side effects only after its transaction commits
 may run on the next (SEC-16).
 
 - **Request and trace ids.** Every job inherits core's job base class,
-  `Acme::Core::BaseJob` (the viewer job base class of BE-19 included). When
+  `Rafelo::Core::BaseJob` (the viewer job base class of BE-19 included). When
   a job is enqueued, the base class records the request id and trace id from
   `Current` (BE-09) and carries them in `serialize` and `deserialize`, never
   as positional arguments, so the job's own arguments stay as declared. The
@@ -604,8 +604,8 @@ end
 ```
 
 ```ruby
-# engines/core/app/controllers/concerns/acme/core/throttling.rb
-module Acme::Core::Throttling
+# engines/core/app/controllers/concerns/rafelo/core/throttling.rb
+module Rafelo::Core::Throttling
   extend ActiveSupport::Concern
 
   included do
@@ -683,7 +683,7 @@ normal page. Only unexpected failures (timeouts, upstream 5xx, an open circuit,
 1. Authorize through the policy.
 2. Build a form object from strong parameters (already snake_case, BE-14). It
    checks shape only (presence, format, length); business rules stay upstream.
-3. Inside the idempotency claim (`Acme::Core::IdempotencyClaim`, BE-15), call
+3. Inside the idempotency claim (`Rafelo::Core::IdempotencyClaim`, BE-15), call
    the gateway with the form's payload and the idempotency key the claim
    yields.
 4. On success, redirect to the resulting page with a flash message translated
@@ -723,11 +723,11 @@ def create
   # BE-15: the claim checks and claims form.token and records the outcome (the redirect the block answers,
   # or a raise, which it re-raises); a replayed or refused token gets a 303 from the claim, never the block.
   # It derives the Idempotency-Key value (the HMAC) and yields it; UpstreamClient sets the header (BE-05).
-  Acme::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: new_invoice_path) do |idempotency_key|
+  Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: new_invoice_path) do |idempotency_key|
     invoice = gateway(InvoicesGateway).create(form.payload, idempotency_key:)
     redirect_to invoice_path(invoice.id), status: :see_other, notice: t(".created", number: invoice.number)
   end
-rescue Acme::Core::Errors::ValidationFailed => error
+rescue Rafelo::Core::Errors::ValidationFailed => error
   redirect_to new_invoice_path, inertia: { errors: form.translate(error.field_codes) }, status: :see_other
 end
 ```
@@ -781,7 +781,7 @@ converts keys inside nested hashes and inside arrays of hashes
 
 - **Duplicate submits.** The form page includes a one-time form token in
   `meta` (CT-03). Before calling the upstream, the write claims the token
-  through `Acme::Core::IdempotencyClaim` (BE-13), which inserts a row into the
+  through `Rafelo::Core::IdempotencyClaim` (BE-13), which inserts a row into the
   BFF-owned `core_idempotency_keys` table (unique on
   the token, bound to the viewer id, with a status and an expiry). A cache
   cannot do this job: two concurrent submits would both miss it, and entries
@@ -893,7 +893,7 @@ converts keys inside nested hashes and inside arrays of hashes
     that the call ends at the deadline with `upstream.timeout`, and a spec
     with a slow connect asserts that `open_timeout` was capped.
 - Independent calls may run concurrently, but only through core's bounded
-  executor, `Acme::Core::Executor`: a fixed thread pool per process, sized by
+  executor, `Rafelo::Core::Executor`: a fixed thread pool per process, sized by
   `executor.size` in typed configuration and counted in the database pool
   (BE-21). Outside specs, `Concurrent::` appears only inside it (cop). A
   busy pool makes work wait within the request deadline; it never grows.
@@ -936,7 +936,7 @@ converts keys inside nested hashes and inside arrays of hashes
   only from a `ScopedCache` entry that holds the body, because a `304` carries
   none (BE-05); without an entry, no validator is sent. Every cache names its
   invalidation path in a comment. Tokens and errors are never cached.
-- All caching goes through `Acme::Core::ScopedCache`. It requires a scope
+- All caching goes through `Rafelo::Core::ScopedCache`. It requires a scope
   (`:public` or `:viewer`) and a `module:`, validated against the calling
   engine, so one module cannot read or overwrite another's entries (ARCH-10).
   Outside specs, nothing else calls `Rails.cache` (the cache-clearing hook
@@ -985,7 +985,7 @@ converts keys inside nested hashes and inside arrays of hashes
   in the pool (BE-21). Database work inside the stream block is limited to
   the final audit insert.
 - A large or slow export runs as a job (BE-19), built on core's
-  `Acme::Core::Export` base class. The job writes the file to Active Storage,
+  `Rafelo::Core::Export` base class. The job writes the file to Active Storage,
   attached to a BFF-owned record in `core_exports` bound to the requesting
   viewer. Nothing outlives the job on the host's disk (ARCH-13).
 - Downloading a finished export is an authorized action that checks the
@@ -996,7 +996,7 @@ converts keys inside nested hashes and inside arrays of hashes
   files in batches (OPS-07).
 - Download links are plain links (not Inertia visits); the design system
   provides a `DownloadLink`. Exports are throttled (BE-12).
-  `Acme::Core::Export` formats every date through `Acme::Core::DateFormatter`,
+  `Rafelo::Core::Export` formats every date through `Rafelo::Core::DateFormatter`,
   and its spec feeds it a `Date` and asserts a Buddhist Era year in `th`
   (FE-20).
 
@@ -1244,8 +1244,8 @@ Skipping a core callback is allowed only for the actions BE-02 lists, and
 skipping forgery protection only for `/core/csp_reports` (BE-02).
 
 ```ruby
-# engines/core/app/controllers/acme/core/base_controller.rb (excerpt)
-module Acme::Core
+# engines/core/app/controllers/rafelo/core/base_controller.rb (excerpt)
+module Rafelo::Core
   class BaseController < ActionController::Base
     include Pundit::Authorization
     include Throttling

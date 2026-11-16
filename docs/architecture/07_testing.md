@@ -78,7 +78,7 @@ Each Inertia page has a request spec that asserts:
   maximum page size;
 - every URL in the props was built by Rails
   (`expect(inertia_props).to have_resolvable_hrefs`, a core matcher).
-  `Acme::Core::Urls` records every path it builds for the request
+  `Rafelo::Core::Urls` records every path it builds for the request
   (`urls.built`, cleared per request), and the matcher asserts that the path
   part, without the query string, of every app-relative `href`, `*Href`, and
   `nav[].path` is in that set. A route helper raises on an unknown route
@@ -155,7 +155,7 @@ and a raise needs a person to approve it.
 ```ruby
 # engines/billing/spec/requests/invoices_index_spec.rb
 RSpec.describe "Billing invoices index", type: :request do
-  let(:max) { Acme::Core::ListQuery::MAX_PER_PAGE }
+  let(:max) { Rafelo::Core::ListQuery::MAX_PER_PAGE }
 
   it "renders within its contract and budgets at the maximum page size" do
     sign_in_as viewer_with(Acme::Billing::Permissions::INVOICE_READ)
@@ -318,7 +318,7 @@ generator smoke test described in GEN-04:
 
 - on pull requests that touch the generator templates
   (`engines/core/lib/generators/`), the core contract helpers (`definePage`,
-  the envelope, `Acme::Core::PageProps`), the module registry code, or
+  the envelope, `Rafelo::Core::PageProps`), the module registry code, or
   routing;
 - nightly on `main`, so a change outside those paths that breaks generation is
   caught within a day.
@@ -412,7 +412,7 @@ tree:
 | An undeclared dependency: a Ruby constant, a TS import, and an `import type` | `bin/packwerk check`, generated dependency-cruiser rules |
 | A reference to another engine's private constant | `bin/packwerk check` (privacy, `packwerk-extensions`) |
 | A TS import of another engine's file outside its `public/` | generated dependency-cruiser rules |
-| An import of `@core/internal/` or `@design_system/internal/`, and a reference to `Acme::Core::Internal`, from outside that kernel engine | dependency-cruiser `kernel-internals-stay-inside`, `Rafelo/NoKernelInternals` |
+| An import of `@core/internal/` or `@design_system/internal/`, and a reference to `Rafelo::Core::Internal`, from outside that kernel engine | dependency-cruiser `kernel-internals-stay-inside`, `Rafelo/NoKernelInternals` |
 | One offending import per hand-written dependency-cruiser rule: `domain-is-framework-free`, `pages-render-screens`, `only-resolver-picks-layouts`, `components-stay-presentational`, `nothing-depends-on-example-engines` | that dependency-cruiser rule |
 | `@engines/` or `import.meta.glob` outside the page resolver | ESLint |
 | A block copied between two engines' `domain/` folders (reported); the same block repeated inside one engine, and two skeletons fresh from `rafelo:module` (not reported) | the clone detector: flay and jscpd (ARCH-05) |
@@ -443,7 +443,7 @@ tree:
 | `React.useState` and an imported `useState` in an engine test; the same in a design_system test (not reported) | ESLint state-hook restrictions (FE-04) |
 | `router`, `usePage`, a namespace import from `@inertiajs/react`, and an `@inertiajs/core` import in a design_system component; `Link` and `Deferred` there (not reported) | ESLint `designSystemInertia` (FE-03) |
 | A rulesets payload missing one required check; a tag ruleset payload that differs from `.github/rulesets/release_tags.json`; a CI workflow whose job is missing from `ci-ok`'s `needs:` | `script/ci/repo_rules`, `script/ci/workflow_policy` (WF-03, WF-05) |
-| Recorded reviews (`--reviews FILE`) with no approval from a listed owner for a changed guard file, and none from an owner for a raised ratchet count; the same changes with that approval (not reported) | `script/ci/guard_approval`, `script/ci/ratchet` (WF-03) |
+| Recorded reviews (`--reviews FILE`) with no approval from a listed owner for a changed guard file, and none from an owner for a raised ratchet count; an approval only from the pull request's author; a pull request that also removes its guard path from CODEOWNERS (the merge base's CODEOWNERS applies); the same changes with an approval from an owner who is not the author (not reported) | `script/ci/guard_approval`, `script/ci/ratchet` (WF-03) |
 | A topic file naming an extensionless `script/ci/<missing>` path and a missing kernel path (under `engines/core/` or `engines/design_system/`); a rule ID defined twice; a rule with no row, or two rows, in `09_enforcement.md`; a row for an undefined ID; a status outside the status vocabulary; a rule heading inside a fenced code block (not a heading); an input set with no definitions; a gitignored path, an illustrative engine path, and an engine-relative `config/` path in a topic file (not reported) | `docs:check` (CT-09) |
 | A `package.json` script that runs `tsx` without `--tsconfig tsconfig.tooling.json`; a page schema that imports from `@core/` and `@design_system/`, which `contracts:generate` and `docs:generate` must load (not reported) | `aliases:check`, `contracts:generate`, `docs:generate` (CT-03) |
 | A `pages/**/*.schema.ts` without a `pageSchema` export, a `pageSchema` whose top-level keys are not exactly the envelope's; an output with no source (the JSON Schema of a moved page, the locale JSON of a dropped locale) | `contracts:generate`, each generator's `--check` (CT-03) |

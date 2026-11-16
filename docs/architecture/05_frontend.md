@@ -978,7 +978,7 @@ tables, charts, date fields, flash messages, and exports.
   props of the design-system date field), so a Gregorian year typed in `th`
   (2026, which is 1483 CE) is refused instead of submitted.
 - **One formatter per side.** Dates are formatted only by
-  `@design_system/formatters` in React and by `Acme::Core::DateFormatter` in
+  `@design_system/formatters` in React and by `Rafelo::Core::DateFormatter` in
   Rails (flash interpolation, exports). Both use the same +543 rule as ICU.
 - **Enforcement.** ESLint bans `Intl.DateTimeFormat`, `Intl.NumberFormat`,
   `Intl.RelativeTimeFormat`, `toLocaleDateString`, `toLocaleTimeString`,
@@ -996,7 +996,7 @@ tables, charts, date fields, flash messages, and exports.
 - **Rails.** The RuboCop cop `Rafelo/DateFormatterOnly` flags `strftime`,
   `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` outside `DateFormatter`. A
   cop sees no types, so it cannot tell a `Date` from anything else; it flags
-  the formatting calls only. Exports build on core's `Acme::Core::Export` base
+  the formatting calls only. Exports build on core's `Rafelo::Core::Export` base
   class, which formats every date through `DateFormatter`; its spec feeds it a
   `Date` and asserts a Buddhist Era year in `th` (tested in kernel, BE-18).
   `.to_s`, `.year`, or plain interpolation of a date in flash code is left to
