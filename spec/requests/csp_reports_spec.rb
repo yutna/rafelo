@@ -81,6 +81,42 @@ RSpec.describe "CSP reports", type: :request do
     expect(lines.map { |line| line["document_path"] }).to eq([ "/th/invoices", "/en" ])
   end
 
+  it "accepts hostile but legitimate report values without a 500" do
+    blocked = [
+      "javascript:alert(1)", "data:text/javascript,alert(1)",
+      "blob:https://app.test/uuid", "about:blank", "//evil.test/x", "/app.js"
+    ]
+    lines = decoded_log_lines do
+      blocked.each do |value|
+        payload = {
+          "csp-report" => {
+            "blocked-uri" => value,
+            "violated-directive" => "script-src",
+            "document-uri" => "https://app.test/en?x=1",
+            "source-file" => "/app.js",
+            "line-number" => 1
+          }
+        }
+        post "/core/csp_reports", params: payload.to_json, headers: report_headers
+        expect(response).to have_http_status(:no_content)
+      end
+    end
+    expect(lines.map { |line| line["blocked_origin"] }).to contain_exactly(
+      "javascript:", "data:", "blob:", "about:", "unknown", "unknown"
+    )
+    expect(lines.map { |line| line["document_path"] }.uniq).to eq([ "/en" ])
+    expect(lines.map { |line| line["source_origin"] }.uniq).to eq([ "unknown" ])
+  end
+
+  it "ignores an empty report instead of logging an empty line" do
+    lines = decoded_log_lines do
+      post "/core/csp_reports", params: "{}", headers: report_headers
+    end
+
+    expect(response).to have_http_status(:no_content)
+    expect(lines).to be_empty
+  end
+
   it "rejects a body that is not JSON" do
     post "/core/csp_reports", params: "not-json", headers: report_headers
 

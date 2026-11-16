@@ -16,13 +16,22 @@ module Rafelo
       def self.from(raw_body)
         payload = JSON.parse(raw_body.presence || "{}")
         entries = payload.is_a?(Array) ? payload : [ payload ]
-        entries.filter_map { |entry| new(entry) if entry.is_a?(Hash) }
+        entries.filter_map do |entry|
+          next unless entry.is_a?(Hash)
+
+          report = new(entry)
+          report unless report.empty?
+        end
       end
 
       def initialize(entry)
         @body = entry["body"].is_a?(Hash) ? entry["body"] : entry["csp-report"]
         @body = entry if @body.nil? && entry.keys.any? { |key| key.include?("-") || key.match?(/[A-Z]/) }
         @body = {} unless @body.is_a?(Hash)
+      end
+
+      def empty?
+        @body.empty?
       end
 
       def to_log
@@ -49,12 +58,10 @@ module Rafelo
 
       def blocked_origin
         value = text(fetch("blocked-uri", "blockedURL"))
-        return value if BLOCKED_KINDS.include?(value) || value == "data:" || value == "blob:"
         return "unknown" if value.empty?
+        return value if BLOCKED_KINDS.include?(value)
 
-        URI.parse(value).origin
-      rescue URI::InvalidURIError
-        "unknown"
+        origin(value) || "unknown"
       end
 
       def document_path
@@ -66,13 +73,20 @@ module Rafelo
         nil
       end
 
+      # Only http(s) URIs have an origin. Other schemes (javascript:, data:,
+      # blob:, about:) reduce to a scheme label; relative values are unknown.
+      # Request input must never raise from a log formatter (SEC-05).
       def origin(value)
         value = text(value)
         return nil if value.empty?
 
-        URI.parse(value).origin
-      rescue URI::InvalidURIError
-        nil
+        uri = URI.parse(value)
+        return uri.origin if uri.is_a?(URI::HTTP)
+        return "#{uri.scheme}:" if uri.scheme
+
+        "unknown"
+      rescue URI::Error
+        "unknown"
       end
 
       def line_number
