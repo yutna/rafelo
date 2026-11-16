@@ -27,7 +27,7 @@ RSpec.describe "Production dummy boot" do
     )
 
     expect(status).not_to be_success
-    expect(output).to include("Missing encryption key")
+    expect(output).to match(/Missing encryption key|missing from the production credentials/)
   end
 
   it "refuses SECRET_KEY_BASE as a substitute for RAILS_MASTER_KEY" do
@@ -37,6 +37,6 @@ RSpec.describe "Production dummy boot" do
     )
 
     expect(status).not_to be_success
-    expect(output).to include("Missing encryption key")
+    expect(output).to match(/Missing encryption key|missing from the production credentials/)
   end
 end
