@@ -103,6 +103,13 @@ if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
 fi
 ( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
     --base-source "$work/base-src" --source "$current_src" )
+# The N-1 fixture is a generated app with no dependency changes of its own.
+# Bring its app-owned Gemfile and lockfile to the release under test, as an
+# adopter does when resolving the stack again (00_README.md step 5), so the
+# update proof tests the kernel merge instead of an old release's advisories.
+# The kernel update itself never touches app-owned files (GEN-07).
+cp "$current_src/Gemfile" "$current_src/Gemfile.lock" "$work/smoke_shop_prev/"
+( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
       commit -q -m "chore: update the kernel to v$version" )
