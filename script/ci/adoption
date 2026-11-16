@@ -119,6 +119,13 @@ cp "$current_src/Gemfile" "$current_src/Gemfile.lock" "$work/smoke_shop_prev/"
   text = File.read(source)
   File.write(target, RafeloTemplate.render_text(text, "app", app_name, RafeloTemplate.namespace(app_name)))
 ' "$current_src/config/application.rb" "$work/smoke_shop_prev/config/application.rb" smoke_shop_prev
+# The example engines are app-owned after adoption (GEN-08). A newly stricter
+# kernel check must not fail on the fixture's older copy; a generated fixture
+# has no customizations, so refresh both examples too (same #403 reading).
+for example in example_customers example_orders; do
+  rm -rf "$work/smoke_shop_prev/engines/$example"
+  cp -R "$current_src/engines/$example" "$work/smoke_shop_prev/engines/$example"
+done
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
