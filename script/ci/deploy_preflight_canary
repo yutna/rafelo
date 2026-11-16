@@ -170,6 +170,19 @@ expect_fail() {
   fi
 }
 
+expect_fail_with() {
+  local name="$1" expected="$2" output
+  if output=$("$root/script/ci/deploy_preflight" "$tmp" 2>&1); then
+    echo "deploy_preflight_canary: $name passed" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not name $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
 reset
 expect_pass "valid profiles"
 
@@ -190,13 +203,13 @@ expect_fail "secrets without RAILS_MASTER_KEY"
 reset
 echo "SECRET=1" > "$tmp/.env.local"
 git -C "$tmp" add -f .env.local
-expect_fail "tracked .env.local"
+expect_fail_with "tracked .env.local" "OPS-06/SEC-07"
 
 reset
 mkdir -p "$tmp/config/credentials"
 echo "dummy" > "$tmp/config/credentials/production.key"
 git -C "$tmp" add -f config/credentials/production.key
-expect_fail "tracked production key"
+expect_fail_with "tracked production key" "OPS-06/SEC-07"
 
 reset
 echo "EXTRA_KEY=1" >> "$tmp/.env.ci.production"
@@ -284,6 +297,6 @@ RAILS_MASTER_KEY=$(cat config/master.key)
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
 git -C "$tmp" add -f .kamal/secrets
-expect_fail "tracked .kamal/secrets"
+expect_fail_with "tracked .kamal/secrets" "OPS-06/SEC-07"
 
 echo "deploy_preflight_canary: checked 24 cases"
