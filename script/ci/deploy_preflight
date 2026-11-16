@@ -77,11 +77,11 @@ forbidden = tracked_paths.select do |path|
   key_file = path.start_with?("config/credentials/") && path.end_with?(".key") && path != "config/credentials/dummy.key"
   env_file || key_file || path == "config/master.key" || path == ".kamal/secrets"
 end
-fail_with(errors, "tracked secret files: #{forbidden.join(", ")}") if forbidden.any?
+fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 
 secrets = ".kamal/secrets"
 if File.file?(secrets)
-  fail_with(errors, ".kamal/secrets must not be tracked") if tracked_paths.include?(".kamal/secrets")
+  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must not be tracked; remove it from git and keep it in the deploy secret store") if tracked_paths.include?(".kamal/secrets")
   fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless File.read(secrets).include?("RAILS_MASTER_KEY")
 else
   example = ".kamal/secrets.example"
