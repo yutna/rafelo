@@ -29,4 +29,14 @@ RSpec.describe "Production dummy boot" do
     expect(status).not_to be_success
     expect(output).to include("Missing encryption key")
   end
+
+  it "refuses SECRET_KEY_BASE as a substitute for RAILS_MASTER_KEY" do
+    output, status = Open3.capture2e(
+      environment.merge("SECRET_KEY_BASE" => "production-spec-secret"),
+      "bin/rails", "runner", "puts :ok", chdir: Rails.root.to_s
+    )
+
+    expect(status).not_to be_success
+    expect(output).to include("Missing encryption key")
+  end
 end

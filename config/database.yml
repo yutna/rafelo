@@ -1,10 +1,10 @@
 <% production_password = if Rails.env.production?
-     ENV["DB_PASSWORD"].presence || Rails.application.credentials.dig(:database, :password)
+     Rails.application.credentials.dig(:database, :password)
    else
      ENV.fetch("DB_PASSWORD", "postgres")
    end %>
 <% migration_password = if Rails.env.production?
-     ENV["DB_MIGRATION_PASSWORD"].presence || ENV["DB_PASSWORD"].presence || Rails.application.credentials.dig(:database, :migration_password)
+     Rails.application.credentials.dig(:database, :migration_password)
    else
      ENV.fetch("DB_MIGRATION_PASSWORD", production_password)
    end %>

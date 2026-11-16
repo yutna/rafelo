@@ -11,7 +11,7 @@ local:
 # (BE-08); the region and bucket are clear settings in config/deploy.multi.yml.
 amazon:
   service: S3
-  access_key_id: <%= ENV["AWS_ACCESS_KEY_ID"].presence || (ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :access_key_id) : nil) %>
-  secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"].presence || (ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :secret_access_key) : nil) %>
+  access_key_id: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :access_key_id) : nil %>
+  secret_access_key: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :secret_access_key) : nil %>
   region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
   bucket: <%= ENV.fetch("AWS_BUCKET", "acme-production") %>
