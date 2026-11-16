@@ -72,6 +72,9 @@ run_case(script, root, "allow-listed Proc route", routes: LEGAL_ROUTES + [
   { "verb" => "GET", "path" => "/proc", "to" => "Proc", "kind" => "unknown" }
 ], expected: "unclassified")
 run_case(script, root, "listed route missing", routes: LEGAL_ROUTES - [ LEGAL_ROUTES.last ], expected: "listed but missing")
+run_case(script, root, "Active Storage disk route", routes: LEGAL_ROUTES + [
+  { "verb" => "GET", "path" => "/rails/active_storage/disk/:encoded_key/*filename", "to" => "active_storage/disk#show", "kind" => "dispatch" }
+], expected: "not allow-listed")
 run_case(script, root, "empty walk", routes: [], expected: "empty walk")
 
-puts "production_routes_canary: 12 cases passed"
+puts "production_routes_canary: 13 cases passed"
