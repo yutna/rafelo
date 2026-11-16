@@ -15,6 +15,7 @@ RSpec.describe "Security headers", type: :request do
     expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
     expect(response.body).to match(/<meta name="csp-nonce" content="[^"]+">/)
     expect(response.headers["Content-Security-Policy"]).not_to include("unsafe-inline")
+    expect(response.headers["Content-Security-Policy-Report-Only"]).to be_nil
   end
 
   it "rejects an unverified write and accepts the form token" do

@@ -1,6 +1,16 @@
 # frozen_string_literal: true
 
 Rails.application.configure do
+  # Content-Security-Policy-Report-Only is one typed setting (BE-08, SEC-05):
+  # only true or false, default false (enforce). Staging and the Playwright
+  # smoke job set CSP_REPORT_ONLY=true; a malformed value fails boot.
+  report_only =
+    case ENV["CSP_REPORT_ONLY"]
+    when nil, "false" then false
+    when "true" then true
+    else raise "CSP_REPORT_ONLY must be true or false"
+    end
+
   config.content_security_policy do |policy|
     policy.default_src :self
     policy.font_src :self, :data
@@ -16,4 +26,5 @@ Rails.application.configure do
 
   config.content_security_policy_nonce_generator = ->(_request) { SecureRandom.urlsafe_base64(16) }
   config.content_security_policy_nonce_directives = %w[script-src style-src]
+  config.content_security_policy_report_only = report_only
 end
