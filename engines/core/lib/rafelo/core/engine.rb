@@ -3,6 +3,7 @@
 require "rails/engine"
 require_relative "../../../app/models/rafelo/core/locales"
 require_relative "../../../app/models/rafelo/core/upstream_config"
+require_relative "../../../app/models/rafelo/core/budgets"
 require_relative "../../../app/models/rafelo/core/flags"
 
 module Rafelo
@@ -36,6 +37,8 @@ module Rafelo
       initializer "rafelo_core.upstreams" do |app|
         app.config.x.upstreams = Rafelo::Core::UpstreamConfig.load_all(app.config_for(:upstreams))
         app.config.x.flags = Rafelo::Core::Flags.load(app.config_for(:flags))
+        app.config.x.budgets = Rafelo::Core::Budgets.load(root: app.root)
+        app.config.x.budgets.validate!(app.config.x.upstreams.keys)
       end
 
       initializer "rafelo_core.locales" do |app|
