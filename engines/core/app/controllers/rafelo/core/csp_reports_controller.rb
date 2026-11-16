@@ -9,7 +9,8 @@ module Rafelo
       skip_before_action :load_session, :refresh_stale_grants, :require_viewer, only: :create
       before_action :skip_authorization
       skip_after_action :verify_authorized
-      skip_forgery_protection only: :create # codeql[rb/csrf-protection-disabled] a CSP report has no token (SEC-05)
+      # A browser CSP report carries no CSRF token (SEC-05).
+      skip_forgery_protection only: :create # codeql[rb/csrf-protection-disabled]
       throttle to: 60, within: 1.minute, only: :create, name: "csp_reports/ip"
 
       def create
