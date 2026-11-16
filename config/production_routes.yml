@@ -20,6 +20,10 @@ routes:
   path: "/core/client_errors"
   to: core/client_errors#create
   kind: dispatch
+- verb: POST
+  path: "/core/csp_reports"
+  to: rafelo/core/csp_reports#create
+  kind: dispatch
 - verb: GET
   path: "/core/ready"
   to: core/ready#show

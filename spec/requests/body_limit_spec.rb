@@ -18,11 +18,17 @@ RSpec.describe "Core report body limits", type: :request do
     expect(response.headers["Referrer-Policy"]).to eq("strict-origin-when-cross-origin")
   end
 
-  it "allows a body at the cap through to the router" do
-    payload = %({"x":"#{'a' * (64 * 1024 - 8)}"})
-    post "/core/csp_reports", params: payload, headers: { "Content-Type" => "application/json" }
+  it "allows a CSP report at the cap through to the endpoint" do
+    payload = %({"csp-report":{"blocked-uri":"inline","violated-directive":"script-src"}})
+    post "/core/csp_reports", params: payload, headers: { "Content-Type" => "application/csp-report" }
 
-    expect(payload.bytesize).to eq(64 * 1024)
-    expect(response).to have_http_status(:not_found)
+    expect(response).to have_http_status(:no_content)
+  end
+
+  it "rejects a CSP report over the cap before Rails parses it" do
+    post "/core/csp_reports", params: "x" * (64 * 1024 + 1),
+         headers: { "Content-Type" => "application/csp-report" }
+
+    expect(response).to have_http_status(:content_too_large)
   end
 end

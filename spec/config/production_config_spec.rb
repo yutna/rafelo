@@ -12,13 +12,16 @@ RSpec.describe "Production configuration" do
     require "rack/mock"
     app = Rails.application
     request = Rack::MockRequest.new(app)
+    page = request.get("/en", "HTTP_HOST" => "example.com", "HTTPS" => "on")
     puts({
       hosts: app.config.hosts,
       force_ssl: app.config.force_ssl,
       assume_ssl: app.config.assume_ssl,
       excluded: app.config.host_authorization[:exclude].call(Struct.new(:path).new("/up")),
       unknown_host: request.get("/en", "HTTP_HOST" => "evil.test", "HTTPS" => "on").status,
-      health: request.get("/up", "HTTP_HOST" => "example.com", "HTTPS" => "on").status
+      health: request.get("/up", "HTTP_HOST" => "example.com", "HTTPS" => "on").status,
+      csp: page.headers["Content-Security-Policy"],
+      csp_report_only: page.headers["Content-Security-Policy-Report-Only"]
     }.to_json)
   RUBY
 
@@ -52,6 +55,16 @@ RSpec.describe "Production configuration" do
     expect(config["excluded"]).to be(true)
     expect(config["unknown_host"]).to eq(403)
     expect(config["health"]).to eq(200)
+  end
+
+  it "enforces CSP by default and reports only when CSP_REPORT_ONLY is true" do
+    enforced = production_config
+    expect(enforced["csp"]).to be_present
+    expect(enforced["csp_report_only"]).to be_nil
+
+    report_only = production_config("CSP_REPORT_ONLY" => "true")
+    expect(report_only["csp"]).to be_nil
+    expect(report_only["csp_report_only"]).to be_present
   end
 
   it "reads RAILS_HOST when RAILS_HOSTS is absent" do

@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   post "core/client_errors", to: "core/client_errors#create"
+  post "core/csp_reports", to: "rafelo/core/csp_reports#create"
   get "core/ready", to: "core/ready#show"
   get "core/metrics", to: "core/metrics#show"
 
