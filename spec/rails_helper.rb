@@ -48,6 +48,11 @@ RSpec.configure do |config|
   # counters before every example so a limit is proved for real (TS-01).
   config.before { Rails.cache.clear }
 
+  # Current is request-scoped; reset it around every example so one spec
+  # cannot leak a request id or an audit marker into another (BE-09).
+  config.before { Rafelo::Core::Current.reset }
+  config.after { Rafelo::Core::Current.reset }
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [
     Rails.root.join('spec/fixtures')
