@@ -67,6 +67,12 @@ module Rafelo
       end
 
       def gateway(klass)
+        # BE-02: verify_authorized runs after the action, too late to protect
+        # the upstream. Refuse before building a client or making a call.
+        unless pundit_policy_authorized?
+          raise Pundit::NotAuthorizedError, "authorize before calling gateway(#{klass.name})"
+        end
+
         klass.new(
           token_provider: Current.token_provider,
           budget: Current.call_budget ||= CallBudget.new(api: 3),

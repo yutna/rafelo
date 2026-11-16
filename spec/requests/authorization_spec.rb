@@ -1,5 +1,14 @@
 require "rails_helper"
 
+class AuthorizationProbeGateway < Rafelo::Core::Gateway
+  upstream :api
+  token :viewer
+
+  def fetch
+    client.get("probe").body
+  end
+end
+
 class AuthorizationProbeController < ApplicationController
   def missing
     render plain: "missing authorization"
@@ -14,6 +23,11 @@ class AuthorizationProbeController < ApplicationController
     authorize :home, :missing?
     render plain: "never"
   end
+
+  def gateway_call
+    gateway(AuthorizationProbeGateway).fetch
+    render plain: "never"
+  end
 end
 
 RSpec.describe "Authorization", type: :request do
@@ -23,6 +37,7 @@ RSpec.describe "Authorization", type: :request do
         get "/probe/missing", to: "authorization_probe#missing"
         get "/probe/authorized", to: "authorization_probe#authorized"
         get "/probe/denied", to: "authorization_probe#denied"
+        get "/probe/gateway", to: "authorization_probe#gateway_call"
       end
     end
   end
@@ -69,6 +84,16 @@ RSpec.describe "Authorization", type: :request do
     expect(body["requestId"]).to be_present
     expect(body["traceId"]).to be_present
     expect(response.headers["Cache-Control"]).to include("no-store")
+  end
+
+  it "refuses a gateway call before authorization, without an upstream request" do
+    upstream = stub_request(:get, "http://localhost:4000/probe")
+
+    get "/en/probe/gateway", headers: auth_headers
+
+    expect(response).to have_http_status(:forbidden)
+    expect(response.body).to include("auth.forbidden")
+    expect(upstream).not_to have_been_requested
   end
 
   it "allows an action that authorizes through its policy" do
