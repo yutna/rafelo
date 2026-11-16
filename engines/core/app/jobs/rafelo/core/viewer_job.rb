@@ -26,8 +26,7 @@ module Rafelo
         Current.session = session
         Current.viewer = session.viewer
         Current.permissions = session.permission_set
-        Current.call_budget = CallBudget.new(
-          api: 10,
+        Current.call_budget = CallBudget.job(
           deadline: RequestDeadline.new(Rails.application.config.x.jobs.upstream_deadline_seconds)
         )
         Current.token_provider = JobTokenProvider.new(session.id, budget: Current.call_budget)

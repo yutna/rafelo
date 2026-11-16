@@ -16,7 +16,7 @@ module Rafelo
         SessionRefresher.new(
           session: @session,
           gateway: AuthGateway.new(
-            budget: Current.call_budget || CallBudget.new(api: 3),
+            budget: Current.call_budget || CallBudget.default,
             request_id: Current.request_id,
             trace_id: Current.trace_id
           ),

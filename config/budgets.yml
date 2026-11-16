@@ -2,6 +2,8 @@ defaults:
   sql_queries_per_request: 12
   upstream_calls_per_request:
     api: 3
+  refresh_calls_per_request:
+    api: 2
   props_bytes: 65536
   shared_props_bytes: 8192
   js_entry_gzip_kb: 250
@@ -9,6 +11,10 @@ defaults:
   js_lazy_chunk_gzip_kb: 120
   js_initial_gzip_kb: 300
   boot_seconds: 8
+
+jobs:
+  upstream_calls_per_request:
+    api: 10
 
 growth:
   core:

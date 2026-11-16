@@ -94,7 +94,7 @@ module DummyEngine
         :api,
         config: Rails.application.config.x.upstreams.fetch(:api),
         token_provider: Rafelo::Core::Current.token_provider,
-        budget: Rafelo::Core::Current.call_budget ||= Rafelo::Core::CallBudget.new(api: 3),
+        budget: Rafelo::Core::Current.call_budget ||= Rafelo::Core::CallBudget.default(deadline: request_deadline),
         request_id: Rafelo::Core::Current.request_id,
         trace_id: Rafelo::Core::Current.trace_id
       ).get("forbidden")

@@ -73,7 +73,7 @@ module Rafelo
           raise Pundit::NotAuthorizedError, "authorize before calling gateway(#{klass.name})"
         end
 
-        budget = Current.call_budget ||= CallBudget.new(api: 3)
+        budget = Current.call_budget ||= CallBudget.default
         budget.deadline ||= request_deadline
 
         klass.new(
@@ -131,7 +131,7 @@ module Rafelo
       end
 
       def refresh_session!
-        budget = Current.call_budget ||= CallBudget.new(api: 3)
+        budget = Current.call_budget ||= CallBudget.default
         budget.deadline ||= request_deadline
         gateway = AuthGateway.new(
           budget: budget,
