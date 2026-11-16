@@ -41,4 +41,22 @@ RSpec.describe "Core report body limits", type: :request do
       expect(response).to have_http_status(:content_too_large), "expected 413 for #{path}"
     end
   end
+
+  it "applies the cap to percent-encoded suffixes" do
+    body = "x" * (64 * 1024 + 1)
+
+    [ "/core/csp_reports.json%2F", "/core/csp_reports%252F", "/core/csp_reports%3Bfoo",
+      "/core/csp_reports%2Ejson", "/core/csp_reports%20" ].each do |path|
+      post path, params: body, headers: { "Content-Type" => "application/csp-report" }
+
+      expect(response).to have_http_status(:content_too_large), "expected 413 for #{path}"
+    end
+  end
+
+  it "does not cap a look-alike path" do
+    post "/core/csp_reports_extra", params: "x" * (64 * 1024 + 1),
+         headers: { "Content-Type" => "application/csp-report" }
+
+    expect(response).to have_http_status(:not_found)
+  end
 end
