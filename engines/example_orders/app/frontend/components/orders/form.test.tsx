@@ -18,7 +18,9 @@ describe("OrderFormFields", () => {
 
     expect(screen.getByTestId("example_orders.orders.form.customer")).toHaveValue("Ada");
     expect(screen.getByTestId("example_orders.orders.form.status")).toHaveValue("open");
-    expect(screen.getByText("can't be blank")).toBeInTheDocument();
+    expect(screen.getByTestId("example_orders.orders.form.customer.error")).toHaveTextContent(
+      "can't be blank",
+    );
   });
 
   it("shows a base error after a conflicting update", () => {

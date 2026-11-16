@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "test_selectors")
+
+cases = [
+  [ "engine vitest text selector", "engines/sample/app/frontend/thing.test.tsx",
+    "expect(screen.getByText('can't be blank')).toBeInTheDocument();\n", 1 ],
+  [ "engine vitest test id", "engines/sample/app/frontend/thing.test.tsx",
+    "expect(screen.getByTestId('sample.thing.error')).toHaveTextContent('can't be blank');\n", 0 ],
+  [ "engine e2e locator", "engines/sample/e2e/thing.spec.ts",
+    "page.locator('.error');\n", 1 ],
+  [ "engine e2e role", "engines/sample/e2e/thing.spec.ts",
+    "page.getByRole('alert', { name: 'Error' });\n", 0 ]
+]
+
+failures = 0
+cases.each do |name, path, contents, expected|
+  Dir.mktmpdir("rafelo-selectors") do |tmp|
+    FileUtils.mkdir_p(File.dirname(File.join(tmp, path)))
+    FileUtils.mkdir_p(File.join(tmp, "app", "frontend"))
+    File.write(File.join(tmp, "app", "frontend", "ok.test.tsx"),
+               "expect(screen.getByTestId('ok')).toBeInTheDocument();\n")
+    File.write(File.join(tmp, path), contents)
+
+    output, status = Open3.capture2e(script, "--root", tmp)
+    next if status.exitstatus == expected && (expected.zero? || output.include?(path))
+
+    failures += 1
+    warn "test_selectors_canary: #{name} exited #{status.exitstatus}, expected #{expected}"
+    warn output
+  end
+end
+
+if failures.positive?
+  warn "test_selectors_canary: checked #{cases.length} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "test_selectors_canary: checked #{cases.length} cases; failures=0"
