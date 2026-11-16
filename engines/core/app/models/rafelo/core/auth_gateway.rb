@@ -6,9 +6,12 @@ module Rafelo
       Result = Data.define(:viewer, :access_token, :refresh_token, :access_expires_at, :grants)
 
       def initialize(budget:, request_id:, trace_id:)
-        raise ArgumentError, "AuthGateway needs a budget deadline (BE-16)" unless budget&.deadline
-
         @budget = budget
+        # A v0.23.0 adopter's app-owned sessions controller passes a budget
+        # without a deadline. Keep that upgrade working with a fresh request
+        # deadline; the kernel's own callers pass the request/job deadline.
+        @deadline = budget&.deadline ||
+                    RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @request_id = request_id
         @trace_id = trace_id
       end
@@ -33,7 +36,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
-          deadline: @budget.deadline,
+          deadline: @deadline,
           kind: :auth
         )
         payload = parse_json(
@@ -62,7 +65,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
-          deadline: @budget.deadline,
+          deadline: @deadline,
           kind: :session_refresh
         )
       end

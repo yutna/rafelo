@@ -9,6 +9,16 @@ RSpec.describe Rafelo::Core::AuthGateway do
     )
   end
 
+  it "keeps a v0.23.0 app-owned controller budget without a deadline working" do
+    legacy_budget = Rafelo::Core::CallBudget.new(api: 3)
+    legacy_gateway = described_class.new(budget: legacy_budget, request_id: "request-1", trace_id: "trace-1")
+    stub_request(:post, "http://localhost:4000/auth/sign_in")
+      .to_return(status: 200, body: "not-json")
+
+    expect { legacy_gateway.sign_in(email: "ada@example.test", password: "secret") }
+      .to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("unexpected") }
+  end
+
   it "maps malformed sign-in JSON to the unexpected catalog error" do
     stub_request(:post, "http://localhost:4000/auth/sign_in")
       .to_return(status: 200, body: "not-json")
