@@ -5,6 +5,28 @@ RSpec.describe Rafelo::Core::ViewerTokenProvider do
 
   after { Rafelo::Core::Current.reset }
 
+  it "refuses a 401 refresh at the request deadline without a second clock" do
+    session, = Rafelo::Core::Session.start(
+      viewer: viewer,
+      access_token: "old-access",
+      refresh_token: "old-refresh",
+      access_expires_at: 5.minutes.from_now,
+      grants: [ "billing:invoice:read" ]
+    )
+    Rafelo::Core::Current.session = session
+    Rafelo::Core::Current.request_id = "request-1"
+    Rafelo::Core::Current.trace_id = "trace-1"
+    Rafelo::Core::Current.call_budget = Rafelo::Core::CallBudget.new(
+      api: 3, deadline: Rafelo::Core::RequestDeadline.new(-1)
+    )
+    allow(Rafelo::Core::UpstreamClient).to receive(:for)
+
+    expect do
+      described_class.new(session).refresh!
+    end.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.timeout") }
+    expect(Rafelo::Core::UpstreamClient).not_to have_received(:for)
+  end
+
   it "refreshes a locally fresh session after a 401 and resends with the new token" do
     session, = Rafelo::Core::Session.start(
       viewer: viewer,
@@ -16,7 +38,7 @@ RSpec.describe Rafelo::Core::ViewerTokenProvider do
     Rafelo::Core::Current.session = session
     Rafelo::Core::Current.request_id = "request-1"
     Rafelo::Core::Current.trace_id = "trace-1"
-    Rafelo::Core::Current.call_budget = Rafelo::Core::CallBudget.new(api: 3)
+    Rafelo::Core::Current.call_budget = Rafelo::Core::CallBudget.new(api: 3, deadline: Rafelo::Core::RequestDeadline.new(30))
     stub_upstream(:post, "/auth/refresh", fixture: "auth/refresh.json", base_url: "http://localhost:4000")
     old = stub_request(:get, "http://upstream.test/invoices")
       .with(headers: { "Authorization" => "Bearer old-access" })

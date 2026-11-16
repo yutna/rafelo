@@ -34,7 +34,8 @@ module Rafelo
           ),
           timeout: Rails.application.config.x.sessions.refresh_timeout_seconds,
           wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2,
-          force: force
+          force: force,
+          deadline: @budget.deadline
         ).call
         session.reload.access_token
       rescue ApplicationError => error

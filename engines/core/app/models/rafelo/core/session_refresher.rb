@@ -3,7 +3,7 @@
 module Rafelo
   module Core
     class SessionRefresher
-      def initialize(session:, gateway:, timeout:, wait: 10.0, force: false, deadline: nil)
+      def initialize(session:, gateway:, timeout:, wait: 10.0, force: false, deadline:)
         @session = session
         @gateway = gateway
         @timeout = timeout
@@ -13,7 +13,7 @@ module Rafelo
       end
 
       def call
-        raise ApplicationError.new("upstream.timeout") if @deadline&.expired?
+        raise ApplicationError.new("upstream.timeout") if @deadline.expired?
         return @session.access_token if !@force && fresh? && !@session.grants_stale?
 
         version = @session.claim_refresh!(timeout: @timeout)
@@ -63,7 +63,7 @@ module Rafelo
         ActiveSupport::Notifications.instrument("session_refresh.wait", session_id: @session.id)
         wait_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @wait
         loop do
-          raise ApplicationError.new("upstream.timeout") if @deadline&.expired?
+          raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
           begin
             @session.reload

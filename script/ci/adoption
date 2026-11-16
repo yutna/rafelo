@@ -109,9 +109,13 @@ fi
 # update proof tests the kernel merge instead of an old release's advisories.
 # The composition root is also app-owned, but a generated fixture has no
 # customizations; render it with the fixture's namespace so a kernel change
-# that depends on the new framework set is proven end to end. bin/kernel_update
-# still leaves both app-owned groups alone (GEN-07).
+# that depends on the new framework set is proven end to end. The app-owned
+# sessions controller is brought forward too: a kernel change (AuthGateway's
+# deadline, B3) needs its CallBudget.default line, and the fixture has no
+# custom app code. bin/kernel_update still leaves app-owned files alone
+# (GEN-07).
 cp "$current_src/Gemfile" "$current_src/Gemfile.lock" "$work/smoke_shop_prev/"
+cp "$current_src/app/controllers/sessions_controller.rb" "$work/smoke_shop_prev/app/controllers/sessions_controller.rb"
 "$ruby_bin" -r"$current_src/template/lib/rafelo_template" -e '
   source, target, app_name = ARGV
   text = File.read(source)

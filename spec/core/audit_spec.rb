@@ -3,6 +3,10 @@ require "rails_helper"
 RSpec.describe Rafelo::Core::AuditRecorder do
   after { Rafelo::Core::Current.reset }
 
+  def request_id
+    @request_id ||= "audit-spec-#{SecureRandom.hex(8)}"
+  end
+
   it "truncates IPv4 and IPv6 and maps unknown user agents to other" do
     expect(described_class.truncate_ip("203.0.113.77")).to eq("203.0.113.0/24")
     expect(described_class.truncate_ip("::ffff:203.0.113.77")).to eq("203.0.113.0/24")
@@ -15,21 +19,21 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   end
 
   it "writes one row per request even when called twice" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
+    request = double("request", request_id: request_id, remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
-    Rafelo::Core::Current.request_id = "request-1"
+    Rafelo::Core::Current.request_id = request_id
     Rafelo::Core::Current.trace_id = "trace-1"
 
     2.times do
       described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
     end
 
-    expect(Rafelo::Core::AuditEvent.where(event: "write").count).to eq(1)
-    expect(Rafelo::Core::AuditEvent.last.ip).to eq("203.0.113.0/24")
+    expect(Rafelo::Core::AuditEvent.where(request_id: request_id, event: "write").count).to eq(1)
+    expect(Rafelo::Core::AuditEvent.where(request_id: request_id).last.ip).to eq("203.0.113.0/24")
   end
 
   it "sets the marker only after the insert and does not swallow an insert failure" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
+    request = double("request", request_id: request_id, remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
     allow(Rafelo::Core::AuditEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "audit down")
 
@@ -40,18 +44,18 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   end
 
   it "records the audit format version" do
-    request = double("request", request_id: "request-1", remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
+    request = double("request", request_id: request_id, remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
 
     described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
 
-    expect(Rafelo::Core::AuditEvent.last.format_version).to eq(Rafelo::Core::AuditEvent::FORMAT_VERSION)
+    expect(Rafelo::Core::AuditEvent.where(request_id: request_id).last.format_version).to eq(Rafelo::Core::AuditEvent::FORMAT_VERSION)
   end
 
   it "records the allow-listed resource, action, page, and upstream id" do
     request = double(
       "request",
-      request_id: "request-1",
+      request_id: request_id,
       remote_ip: "203.0.113.7",
       user_agent: "Chrome/140.0",
       path: "/en/orders",
@@ -67,7 +71,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
       policy: "OrderPolicy"
     )
 
-    event = Rafelo::Core::AuditEvent.last
+    event = Rafelo::Core::AuditEvent.where(request_id: request_id).last
     expect(event.resource).to eq("rafelo/example_orders/orders")
     expect(event.action).to eq("create")
     expect(event.page).to eq("orders/new")
