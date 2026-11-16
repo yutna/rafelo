@@ -70,8 +70,9 @@ end
 
 tracked = IO.popen(%w[git ls-files], err: File::NULL, &:read)
 abort "deploy_preflight: git ls-files failed" unless $?.success?
+tracked_paths = tracked.lines(chomp: true)
 
-forbidden = tracked.lines(chomp: true).select do |path|
+forbidden = tracked_paths.select do |path|
   env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
   key_file = path.start_with?("config/credentials/") && path.end_with?(".key") && path != "config/credentials/dummy.key"
   env_file || key_file || path == "config/master.key" || path == ".kamal/secrets"
@@ -80,7 +81,7 @@ fail_with(errors, "tracked secret files: #{forbidden.join(", ")}") if forbidden.
 
 secrets = ".kamal/secrets"
 if File.file?(secrets)
-  fail_with(errors, ".kamal/secrets must not be tracked") if tracked.include?(".kamal/secrets")
+  fail_with(errors, ".kamal/secrets must not be tracked") if tracked_paths.include?(".kamal/secrets")
   fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless File.read(secrets).include?("RAILS_MASTER_KEY")
 else
   example = ".kamal/secrets.example"

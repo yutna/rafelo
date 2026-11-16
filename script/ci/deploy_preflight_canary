@@ -271,4 +271,19 @@ reset
 rm -f "$tmp/.kamal/hooks/pre-deploy"
 expect_fail "missing pre-deploy hook"
 
-echo "deploy_preflight_canary: checked 22 cases"
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$(cat config/master.key)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass "present but untracked .kamal/secrets with a tracked example"
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$(cat config/master.key)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -f .kamal/secrets
+expect_fail "tracked .kamal/secrets"
+
+echo "deploy_preflight_canary: checked 24 cases"
