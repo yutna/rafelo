@@ -614,6 +614,10 @@ jobs:
       - name: Build the production image
         run: docker build -t rafelo-ci .
 
+      - name: Check psql in the image
+        # schema_format :sql loads structure.sql with psql at boot and restore (C2, OPS-06).
+        run: docker run --rm rafelo-ci psql --version
+
   smoke-needed:
     defaults:
       run:
