@@ -27,7 +27,6 @@ RSpec.describe Rafelo::Core::BaseController do
       [
         "before:verify_authenticity_token",
         "after:verify_same_origin_request",
-        "around:action_text/engine.rb",
         "before:inertia_rails/controller.rb",
         "after:inertia_rails/controller.rb",
         "before:action_controller/metal/allow_browser.rb",

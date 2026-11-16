@@ -28,6 +28,9 @@ Rails.application.configure do
     raise "ACTIVE_STORAGE_SERVICE must be local or amazon"
   end
   config.active_storage.service = active_storage_service.to_sym
+  # Files are served through core, never by Active Storage's disk or direct
+  # upload routes (BE-18, C4).
+  config.active_storage.draw_routes = false
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true

@@ -107,8 +107,16 @@ fi
 # Bring its app-owned Gemfile and lockfile to the release under test, as an
 # adopter does when resolving the stack again (00_README.md step 5), so the
 # update proof tests the kernel merge instead of an old release's advisories.
-# The kernel update itself never touches app-owned files (GEN-07).
+# The composition root is also app-owned, but a generated fixture has no
+# customizations; render it with the fixture's namespace so a kernel change
+# that depends on the new framework set is proven end to end. bin/kernel_update
+# still leaves both app-owned groups alone (GEN-07).
 cp "$current_src/Gemfile" "$current_src/Gemfile.lock" "$work/smoke_shop_prev/"
+"$ruby_bin" -r"$current_src/template/lib/rafelo_template" -e '
+  source, target, app_name = ARGV
+  text = File.read(source)
+  File.write(target, RafeloTemplate.render_text(text, "app", app_name, RafeloTemplate.namespace(app_name)))
+' "$current_src/config/application.rb" "$work/smoke_shop_prev/config/application.rb" smoke_shop_prev
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \

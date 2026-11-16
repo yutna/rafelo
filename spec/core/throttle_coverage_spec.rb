@@ -3,9 +3,7 @@ require "rails_helper"
 RSpec.describe "Throttle coverage" do
   ALLOWED_WRITE_CONTROLLERS = {
     %r{\Arails/} => "Rails internal development routes; not part of the app surface",
-    %r{\Aactive_storage/} => "Active Storage framework endpoints",
-    %r{\Aaction_mailbox/} => "Action Mailbox framework endpoints",
-    %r{\Aaction_text/} => "Action Text framework endpoints"
+    %r{\Aactive_storage/} => "Active Storage framework endpoints"
   }.freeze
 
   def routes_for(route_set)
