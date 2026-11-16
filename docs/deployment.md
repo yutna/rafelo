@@ -75,7 +75,9 @@ and put their passwords in the `database` credentials above. See
 [operations/database-roles.md](operations/database-roles.md) for the grants
 and the `psql` command. The entrypoint runs `db:prepare` as the migration role
 while the old release still serves (BE-22); the web server and the job role
-then connect as the runtime role.
+then connect as the runtime role. The production image installs
+`postgresql-client`, because `db:prepare` loads `structure.sql` with `psql`
+on the first deploy and on every restore (C2, OPS-06).
 
 ## Single host
 
