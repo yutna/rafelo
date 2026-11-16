@@ -4,12 +4,8 @@ require "open3"
 RSpec.describe "Production configuration" do
   DUMMY_ENV = {
     "RAILS_ENV" => "production",
-    "SECRET_KEY_BASE" => "production-spec-secret",
-    "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY" => "rafelo-test-primary-key-0000001",
-    "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" => "rafelo-test-deterministic-0001",
-    "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT" => "rafelo-test-salt-000000000001",
-    "ACME_API_BASE_URL" => "http://localhost:4000",
-    "DB_PASSWORD" => "production-spec-password"
+    "RAILS_MASTER_KEY" => File.read(Rails.root.join("config/credentials/dummy.key")).strip,
+    "ACME_API_BASE_URL" => "http://localhost:4000"
   }.freeze
 
   SCRIPT = <<~'RUBY'
@@ -26,11 +22,25 @@ RSpec.describe "Production configuration" do
     }.to_json)
   RUBY
 
-  def production_config(env = {})
-    output, error, status = Open3.capture3(DUMMY_ENV.merge(env), "bin/rails", "runner", SCRIPT, chdir: Rails.root.to_s)
-    raise "production boot failed: #{error}" unless status.success?
+  # The production boot reads every secret from the encrypted production
+  # credentials. The specs use the committed dummy credentials, encrypted with
+  # the committed dummy key, so they hold no real secret (BE-08, SEC-07).
+  def with_dummy_production_credentials
+    path = Rails.root.join("config/credentials/production.yml.enc")
+    original = File.binread(path)
+    FileUtils.cp(Rails.root.join("config/credentials/dummy.yml.enc"), path)
+    yield
+  ensure
+    File.binwrite(path, original) if original
+  end
 
-    JSON.parse(output.lines.last)
+  def production_config(env = {})
+    with_dummy_production_credentials do
+      output, error, status = Open3.capture3(DUMMY_ENV.merge(env), "bin/rails", "runner", SCRIPT, chdir: Rails.root.to_s)
+      raise "production boot failed: #{error}" unless status.success?
+
+      JSON.parse(output.lines.last)
+    end
   end
 
   it "forces SSL, allows only configured hosts, excludes /up and rejects an unknown host" do
@@ -48,6 +58,15 @@ RSpec.describe "Production configuration" do
     config = production_config("RAILS_HOSTS" => nil, "RAILS_HOST" => "app.example.test")
 
     expect(config["hosts"]).to eq([ "app.example.test" ])
+  end
+
+  it "reads production secrets only from credentials, never the old ENV fallbacks" do
+    expect(File.read(Rails.root.join("config/initializers/active_record_encryption.rb"))).not_to include("ENV[")
+    expect(File.read(Rails.root.join("config/database.yml"))).not_to include('ENV["DB_PASSWORD"].presence')
+    expect(File.read(Rails.root.join("config/database.yml"))).not_to include('ENV["DB_MIGRATION_PASSWORD"].presence')
+    expect(File.read(Rails.root.join("config/storage.yml"))).not_to include('ENV["AWS_ACCESS_KEY_ID"]')
+    expect(File.read(Rails.root.join("config/storage.yml"))).not_to include('ENV["AWS_SECRET_ACCESS_KEY"]')
+    expect(File.read(Rails.root.join("config/environments/production.rb"))).not_to match(/^\s*config\.require_master_key\s*=/)
   end
 
   it "deletes the production cookie with Secure and Path=/" do

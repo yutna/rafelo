@@ -22,7 +22,7 @@ module Rafelo
     config.active_record.default_timezone = :utc
 
     if Rails.env.production? && ENV["SECRET_KEY_BASE_DUMMY"].blank?
-      if ENV["RAILS_MASTER_KEY"].blank? && ENV["SECRET_KEY_BASE"].blank?
+      if ENV["RAILS_MASTER_KEY"].blank?
         raise ActiveSupport::EncryptedFile::MissingKeyError.new(
           key_path: Rails.root.join("config/credentials/production.key"), env_key: "RAILS_MASTER_KEY"
         )

@@ -6,11 +6,13 @@ RSpec.describe "Database roles" do
 
     expect(database).to include("ACME_DATABASE_ROLE")
     expect(database).to include("DB_MIGRATION_USER")
-    expect(database).to include("DB_MIGRATION_PASSWORD")
+    expect(database).to include("Rails.application.credentials.dig(:database, :password)")
+    expect(database).to include(":migration_password")
     expect(database).to include("primary:")
     expect(database).to include("migration:")
     expect(database).to include("database_tasks: false")
-    expect(database).to include(":migration_password")
+    expect(database).not_to include('ENV["DB_PASSWORD"].presence')
+    expect(database).not_to include('ENV["DB_MIGRATION_PASSWORD"].presence')
   end
 
   it "defines the runtime and migration connection configurations" do
