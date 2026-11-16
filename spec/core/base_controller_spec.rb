@@ -84,6 +84,8 @@ RSpec.describe Rafelo::Core::BaseController do
 
     expect(gateway.client).to be_a(Rafelo::Core::UpstreamClient)
     expect(gateway.budget.count(:api)).to eq(0)
+    expect(gateway.budget.deadline).to be(controller.request_deadline)
+    expect(controller.request_deadline).to be(controller.request_deadline)
   ensure
     Rafelo::Core::Current.token_provider = nil
     Rafelo::Core::Current.call_budget = nil

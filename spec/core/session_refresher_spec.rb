@@ -85,6 +85,23 @@ RSpec.describe Rafelo::Core::SessionRefresher do
     expect(session.reload.access_token).to eq("winner-access")
   end
 
+  it "times out the loser wait at the request deadline" do
+    session = start_session
+    session.update_column(:refreshing_since, Time.current)
+    gateway = Class.new do
+      def refresh(refresh_token:)
+        raise "a loser must not refresh"
+      end
+    end.new
+
+    expect do
+      described_class.new(
+        session: session, gateway: gateway, timeout: 15, wait: 30,
+        deadline: Rafelo::Core::RequestDeadline.new(0.01)
+      ).call
+    end.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.timeout") }
+  end
+
   it "maps a session deleted during refresh to auth.expired" do
     session = start_session
     gateway = Class.new do

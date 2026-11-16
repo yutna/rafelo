@@ -73,11 +73,22 @@ module Rafelo
           raise Pundit::NotAuthorizedError, "authorize before calling gateway(#{klass.name})"
         end
 
+        budget = Current.call_budget ||= CallBudget.new(api: 3)
+        budget.deadline ||= request_deadline
+
         klass.new(
           token_provider: Current.token_provider,
-          budget: Current.call_budget ||= CallBudget.new(api: 3),
+          budget: budget,
           request_id: Current.request_id,
           trace_id: Current.trace_id
+        )
+      end
+
+      # One monotonic deadline per request. Gateway clients, the token refresh,
+      # and a loser's wait all read it (BE-16, SEC-03).
+      def request_deadline
+        @request_deadline ||= RequestDeadline.new(
+          Rails.application.config.x.requests.upstream_deadline_seconds
         )
       end
 
@@ -120,8 +131,10 @@ module Rafelo
       end
 
       def refresh_session!
+        budget = Current.call_budget ||= CallBudget.new(api: 3)
+        budget.deadline ||= request_deadline
         gateway = AuthGateway.new(
-          budget: CallBudget.new(api: 3),
+          budget: budget,
           request_id: request.request_id,
           trace_id: Current.trace_id
         )
@@ -129,7 +142,8 @@ module Rafelo
           session: Current.session,
           gateway: gateway,
           timeout: Rails.application.config.x.sessions.refresh_timeout_seconds,
-          wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2
+          wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2,
+          deadline: request_deadline
         ).call
         Current.token_provider = ViewerTokenProvider.new(Current.session.reload)
         Current.permissions = Current.session.permission_set

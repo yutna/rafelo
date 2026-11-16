@@ -3,15 +3,17 @@
 module Rafelo
   module Core
     class SessionRefresher
-      def initialize(session:, gateway:, timeout:, wait: 10.0, force: false)
+      def initialize(session:, gateway:, timeout:, wait: 10.0, force: false, deadline: nil)
         @session = session
         @gateway = gateway
         @timeout = timeout
         @wait = wait
         @force = force
+        @deadline = deadline
       end
 
       def call
+        raise ApplicationError.new("upstream.timeout") if @deadline&.expired?
         return @session.access_token if !@force && fresh? && !@session.grants_stale?
 
         version = @session.claim_refresh!(timeout: @timeout)
@@ -59,8 +61,10 @@ module Rafelo
 
       def wait_for_token(original)
         ActiveSupport::Notifications.instrument("session_refresh.wait", session_id: @session.id)
-        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @wait
+        wait_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @wait
         loop do
+          raise ApplicationError.new("upstream.timeout") if @deadline&.expired?
+
           begin
             @session.reload
           rescue ActiveRecord::RecordNotFound
@@ -69,7 +73,7 @@ module Rafelo
 
           return @session.access_token if @session.access_token != original
           raise ApplicationError.new("upstream.unavailable") if @session.refreshing_since.nil?
-          raise ApplicationError.new("upstream.unavailable") if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          raise ApplicationError.new("upstream.unavailable") if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= wait_deadline
 
           sleep 0.05
         end
