@@ -565,7 +565,7 @@ jobs:
             reason="run: $EVENT_NAME"
           elif [ -n "$BASE_SHA" ]; then
             changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
+            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc)|config/application\.rb|config/environments/production\.rb|config/storage\.yml|config/database\.yml|config/initializers/active_record_encryption\.rb|\.github/workflows/ci\.yml)$'; then
               run=true
               reason="run: production image inputs changed"
             fi
@@ -584,6 +584,19 @@ jobs:
     if: needs.production-image-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       BUNDLE_FROZEN: "false" # the throwaway module changes Gemfile.lock (OPS-06)
     steps:
@@ -611,12 +624,95 @@ jobs:
       - name: Create a throwaway module
         run: bin/rails generate rafelo:module image_check
 
+      - name: Write throwaway production credentials
+        # The final image is booted with real (throwaway) credentials, not the
+        # dummy-boot flag. The key and values are generated here, never printed
+        # or committed (BE-08, SEC-07).
+        run: |
+          set -euo pipefail
+          key="$(bundle exec ruby -rsecurerandom -e 'puts SecureRandom.hex(16)')"
+          echo "::add-mask::$key"
+          printf '%s' "$key" > /tmp/rafelo-production.key
+          bundle exec ruby -ractive_support -ractive_support/encrypted_configuration -rsecurerandom -ryaml -e '
+            config = ActiveSupport::EncryptedConfiguration.new(
+              config_path: "config/credentials/production.yml.enc",
+              key_path: "/tmp/rafelo-production.key",
+              env_key: "RAILS_MASTER_KEY",
+              raise_if_missing_key: true
+            )
+            config.write({
+              "secret_key_base" => SecureRandom.hex(64),
+              "active_record_encryption" => {
+                "primary_key" => SecureRandom.hex(16),
+                "deterministic_key" => SecureRandom.hex(16),
+                "key_derivation_salt" => SecureRandom.hex(16)
+              },
+              "database" => { "password" => "postgres", "migration_password" => "postgres" },
+              "aws" => { "access_key_id" => "dummy", "secret_access_key" => "dummy" }
+            }.to_yaml)
+          '
+
       - name: Build the production image
         run: docker build -t rafelo-ci .
 
       - name: Check psql in the image
         # schema_format :sql loads structure.sql with psql at boot and restore (C2, OPS-06).
         run: docker run --rm rafelo-ci psql --version
+
+      - name: Prepare the image database
+        # Load structure.sql with the image's psql as the migration role, as the
+        # entrypoint does on the first deploy (C2, BE-22).
+        run: |
+          set -euo pipefail
+          key="$(cat /tmp/rafelo-production.key)"
+          docker run --rm --network host \
+            -e RAILS_ENV=production \
+            -e RAILS_MASTER_KEY="$key" \
+            -e RAILS_HOSTS=localhost \
+            -e ACME_API_BASE_URL=http://127.0.0.1:9 \
+            -e ACTIVE_STORAGE_SERVICE=local \
+            -e DB_HOST=127.0.0.1 -e DB_PORT=5432 \
+            -e DB_NAME=rafelo_boot \
+            -e DB_USER=postgres -e DB_PASSWORD=postgres \
+            -e DB_MIGRATION_USER=postgres -e DB_MIGRATION_PASSWORD=postgres \
+            -e ACME_DATABASE_ROLE=migration \
+            rafelo-ci ./bin/rails db:prepare
+
+      - name: Boot the production image and check /up
+        # A production-image build is not a boot: C5 changes the server gem, and
+        # C3/C4 change the production boot. Start the image's Rails server (Puma)
+        # and wait for the health endpoint (OPS-06).
+        run: |
+          set -euo pipefail
+          key="$(cat /tmp/rafelo-production.key)"
+          docker run -d --name rafelo-boot --network host \
+            -e RAILS_ENV=production \
+            -e RAILS_MASTER_KEY="$key" \
+            -e RAILS_HOSTS=localhost \
+            -e ACME_API_BASE_URL=http://127.0.0.1:9 \
+            -e ACTIVE_STORAGE_SERVICE=local \
+            -e DB_HOST=127.0.0.1 -e DB_PORT=5432 \
+            -e DB_NAME=rafelo_boot \
+            -e DB_USER=postgres -e DB_PASSWORD=postgres \
+            -e DB_MIGRATION_USER=postgres -e DB_MIGRATION_PASSWORD=postgres \
+            rafelo-ci ./bin/rails server -b 0.0.0.0 -p 8080
+          for _ in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/up >/dev/null 2>&1; then
+              echo "production image booted and answered /up (Puma)"
+              exit 0
+            fi
+            if ! docker inspect -f '{{.State.Running}}' rafelo-boot 2>/dev/null | grep -q true; then
+              break
+            fi
+            sleep 2
+          done
+          echo "production image failed to boot" >&2
+          docker logs rafelo-boot >&2 || true
+          exit 1
+
+      - name: Remove the boot container
+        if: always()
+        run: docker rm -f rafelo-boot 2>/dev/null || true
 
   smoke-needed:
     defaults:
