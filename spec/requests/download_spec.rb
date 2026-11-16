@@ -1,6 +1,15 @@
 require "rails_helper"
 
 RSpec.describe "Downloads", type: :request do
+  def audit_rows(event, outcome)
+    Rafelo::Core::AuditEvent.where(
+      request_id: response.headers["X-Request-Id"], event: event, outcome: outcome
+    )
+  end
+
+  def request_audit_rows
+    Rafelo::Core::AuditEvent.where(request_id: response.headers["X-Request-Id"])
+  end
   it "streams the body with attachment headers and a sanitized filename" do
     get "/en/dummy/download", headers: auth_headers
 
@@ -10,7 +19,7 @@ RSpec.describe "Downloads", type: :request do
     expect(response.headers["Content-Disposition"]).to include("report.txt")
     expect(response.headers["Cache-Control"]).to include("no-store")
     expect(response.headers["X-Content-Type-Options"]).to eq("nosniff")
-    expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "success").count).to eq(1)
+    expect(audit_rows("download", "success").count).to eq(1)
   end
 
   it "answers the error page before the first byte when the upstream fails" do
@@ -19,13 +28,13 @@ RSpec.describe "Downloads", type: :request do
     expect(response).to have_http_status(:service_unavailable)
     expect(response.headers["Content-Disposition"]).to be_nil
     expect(response.body).to include("upstream.unavailable")
-    expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "failure").count).to eq(1)
+    expect(audit_rows("download", "failure").count).to eq(1)
   end
 
   it "audits an overflow after the first byte as a failure" do
     get "/en/dummy/download_overflow", headers: auth_headers
 
-    expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "failure").count).to eq(1)
+    expect(audit_rows("download", "failure").count).to eq(1)
   end
 
   it "streams more chunks than the bounded queue holds without dropping any" do
@@ -41,8 +50,8 @@ RSpec.describe "Downloads", type: :request do
 
     expect(response).to have_http_status(:forbidden)
     expect(response.headers["Content-Disposition"]).to be_nil
-    expect(Rafelo::Core::AuditEvent.where(event: "download", outcome: "failure").count).to eq(1)
-    expect(Rafelo::Core::AuditEvent.count).to eq(1)
+    expect(audit_rows("download", "failure").count).to eq(1)
+    expect(request_audit_rows.count).to eq(1)
   end
 
   it "answers unavailable when the per-process download cap is full" do
