@@ -16,7 +16,7 @@ class SessionsController < ApplicationController
 
   def create
     result = Rafelo::Core::AuthGateway.new(
-      budget: Rafelo::Core::CallBudget.new(api: 3),
+      budget: Rafelo::Core::CallBudget.default(deadline: request_deadline),
       request_id: request.request_id,
       trace_id: Rafelo::Core::Current.trace_id
     ).sign_in(email: params[:email], password: params[:password])

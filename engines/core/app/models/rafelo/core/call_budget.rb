@@ -5,26 +5,45 @@ module Rafelo
     class CallBudget
       attr_accessor :deadline
 
-      def initialize(limits = {}, deadline: nil, **extra)
+      def self.default(deadline: nil)
+        budgets = Rails.application.config.x.budgets
+        new(budgets.upstream_calls, deadline: deadline, refresh_limits: budgets.refresh_calls)
+      end
+
+      def self.job(deadline:)
+        budgets = Rails.application.config.x.budgets
+        new(budgets.job_calls, deadline: deadline, refresh_limits: budgets.refresh_calls)
+      end
+
+      def initialize(limits = {}, deadline: nil, refresh_limits: nil, **extra)
         @limits = limits.merge(extra).transform_keys(&:to_sym)
+        @refresh_limits = (refresh_limits || @limits).transform_keys(&:to_sym)
         @counts = Hash.new(0)
+        @refresh_counts = Hash.new(0)
         @mutex = Mutex.new
         @deadline = deadline
       end
 
-      def consume!(upstream)
+      def consume!(upstream, kind: :page)
         enforce_deadline!
         name = upstream.to_sym
+        if kind == :page
+          limit = @limits.fetch(name) { raise ArgumentError, "no call budget for upstream #{name}" }
+          counts = @counts
+        else
+          limit = @refresh_limits.fetch(name, 1)
+          counts = @refresh_counts
+        end
         @mutex.synchronize do
-          limit = @limits.fetch(name, 0)
-          raise ApplicationError.new("request.throttled") if @counts[name] >= limit
+          raise ApplicationError.new("request.throttled") if counts[name] >= limit
 
-          @counts[name] += 1
+          counts[name] += 1
         end
       end
 
-      def count(upstream)
-        @mutex.synchronize { @counts[upstream.to_sym] }
+      def count(upstream, kind: :page)
+        counts = kind == :page ? @counts : @refresh_counts
+        @mutex.synchronize { counts[upstream.to_sym] }
       end
 
       def remaining

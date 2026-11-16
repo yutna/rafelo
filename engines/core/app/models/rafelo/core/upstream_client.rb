@@ -73,7 +73,7 @@ module Rafelo
         ensure_no_transaction!
         raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
-        @budget&.consume!(@name)
+        @budget&.consume!(@name, kind: @kind)
         ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind)
         @calls += 1
         response = @bulkhead.call do
@@ -101,7 +101,7 @@ module Rafelo
         raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
         limit = max_bytes || @config.max_response_bytes
-        @budget&.consume!(@name)
+        @budget&.consume!(@name, kind: @kind)
         ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind)
         @calls += 1
         first = true
