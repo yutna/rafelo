@@ -12,6 +12,7 @@ RSpec.describe Rafelo::Core::BaseJob do
   end
 
   before do
+    Rafelo::Core::Current.reset
     stub_const("RafeloJobProbe", job_class)
     ActiveJob::Base.queue_adapter.enqueued_jobs.clear
   end
