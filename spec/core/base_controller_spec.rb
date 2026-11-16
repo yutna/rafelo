@@ -78,13 +78,22 @@ RSpec.describe Rafelo::Core::BaseController do
   it "builds a gateway with the current token provider and budget" do
     Rafelo::Core::Current.token_provider = Struct.new(:token, :service?).new("secret", false)
     Rafelo::Core::Current.call_budget = Rafelo::Core::CallBudget.new(api: 2)
-    gateway = ApplicationController.new.gateway(ExampleInvoicesGateway)
+    controller = ApplicationController.new
+    allow(controller).to receive(:pundit_policy_authorized?).and_return(true)
+    gateway = controller.gateway(ExampleInvoicesGateway)
 
     expect(gateway.client).to be_a(Rafelo::Core::UpstreamClient)
     expect(gateway.budget.count(:api)).to eq(0)
   ensure
     Rafelo::Core::Current.token_provider = nil
     Rafelo::Core::Current.call_budget = nil
+  end
+
+  it "refuses a gateway before authorization" do
+    controller = ApplicationController.new
+    allow(controller).to receive(:pundit_policy_authorized?).and_return(false)
+
+    expect { controller.gateway(ExampleInvoicesGateway) }.to raise_error(Pundit::NotAuthorizedError)
   end
 
   it "builds a page context through the factory" do

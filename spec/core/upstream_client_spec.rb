@@ -36,7 +36,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
 
   let(:client) do
     described_class.new(name: :test_api, config: config, token_provider: token,
-                        request_id: "request-1", trace_id: "a" * 32)
+                        request_id: "request-1", trace_id: "a" * 32, trace_sampled: false)
   end
 
   it "performs a GET with the identity and trace headers" do
@@ -74,7 +74,7 @@ RSpec.describe Rafelo::Core::UpstreamClient do
   it "sends no traceparent for an invalid trace id" do
     invalid = described_class.new(
       name: :invalid_trace, config: config, token_provider: token,
-      request_id: "request-1", trace_id: "trace-1"
+      request_id: "request-1", trace_id: "trace-1", trace_sampled: false
     )
     stub_request(:get, "http://upstream.test/invoices")
       .with { |request| !request.headers.key?("Traceparent") }
