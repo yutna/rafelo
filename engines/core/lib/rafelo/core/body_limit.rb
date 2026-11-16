@@ -20,7 +20,7 @@ module Rafelo
       end
 
       def call(env)
-        limit = @limits[normalized_path(env["PATH_INFO"])]
+        limit = limit_for(env["PATH_INFO"].to_s)
         return @app.call(env) unless limit
 
         declared = env["CONTENT_LENGTH"].to_i
@@ -42,12 +42,14 @@ module Rafelo
 
       private
 
-      # Rails accepts a format suffix and a trailing slash on the same route;
-      # both must reach the same cap (BE-12).
-      def normalized_path(path)
-        path = path.to_s.sub(%r{/+\z}, "")
-        path = path.sub(/\.[A-Za-z0-9]+\z/, "")
-        path.sub(%r{/+\z}, "")
+      # Rails accepts a format suffix, a trailing slash, and percent-encoded
+      # spellings on the same route; all must reach the same cap (BE-12).
+      # Raw PATH_INFO is matched so an encoded suffix cannot slip past.
+      def limit_for(path)
+        @limits.each do |base, limit|
+          return limit if path == base || path.match?(/\A#{Regexp.escape(base)}(?:[.\/;%]|\z)/)
+        end
+        nil
       end
 
       def too_large(env)
