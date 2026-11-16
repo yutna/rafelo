@@ -31,4 +31,14 @@ RSpec.describe "Core report body limits", type: :request do
 
     expect(response).to have_http_status(:content_too_large)
   end
+
+  it "applies the same cap with a format suffix or a trailing slash" do
+    body = "x" * (64 * 1024 + 1)
+
+    [ "/core/csp_reports.json", "/core/csp_reports/", "/core/csp_reports.json?x=1" ].each do |path|
+      post path, params: body, headers: { "Content-Type" => "application/csp-report" }
+
+      expect(response).to have_http_status(:content_too_large), "expected 413 for #{path}"
+    end
+  end
 end
