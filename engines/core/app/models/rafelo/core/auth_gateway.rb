@@ -6,6 +6,8 @@ module Rafelo
       Result = Data.define(:viewer, :access_token, :refresh_token, :access_expires_at, :grants)
 
       def initialize(budget:, request_id:, trace_id:)
+        raise ArgumentError, "AuthGateway needs a budget deadline (BE-16)" unless budget&.deadline
+
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
@@ -31,6 +33,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
+          deadline: @budget.deadline,
           kind: :auth
         )
         payload = parse_json(
@@ -59,6 +62,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
+          deadline: @budget.deadline,
           kind: :session_refresh
         )
       end

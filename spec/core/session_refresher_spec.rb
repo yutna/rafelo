@@ -48,7 +48,7 @@ RSpec.describe Rafelo::Core::SessionRefresher do
       end
     end.new(session_id: session.id, result: result)
 
-    token = described_class.new(session: session, gateway: gateway, timeout: 0).call
+    token = described_class.new(session: session, gateway: gateway, timeout: 0, deadline: Rafelo::Core::RequestDeadline.new(30)).call
 
     expect(token).to eq("successor-access")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(true)
@@ -78,7 +78,7 @@ RSpec.describe Rafelo::Core::SessionRefresher do
       end
     end.new(result)
 
-    token = described_class.new(session: session, gateway: gateway, timeout: 15, force: true).call
+    token = described_class.new(session: session, gateway: gateway, timeout: 15, force: true, deadline: Rafelo::Core::RequestDeadline.new(30)).call
 
     expect(token).to eq("winner-access")
     expect(gateway.calls).to eq(1)
@@ -117,7 +117,7 @@ RSpec.describe Rafelo::Core::SessionRefresher do
     end.new(session_id: session.id, result: result)
 
     expect do
-      described_class.new(session: session, gateway: gateway, timeout: 0).call
+      described_class.new(session: session, gateway: gateway, timeout: 0, deadline: Rafelo::Core::RequestDeadline.new(30)).call
     end.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("auth.expired") }
   end
 end

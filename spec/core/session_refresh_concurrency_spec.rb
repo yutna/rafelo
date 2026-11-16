@@ -31,12 +31,12 @@ RSpec.describe "Session refresh concurrency", :concurrency, truncate: %w[core_se
 
     first = Rafelo::Core::Session.find(session.id)
     second = Rafelo::Core::Session.find(session.id)
-    first_thread = Thread.new { Rafelo::Core::SessionRefresher.new(session: first, gateway: gateway, timeout: 0).call }
+    first_thread = Thread.new { Rafelo::Core::SessionRefresher.new(session: first, gateway: gateway, timeout: 0, deadline: Rafelo::Core::RequestDeadline.new(30)).call }
     Timeout.timeout(5) { entered.pop }
 
     waited = Queue.new
     subscriber = ActiveSupport::Notifications.subscribe("session_refresh.wait") { waited << true }
-    second_thread = Thread.new { Rafelo::Core::SessionRefresher.new(session: second, gateway: gateway, timeout: 0).call }
+    second_thread = Thread.new { Rafelo::Core::SessionRefresher.new(session: second, gateway: gateway, timeout: 0, deadline: Rafelo::Core::RequestDeadline.new(30)).call }
     Timeout.timeout(5) { waited.pop }
 
     release << true
