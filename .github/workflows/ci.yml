@@ -837,6 +837,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      # bin/ci requires config/boot before its own Setup step runs, so the
+      # bundle must exist first.
+      - name: Install gems
+        run: bundle check || bundle install
+
       - name: Run the gate
         run: bin/ci
 
