@@ -3,7 +3,7 @@
 module Rafelo
   module Core
     class CallBudget
-      attr_reader :deadline
+      attr_accessor :deadline
 
       def initialize(limits = {}, deadline: nil, **extra)
         @limits = limits.merge(extra).transform_keys(&:to_sym)
