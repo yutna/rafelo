@@ -194,6 +194,15 @@ above, and `script/ci/guard_approval` fails when a guard file other than a
 ratchet file changed without an approving review from an owner listed in
 CODEOWNERS (it reads the reviews through the GitHub API).
 
+That approval counts only when the reviewing owner is not the pull request's
+author, here and in the ratchet check. So an AI agent works under its own
+GitHub identity (a machine user or a GitHub App), never a person's account:
+in a repository with one owner, the owner's review is then the approval, and
+a guard change the owner authors is merged only through the owner's recorded
+admin bypass. Both checks read CODEOWNERS and run their scripts from the merge
+base, never from the pull request under review, so a pull request cannot
+change its own judge.
+
 On a plan without branch protection for private repositories (verify when
 adopting), nothing can be required. The guarantees then fall back to required
 CI status where the platform offers it, and otherwise to convention:

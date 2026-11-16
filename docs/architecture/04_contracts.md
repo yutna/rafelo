@@ -124,7 +124,7 @@ set in the same file.
   string (canary, TS-07).
 - Money is an object `{ minor, currency, exponent }` (core's `moneySchema`):
   integer minor units, an ISO 4217 code, and the currency's ISO 4217 exponent,
-  which Rails fills from one table in core (`Acme::Core::Money.wire`). The
+  which Rails fills from one table in core (`Rafelo::Core::Money.wire`). The
   browser never derives the exponent from `Intl`: ICU's digits differ from
   ISO 4217 for currencies such as IQD (0 against 3), LAK, MMK, HUF, IDR, and
   COP (0 against 2), and they change with the browser's ICU version, so
@@ -411,7 +411,7 @@ billing.invoice_already_paid: { status: 409, i18n_key: billing.errors.invoice_al
 - `upstream.circuit_open` is what a call gets while the upstream's circuit
   breaker is open (BE-05): the upstream is not called at all, and the viewer
   may try again later.
-- Rails raises `Acme::Core::ApplicationError` subclasses that carry a catalog
+- Rails raises `Rafelo::Core::ApplicationError` subclasses that carry a catalog
   code. One error responder renders the shared Inertia error page, or a JSON
   error body for non-Inertia JSON callers, with request id and trace id.
   Core's request specs prove the responder against
@@ -453,7 +453,7 @@ billing.invoice_already_paid: { status: 409, i18n_key: billing.errors.invoice_al
   not know becomes `errors.base` with a generic code, so a `422` never comes
   back without a message (BE-13 step 5).
 - A date interpolated into a flash message or an error goes through
-  `Acme::Core::DateFormatter`, so it shows the viewer's calendar (FE-20).
+  `Rafelo::Core::DateFormatter`, so it shows the viewer's calendar (FE-20).
 - **Flash is Inertia's page-level flash, never a prop.** inertia_rails 3.23.0
   copies the Rails flash keys listed in `flash_keys` (default
   `%i[notice alert]`, which core's initializer sets explicitly) into the
@@ -560,7 +560,8 @@ file or an AI instruction file cites a rule or ADR ID that does not exist, or
 a superseded ADR, and when such a file names, in backticks, a repository path
 under `script/`, `bin/`, `spec/`, `engines/`, `config/`, `app/`, or
 `.github/` that does not exist, with or without an extension: a pattern that
-requires an extension never checks `script/ci/*`.
+requires an extension never checks `script/ci/*`. The check has no list of
+paths to skip: a missing path is created or the text that names it changes.
 
 - AI instruction files are `AGENTS.md` and `CLAUDE.md` at any depth, plus
   the files the `ai_instruction_files` list in `config/docs.yml` names
@@ -633,7 +634,7 @@ multi-word deferred, optional, merge, and once prop, and a multi-word key in
 ### CT-12 — Deploys never mix contracts (MUST · ADR-02, ADR-06, ADR-31)
 
 - Set the Inertia asset version from the Vite build, computed once per
-  process: `config.version = -> { Acme::Core::AssetVersion.call }`, where
+  process: `config.version = -> { Rafelo::Core::AssetVersion.call }`, where
   `AssetVersion` memoizes `ViteRuby.digest` behind a `Mutex` (and offers
   `reset!` for specs). Do NOT call `ViteRuby.digest` per request: it re-hashes
   the watched sources inside `Dir.chdir` (vite_ruby 3.11.1

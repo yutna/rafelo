@@ -48,7 +48,9 @@ rise until an owner approves it. No workflow commits to `main`; lower counts
 arrive in a pull request. On a GitHub plan without required code-owner
 review, `script/ci/guard_approval` enforces the same approval for the other
 guard files, and without branch protection all of this rests on convention
-(WF-03).
+(WF-03). The AI works under its own GitHub identity, never a person's account,
+so a person's approving review is a real decision; an approval by the pull
+request's own author never counts (WF-03).
 
 The root `AGENTS.md` carries the matching line in its "Never" list: never
 loosen a guard to make something pass; propose the change in the pull request

@@ -17,12 +17,12 @@ flowchart LR
 
 | Concern | Owner |
 | --- | --- |
-| Routing, locale prefix, and every URL a page needs (built through `Acme::Core::Urls`, sent in props) | Rails, locales from `config/locales.yml` |
+| Routing, locale prefix, and every URL a page needs (built through `Rafelo::Core::Urls`, sent in props) | Rails, locales from `config/locales.yml` |
 | Sessions, cookies, CSRF, token storage and refresh | Rails, stored in PostgreSQL |
 | Authorization at the edge (can this viewer open this page or press this button?) | Rails, from upstream grants mapped through `config/permission_mapping.yml` |
 | Page props, shared props, error pages | Rails |
 | Copy and translations | Rails YAML in each engine, exported per engine as i18next namespaces |
-| Formatting dates, numbers, and money | `@design_system/formatters` in React, `Acme::Core::DateFormatter` in Rails |
+| Formatting dates, numbers, and money | `@design_system/formatters` in React, `Rafelo::Core::DateFormatter` in Rails |
 | Calls to the upstream APIs | Rails only, through one named client per upstream |
 | Export files | Rails, in Active Storage |
 | Rendering, local UI state, interaction | React |
@@ -65,8 +65,8 @@ around them.
 
 | Kind | Example | Holds | May depend on |
 | --- | --- | --- | --- |
-| core | `engines/core` (`Acme::Core`, `@core/`) | the kernel | nothing in the repository |
-| design_system | `engines/design_system` (`Acme::DesignSystem`, `@design_system/`) | the UI kit and formatters | nothing in the repository, not even core |
+| core | `engines/core` (`Rafelo::Core`, `@core/`) | the kernel | nothing in the repository |
+| design_system | `engines/design_system` (`Rafelo::DesignSystem`, `@design_system/`) | the UI kit and formatters | nothing in the repository, not even core |
 | domain engine | `engines/example_customers` | a business concept several modules share | core, design_system, declared domain engines |
 | product module | `engines/example_orders`, `engines/billing` | one product area: routes, pages, a registry entry | core, design_system, declared public surfaces of domain engines and other product modules |
 | composition root | `app/`, `config/` | entrypoint, page resolver, layouts, app-level pages | every engine |
@@ -176,7 +176,7 @@ Domain engines, core, and design_system have no entry.
 
 ```ruby
 # engines/billing/config/module.rb
-Acme::Core::Modules.register(
+Rafelo::Core::Modules.register(
   key: :billing,
   engine: Acme::Billing::Engine,
   path: "/billing",                    # default "/<key>"
@@ -191,15 +191,15 @@ Acme::Core::Modules.register(
 # config/routes.rb
 Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
-  mount Acme::Core::Engine => "/core", as: :core # internal endpoints, no locale
+  mount Rafelo::Core::Engine => "/core", as: :core # internal endpoints, no locale
 
-  scope ":locale", locale: Acme::Core::Locales.route_constraint do # generated from config/locales.yml (npm run locales:generate)
+  scope ":locale", locale: Rafelo::Core::Locales.route_constraint do # generated from config/locales.yml (npm run locales:generate)
     get "sign_in", to: "sessions#new"
     # ...other application routes
 
-    Acme::Core::Modules.each do |mod|
+    Rafelo::Core::Modules.each do |mod|
       mount mod.engine => mod.path, as: mod.route_name
-      mod.legacy_paths.each { |old, target| get "#{old}(/*rest)", to: Acme::Core::LegacyRedirect.new(mod, target) } # 301
+      mod.legacy_paths.each { |old, target| get "#{old}(/*rest)", to: Rafelo::Core::LegacyRedirect.new(mod, target) } # 301
     end
 
     root "home#show"
@@ -407,7 +407,7 @@ Everything else in the engine is private and free to change.
 
 Core and design_system are the kernel that every engine builds on, so their
 alias is their surface, with one exception: implementation details live in
-`internal/` (`Acme::Core::Internal`, `@core/internal/`,
+`internal/` (`Rafelo::Core::Internal`, `@core/internal/`,
 `@design_system/internal/`), which no other engine may reference (the
 `Rafelo/NoKernelInternals` cop and a dependency-cruiser rule). Their exports
 are held down by growth budgets (ARCH-12), and design_system's public API is
@@ -430,7 +430,7 @@ Each channel is closed or constrained, and each check has a canary fixture
 | Application config | `config.x` is read and written only in core | RuboCop cop |
 | Cache | `ScopedCache` requires `module:` and validates it against the calling engine (BE-17) | `ScopedCache` raises |
 | Copy | an engine uses only its own i18n namespace plus those of the kernel engines it may depend on (`core`, `design_system`) | `npm run i18n:check` |
-| Links | links are server-built props (CT-02): props objects build every URL with `context.urls.route(<engine key>, <route name>, params)` (BE-04) and the UI offers an action URL only where `can` allows it; engine key and route name are symbols, not constants, so a link into another module references none of its constants or files and mutual links are fine; TypeScript never builds a URL (FE-18) | `have_resolvable_hrefs` (core request spec matcher, TS-02) asserts that every `href`, `*Href`, and `nav[].path` in props was built by `Acme::Core::Urls` for the request, so it resolves · ESLint `no-restricted-syntax` bans template literals and string concatenation that start with `/` and a locale or path segment in frontend code outside the page resolver, the formatters, and tests (verify the selector when adopting) |
+| Links | links are server-built props (CT-02): props objects build every URL with `context.urls.route(<engine key>, <route name>, params)` (BE-04) and the UI offers an action URL only where `can` allows it; engine key and route name are symbols, not constants, so a link into another module references none of its constants or files and mutual links are fine; TypeScript never builds a URL (FE-18) | `have_resolvable_hrefs` (core request spec matcher, TS-02) asserts that every `href`, `*Href`, and `nav[].path` in props was built by `Rafelo::Core::Urls` for the request, so it resolves · ESLint `no-restricted-syntax` bans template literals and string concatenation that start with `/` and a locale or path segment in frontend code outside the page resolver, the formatters, and tests (verify the selector when adopting) |
 | Events | if events are used, their names are constants in the publisher's public surface | the public-surface checks (ARCH-09) |
 
 ### ARCH-11 — Module-owned artifacts live in the module (MUST · ADR-03)
@@ -594,26 +594,26 @@ config/
   queue.yml               # Solid Queue processes and threads; BE-21 counts them
   deploy.yml              # Kamal: RAILS_MASTER_KEY the only app env.secret; boot: limit: 1 with more than one host (13_operations.md, BE-22)
 engines/
-  core/                   # Acme::Core: the kernel; depends on nothing
-    app/{controllers,policies,props,services,errors}/acme/core/
-    app/views/acme/core/unsupported_browser.html.erb  # the 406 upgrade page: no script, nonce'd style, translated (FE-19)
+  core/                   # Rafelo::Core: the kernel; depends on nothing
+    app/{controllers,policies,props,services,errors}/rafelo/core/
+    app/views/rafelo/core/unsupported_browser.html.erb  # the 406 upgrade page: no script, nonce'd style, translated (FE-19)
     app/frontend/         # alias @core/
       contracts/          # envelope, shared props, definePage, app_path.schema.ts, locales.generated.ts
       lib/                # use_domain_reducer.ts, use_ui_state.ts, assert_plain.ts, deep_freeze.ts, i18n helpers
       domain/             # domain-free value objects (Money, DateRange)
       internal/           # @core/internal/: no other engine may import it (ARCH-09)
       errors.generated.ts # kernel error codes, generated from config/errors.yml (do not edit)
-    lib/acme/core/        # registry, PageContext factory, Urls, PermissionSet, UpstreamClient, Executor,
+    lib/rafelo/core/        # registry, PageContext factory, Urls, PermissionSet, UpstreamClient, Executor,
                           # ScopedCache, DateFormatter, Export, ListQuery, AssetVersion
     db/migrate/           # kernel tables, prefixed core_: core_sessions, core_audit_events, core_idempotency_keys, core_exports
-    lib/acme/core/internal/       # Acme::Core::Internal: no other engine may reference it (ARCH-09)
+    lib/rafelo/core/internal/       # Rafelo::Core::Internal: no other engine may reference it (ARCH-09)
     lib/generators/rafelo/   # module, domain, page, rename_module, move_page
     spec/dummy_engine/    # test-only engine for the kernel's request specs: loaded only when Rails.env.test?,
                           # part of core's Packwerk package (no package.yml), never mounted outside tests (TS-01)
     config/locales/<locale>.yml   # i18n namespace core
     tsconfig.json         # generated by script/ci/engine_graph (ARCH-08)
     package.yml           # dependencies: none
-  design_system/          # Acme::DesignSystem: a leaf; depends on nothing, not even core
+  design_system/          # Rafelo::DesignSystem: a leaf; depends on nothing, not even core
     app/frontend/         # alias @design_system/
       theme.css           # tokens and theme (FE-06)
       <component>/        # primitives and composites, one folder each (FE-07)
@@ -625,7 +625,7 @@ engines/
       internal/           # @design_system/internal/: no other engine may import it (ARCH-09)
     api.d.ts              # committed public API, regenerated and diffed in CI (FE-21)
     e2e/                  # screenshots of the component catalog (TS-11)
-    lib/acme/design_system/       # the minimal Ruby engine
+    lib/rafelo/design_system/       # the minimal Ruby engine
     config/locales/<locale>.yml   # i18n namespace design_system
     tsconfig.json         # generated by script/ci/engine_graph (ARCH-08)
     package.yml           # dependencies: none

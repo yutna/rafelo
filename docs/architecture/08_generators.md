@@ -160,7 +160,7 @@ Templates never hardcode what a contract or a configuration file already says:
 - the locale list comes from `config/locales.yml`, and the URL prefix in
   generated specs from `I18n.default_locale`;
 - the envelope comes from core helpers: page props build on
-  `Acme::Core::PageProps`, which returns exactly the five page keys (core
+  `Rafelo::Core::PageProps`, which returns exactly the five page keys (core
   merges the shared keys, CT-01), and page schemas on `definePage`;
 - permission keys come from the module's generated permission constants;
 - TypeScript project references and dependency-cruiser rules come from the
@@ -348,8 +348,13 @@ Verify the Rails 8.1 flag set, and that the image has git, when adopting.
   author, `Rafelo template <template@rafelo.invalid>`; it holds only what the
   template wrote.
 - Kernel-owned names keep the Rafelo brand in every adopter and are never
-  renamed: the generator namespace `rafelo:` and the RuboCop department
-  `Rafelo/`. Only the app namespace (`Acme`) follows the app name.
+  renamed: the generator namespace `rafelo:`, the RuboCop department
+  `Rafelo/`, and the kernel engines' Ruby namespaces `Rafelo::Core` and
+  `Rafelo::DesignSystem` with their `rafelo/core` and `rafelo/design_system`
+  paths, so `bin/kernel_update` merges kernel files without renaming them.
+  Only the app namespace (`Acme`) follows the app name: the app, its product
+  modules and domain engines, the example engines, and everything the
+  generators write.
 - From then on the kernel belongs to the adopter, security included. Nothing
   updates it remotely.
 - `bin/kernel_update <version>` produces a three-way merge for every kernel

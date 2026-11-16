@@ -379,8 +379,9 @@ the rule it serves.
    nothing outside `example_*` may depend on them (GEN-08).
 7. Assign CODEOWNERS for `engines/core`, `engines/design_system`, and every
    guard file except the ratchet files, which the ratchet check covers
-   (ARCH-12), and have your AI adapt the shipped AI files as
-   `14_working_with_ai.md` describes.
+   (ARCH-12). Give your AI agent its own GitHub identity (a machine user or a
+   GitHub App) with write access, never a person's account (WF-03), and have
+   it adapt the shipped AI files as `14_working_with_ai.md` describes.
 8. Set up logging, error reporting, backups, and deployment from
    `13_operations.md` before the first real user.
 

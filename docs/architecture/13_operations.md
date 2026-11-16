@@ -447,11 +447,14 @@ stores `nil` for a value that does not parse. Its spec covers all three forms.
   `mise.toml`'s Ruby, `.ruby-version`, the `Dockerfile`, and the image tag
   agree, and unless every Node and npm pin agrees (`00_README.md`).
 - **One prebuilt image.** A workflow that runs on changes to
-  `.devcontainer/**` builds the image and pushes it to the registry by digest,
+  `.devcontainer/**` and to the pins the image bakes in (`.ruby-version`,
+  `mise.toml`, and `package-lock.json`, which fixes the Playwright browsers)
+  builds the image and pushes it to the registry by digest,
   and the digest is recorded in `.devcontainer/image_digest`, committed
   through a pull request like any other change, never pushed to `main` by a
   workflow. A change to that file alone does not trigger a rebuild: the
-  workflow's filter is `paths: [".devcontainer/**", "!.devcontainer/image_digest"]`
+  workflow's filter is `paths: [".devcontainer/**", "!.devcontainer/image_digest",
+  ".ruby-version", "mise.toml", "package-lock.json"]`
   (GitHub Actions refuses `paths` and `paths-ignore` on the same event). That
   file is the only place CI learns the digest: a first `ci.yml` job reads it
   and outputs the image reference, and every other `ci.yml` job, except one

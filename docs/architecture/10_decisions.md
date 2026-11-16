@@ -399,6 +399,10 @@ PostgreSQL and the Dev Container (`rails new <app> -d postgresql
 from the app name and writes `KERNEL_VERSION`. From then on the kernel (core,
 design_system, the generators, `script/ci`, `bin/check`, `bin/kernel_update`,
 and `spec/fixtures/hostile_urls.json`) belongs to the adopter, security included.
+The kernel engines keep their vendor namespaces, `Rafelo::Core` and
+`Rafelo::DesignSystem`, in every adopter, as a gem's would, so an update merges
+the file names and constants it shipped; the app, its engines, and the example
+engines take the app's namespace (GEN-07).
 `bin/kernel_update <version>` produces a three-way merge of the adopter's
 copy, the base version, and the new version, and leaves conflicts to resolve.
 By default it updates core, the generators, `script/ci`, `bin/check`,
@@ -485,7 +489,7 @@ it, retries multiply its load, and the incident spreads to pages that never
 needed that upstream. Most applications also gain a second upstream sooner or
 later.
 
-Upstreams are named in `config/upstreams.yml`; `Acme::Core::UpstreamClient.for(:api)`
+Upstreams are named in `config/upstreams.yml`; `Rafelo::Core::UpstreamClient.for(:api)`
 builds the client, and each gateway declares `upstream :api`. Budgets, the
 service-token allow-list, fixtures, and drift checks are keyed per upstream.
 Each upstream has a circuit breaker, a concurrency limit (bulkhead), and a
@@ -546,7 +550,9 @@ code owners, or, for a ratchet, through `script/ci/ratchet`, which lets a fall
 pass and requires an owner's approval for a rise. Where the GitHub plan offers
 no required code-owner review (verify when adopting), `script/ci/guard_approval`
 fails when a guard file changed without an approving review from a listed
-owner. An agent never loosens a guard to make something pass; it proposes the
+owner who is not the pull request's author; an agent therefore works under its
+own identity, never a person's account (WF-03). An agent never loosens a guard
+to make something pass; it proposes the
 change in the pull request for a person to decide. Guard messages name the
 rule ID and the fix. The template ships the AI files an agent works from
 (root and engine guides, a request workflow, one task skill per recipe, and

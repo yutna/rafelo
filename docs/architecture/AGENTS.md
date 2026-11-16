@@ -70,7 +70,7 @@ ADR change; do not work around it.
 | BE-01 | Action = authorize → gateway → props with the factory-built `PageContext` → render. |
 | BE-03 | Permission keys are constants generated from `engines/<module>/config/permissions.yml`, never strings. |
 | BE-04 | Props objects are pure; never read `Current` inside them. |
-| BE-16 | Stay inside the upstream call budget; concurrency only through `Acme::Core::Executor`. |
+| BE-16 | Stay inside the upstream call budget; concurrency only through `Rafelo::Core::Executor`. |
 | BE-17 | Cache only through `ScopedCache` with `module:`; viewer data never under a shared key. |
 | BE-20 | No upstream call inside a database transaction. |
 | BE-22 | Migrations are zero-downtime: expand now, contract in a later release. |
@@ -87,7 +87,7 @@ ADR change; do not work around it.
 | FE-09 | Every interactive element and state has a `testId`. |
 | FE-11 | Format dates, numbers, and money only with `@design_system/formatters`. |
 | FE-18 | No `dangerouslySetInnerHTML`; URLs arrive in props, built by Rails, and pass `isSafeUrl` (`@design_system/safe_url`). |
-| FE-20 | In `th`, every year shown or typed is Buddhist Era; the wire stays Gregorian; Rails formats dates only with `Acme::Core::DateFormatter`. |
+| FE-20 | In `th`, every year shown or typed is Buddhist Era; the wire stays Gregorian; Rails formats dates only with `Rafelo::Core::DateFormatter`. |
 | OOP-03 | Throw only for invariants; input from a person is checked by `issues()`. |
 | OOP-05 | Class instances never enter props or React state; use `toPlain()`. |
 | TS-02 | Every page spec checks schema, SQL and upstream call budgets, props budget at the maximum page size, `have_resolvable_hrefs`, and `match_policy_capabilities`. |
@@ -107,9 +107,12 @@ ADR change; do not work around it.
   (ARCH-05, ARCH-09, ARCH-10).
 - Read or print `.env`, `config/master.key`, `config/credentials/production.key`,
   the decrypted production credentials (`bin/rails credentials:show
-  --environment production`), or tokens. Put secrets or real personal data in
-  code, tests, fixtures, logs, or issues; a new secret goes into the dummy
-  credentials with a dummy value, and a person adds the real one (BE-08).
+  --environment production`), or tokens.
+- Put secrets or real personal data in code, tests, fixtures, logs, or issues.
+  A new secret goes into the dummy credentials with a dummy value, and a person
+  adds the real one (BE-08).
+- Push, open, or merge pull requests under a person's account. You work under
+  your own GitHub identity, so a person's approval is real (WF-03).
 - Disable Brakeman, an audit, or a CI step. A disable comment needs a reason
   (FE-10), a skip a linked issue (TS-05); both count against the ratchet.
 - Add a dependency without an issue, or a framework-level library without an
@@ -130,7 +133,7 @@ generator writes.
   existing resource gets the action by hand (BE-01, BE-06, CT-10, CT-08).
 - `add-write-action`: `rafelo:page <module> <resource> --actions=new` (or
   `edit`) for a new resource; the form token is claimed through
-  `Acme::Core::IdempotencyClaim`, which yields the idempotency key (BE-13,
+  `Rafelo::Core::IdempotencyClaim`, which yields the idempotency key (BE-13,
   BE-15, CT-07).
 - `add-module`: `rafelo:module <name>` or `rafelo:domain <name>`; never edit
   the app's `config/routes.rb` (ARCH-06).
