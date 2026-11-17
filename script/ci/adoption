@@ -97,10 +97,11 @@ if [ ! -f "$work/base-src/template/template.rb" ]; then
   cp -a "$current_src/template" "$work/base-src/template"
 fi
 adopt "$work/base-src" "$work/smoke_shop_prev" "$work/base-src/template/template.rb"
-if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
-  cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
-  cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
-fi
+# Run the updater under test. The N-1 fixture ships the previous updater, and
+# an update that adds root tooling (ESLint/Prettier) is exactly what this gate
+# must exercise; the release's updater is the documented path for that.
+cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
+cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
 ( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
     --base-source "$work/base-src" --source "$current_src" \
     --include design_system/app/frontend )
