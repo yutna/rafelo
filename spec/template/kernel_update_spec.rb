@@ -9,8 +9,19 @@ require "rails_helper"
 load Rails.root.join("script/ci/kernel_update").to_s
 
 RSpec.describe "bin/kernel_update" do
-  it "carries the kernel test helpers" do
-    expect(KernelUpdate::DEFAULT_PATHS).to include("spec/rails_helper.rb", "spec/spec_helper.rb")
+  it "carries the kernel test helpers and the lint tooling" do
+    expect(KernelUpdate::DEFAULT_PATHS).to include(
+      "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
+      ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
+      "script/contracts", "script/docs", "playwright.config.ts"
+    )
+  end
+
+  it "keeps app-owned paths behind the --app-owned option" do
+    expect(KernelUpdate::APP_OWNED_PATHS).to include(
+      "app/frontend", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb"
+    )
+    expect(KernelUpdate::DEFAULT_PATHS).not_to include(*KernelUpdate::APP_OWNED_PATHS)
   end
 
   let(:script) { File.expand_path("../../script/ci/kernel_update", __dir__) }
