@@ -11,8 +11,8 @@ void createInertiaApp({
   resolve: async (name, page) => resolvePage(name, page),
   serverHead: true,
   strictMode: true,
-  // The progress bar injects a <style> without the request nonce, which the
-  // CSP reports; the shell keeps its own loading states (SEC-05).
-  progress: false,
+  // The progress bar injects a <style>; the request nonce lets it pass the
+  // CSP instead of reporting a violation (SEC-05).
+  nonce: document.querySelector<HTMLMetaElement>('meta[name="csp-nonce"]')?.content,
   title: (title) => title || "Rafelo",
 });
