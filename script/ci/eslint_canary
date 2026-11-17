@@ -60,7 +60,7 @@ CASES = [
   { name: "Tailwind classes", fixture: "tailwind/bad.tsx", path: ENGINE_PAGE,
     rules: [ "better-tailwindcss/no-unknown-classes" ] },
   { name: "skipped tests", fixture: "skip/bad.tsx", path: ENGINE_TEST,
-    rules: [ "rafelo/skip-needs-issue" ], count: 6 }
+    rules: [ "rafelo/skip-needs-issue" ], count: 16 }
 ].freeze
 
 LEGAL_CASES = [
