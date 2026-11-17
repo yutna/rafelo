@@ -19,6 +19,7 @@ require:
   - ./script/ci/cops/rafelo/cache_only_through_scoped_cache
   - ./script/ci/cops/rafelo/return_to_only_in_value_object
   - ./script/ci/cops/rafelo/env_only_in_config
+  - ./script/ci/cops/rafelo/concurrency_only_in_executor
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -29,6 +30,8 @@ Rafelo/ConfigXOnlyInCore:
 Rafelo/CacheOnlyThroughScopedCache:
   Enabled: true
 Rafelo/ReturnToOnlyInValueObject:
+  Enabled: true
+Rafelo/ConcurrencyOnlyInExecutor:
   Enabled: true
 Rafelo/EnvOnlyInConfig:
   Enabled: true

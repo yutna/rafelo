@@ -51,4 +51,31 @@ unless env_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 1} cops"
+concurrency_bad, concurrency_bad_status = stdin_run("Rafelo/ConcurrencyOnlyInExecutor",
+                                                      "app/models/concurrency_canary.rb",
+                                                      "Concurrent::FixedThreadPool.new(1)\n")
+unless !concurrency_bad_status.success? && concurrency_bad.include?("Rafelo/ConcurrencyOnlyInExecutor")
+  warn "cops_canary: ConcurrencyOnlyInExecutor did not report the app fixture"
+  warn concurrency_bad
+  exit 1
+end
+concurrency_executor, concurrency_executor_status = stdin_run(
+  "Rafelo/ConcurrencyOnlyInExecutor", "engines/core/app/models/rafelo/core/executor.rb",
+  "Concurrent::FixedThreadPool.new(1)\n"
+)
+unless concurrency_executor_status.success?
+  warn "cops_canary: ConcurrencyOnlyInExecutor flagged the executor"
+  warn concurrency_executor
+  exit 1
+end
+concurrency_spec, concurrency_spec_status = stdin_run(
+  "Rafelo/ConcurrencyOnlyInExecutor", "spec/core/concurrency_canary_spec.rb",
+  "Concurrent::CyclicBarrier.new(2)\n"
+)
+unless concurrency_spec_status.success?
+  warn "cops_canary: ConcurrencyOnlyInExecutor flagged a spec"
+  warn concurrency_spec
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 2} cops"
