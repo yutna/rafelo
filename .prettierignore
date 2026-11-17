@@ -37,3 +37,6 @@ engines/core/spec/dummy_engine/config/contracts
 config/production_routes.yml
 # The module and page generators update this YAML file.
 engines/*/config/permissions.yml
+# Rendered with the adopter's app name (GEN-07); the replacements reflow them.
+docs/deployment.md
+docs/operations/
