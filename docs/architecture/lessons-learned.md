@@ -538,7 +538,7 @@ existing skipped tests were never counted into the ceiling.
 disable/no-memo counts, Ruby `rubocop:disable`, annotated skips, page-budget
 overrides, legacy table prefixes/constants, and the clone baseline through
 `script/ci/clones`. `--update` writes only falls and reports rises without
-raising them; `--no-clones` keeps the canary fast. `.github/workflows/ratchet.yml`
+raising them; `--no-clones` keeps the canary fast. `template/.github/workflows/ratchet.yml`
 runs daily and opens one lowering pull request; it uses
 `secrets.RATCHET_TOKEN` when set. Canaries cover a fall, a rise, and the
 setting-preserving write. #363 tracks the stale skip ceiling; #364 tracks the

@@ -21,31 +21,18 @@ process is small and the same for every change.
 5. **Link the issue** with `Closes #N` in the description. The pull request
    takes the issue's milestone, and it can only be merged while it is in a
    version milestone (`vX.Y.Z`).
-6. **CI must pass**: the `ci-ok` and `pr-check / check` checks. Once the
-   repository applies the v0.20.0 ruleset, the required checks are `ci-ok`,
-   `title`, `ratchet`, and `guard_approval`.
+6. **CI must pass**: the `ci-ok` and `pr-check / check` checks. This
+   repository does not add required checks, approvals, or a merge queue.
 7. **Squash merge only.** The branch is deleted after the merge.
 
-## Pull request workflow
+## Pull request checks
 
-`.github/workflows/pull_request.yml` runs three cheap jobs on every pull
-request, title edit, review, and merge-queue entry (WF-03):
-
-- `title` lints the Conventional Commits title; a `merge_group` entry passes
-  because the title was linted on the pull request.
-- `ratchet` compares `config/ratchets.yml` and each engine ratchet with the
-  merge base. A fall passes; a rise needs an approving review from a
-  CODEOWNERS owner.
-- `guard_approval` compares the changed files with `.github/CODEOWNERS`. A
-  change to a guard file (any owned path except the ratchet files) needs an
-  approving review from an owner; a `merge_group` entry passes because the
-  approval was checked on the pull request.
-
-A repository with a single owner cannot produce an independent approval. In
-that case `guard_approval` records the guard files and passes only when the
-pull request author is that owner; add a second owner to enable independent
-review. The ratchet check never uses that fallback: a rise still needs an
-approval.
+This repository runs `ci.yml` (`bin/ci` over the template, the GEN-07 adoption
+run, and the N-1 to N update) and the oss-kit `pr-check` and `issue-check`
+callers. The template ships its own `pull_request.yml` (title, ratchet,
+guard_approval) to adopters under `template/.github/workflows/`; this
+repository does not apply that ruleset or require those checks. Name every
+guard-file change in the pull request for the owner's review.
 
 A release is made when its version milestone is complete: the release pull
 request sets `VERSION`, and after it merges the green CI push to `main` runs
@@ -100,8 +87,9 @@ pull request sets it, runs `bin/rails formats:dump`, and commits
 format invalid, uses a tag that already exists, or does not raise the version
 above the highest `v*` tag (`script/ci/release --check`).
 
-After the release pull request merges, the first green CI run of that push to
-`main` creates the tag and the GitHub Release in one API call
-(`script/ci/release`). A run with nothing to release logs that and exits.
-Closing the version milestone does not create the release; it records the
-gate result after the release exists.
+Closing the version milestone at 100% runs the oss-kit release caller
+(`.github/workflows/release.yml`): it preflights `VERSION` and the formats
+fixture, tags the default branch, and creates the GitHub Release with
+generated notes (`.github/release.yml`). Closing a milestone with open items
+reopens it and fails. The release pull request must merge before the milestone
+closes; closing the milestone again after the release does nothing.

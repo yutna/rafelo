@@ -169,7 +169,7 @@ Rule statuses use the four in `09_enforcement.md`: **enforced** (a tool fails th
 | Rule | Title | Code | Evidence | Status |
 | --- | --- | --- | --- | --- |
 | WF-01 | Issues describe one deliverable outcome | `.github/ISSUE_TEMPLATE/implementation.yml` | `.github/ISSUE_TEMPLATE/implementation.yml` | review |
-| WF-02 | One issue, one pull request | `.github/pull_request_template.md` · `.github/workflows/pull_request.yml` | `script/ci/title` · `.github/workflows/pull_request.yml` | review |
+| WF-02 | One issue, one pull request | `.github/pull_request_template.md` · `.github/workflows/pr-check.yml` · `template/.github/workflows/pull_request.yml` | `script/ci/title` · `.github/workflows/pr-check.yml` | review |
 | WF-03 | Titles, merges, and `main` | `.github/rulesets/main.json` · `script/ci/title` · `script/ci/ratchet` · `script/ci/guard_approval` | `script/ci/title_canary` · `script/ci/ratchet_canary` · `script/ci/guard_approval_canary` | enforced (plan features: verify when adopting; without branch protection: convention) |
 | WF-04 | Review gates at the end of a slice | `.github/ISSUE_TEMPLATE/review_gate.yml` | `.github/ISSUE_TEMPLATE/review_gate.yml` | review |
 | WF-05 | Releases come from `VERSION` | `VERSION` · `script/ci/release` · `script/ci/release_check` · `.github/workflows/release.yml` | `script/ci/release_check` · `script/ci/release_canary` | enforced (tag ruleset bypass actor, releasing a commit that changes `.github/workflows/`: verify when adopting) |
