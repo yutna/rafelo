@@ -7,8 +7,8 @@
     "status": "pending",
     "attempt": 1,
     "outcome": null,
-    "claimed_at": "2026-11-14T15:12:10.672821734Z",
-    "expires_at": "2026-11-14T16:12:10.672836212Z"
+    "claimed_at": "2026-11-17T07:13:47.043552401Z",
+    "expires_at": "2026-11-17T08:13:47.043566072Z"
   },
   {
     "format_version": 1,
@@ -18,8 +18,8 @@
     "status": "succeeded",
     "attempt": 1,
     "outcome": "/en/fixture",
-    "claimed_at": "2026-11-14T15:12:10.672847938Z",
-    "expires_at": "2026-11-14T16:12:10.672851749Z"
+    "claimed_at": "2026-11-17T07:13:47.043576860Z",
+    "expires_at": "2026-11-17T08:13:47.043580088Z"
   },
   {
     "format_version": 1,
@@ -29,8 +29,8 @@
     "status": "failed",
     "attempt": 1,
     "outcome": null,
-    "claimed_at": "2026-11-14T15:12:10.672859019Z",
-    "expires_at": "2026-11-14T16:12:10.672862016Z"
+    "claimed_at": "2026-11-17T07:13:47.043586044Z",
+    "expires_at": "2026-11-17T08:13:47.043588519Z"
   },
   {
     "format_version": 1,
@@ -40,7 +40,7 @@
     "status": "unknown",
     "attempt": 1,
     "outcome": null,
-    "claimed_at": "2026-11-14T15:12:10.672868229Z",
-    "expires_at": "2026-11-14T16:12:10.672871082Z"
+    "claimed_at": "2026-11-17T07:13:47.043593999Z",
+    "expires_at": "2026-11-17T08:13:47.043596445Z"
   }
 ]
