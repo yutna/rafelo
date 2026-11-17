@@ -134,10 +134,24 @@ done
 # The generated fixture has no app-owned customizations either; keep its app
 # and end-to-end code at the release under test so the new lint layer sees the
 # updated files rather than the older release's formatting and imports.
-for path in app/frontend e2e engines/design_system/e2e; do
+for path in app/frontend e2e; do
   rm -rf "$work/smoke_shop_prev/$path"
   cp -R "$current_src/$path" "$work/smoke_shop_prev/$path"
+  "$ruby_bin" -r"$current_src/template/lib/rafelo_template" -e '
+    root, app_name = ARGV
+    namespace = RafeloTemplate.namespace(app_name)
+    Dir[File.join(root, "**/*")].each do |path|
+      next unless File.file?(path)
+
+      text = File.binread(path).force_encoding(Encoding::UTF_8)
+      next unless text.valid_encoding?
+
+      File.binwrite(path, RafeloTemplate.render_text(text, "app", app_name, namespace))
+    end
+  ' "$work/smoke_shop_prev/$path" smoke_shop_prev
 done
+rm -rf "$work/smoke_shop_prev/engines/design_system/e2e"
+cp -R "$current_src/engines/design_system/e2e" "$work/smoke_shop_prev/engines/design_system/e2e"
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
 # A generated fixture has no customizations; apply the release's format step
 # to the refreshed app-owned docs and files before the gate.
