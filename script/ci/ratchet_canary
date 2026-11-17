@@ -187,6 +187,13 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     failures += 1
     warn "ratchet_canary: update rise: exited #{status}: #{output}"
   end
+
+  # A string ceiling cannot hide a rise.
+  write_root(dir, "rubocop_disable" => "99")
+  commit(dir, "string ceiling")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "non-integer ceiling", 1, status, output, "non-integer")
 end
 
 # A new key is recorded at its real value; it is not a rise.
