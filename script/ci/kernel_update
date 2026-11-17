@@ -41,8 +41,12 @@ module KernelUpdate
     Dockerfile
     package.json
     package-lock.json
+    .prettierignore
+    .prettierrc.json
+    eslint.config.mjs
     config/budgets.yml
     config/ci.rb
+    config/ratchets.yml
     config/contracts/_shared.json
     config/database.yml
     config/deploy.yml
@@ -61,6 +65,7 @@ module KernelUpdate
     config/initializers
     package.yml
     packwerk.yml
+    docs/contracts.md
     spec/enforcement
     .github
   ].freeze
@@ -184,7 +189,9 @@ module KernelUpdate
 
     def paths
       @paths ||= (
-        DEFAULT_PATHS + @includes.map { |folder| "engines/#{folder}" }
+        DEFAULT_PATHS +
+        @includes.map { |folder| "engines/#{folder}" } +
+        (@includes.any? { |folder| folder.start_with?("design_system/") } ? [ "engines/design_system/api.d.ts" ] : [])
       ).uniq
     end
 
