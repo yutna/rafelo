@@ -507,7 +507,6 @@ module Rafelo
             import type { LayoutName } from "@core/contracts/layout.types";
 
             import { Head } from "@inertiajs/react";
-
             import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
 
             import { pageSchema } from "./index.schema";
@@ -575,7 +574,6 @@ module Rafelo
             import type { LayoutName } from "@core/contracts/layout.types";
 
             import { Head } from "@inertiajs/react";
-
             import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
 
             import { pageSchema } from "./show.schema";
@@ -640,7 +638,6 @@ module Rafelo
             import type { LayoutName } from "@core/contracts/layout.types";
 
             import { Head } from "@inertiajs/react";
-
             import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
 
             import { pageSchema } from "./new.schema";
@@ -692,7 +689,6 @@ module Rafelo
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
             import { Link } from "@design_system/public";
             import { useForm } from "@inertiajs/react";
-
             import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
@@ -744,7 +740,6 @@ module Rafelo
             import type { LayoutName } from "@core/contracts/layout.types";
 
             import { Head } from "@inertiajs/react";
-
             import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
 
             import { pageSchema } from "./edit.schema";
