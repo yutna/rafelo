@@ -1,0 +1,64 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+require "yaml"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "workflow_policy")
+failures = 0
+cases = 0
+
+def run(script, root)
+  Open3.capture2e(script, "--root", root)
+end
+
+Dir.mktmpdir("rafelo-workflow-canary-") do |dir|
+  workflows = File.join(dir, ".github", "workflows")
+  FileUtils.mkdir_p(workflows)
+  Dir[File.join(root, ".github", "workflows", "*.yml")].each do |path|
+    FileUtils.cp(path, workflows)
+  end
+
+  cases += 1
+  output, status = run(script, dir)
+  if !status.success?
+    failures += 1
+    warn "workflow_policy_canary: valid workflows: #{output}"
+  end
+
+  # A job the aggregator does not need is a missing gate step.
+  ci = File.join(workflows, "ci.yml")
+  data = YAML.load_file(ci, aliases: true)
+  data["jobs"]["stray"] = {
+    "runs-on" => "ubuntu-latest",
+    "timeout-minutes" => 1,
+    "steps" => [ { "run" => "true" } ]
+  }
+  File.write(ci, YAML.dump(data))
+
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("ci-ok needs is missing stray")
+    failures += 1
+    warn "workflow_policy_canary: job missing from ci-ok: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-workflow-empty-") do |dir|
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("no workflow files found")
+    failures += 1
+    warn "workflow_policy_canary: empty root: #{output}"
+  end
+end
+
+if failures.positive?
+  warn "workflow_policy_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "workflow_policy_canary: checked #{cases} cases; failures=0"
