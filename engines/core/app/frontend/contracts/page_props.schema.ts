@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+// The CSP has no 'unsafe-eval'; Zod's eval probe would otherwise report a
+// script-src violation on every page (SEC-05). JIT-less parsing is the
+// supported mode under this policy.
+z.config({ jitless: true });
+
 import { appPathSchema } from "./app_path.schema";
 import { localeSchema } from "./locales.generated";
 

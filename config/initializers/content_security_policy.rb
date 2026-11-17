@@ -22,6 +22,9 @@ Rails.application.configure do
     policy.base_uri :self
     policy.form_action :self
     policy.frame_ancestors :none
+    # Reports go to the tokenless core endpoint; the smoke job runs with
+    # Report-Only and fails when one arrives (SEC-05).
+    policy.report_uri "/core/csp_reports"
   end
 
   config.content_security_policy_nonce_generator = ->(_request) { SecureRandom.urlsafe_base64(16) }

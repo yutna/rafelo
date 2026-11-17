@@ -12,6 +12,7 @@ RSpec.describe "Security headers", type: :request do
     expect(response.headers["Content-Security-Policy"]).not_to include("'nonce-'")
     expect(response.headers["Content-Security-Policy"]).to include("frame-ancestors 'none'")
     expect(response.headers["Content-Security-Policy"]).to include("form-action 'self'")
+    expect(response.headers["Content-Security-Policy"]).to include("report-uri /core/csp_reports")
     expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
     expect(response.body).to match(/<meta name="csp-nonce" content="[^"]+">/)
     expect(response.headers["Content-Security-Policy"]).not_to include("unsafe-inline")
@@ -46,6 +47,7 @@ RSpec.describe "Security headers", type: :request do
     get "/en/dummy/denied", headers: { "Cookie" => "session_token=#{token}" }
     expect(response).to have_http_status(:forbidden)
     expect(response.headers["Content-Security-Policy"]).to include("form-action 'self'")
+    expect(response.headers["Content-Security-Policy"]).to include("report-uri /core/csp_reports")
     expect(response.headers["Permissions-Policy"]).to eq("camera=(), geolocation=(), microphone=()")
 
     get "/en/does-not-exist"
