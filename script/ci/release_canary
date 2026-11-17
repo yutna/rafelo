@@ -10,6 +10,13 @@ script = File.join(root, "script", "ci", "release")
 failures = 0
 cases = 0
 
+def git(dir, *args)
+  output, error, status = Open3.capture3("git", "-C", dir, *args)
+  abort "release_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
+
+  output
+end
+
 def run_case(script, dir, version, tags, arguments, env = {})
   File.write(File.join(dir, "VERSION"), version)
   tag_file = File.join(dir, "tags.txt")
@@ -90,6 +97,39 @@ Dir.mktmpdir("rafelo-release-canary-") do |dir|
   cases += 1
   status, output = run_case(script, dir, "0.20.0", tags, [ "--check" ])
   cases, failures = expect("locale placeholder check", cases - 1, failures, status, 1, output, /locale placeholders/)
+end
+
+# The release commit's push CI: the milestone-close caller already created
+# the tag, so the check accepts it when it points at HEAD.
+Dir.mktmpdir("rafelo-release-check-") do |dir|
+  check = File.join(root, "script", "ci", "release_check")
+
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  File.write(File.join(dir, "VERSION"), "0.1.0\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "base")
+  base = git(dir, "rev-parse", "HEAD").strip
+
+  File.write(File.join(dir, "VERSION"), "0.2.0\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "release")
+  git(dir, "tag", "-a", "v0.2.0", "-m", "v0.2.0")
+
+  cases += 1
+  output, status = Open3.capture2e(check, "--root", dir, "--base", base)
+  cases, failures = expect("current release tag", cases - 1, failures, status.exitstatus, 0, output, /current release commit/)
+
+  File.write(File.join(dir, "VERSION"), "0.3.0\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "next release")
+  git(dir, "tag", "-a", "v0.3.0", "-m", "v0.3.0", "HEAD~1")
+  FileUtils.mkdir_p(File.join(dir, "spec", "fixtures", "formats", "v0.3.0"))
+
+  cases += 1
+  output, status = Open3.capture2e(check, "--root", dir, "--base", "HEAD~1")
+  cases, failures = expect("tag at another commit", cases - 1, failures, status.exitstatus, 1, output, /already exists/)
 end
 
 if failures.positive?
