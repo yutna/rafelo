@@ -1,11 +1,11 @@
-import i18next from "i18next";
-
-import enApp from "../locales/en.json";
-import thApp from "../locales/th.json";
 import enCore from "@core/locales/en.json";
 import thCore from "@core/locales/th.json";
 import enDesignSystem from "@design_system/locales/en.json";
 import thDesignSystem from "@design_system/locales/th.json";
+import i18next from "i18next";
+
+import enApp from "@/locales/en.json";
+import thApp from "@/locales/th.json";
 
 const initialized = i18next.init({
   resources: {

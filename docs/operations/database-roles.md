@@ -3,10 +3,10 @@
 OPS-08 separates the role that owns and migrates the database from the role
 the application uses at runtime.
 
-| Role | Used by | Owns tables | Audit tables |
-| --- | --- | --- | --- |
-| `acme_migrator` | `bin/rails db:prepare` in the entrypoint, migrations, the partition routine, backups | Yes | Owns them; may drop whole partitions for retention |
-| `acme_runtime` | Puma, Solid Queue, consoles | No | `INSERT` and `SELECT` only: no `UPDATE`, `DELETE`, or `TRUNCATE` |
+| Role            | Used by                                                                              | Owns tables | Audit tables                                                     |
+| --------------- | ------------------------------------------------------------------------------------ | ----------- | ---------------------------------------------------------------- |
+| `acme_migrator` | `bin/rails db:prepare` in the entrypoint, migrations, the partition routine, backups | Yes         | Owns them; may drop whole partitions for retention               |
+| `acme_runtime`  | Puma, Solid Queue, consoles                                                          | No          | `INSERT` and `SELECT` only: no `UPDATE`, `DELETE`, or `TRUNCATE` |
 
 The runtime role cannot disable the append-only trigger without table
 ownership, and `TRUNCATE` bypasses row triggers, so it has no `TRUNCATE`

@@ -1,7 +1,8 @@
-import { Head } from "@inertiajs/react";
 import type { LayoutName } from "@core/contracts/layout.types";
 
-import { OrdersEditScreen } from "../../screens/orders/edit_screen";
+import { OrdersEditScreen } from "@example_orders/screens/orders/edit_screen";
+import { Head } from "@inertiajs/react";
+
 import { pageSchema } from "./edit.schema";
 
 export default function OrderEdit(props: Record<string, unknown>) {

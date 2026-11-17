@@ -1,9 +1,6 @@
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
 import type { ColumnDef } from "@tanstack/react-table";
+
+import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 
 type DataTableProps = {
   testId: string;
@@ -13,6 +10,7 @@ type DataTableProps = {
 };
 
 export default function DataTableImpl({ testId, data, columns, emptyLabel }: DataTableProps) {
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns non-memoizable functions; the wrapper owns the table (FE-10).
   const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
 
   return (
@@ -22,7 +20,9 @@ export default function DataTableImpl({ testId, data, columns, emptyLabel }: Dat
           <tr key={group.id}>
             {group.headers.map((header) => (
               <th key={header.id} className="border-b px-2 py-2">
-                {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                {header.isPlaceholder
+                  ? null
+                  : flexRender(header.column.columnDef.header, header.getContext())}
               </th>
             ))}
           </tr>
@@ -30,7 +30,11 @@ export default function DataTableImpl({ testId, data, columns, emptyLabel }: Dat
       </thead>
       <tbody>
         {table.getRowModel().rows.length === 0 ? (
-          <tr><td colSpan={columns.length} className="px-2 py-4">{emptyLabel}</td></tr>
+          <tr>
+            <td colSpan={columns.length} className="px-2 py-4">
+              {emptyLabel}
+            </td>
+          </tr>
         ) : (
           table.getRowModel().rows.map((row) => (
             <tr key={row.id}>

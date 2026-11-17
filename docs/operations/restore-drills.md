@@ -5,9 +5,9 @@ Every drill restores a base backup and WAL into a scratch PostgreSQL, runs
 when `core_sessions` is not empty after the restore or when the recovered data
 does not stop at the chosen point.
 
-| Date (UTC) | Environment | PostgreSQL | Backup | Recovery point (UTC) | Recovery time | Sessions after restore | Result |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-11-13 | Local scratch drill (dummy data) | 18.6 | Base backup + archived WAL | 2026-11-13 22:39:25.268097 | 2 s | 0 | Pass |
+| Date (UTC) | Environment                      | PostgreSQL | Backup                     | Recovery point (UTC)       | Recovery time | Sessions after restore | Result |
+| ---------- | -------------------------------- | ---------- | -------------------------- | -------------------------- | ------------- | ---------------------- | ------ |
+| 2026-11-13 | Local scratch drill (dummy data) | 18.6       | Base backup + archived WAL | 2026-11-13 22:39:25.268097 | 2 s           | 0                      | Pass   |
 
 ## Drill 2026-11-13
 

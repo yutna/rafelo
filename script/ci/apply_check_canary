@@ -1,0 +1,69 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "apply_check")
+
+def run(script, root)
+  Open3.capture2e(script, "--root", root)
+end
+
+def git(dir, *args)
+  output, status = Open3.capture2e("git", "-C", dir, *args)
+  abort "apply_check_canary: git #{args.join(' ')} failed: #{output}" unless status.success?
+end
+
+failures = 0
+cases = 0
+
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("no CSS files found") && output.include?("checked 0")
+    failures += 1
+    warn "apply_check_canary: empty root: #{status.exitstatus}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  FileUtils.mkdir_p(File.join(dir, "engines", "design_system", "app", "frontend"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"), "body { margin: 0; }\n")
+  File.write(File.join(dir, "engines", "design_system", "app", "frontend", "theme.css"),
+             ".button { @apply rounded; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.success? && output.include?("checked 2 CSS files")
+    failures += 1
+    warn "apply_check_canary: legal @apply: #{status.exitstatus}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".button { @apply rounded; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:1") &&
+         output.include?("apply-outside-design-system")
+    failures += 1
+    warn "apply_check_canary: outside design_system: #{status.exitstatus}: #{output}"
+  end
+end
+
+if failures.positive?
+  warn "apply_check_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "apply_check_canary: checked #{cases} cases; failures=0"

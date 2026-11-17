@@ -6,15 +6,15 @@ exports are short-lived and intentionally not backed up.
 
 ## What is kept
 
-| Data | Retention | How it is removed |
-| --- | --- | --- |
-| Audit records (`core_audit_events`) | 365 days (configured) | Drop whole monthly partitions with the migration role (OPS-08) |
-| Sessions (`core_sessions`) | At most the 12-hour absolute lifetime | Expired rows deleted in batches every hour by `SessionSweepJob` |
-| Idempotency keys (`core_idempotency_keys`) | 13 hours: the 12-hour absolute session lifetime plus a one-hour margin; a form token older than this is refused | Expired rows deleted in batches every hour by `IdempotencySweepJob` |
-| Exports (`core_exports` and Active Storage files) | 6 hours | `ExportSweepJob` purges files and rows in batches every hour |
-| Queue (Solid Queue) | Finished jobs are transient | `SolidQueue::Job.clear_finished_in_batches` every hour |
-| Cache (Solid Cache) | At most 30 days, and at most 256 MB | Solid Cache's `max_age` and `max_size` |
-| Cable (Solid Cable) | 1 day | `message_retention: 1.day` |
+| Data                                              | Retention                                                                                                       | How it is removed                                                   |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Audit records (`core_audit_events`)               | 365 days (configured)                                                                                           | Drop whole monthly partitions with the migration role (OPS-08)      |
+| Sessions (`core_sessions`)                        | At most the 12-hour absolute lifetime                                                                           | Expired rows deleted in batches every hour by `SessionSweepJob`     |
+| Idempotency keys (`core_idempotency_keys`)        | 13 hours: the 12-hour absolute session lifetime plus a one-hour margin; a form token older than this is refused | Expired rows deleted in batches every hour by `IdempotencySweepJob` |
+| Exports (`core_exports` and Active Storage files) | 6 hours                                                                                                         | `ExportSweepJob` purges files and rows in batches every hour        |
+| Queue (Solid Queue)                               | Finished jobs are transient                                                                                     | `SolidQueue::Job.clear_finished_in_batches` every hour              |
+| Cache (Solid Cache)                               | At most 30 days, and at most 256 MB                                                                             | Solid Cache's `max_age` and `max_size`                              |
+| Cable (Solid Cable)                               | 1 day                                                                                                           | `message_retention: 1.day`                                          |
 
 Every purge uses `in_batches`; audit retention drops a partition instead of
 running one long `DELETE`. No purge holds a lock across a large table.
@@ -63,6 +63,7 @@ procedure in this file. The application-side steps below do not change.
 
    Restore into a new data directory and start a separate PostgreSQL on a
    scratch port or host.
+
 3. Before the app takes traffic, empty every restored session. Sessions
    revoked after the recovery point would otherwise work again until their
    absolute expiry (SEC-16). Run with the migration role, which owns the
@@ -81,6 +82,7 @@ procedure in this file. The application-side steps below do not change.
    `RESTORE_DATABASE_URL` connect as the migration role (or use `DB_HOST`,
    `DB_PORT`, and `DB_NAME` so the role switch in `config/database.yml`
    applies); the URL is never printed.
+
 4. Run the drill check, which repeats the truncate and proves the table has
    zero rows:
 

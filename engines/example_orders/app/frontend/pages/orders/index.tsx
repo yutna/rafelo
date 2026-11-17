@@ -1,8 +1,9 @@
-import { Head } from "@inertiajs/react";
 import type { LayoutName } from "@core/contracts/layout.types";
 
-import { useOrdersTranslation } from "../../i18n";
-import { OrdersScreen } from "../../screens/orders/index_screen";
+import { useOrdersTranslation } from "@example_orders/i18n";
+import { OrdersScreen } from "@example_orders/screens/orders/index_screen";
+import { Head } from "@inertiajs/react";
+
 import { pageSchema } from "./index.schema";
 
 export default function OrdersIndex(props: Record<string, unknown>) {

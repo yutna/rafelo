@@ -163,6 +163,21 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
+      - name: Lint - ESLint and Prettier
+        run: npm run lint
+
+      - name: Lint - Prettier
+        run: npm run format:check
+
+      - name: Lint - canaries
+        run: script/ci/eslint_canary
+
+      - name: Lint - @apply
+        run: script/ci/apply_check
+
+      - name: Lint - @apply canary
+        run: script/ci/apply_check_canary
+
   test:
     defaults:
       run:
@@ -448,7 +463,6 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
         run: script/ci/e2e
-
 
   examples-removable:
     defaults:
@@ -880,7 +894,28 @@ jobs:
     container:
       image: ${{ needs.image.outputs.ref }}
       options: --user root
-    needs: [image, affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, gate, examples-removable, adoption, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke, touch-rate]
+    needs:
+      [
+        image,
+        affected,
+        actionlint,
+        scan_ruby,
+        scan_js,
+        lint,
+        guards,
+        canaries,
+        test,
+        gate,
+        examples-removable,
+        adoption,
+        concurrency,
+        e2e,
+        production-image-needed,
+        production-image,
+        smoke-needed,
+        generator-smoke,
+        touch-rate,
+      ]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

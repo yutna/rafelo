@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ErrorInfo } from "react";
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   FIXED_MESSAGE,

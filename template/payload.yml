@@ -18,9 +18,12 @@ paths:
   - source: .editorconfig
   - source: .env.ci.production
     mode: app
+  - source: eslint.config.mjs
   - source: .gitattributes
   - source: .gitignore
   - source: .npmrc
+  - source: .prettierignore
+  - source: .prettierrc.json
   - source: .rspec
   - source: .rubocop.yml
   - source: .ruby-version

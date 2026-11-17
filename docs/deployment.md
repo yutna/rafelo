@@ -3,10 +3,10 @@
 The template ships two Kamal profiles that run the same production image and
 code (OPS-06):
 
-| Profile | File | PostgreSQL | Active Storage | Solid Queue |
-| --- | --- | --- | --- | --- |
-| Single host (default) | `config/deploy.yml` | Kamal accessory on a named volume, or a managed service | Disk on the `acme_storage` volume, or S3-compatible | In the web Puma process |
-| Multi host | `config/deploy.multi.yml` | Managed service shared by every host | S3-compatible | Separate `job` role (`bin/jobs`) |
+| Profile               | File                      | PostgreSQL                                              | Active Storage                                      | Solid Queue                      |
+| --------------------- | ------------------------- | ------------------------------------------------------- | --------------------------------------------------- | -------------------------------- |
+| Single host (default) | `config/deploy.yml`       | Kamal accessory on a named volume, or a managed service | Disk on the `acme_storage` volume, or S3-compatible | In the web Puma process          |
+| Multi host            | `config/deploy.multi.yml` | Managed service shared by every host                    | S3-compatible                                       | Separate `job` role (`bin/jobs`) |
 
 Nothing else is host-local (ARCH-13). Request and job scratch files live in
 the container's temporary directories; data lives in PostgreSQL or Active

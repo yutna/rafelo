@@ -1,14 +1,17 @@
 import type { ComponentType, ReactNode } from "react";
 
-import { AppShell } from "../layouts/app_shell";
-import { AuthShell } from "../layouts/auth_shell";
-import { BareShell } from "../layouts/bare_shell";
-import { LayoutRoot } from "../layouts/layout_root";
 import { ErrorBoundary } from "@design_system/error_boundary";
-import { reportClientError, setPageContext } from "./report_client_error";
-import { t } from "./i18n";
+
+import { AppShell } from "@/layouts/app_shell";
+import { AuthShell } from "@/layouts/auth_shell";
+import { BareShell } from "@/layouts/bare_shell";
+import { LayoutRoot } from "@/layouts/layout_root";
+
 import type { LayoutName } from "./layout_name";
+
+import { t } from "./i18n";
 import { setLocale } from "./i18n";
+import { reportClientError, setPageContext } from "./report_client_error";
 
 type PageModule = { default: PageComponent };
 type PageComponent = ComponentType<Record<string, unknown>> & {
@@ -46,7 +49,12 @@ const pages = new Map<string, () => Promise<PageModule>>();
 const compiled = new Map<string, PageComponent>();
 
 function pageName(path: string): string {
-  return path.replace(/\.tsx$/, "").split("/pages/").at(-1) ?? "";
+  return (
+    path
+      .replace(/\.tsx$/, "")
+      .split("/pages/")
+      .at(-1) ?? ""
+  );
 }
 
 for (const [path, load] of Object.entries(appPageModules)) {

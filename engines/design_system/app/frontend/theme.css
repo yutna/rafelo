@@ -7,6 +7,7 @@
   --color-success: var(--color-emerald-600);
   --color-surface: var(--color-white);
   --color-muted: var(--color-slate-100);
+  --color-muted-foreground: var(--color-slate-600);
   --text-display: 2.25rem;
   --shadow-card: 0 1px 3px rgb(15 23 42 / 0.12);
   --radius-card: 0.75rem;

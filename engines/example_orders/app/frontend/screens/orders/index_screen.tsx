@@ -1,7 +1,14 @@
-import { Button, Chart, Deferred, Link, Skeleton, formatMoney, useLocale } from "@design_system/public";
+import {
+  Button,
+  Chart,
+  Deferred,
+  Link,
+  Skeleton,
+  formatMoney,
+  useLocale,
+} from "@design_system/public";
+import { useOrdersTranslation } from "@example_orders/i18n";
 import { router } from "@inertiajs/react";
-
-import { useOrdersTranslation } from "../../i18n";
 
 type Order = {
   id: string;
@@ -47,12 +54,16 @@ export function OrdersScreen({
         </div>
         <div className="flex gap-2">
           {can["order.create"]?.allowed && newHref ? (
-            <Link href={newHref} className="rounded-card bg-primary px-4 py-2 text-white" >
+            <Link href={newHref} className="rounded-card bg-primary px-4 py-2 text-white">
               <span data-testid="example_orders.orders.index.new">{t("orders.new")}</span>
             </Link>
           ) : null}
           {can["order.export"]?.allowed ? (
-            <Button testId="example_orders.orders.index.export" variant="secondary" onPress={() => router.post(exportPath, { token: meta.formToken })}>
+            <Button
+              testId="example_orders.orders.index.export"
+              variant="secondary"
+              onPress={() => router.post(exportPath, { token: meta.formToken })}
+            >
               {t("orders.export")}
             </Button>
           ) : null}
@@ -61,21 +72,40 @@ export function OrdersScreen({
 
       <nav aria-label={t("orders.filter")} className="mt-6 flex flex-wrap gap-2">
         {filterHrefs.map((filter) => (
-          <Link key={filter.label} href={filter.href} className={filter.current ? "font-semibold underline" : "underline"}>
-            <span data-testid={`example_orders.orders.index.filter.${filter.label}`}>{filter.label}</span>
+          <Link
+            key={filter.label}
+            href={filter.href}
+            className={filter.current ? "font-semibold underline" : "underline"}
+          >
+            <span data-testid={`example_orders.orders.index.filter.${filter.label}`}>
+              {filter.label}
+            </span>
           </Link>
         ))}
       </nav>
 
-      {items.length === 0 ? <p className="mt-6">{t("orders.empty")}</p> : (
-        <ul className="mt-6 divide-y divide-slate-200" data-testid="example_orders.orders.index.list">
+      {items.length === 0 ? (
+        <p className="mt-6">{t("orders.empty")}</p>
+      ) : (
+        <ul
+          className="mt-6 divide-y divide-slate-200"
+          data-testid="example_orders.orders.index.list"
+        >
           {items.map((order) => (
             <li key={order.id} className="py-3">
               <Link href={order.href} className="flex flex-wrap items-center justify-between gap-2">
                 <span data-testid={`example_orders.orders.index.row.${order.id}`}>
                   {order.number} · {order.customer.name}
                 </span>
-                <span>{order.status} · {formatMoney(order.total.minor, order.total.currency, order.total.exponent, locale)}</span>
+                <span>
+                  {order.status} ·{" "}
+                  {formatMoney(
+                    order.total.minor,
+                    order.total.currency,
+                    order.total.exponent,
+                    locale,
+                  )}
+                </span>
               </Link>
             </li>
           ))}
@@ -88,8 +118,17 @@ export function OrdersScreen({
       </nav>
 
       <div className="mt-10">
-        <Deferred data="data.chart" fallback={<Skeleton testId="example_orders.orders.index.chart-loading" />}>
-          {chart ? <Chart testId="example_orders.orders.index.chart" option={chart} ariaLabel={t("orders.title")} /> : null}
+        <Deferred
+          data="data.chart"
+          fallback={<Skeleton testId="example_orders.orders.index.chart-loading" />}
+        >
+          {chart ? (
+            <Chart
+              testId="example_orders.orders.index.chart"
+              option={chart}
+              ariaLabel={t("orders.title")}
+            />
+          ) : null}
         </Deferred>
       </div>
     </section>

@@ -10,23 +10,29 @@ describe("PageAnnouncer", () => {
   });
 
   it("stays silent on the initial page", () => {
-    document.body.innerHTML = '<main><h1>Invoices</h1></main>';
+    document.body.innerHTML = "<main><h1>Invoices</h1></main>";
     render(<PageAnnouncer />);
 
     expect(screen.getByTestId("page.announcer")).toHaveTextContent("");
-    expect(screen.getByRole("heading", { name: "Invoices" })).not.toHaveFocus();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).not.toHaveFocus();
   });
 
   it("announces and focuses a new path, including history", async () => {
-    document.body.innerHTML = '<main><h1>Invoices</h1></main>';
+    document.body.innerHTML = "<main><h1>Invoices</h1></main>";
     render(<PageAnnouncer />);
     window.history.pushState({}, "", "/en/invoices/2");
 
     act(() => {
-      document.dispatchEvent(new CustomEvent("inertia:navigate", { detail: { page: { url: "/en/invoices/2" }, type: "history" } }));
+      document.dispatchEvent(
+        new CustomEvent("inertia:navigate", {
+          detail: { page: { url: "/en/invoices/2" }, type: "history" },
+        }),
+      );
     });
 
     await waitFor(() => expect(screen.getByTestId("page.announcer")).toHaveTextContent("Invoices"));
-    expect(screen.getByRole("heading", { name: "Invoices" })).toHaveFocus();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveFocus();
   });
 });

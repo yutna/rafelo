@@ -1,18 +1,42 @@
+import { sharedPropsSchema } from "@core/contracts/page_props.schema";
 import { spawnSync } from "node:child_process";
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-import { sharedPropsSchema } from "@core/contracts/page_props.schema";
-
-export const RULE_PREFIXES = ["ARCH", "BE", "CT", "FE", "GEN", "OPS", "SEC", "TS", "WF", "OOP"] as const;
+export const RULE_PREFIXES = [
+  "ARCH",
+  "BE",
+  "CT",
+  "FE",
+  "GEN",
+  "OPS",
+  "SEC",
+  "TS",
+  "WF",
+  "OOP",
+] as const;
 export const STATUSES = ["enforced", "tested in kernel", "verify when adopting", "review"] as const;
 export const GENERATED_START = "<!-- generated:envelope:start -->";
 export const GENERATED_END = "<!-- generated:envelope:end -->";
 
-const ALL_PATH_PREFIXES = ["script/", "bin/", "spec/", "engines/", "config/", "app/", ".github/"] as const;
-const TOPIC_PATH_PREFIXES = ["script/", "bin/", ".github/", "engines/core/", "engines/design_system/"] as const;
+const ALL_PATH_PREFIXES = [
+  "script/",
+  "bin/",
+  "spec/",
+  "engines/",
+  "config/",
+  "app/",
+  ".github/",
+] as const;
+const TOPIC_PATH_PREFIXES = [
+  "script/",
+  "bin/",
+  ".github/",
+  "engines/core/",
+  "engines/design_system/",
+] as const;
 const ID_PATTERN = /\b(ARCH|BE|CT|FE|GEN|OPS|SEC|TS|WF|OOP|ADR)-(\d{2})\b/g;
 
 export type Finding = { file: string; line?: number; message: string };
@@ -29,7 +53,6 @@ export type Definition = {
 };
 export type DocsConfig = {
   ai_instruction_files: string[];
-  deferred_paths: Record<string, string>;
 };
 
 export function isRuleId(id: string): boolean {
@@ -46,26 +69,28 @@ export function loadConfig(root: string): { config?: DocsConfig; findings: Findi
   try {
     parsed = parseYaml(readFileSync(resolve(root, path), "utf8"));
   } catch (error) {
-    return { findings: [{ file: path, message: `cannot parse YAML: ${(error as Error).message}` }] };
+    return {
+      findings: [{ file: path, message: `cannot parse YAML: ${(error as Error).message}` }],
+    };
   }
 
   const raw = (parsed ?? {}) as Record<string, unknown>;
   const files = raw.ai_instruction_files;
-  const deferred = raw.deferred_paths;
   const findings: Finding[] = [];
 
-  if (!Array.isArray(files) || files.length === 0 || files.some((entry) => typeof entry !== "string")) {
-    findings.push({ file: path, message: "ai_instruction_files must be a non-empty list of paths and globs" });
+  if (
+    !Array.isArray(files) ||
+    files.length === 0 ||
+    files.some((entry) => typeof entry !== "string")
+  ) {
+    findings.push({
+      file: path,
+      message: "ai_instruction_files must be a non-empty list of paths and globs",
+    });
   }
-  if (deferred !== undefined && (deferred === null || typeof deferred !== "object" || Array.isArray(deferred))) {
-    findings.push({ file: path, message: "deferred_paths must be a mapping of path to reason" });
-  }
-
   return {
-    config: findings.length === 0
-      ? { ai_instruction_files: files as string[], deferred_paths: (deferred ?? {}) as Record<string, string> }
-      : undefined,
-    findings
+    config: findings.length === 0 ? { ai_instruction_files: files as string[] } : undefined,
+    findings,
   };
 }
 
@@ -75,25 +100,39 @@ export function topicFiles(root: string): string[] {
     .sort();
 }
 
-export function aiFiles(root: string, config: DocsConfig): { files: string[]; findings: Finding[] } {
+export function aiFiles(
+  root: string,
+  config: DocsConfig,
+): { files: string[]; findings: Finding[] } {
   const files = new Set<string>();
   const findings: Finding[] = [];
   for (const path of globSync("**/AGENTS.md", { cwd: root })) files.add(path.split("\\").join("/"));
   for (const path of globSync("**/CLAUDE.md", { cwd: root })) files.add(path.split("\\").join("/"));
-  for (const path of globSync("docs/development/*.md", { cwd: root })) files.add(path.split("\\").join("/"));
+  for (const path of globSync("docs/development/*.md", { cwd: root }))
+    files.add(path.split("\\").join("/"));
   for (const pattern of config.ai_instruction_files) {
     const matches = globSync(pattern, { cwd: root }).map((path) => path.split("\\").join("/"));
     if (matches.length === 0) {
-      findings.push({ file: "config/docs.yml", message: `ai_instruction_files entry matches no file: ${pattern}` });
+      findings.push({
+        file: "config/docs.yml",
+        message: `ai_instruction_files entry matches no file: ${pattern}`,
+      });
       continue;
     }
     for (const path of matches) files.add(path);
   }
   const selected = [...files]
-    .filter((path) => !path.startsWith("node_modules/") && !path.startsWith("tmp/") && !path.startsWith("vendor/") && !path.startsWith(".git/"))
+    .filter(
+      (path) =>
+        !path.startsWith("node_modules/") &&
+        !path.startsWith("tmp/") &&
+        !path.startsWith("vendor/") &&
+        !path.startsWith(".git/"),
+    )
     .sort();
   for (const path of selected) {
-    if (path.startsWith(".opencode/skills/") && path.endsWith("/SKILL.md")) validateSkill(root, path, findings);
+    if (path.startsWith(".opencode/skills/") && path.endsWith("/SKILL.md"))
+      validateSkill(root, path, findings);
   }
   return { files: selected, findings };
 }
@@ -109,7 +148,10 @@ function validateSkill(root: string, path: string, findings: Finding[]): void {
   try {
     data = parseYaml(frontMatter[1]);
   } catch (error) {
-    findings.push({ file: path, message: `skill front matter is not valid YAML: ${(error as Error).message}` });
+    findings.push({
+      file: path,
+      message: `skill front matter is not valid YAML: ${(error as Error).message}`,
+    });
     return;
   }
   const record = (data ?? {}) as Record<string, unknown>;
@@ -130,7 +172,10 @@ function isFence(line: string): boolean {
   return /^\s*```/.test(line);
 }
 
-export function collectDefinitions(files: TextFile[]): { definitions: Map<string, Definition>; findings: Finding[] } {
+export function collectDefinitions(files: TextFile[]): {
+  definitions: Map<string, Definition>;
+  findings: Finding[];
+} {
   const definitions = new Map<string, Definition>();
   const findings: Finding[] = [];
 
@@ -152,7 +197,11 @@ export function collectDefinitions(files: TextFile[]): { definitions: Map<string
       const title = heading[2];
       const lineNumber = index + 1;
       if (definitions.has(id)) {
-        findings.push({ file, line: lineNumber, message: `${id} is defined more than once (first at ${definitions.get(id)!.file}:${definitions.get(id)!.line})` });
+        findings.push({
+          file,
+          line: lineNumber,
+          message: `${id} is defined more than once (first at ${definitions.get(id)!.file}:${definitions.get(id)!.line})`,
+        });
         return;
       }
 
@@ -175,10 +224,21 @@ export function collectDefinitions(files: TextFile[]): { definitions: Map<string
         } else {
           const superseded = statusLine.match(/^Superseded by (ADR-\d{2})$/);
           if (!superseded) {
-            findings.push({ file, line: lineNumber, message: `${id} has an unknown status "${statusLine}"` });
+            findings.push({
+              file,
+              line: lineNumber,
+              message: `${id} has an unknown status "${statusLine}"`,
+            });
             return;
           }
-          definitions.set(id, { id, kind: "adr", file, line: lineNumber, status: "superseded", supersededBy: superseded[1] });
+          definitions.set(id, {
+            id,
+            kind: "adr",
+            file,
+            line: lineNumber,
+            status: "superseded",
+            supersededBy: superseded[1],
+          });
         }
         return;
       }
@@ -190,16 +250,29 @@ export function collectDefinitions(files: TextFile[]): { definitions: Map<string
 
       const decision = title.match(/^(.*?)\s*\(([^()]*)\)\s*$/);
       if (!decision) {
-        findings.push({ file, line: lineNumber, message: `${id} does not end with its strength and decisions` });
+        findings.push({
+          file,
+          line: lineNumber,
+          message: `${id} does not end with its strength and decisions`,
+        });
         return;
       }
       const parts = decision[2].split("·").map((part) => part.trim());
       const strength = parts[0];
       if (!["MUST", "SHOULD", "MAY"].includes(strength) || parts.length < 2) {
-        findings.push({ file, line: lineNumber, message: `${id} does not state (MUST|SHOULD|MAY · ADR-NN)` });
+        findings.push({
+          file,
+          line: lineNumber,
+          message: `${id} does not state (MUST|SHOULD|MAY · ADR-NN)`,
+        });
         return;
       }
-      const decisions = parts.slice(1).join("·").split(",").map((part) => part.trim()).filter(Boolean);
+      const decisions = parts
+        .slice(1)
+        .join("·")
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
       if (decisions.length === 0 || decisions.some((entry) => !/^ADR-\d{2}$/.test(entry))) {
         findings.push({ file, line: lineNumber, message: `${id} does not name an ADR decision` });
         return;
@@ -213,10 +286,19 @@ export function collectDefinitions(files: TextFile[]): { definitions: Map<string
   }
 
   for (const definition of definitions.values()) {
-    const references = definition.kind === "rule" ? definition.decisions ?? [] : definition.supersededBy ? [definition.supersededBy] : [];
+    const references =
+      definition.kind === "rule"
+        ? (definition.decisions ?? [])
+        : definition.supersededBy
+          ? [definition.supersededBy]
+          : [];
     for (const reference of references) {
       if (!definitions.has(reference)) {
-        findings.push({ file: definition.file, line: definition.line, message: `${definition.id} cites undefined ${reference}` });
+        findings.push({
+          file: definition.file,
+          line: definition.line,
+          message: `${definition.id} cites undefined ${reference}`,
+        });
       }
     }
   }
@@ -224,7 +306,10 @@ export function collectDefinitions(files: TextFile[]): { definitions: Map<string
   return { definitions, findings };
 }
 
-export function checkMatrix(text: string, definitions: Map<string, Definition>): { rows: number; findings: Finding[] } {
+export function checkMatrix(
+  text: string,
+  definitions: Map<string, Definition>,
+): { rows: number; findings: Finding[] } {
   const findings: Finding[] = [];
   const counts = new Map<string, number>();
   let rows = 0;
@@ -240,12 +325,26 @@ export function checkMatrix(text: string, definitions: Map<string, Definition>):
     const rawStatus = cells[3] ?? "";
     let status = rawStatus;
     while (/\([^()]*\)/.test(status)) status = status.replace(/\([^()]*\)/g, " ");
-    const values = status.split(/·|\+/).map((value) => value.trim()).filter(Boolean);
-    if (values.length === 0 || values.some((value) => !STATUSES.includes(value as (typeof STATUSES)[number]))) {
-      findings.push({ file: "docs/architecture/09_enforcement.md", line: index + 1, message: `${id} has an unknown enforcement status "${rawStatus}"` });
+    const values = status
+      .split(/·|\+/)
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (
+      values.length === 0 ||
+      values.some((value) => !STATUSES.includes(value as (typeof STATUSES)[number]))
+    ) {
+      findings.push({
+        file: "docs/architecture/09_enforcement.md",
+        line: index + 1,
+        message: `${id} has an unknown enforcement status "${rawStatus}"`,
+      });
     }
     if (!definitions.has(id)) {
-      findings.push({ file: "docs/architecture/09_enforcement.md", line: index + 1, message: `${id} has a row but no definition` });
+      findings.push({
+        file: "docs/architecture/09_enforcement.md",
+        line: index + 1,
+        message: `${id} has a row but no definition`,
+      });
     }
   }
 
@@ -253,18 +352,28 @@ export function checkMatrix(text: string, definitions: Map<string, Definition>):
     if (definition.kind !== "rule") continue;
     const count = counts.get(definition.id) ?? 0;
     if (count !== 1) {
-      findings.push({ file: definition.file, line: definition.line, message: `${definition.id} has ${count} enforcement rows, expected exactly 1` });
+      findings.push({
+        file: definition.file,
+        line: definition.line,
+        message: `${definition.id} has ${count} enforcement rows, expected exactly 1`,
+      });
     }
   }
 
   if (rows === 0) {
-    findings.push({ file: "docs/architecture/09_enforcement.md", message: "the enforcement matrix has no rows" });
+    findings.push({
+      file: "docs/architecture/09_enforcement.md",
+      message: "the enforcement matrix has no rows",
+    });
   }
 
   return { rows, findings };
 }
 
-export function checkCitations(files: TextFile[], definitions: Map<string, Definition>): { citations: number; findings: Finding[] } {
+export function checkCitations(
+  files: TextFile[],
+  definitions: Map<string, Definition>,
+): { citations: number; findings: Finding[] } {
   const findings: Finding[] = [];
   let citations = 0;
 
@@ -277,7 +386,11 @@ export function checkCitations(files: TextFile[], definitions: Map<string, Defin
         if (!definition) {
           findings.push({ file, line: index + 1, message: `${id} is cited but not defined` });
         } else if (definition.kind === "adr" && definition.status === "superseded") {
-          findings.push({ file, line: index + 1, message: `${id} is superseded by ${definition.supersededBy}` });
+          findings.push({
+            file,
+            line: index + 1,
+            message: `${id} is superseded by ${definition.supersededBy}`,
+          });
         }
       }
     });
@@ -289,7 +402,14 @@ export function checkCitations(files: TextFile[], definitions: Map<string, Defin
 function pathTokens(span: string): string[] {
   const tokens = span.match(/(?:script|bin|spec|engines|config|app|\.github)\/[^\s`]+/g) ?? [];
   return tokens
-    .map((token) => token.replace(/^[("'[]+/, "").replace(/[)"'\].,;:]+$/, "").replace(/:\d+$/, "").replace(/#.*$/, "").replace(/\/+$/, ""))
+    .map((token) =>
+      token
+        .replace(/^[("'[]+/, "")
+        .replace(/[)"'\].,;:]+$/, "")
+        .replace(/:\d+$/, "")
+        .replace(/#.*$/, "")
+        .replace(/\/+$/, ""),
+    )
     .filter(Boolean);
 }
 
@@ -302,8 +422,7 @@ export type PathSource = { file: string; text: string; kind: "topic" | "instruct
 export function checkPaths(
   root: string,
   sources: PathSource[],
-  deferred: Record<string, string>,
-  options: { ignored?: (path: string) => boolean } = {}
+  options: { ignored?: (path: string) => boolean } = {},
 ): { paths: number; findings: Finding[] } {
   const findings: Finding[] = [];
   const candidates = new Map<string, { file: string; line: number }>();
@@ -315,7 +434,12 @@ export function checkPaths(
       for (const span of line.matchAll(/`([^`\n]+)`/g)) {
         for (const token of pathTokens(span[1])) {
           if (hasPlaceholder(token)) continue;
-          if (!prefixes.some((prefix) => token === prefix.replace(/\/$/, "") || token.startsWith(prefix))) continue;
+          if (
+            !prefixes.some(
+              (prefix) => token === prefix.replace(/\/$/, "") || token.startsWith(prefix),
+            )
+          )
+            continue;
           if (!candidates.has(token)) candidates.set(token, { file: source.file, line: index + 1 });
         }
       }
@@ -324,12 +448,6 @@ export function checkPaths(
 
   const ignored = options.ignored ?? ((path: string) => ignoredByGit(root, path));
   for (const [token, place] of candidates) {
-    if (deferred[token]) {
-      if (existsSync(resolve(root, token))) {
-        findings.push({ file: place.file, line: place.line, message: `${token} now exists; remove it from deferred_paths in config/docs.yml` });
-      }
-      continue;
-    }
     if (ignored(token)) continue;
     checked += 1;
     // The template repository ships the adopter's .github/ files under
@@ -345,14 +463,18 @@ export function checkPaths(
 
 export function ignoredByGit(root: string, path: string): boolean {
   if (!existsSync(resolve(root, ".git"))) return false;
-  const result = spawnSync("git", ["-C", root, "check-ignore", "--quiet", "--", path], { encoding: "utf8" });
+  const result = spawnSync("git", ["-C", root, "check-ignore", "--quiet", "--", path], {
+    encoding: "utf8",
+  });
   return result.status === 0;
 }
 
 function shape(node: Record<string, unknown>): string {
   if (!node || typeof node !== "object") return "unknown";
-  if (Array.isArray(node.anyOf)) return node.anyOf.map((entry) => shape(entry as Record<string, unknown>)).join(" or ");
-  if (Array.isArray(node.type)) return node.type.map((type) => (type === "null" ? "null" : String(type))).join(" or ");
+  if (Array.isArray(node.anyOf))
+    return node.anyOf.map((entry) => shape(entry as Record<string, unknown>)).join(" or ");
+  if (Array.isArray(node.type))
+    return node.type.map((type) => (type === "null" ? "null" : String(type))).join(" or ");
   if (node.type === "object" && node.properties) {
     const properties = Object.entries(node.properties as Record<string, Record<string, unknown>>)
       .map(([key, value]) => `${key}: ${shape(value)}`)
@@ -363,26 +485,36 @@ function shape(node: Record<string, unknown>): string {
     return `object of ${shape(node.additionalProperties as Record<string, unknown>)}`;
   }
   if (node.type === "array") return `array of ${shape(node.items as Record<string, unknown>)}`;
-  if (Array.isArray(node.enum)) return node.enum.map((value) => `\`${String(value)}\``).join(" or ");
+  if (Array.isArray(node.enum))
+    return node.enum.map((value) => `\`${String(value)}\``).join(" or ");
   if (node.const !== undefined) return `\`${String(node.const)}\``;
   return String(node.type ?? "unknown");
 }
 
 export function envelopeTable(): string {
-  const schema = z.toJSONSchema(sharedPropsSchema, { io: "output", target: "draft-2020-12" }) as Record<string, unknown>;
+  const schema = z.toJSONSchema(sharedPropsSchema, {
+    io: "output",
+    target: "draft-2020-12",
+  }) as Record<string, unknown>;
   const required = new Set(schema.required as string[] | undefined);
   const properties = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
-  const rows = Object.entries(properties).map(([name, value]) => `| \`${name}\` | ${shape(value)} | ${required.has(name) ? "yes" : "no"} |`);
-  return [ "| Field | Shape | Required |", "| --- | --- | --- |", ...rows ].join("\n");
+  const rows = Object.entries(properties).map(
+    ([name, value]) => `| \`${name}\` | ${shape(value)} | ${required.has(name) ? "yes" : "no"} |`,
+  );
+  return ["| Field | Shape | Required |", "| --- | --- | --- |", ...rows].join("\n");
 }
 
 export function rewriteGenerated(text: string): string {
   const start = text.indexOf(GENERATED_START);
   const end = text.indexOf(GENERATED_END);
   if (start < 0 || end < 0 || end < start) {
-    throw new Error(`the generated envelope markers are missing or out of order (${GENERATED_START} / ${GENERATED_END})`);
+    throw new Error(
+      `the generated envelope markers are missing or out of order (${GENERATED_START} / ${GENERATED_END})`,
+    );
   }
-  return text.slice(0, start + GENERATED_START.length) + "\n" + envelopeTable() + "\n" + text.slice(end);
+  return (
+    text.slice(0, start + GENERATED_START.length) + "\n" + envelopeTable() + "\n" + text.slice(end)
+  );
 }
 
 export function checkGenerated(text: string): Finding[] {
@@ -394,5 +526,10 @@ export function checkGenerated(text: string): Finding[] {
   }
   return expected === text
     ? []
-    : [{ file: "docs/contracts.md", message: "the generated envelope table is stale; run npm run docs:generate" }];
+    : [
+        {
+          file: "docs/contracts.md",
+          message: "the generated envelope table is stale; run npm run docs:generate",
+        },
+      ];
 }

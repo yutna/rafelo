@@ -1,6 +1,7 @@
+import type { PricedRangePlain } from "./priced_range.types";
+
 import { DateRange } from "./date_range";
 import { Money } from "./money";
-import type { PricedRangePlain } from "./priced_range.types";
 
 export class PricedRange {
   private constructor(

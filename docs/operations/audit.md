@@ -7,17 +7,17 @@ policy, and page. It never stores passwords, tokens, or request bodies.
 
 ## Events
 
-| Event | When | Outcome |
-| --- | --- | --- |
-| `sign_in` | sign-in succeeds or the upstream refuses it | `success` / `failure` |
-| `sign_out` | the viewer signs out | `success` |
-| `sign_out_everywhere` | every session of the viewer is revoked | `success` |
-| `session_revoked` | a refresh returns `401`, or the resent call gets a second `401` | `failure` |
-| `authorization` | a `403` denial, with the policy and page | `failure` |
-| `rate_limit` | an authentication or other throttled endpoint hits its limit | `failure` |
-| `download` | a streamed download finishes or fails | `success` / `failure` |
-| `export` | a streamed export finishes or fails | `success` / `failure` |
-| `write` | every write action, with its controller resource and action, or a non-GET that raises | `success` / `failure` |
+| Event                 | When                                                                                  | Outcome               |
+| --------------------- | ------------------------------------------------------------------------------------- | --------------------- |
+| `sign_in`             | sign-in succeeds or the upstream refuses it                                           | `success` / `failure` |
+| `sign_out`            | the viewer signs out                                                                  | `success`             |
+| `sign_out_everywhere` | every session of the viewer is revoked                                                | `success`             |
+| `session_revoked`     | a refresh returns `401`, or the resent call gets a second `401`                       | `failure`             |
+| `authorization`       | a `403` denial, with the policy and page                                              | `failure`             |
+| `rate_limit`          | an authentication or other throttled endpoint hits its limit                          | `failure`             |
+| `download`            | a streamed download finishes or fails                                                 | `success` / `failure` |
+| `export`              | a streamed export finishes or fails                                                   | `success` / `failure` |
+| `write`               | every write action, with its controller resource and action, or a non-GET that raises | `success` / `failure` |
 
 One request-scoped marker makes exactly one row per audited request: a write
 refused with `403` records the denial, not a second write row, and a write

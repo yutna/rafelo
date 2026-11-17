@@ -2,7 +2,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const root = process.cwd();
-const source = readFileSync(join(root, "engines/design_system/app/frontend/public/index.ts"), "utf8");
+const source = readFileSync(
+  join(root, "engines/design_system/app/frontend/public/index.ts"),
+  "utf8",
+);
 const lines = source
   .split("\n")
   .filter((line) => line.startsWith("export {"))

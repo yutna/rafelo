@@ -3,7 +3,7 @@ import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useRef } from "react";
 
-echarts.use([ PieChart, CanvasRenderer ]);
+echarts.use([PieChart, CanvasRenderer]);
 
 type ChartProps = {
   testId: string;
@@ -26,5 +26,7 @@ export default function ChartImpl({ testId, option, ariaLabel }: ChartProps) {
     };
   }, [option]);
 
-  return <div ref={ref} data-testid={testId} role="img" aria-label={ariaLabel} className="h-64 w-full" />;
+  return (
+    <div ref={ref} data-testid={testId} role="img" aria-label={ariaLabel} className="h-64 w-full" />
+  );
 }

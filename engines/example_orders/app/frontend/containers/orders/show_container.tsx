@@ -1,7 +1,5 @@
-import { OrderShowScreen } from "../../screens/orders/show_screen";
+import { OrderShowScreen } from "@example_orders/screens/orders/show_screen";
 
-export function OrderShowContainer(
-  props: Parameters<typeof OrderShowScreen>[0],
-) {
+export function OrderShowContainer(props: Parameters<typeof OrderShowScreen>[0]) {
   return <OrderShowScreen {...props} />;
 }

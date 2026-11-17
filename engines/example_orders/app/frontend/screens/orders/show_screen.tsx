@@ -1,7 +1,6 @@
-import { CustomerBadge } from "@example_customers/public/customer_badge";
 import { Link, formatDate, formatMoney, useLocale } from "@design_system/public";
-
-import { useOrdersTranslation } from "../../i18n";
+import { CustomerBadge } from "@example_customers/public/customer_badge";
+import { useOrdersTranslation } from "@example_orders/i18n";
 
 type Props = {
   order: {

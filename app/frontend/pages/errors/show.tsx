@@ -1,6 +1,7 @@
 import { Head } from "@inertiajs/react";
 
-import type { LayoutName } from "../../lib/layout_name";
+import type { LayoutName } from "@/lib/layout_name";
+
 import { pageSchema } from "./show.schema";
 
 export default function ErrorShow(props: Record<string, unknown>) {
@@ -9,7 +10,7 @@ export default function ErrorShow(props: Record<string, unknown>) {
   return (
     <section className="mx-auto max-w-2xl px-6 py-24">
       <Head title="Error" />
-      <p className="text-sm font-medium uppercase tracking-wider text-slate-500">
+      <p className="text-sm font-medium tracking-wider text-slate-500 uppercase">
         {page.data.code}
       </p>
       <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-900">

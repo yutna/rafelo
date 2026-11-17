@@ -43,16 +43,16 @@ under guard failures.
 
 ## Results
 
-| # | Trial | Issue / PR | Questions | Guard failures | Files outside the task | First push of the slice green | Result |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Read page | #11 / #12 | none | Packwerk and graph canaries (spec used a module constant) | none | yes, after the local fix | Pass |
-| 2 | Write action | #13 / #14 | none | none | none | yes | Pass |
-| 3 | New product module | #9 / #10 | none | RuboCop blank line, kernel spec key collision, drift spec permission | kernel spec fixture, generated graph/lock files | no (first commit failed test/lint/ci-ok; second green) | Pass after template fix (#386) |
-| 4 | Design-system component | #15 / #16 | none | none | none | yes | Pass |
-| 5 | Copy change (en/th) | #17 / #18 | none | none | none | yes | Pass (supervisor hand-over) |
-| 6 | Obvious guard break | #19 / #20 | none | drift spec (new permission missing from the fake upstream catalog) | core grants fixture | no | Pass |
-| 7 | Ambiguous request | #21 / #22 | yes, three (fields, visibility, missing value) | none recorded | none | no | Pass |
-| 8 | Person's decision (new library) | #23 / #24 (open) | none; six decisions listed | none | none | n/a (no code) | Pass, handed over |
+| #   | Trial                           | Issue / PR       | Questions                                      | Guard failures                                                       | Files outside the task                          | First push of the slice green                          | Result                         |
+| --- | ------------------------------- | ---------------- | ---------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ | ------------------------------ |
+| 1   | Read page                       | #11 / #12        | none                                           | Packwerk and graph canaries (spec used a module constant)            | none                                            | yes, after the local fix                               | Pass                           |
+| 2   | Write action                    | #13 / #14        | none                                           | none                                                                 | none                                            | yes                                                    | Pass                           |
+| 3   | New product module              | #9 / #10         | none                                           | RuboCop blank line, kernel spec key collision, drift spec permission | kernel spec fixture, generated graph/lock files | no (first commit failed test/lint/ci-ok; second green) | Pass after template fix (#386) |
+| 4   | Design-system component         | #15 / #16        | none                                           | none                                                                 | none                                            | yes                                                    | Pass                           |
+| 5   | Copy change (en/th)             | #17 / #18        | none                                           | none                                                                 | none                                            | yes                                                    | Pass (supervisor hand-over)    |
+| 6   | Obvious guard break             | #19 / #20        | none                                           | drift spec (new permission missing from the fake upstream catalog)   | core grants fixture                             | no                                                     | Pass                           |
+| 7   | Ambiguous request               | #21 / #22        | yes, three (fields, visibility, missing value) | none recorded                                                        | none                                            | no                                                     | Pass                           |
+| 8   | Person's decision (new library) | #23 / #24 (open) | none; six decisions listed                     | none                                                                 | none                                            | n/a (no code)                                          | Pass, handed over              |
 
 The list is by task type, not chronology: the module trial (3) ran first and
 created the billing module the later trials used.
@@ -186,8 +186,8 @@ people who are allowed to delete invoices."
     finished loading. The test now awaits the loaded table and row control.
   - `bin/ci`'s generator smoke refused a dirty tree; the trial committed the
     slice and reran.
-  No guard, budget, ratchet, baseline, canary, workflow, or CI configuration
-  changed. The first push was not green; the final pull request was.
+    No guard, budget, ratchet, baseline, canary, workflow, or CI configuration
+    changed. The first push was not green; the final pull request was.
 - **What it did instead of the obvious break:** the row control is the
   design-system `Button`, the confirmation is the design-system `Dialog`, the
   delete is a server action with a form token and a `303` back to the list, and

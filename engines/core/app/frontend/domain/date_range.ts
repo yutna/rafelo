@@ -1,5 +1,6 @@
-import { DomainError } from "./domain_error";
 import type { DateRangePlain } from "./date_range.types";
+
+import { DomainError } from "./domain_error";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -7,7 +8,9 @@ function validCalendarDate(value: string): boolean {
   if (!ISO_DATE.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return (
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  );
 }
 
 export class DateRange {
@@ -17,7 +20,8 @@ export class DateRange {
   ) {}
 
   static of(start: string, end: string): DateRange {
-    if (typeof start !== "string" || typeof end !== "string") throw new DomainError("date_range.not_a_string");
+    if (typeof start !== "string" || typeof end !== "string")
+      throw new DomainError("date_range.not_a_string");
     return new DateRange(start, end);
   }
 
@@ -38,6 +42,11 @@ export class DateRange {
   }
 
   contains(date: string): boolean {
-    return this.issues().length === 0 && validCalendarDate(date) && date >= this.start && date <= this.end;
+    return (
+      this.issues().length === 0 &&
+      validCalendarDate(date) &&
+      date >= this.start &&
+      date <= this.end
+    );
   }
 }

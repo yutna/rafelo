@@ -20,7 +20,7 @@ describe("DateRange", () => {
 
   it("reports a reversed range and contains ISO dates only when ordered", () => {
     const reversed = DateRange.of("2026-11-12", "2026-11-11");
-    expect(reversed.issues()).toEqual([ "date_range.end_before_start" ]);
+    expect(reversed.issues()).toEqual(["date_range.end_before_start"]);
     expect(reversed.contains("2026-11-11")).toBe(false);
   });
 });

@@ -18,10 +18,7 @@ test.describe("example_orders", () => {
     await page.goto("/en/sign_in");
     await page.getByTestId("signin.email").fill("ada@example.test");
     await page.getByTestId("signin.password").fill("secret");
-    await Promise.all([
-      page.waitForURL(/\/en\/?$/),
-      page.getByTestId("signin.submit").click(),
-    ]);
+    await Promise.all([page.waitForURL(/\/en\/?$/), page.getByTestId("signin.submit").click()]);
 
     await page.goto("/en/example_orders/orders");
     await expect(page.getByTestId("example_orders.orders.index.list")).toBeVisible();
@@ -42,7 +39,8 @@ test.describe("example_orders", () => {
 
     await page.getByTestId("example_orders.orders.form.status").fill("paid");
     const patchRequest = page.waitForRequest(
-      (request) => request.method() === "PATCH" && request.url().includes("/en/example_orders/orders/order-1"),
+      (request) =>
+        request.method() === "PATCH" && request.url().includes("/en/example_orders/orders/order-1"),
     );
     await page.getByTestId("example_orders.orders.edit.submit").click();
     const sent = (await patchRequest).postDataJSON();

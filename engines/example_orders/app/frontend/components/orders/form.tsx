@@ -1,6 +1,5 @@
 import { TextField } from "@design_system/public";
-
-import { useOrdersTranslation } from "../../i18n";
+import { useOrdersTranslation } from "@example_orders/i18n";
 
 type Props = {
   customerName: string;

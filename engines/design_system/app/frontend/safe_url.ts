@@ -14,5 +14,10 @@ export function isSafeUrl(value: unknown): value is string {
 }
 
 export function isAppPath(value: unknown): value is string {
-  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//") && !/[\\\u0000-\u001f\u007f]/.test(value);
+  return (
+    typeof value === "string" &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !/[\\\u0000-\u001f\u007f]/.test(value)
+  );
 }

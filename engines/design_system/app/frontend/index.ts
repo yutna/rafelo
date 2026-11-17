@@ -1,4 +1,5 @@
 export { Button } from "./button";
+export { HiddenField } from "./hidden_field";
 export { Dialog } from "./dialog";
 export { Icon } from "./icon";
 export { Pagination } from "./pagination";

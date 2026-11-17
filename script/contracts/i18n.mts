@@ -9,7 +9,9 @@ if (!existsSync(root)) {
   console.error(`i18n: root does not exist: ${root}`);
   process.exit(1);
 }
-const localesConfig = parseDocument(readFileSync(join(root, "config/locales.yml"), "utf8")).toJS() as {
+const localesConfig = parseDocument(
+  readFileSync(join(root, "config/locales.yml"), "utf8"),
+).toJS() as {
   available: string[];
   default: string;
 };
@@ -41,10 +43,10 @@ function transformString(value: string, path: string): string {
 function isPlural(value: unknown): boolean {
   return Boolean(
     value &&
-      typeof value === "object" &&
-      !Array.isArray(value) &&
-      Object.keys(value as Record<string, unknown>).length > 0 &&
-      Object.keys(value as Record<string, unknown>).every((key) => pluralKeys.has(key)),
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length > 0 &&
+    Object.keys(value as Record<string, unknown>).every((key) => pluralKeys.has(key)),
   );
 }
 
@@ -92,7 +94,12 @@ function readCatalog(path: string, namespace: string) {
   if (!data || typeof data !== "object") {
     fail(`${relative(root, path)} is missing the ${namespace} namespace`);
   }
-  catalogs.push({ path, namespace, locale, data: transformObject(data as Record<string, unknown>, namespace) });
+  catalogs.push({
+    path,
+    namespace,
+    locale,
+    data: transformObject(data as Record<string, unknown>, namespace),
+  });
 }
 
 for (const locale of locales) {
@@ -176,4 +183,6 @@ for (const path of [...existingApps, ...existingEngines]) {
   if (!generated.has(path)) fail(`${relative(root, path)} has no source catalog`);
 }
 
-console.log(`i18n: ${check ? "checked" : "generated"} ${catalogs.length} catalog(s) for ${locales.join(", ")}`);
+console.log(
+  `i18n: ${check ? "checked" : "generated"} ${catalogs.length} catalog(s) for ${locales.join(", ")}`,
+);

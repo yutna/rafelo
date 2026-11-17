@@ -1,7 +1,7 @@
+import { assertPlain } from "@core/lib/assert_plain";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { assertPlain } from "../lib/assert_plain";
 import { useDateRange } from "./use_date_range";
 
 describe("useDateRange", () => {
@@ -11,6 +11,6 @@ describe("useDateRange", () => {
     expect(result.current.view.issues).toEqual([]);
 
     act(() => result.current.setEnd("2026-10-10"));
-    expect(result.current.view.issues).toEqual([ "date_range.end_before_start" ]);
+    expect(result.current.view.issues).toEqual(["date_range.end_before_start"]);
   });
 });

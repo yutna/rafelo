@@ -4,13 +4,11 @@ test("a report sent after sign-in is accepted without viewer data", async ({ pag
   await page.goto("/en/sign_in");
   await page.getByTestId("signin.email").fill("ada@example.test");
   await page.getByTestId("signin.password").fill("secret");
-  await Promise.all([
-    page.waitForURL(/\/en\/?$/),
-    page.getByTestId("signin.submit").click(),
-  ]);
+  await Promise.all([page.waitForURL(/\/en\/?$/), page.getByTestId("signin.submit").click()]);
 
   const response = page.waitForResponse(
-    (candidate) => candidate.url().endsWith("/core/client_errors") && candidate.request().method() === "POST",
+    (candidate) =>
+      candidate.url().endsWith("/core/client_errors") && candidate.request().method() === "POST",
   );
   await page.evaluate(() => {
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("browser client report") }));

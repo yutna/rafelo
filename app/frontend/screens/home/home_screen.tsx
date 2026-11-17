@@ -1,5 +1,5 @@
-import { PageHeading } from "../../components/page_heading";
-import { t } from "../../lib/i18n";
+import { PageHeading } from "@/components/page_heading";
+import { t } from "@/lib/i18n";
 
 type HomeScreenProps = {
   message: string;

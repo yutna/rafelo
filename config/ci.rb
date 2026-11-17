@@ -6,6 +6,11 @@ CI.run do
   step "Affected: canaries", "script/ci/affected_canary"
 
   step "Style: Ruby", "bin/rubocop"
+  step "Lint: ESLint", "npm run lint"
+  step "Lint: Prettier", "npm run format:check"
+  step "Lint: ESLint canaries", "script/ci/eslint_canary"
+  step "Lint: @apply", "script/ci/apply_check"
+  step "Lint: @apply canary", "script/ci/apply_check_canary"
   step "Boundaries: Packwerk validate", "bin/packwerk validate"
   step "Boundaries: Packwerk check", "bin/packwerk check"
   step "Boundaries: Packwerk cycle canary", "script/ci/packwerk_canary"

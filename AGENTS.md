@@ -67,41 +67,41 @@ ADR change; do not work around it.
 
 ## The rules you will touch most
 
-| ID | In one line |
-| --- | --- |
-| ARCH-02 | The browser never calls an upstream; gateways do, through a named client. |
-| ARCH-04 | Know the engine kind; never import `app/` (`@/`) from an engine. |
-| ARCH-05 | Code two engines use is one engine's public interface; never copy it. |
-| ARCH-08 | Depend only on engines declared in `package.yml`; no cycles. |
-| ARCH-09 | Use another engine only through `engines/<engine>/app/public/` or `@<engine>/public/` (for core and design_system, anything outside `internal/`). |
+| ID      | In one line                                                                                                                                                          |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ARCH-02 | The browser never calls an upstream; gateways do, through a named client.                                                                                            |
+| ARCH-04 | Know the engine kind; never import `app/` (`@/`) from an engine.                                                                                                     |
+| ARCH-05 | Code two engines use is one engine's public interface; never copy it.                                                                                                |
+| ARCH-08 | Depend only on engines declared in `package.yml`; no cycles.                                                                                                         |
+| ARCH-09 | Use another engine only through `engines/<engine>/app/public/` or `@<engine>/public/` (for core and design_system, anything outside `internal/`).                    |
 | ARCH-10 | No reflection, no other engine's tables, own i18n namespace; links are built by props objects through `context.urls` and arrive in props, never built in TypeScript. |
-| ARCH-13 | No state outside PostgreSQL or the Active Storage service. |
-| BE-01 | Action = authorize → gateway → props with the factory-built `PageContext` → render. |
-| BE-03 | Permission keys are constants generated from `engines/<module>/config/permissions.yml`, never strings. |
-| BE-04 | Props objects are pure; never read `Current` inside them. |
-| BE-16 | Stay inside the upstream call budget; concurrency only through `Rafelo::Core::Executor`. |
-| BE-17 | Cache only through `ScopedCache` with `module:`; viewer data never under a shared key. |
-| BE-20 | No upstream call inside a database transaction. |
-| BE-22 | Migrations are zero-downtime: expand now, contract in a later release. |
-| BE-25 | Feature flags are evaluated on the server and reach the UI through `can`. |
-| SEC-02 | Upstream tokens never reach props, logs, URLs, or browser storage. |
-| CT-01 | Every page uses the envelope; `definePage` lists the page's `can` keys. |
-| CT-08 | Every string exists in every configured locale; no placeholder ships. |
-| CT-10 | Props are visible to the viewer; pick fields by allow-list. |
-| CT-12 | Contract changes are additive first; old tabs reload via the asset version. |
-| FE-01 | page → screen → container → component; each page renders one screen. |
-| FE-04 | Local state only through `useDomainReducer` or `useUiState` (design_system widgets excepted). |
-| FE-07 | Use design_system controls, never raw `<button>`/`<input>`/`<select>`/`<textarea>`. |
-| FE-08 | ECharts and TanStack Table only through design_system wrappers. |
-| FE-09 | Every interactive element and state has a `testId`. |
-| FE-11 | Format dates, numbers, and money only with `@design_system/formatters`. |
-| FE-18 | No `dangerouslySetInnerHTML`; URLs arrive in props, built by Rails, and pass `isSafeUrl` (`@design_system/safe_url`). |
-| FE-20 | In `th`, every year shown or typed is Buddhist Era; the wire stays Gregorian; Rails formats dates only with `Rafelo::Core::DateFormatter`. |
-| OOP-03 | Throw only for invariants; input from a person is checked by `issues()`. |
-| OOP-05 | Class instances never enter props or React state; use `toPlain()`. |
-| TS-02 | Every page spec checks schema, SQL and upstream call budgets, props budget at the maximum page size, `have_resolvable_hrefs`, and `match_policy_capabilities`. |
-| TS-04 | Tests select by role with an accessible name, or by test id. |
-| WF-03 | Conventional Commits PR titles, squash merge, never push to `main`. |
+| ARCH-13 | No state outside PostgreSQL or the Active Storage service.                                                                                                           |
+| BE-01   | Action = authorize → gateway → props with the factory-built `PageContext` → render.                                                                                  |
+| BE-03   | Permission keys are constants generated from `engines/<module>/config/permissions.yml`, never strings.                                                               |
+| BE-04   | Props objects are pure; never read `Current` inside them.                                                                                                            |
+| BE-16   | Stay inside the upstream call budget; concurrency only through `Rafelo::Core::Executor`.                                                                             |
+| BE-17   | Cache only through `ScopedCache` with `module:`; viewer data never under a shared key.                                                                               |
+| BE-20   | No upstream call inside a database transaction.                                                                                                                      |
+| BE-22   | Migrations are zero-downtime: expand now, contract in a later release.                                                                                               |
+| BE-25   | Feature flags are evaluated on the server and reach the UI through `can`.                                                                                            |
+| SEC-02  | Upstream tokens never reach props, logs, URLs, or browser storage.                                                                                                   |
+| CT-01   | Every page uses the envelope; `definePage` lists the page's `can` keys.                                                                                              |
+| CT-08   | Every string exists in every configured locale; no placeholder ships.                                                                                                |
+| CT-10   | Props are visible to the viewer; pick fields by allow-list.                                                                                                          |
+| CT-12   | Contract changes are additive first; old tabs reload via the asset version.                                                                                          |
+| FE-01   | page → screen → container → component; each page renders one screen.                                                                                                 |
+| FE-04   | Local state only through `useDomainReducer` or `useUiState` (design_system widgets excepted).                                                                        |
+| FE-07   | Use design_system controls, never raw `<button>`/`<input>`/`<select>`/`<textarea>`.                                                                                  |
+| FE-08   | ECharts and TanStack Table only through design_system wrappers.                                                                                                      |
+| FE-09   | Every interactive element and state has a `testId`.                                                                                                                  |
+| FE-11   | Format dates, numbers, and money only with `@design_system/formatters`.                                                                                              |
+| FE-18   | No `dangerouslySetInnerHTML`; URLs arrive in props, built by Rails, and pass `isSafeUrl` (`@design_system/safe_url`).                                                |
+| FE-20   | In `th`, every year shown or typed is Buddhist Era; the wire stays Gregorian; Rails formats dates only with `Rafelo::Core::DateFormatter`.                           |
+| OOP-03  | Throw only for invariants; input from a person is checked by `issues()`.                                                                                             |
+| OOP-05  | Class instances never enter props or React state; use `toPlain()`.                                                                                                   |
+| TS-02   | Every page spec checks schema, SQL and upstream call budgets, props budget at the maximum page size, `have_resolvable_hrefs`, and `match_policy_capabilities`.       |
+| TS-04   | Tests select by role with an accessible name, or by test id.                                                                                                         |
+| WF-03   | Conventional Commits PR titles, squash merge, never push to `main`.                                                                                                  |
 
 ## Never
 
@@ -116,7 +116,7 @@ ADR change; do not work around it.
   (ARCH-05, ARCH-09, ARCH-10).
 - Read or print `.env`, `config/master.key`, `config/credentials/production.key`,
   the decrypted production credentials (`bin/rails credentials:show
-  --environment production`), or tokens. Put no secrets or real personal data
+--environment production`), or tokens. Put no secrets or real personal data
   in code, tests, fixtures, logs, or issues; a new secret goes into the dummy
   credentials with a dummy value, and a person adds the real one (BE-08).
 - Disable Brakeman, an audit, or a CI step. A disable comment needs a reason
@@ -159,13 +159,13 @@ currently ships:
 Design skills (`.opencode/skills/oo-*`, a pinned copy of the object-oriented
 design skills pack; never edit it):
 
-| Work | Load |
-| --- | --- |
-| Designing a class or module, or moving responsibilities | `oo-design` |
-| Plain Ruby objects (value objects, props objects) | `oo-ruby` |
-| TypeScript classes in `domain/` and `forms/` (OOP-01–OOP-10) | `oo-typescript` |
-| What Rails or React builds and wires | `oo-working-within-a-framework` |
-| Reviewing a diff | `oo-reviewing-object-design` |
+| Work                                                         | Load                            |
+| ------------------------------------------------------------ | ------------------------------- |
+| Designing a class or module, or moving responsibilities      | `oo-design`                     |
+| Plain Ruby objects (value objects, props objects)            | `oo-ruby`                       |
+| TypeScript classes in `domain/` and `forms/` (OOP-01–OOP-10) | `oo-typescript`                 |
+| What Rails or React builds and wires                         | `oo-working-within-a-framework` |
+| Reviewing a diff                                             | `oo-reviewing-object-design`    |
 
 A rule or an ADR wins over the pack.
 

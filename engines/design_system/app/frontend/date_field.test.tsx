@@ -8,7 +8,16 @@ import { I18nProvider } from "./i18n_provider";
 describe("DateField", () => {
   it("converts a Thai Buddhist Era entry to ISO Gregorian", async () => {
     const onChange = vi.fn();
-    render(<DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={onChange} locale="th" />);
+    render(
+      <DateField
+        label="Date"
+        value="2026-11-11"
+        min="2026-01-01"
+        max="2026-12-31"
+        onChange={onChange}
+        locale="th"
+      />,
+    );
     const input = screen.getByRole("textbox");
 
     expect((input as HTMLInputElement).value).toBe("11/11/2569");
@@ -20,7 +29,16 @@ describe("DateField", () => {
 
   it("refuses an impossible calendar date", async () => {
     const onChange = vi.fn();
-    render(<DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={onChange} locale="th" />);
+    render(
+      <DateField
+        label="Date"
+        value="2026-11-11"
+        min="2026-01-01"
+        max="2026-12-31"
+        onChange={onChange}
+        locale="th"
+      />,
+    );
     const input = screen.getByRole("textbox");
 
     await userEvent.clear(input);
@@ -32,7 +50,13 @@ describe("DateField", () => {
   it("reads the locale from the provider", () => {
     render(
       <I18nProvider locale="th" timeZone="Asia/Bangkok">
-        <DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={() => {}} />
+        <DateField
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
       </I18nProvider>,
     );
 
@@ -41,7 +65,16 @@ describe("DateField", () => {
 
   it("refuses a Gregorian year typed in Thai", async () => {
     const onChange = vi.fn();
-    render(<DateField label="Date" value="2026-11-11" min="2026-01-01" max="2026-12-31" onChange={onChange} locale="th" />);
+    render(
+      <DateField
+        label="Date"
+        value="2026-11-11"
+        min="2026-01-01"
+        max="2026-12-31"
+        onChange={onChange}
+        locale="th"
+      />,
+    );
     const input = screen.getByRole("textbox");
 
     await userEvent.clear(input);

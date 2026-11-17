@@ -1,8 +1,7 @@
-import { useForm } from "@inertiajs/react";
 import { Button, Link } from "@design_system/public";
-
-import { OrderFormFields } from "../../components/orders/form";
-import { useOrdersTranslation } from "../../i18n";
+import { OrderFormFields } from "@example_orders/components/orders/form";
+import { useOrdersTranslation } from "@example_orders/i18n";
+import { useForm } from "@inertiajs/react";
 
 type Props = {
   createPath: string;
@@ -35,7 +34,11 @@ export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) 
           onStatusChange={(value) => form.setData("status", value)}
         />
         <div className="flex items-center gap-4">
-          <Button testId="example_orders.orders.new.submit" type="submit" isDisabled={form.processing}>
+          <Button
+            testId="example_orders.orders.new.submit"
+            type="submit"
+            isDisabled={form.processing}
+          >
             {t("orders.save")}
           </Button>
           <Link href={indexPath}>
