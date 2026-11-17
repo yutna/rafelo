@@ -62,13 +62,14 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   ])
 
   [
-    [ "guard without approval", nil, 1 ],
-    [ "guard with an owner approval", owner, 0 ],
-    [ "guard with a non-owner approval", outsider, 1 ],
-    [ "guard with a later change request", rejected, 1 ],
+    [ "guard without approval", nil, 1, "pull_request", "outsider" ],
+    [ "guard with an owner approval", owner, 0, "pull_request", "outsider" ],
+    [ "guard with a non-owner approval", outsider, 1, "pull_request", "outsider" ],
+    [ "guard with a later change request", rejected, 1, "pull_request", "outsider" ],
     [ "merge queue", nil, 0, "merge_group" ],
     [ "single-owner author", nil, 1, "pull_request", "owner" ],
-    [ "author-only approval", owner, 1, "pull_request", "owner" ]
+    [ "author-only approval", owner, 1, "pull_request", "owner" ],
+    [ "empty author fails closed", owner, 1, "pull_request", "" ]
   ].each do |name, file, expected, event, author|
     cases += 1
     status, output = run_case(script, dir, base, file, event || "pull_request", author)
@@ -128,7 +129,7 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "remove the guard path")
   cases += 1
-  status, output = run_case(script, dir, base_before_removal, nil)
+  status, output = run_case(script, dir, base_before_removal, nil, "pull_request", "outsider")
   if status != 1
     failures += 1
     warn "guard_approval_canary: CODEOWNERS removal: exited #{status}: #{output}"

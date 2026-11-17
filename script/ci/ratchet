@@ -171,6 +171,11 @@ if rises.empty?
 end
 
 number = Approvals.pull_request_number(pr, head_ref)
+if author.to_s.strip.empty? && number
+  # merge_group has no pull request payload; resolve the author from the PR
+  # number in head_ref before counting an approval (WF-03).
+  author = Approvals.pull_request_author(repository: repository, number: number)
+end
 reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
 unless Approvals.approved_by_owner?(root, reviews, base: base, author: author)
   rises.each { |key, previous, value| warn "ratchet: #{key} rose from #{previous} to #{value}" }

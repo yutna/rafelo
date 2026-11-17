@@ -111,10 +111,10 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   write_root(dir, "rubocop_disable" => 2)
   commit(dir, "root rise")
   cases += 1
-  status, output = run_case(script, dir, base, nil)
+  status, output = run_case(script, dir, base, nil, author: "outsider")
   failures = check(failures, "rise without approval", 1, status, output)
   cases += 1
-  status, output = run_case(script, dir, base, owner)
+  status, output = run_case(script, dir, base, owner, author: "outsider")
   failures = check(failures, "rise with an owner approval", 0, status, output)
   cases += 1
   status, output = run_case(script, dir, base, owner, author: "owner")
@@ -123,10 +123,10 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   status, output = run_case(script, dir, base, second, author: "owner")
   failures = check(failures, "rise with another owner's approval", 0, status, output)
   cases += 1
-  status, output = run_case(script, dir, base, outsider)
+  status, output = run_case(script, dir, base, outsider, author: "outsider")
   failures = check(failures, "rise with a non-owner approval", 1, status, output)
   cases += 1
-  status, output = run_case(script, dir, base, rejected)
+  status, output = run_case(script, dir, base, rejected, author: "outsider")
   failures = check(failures, "rise with a later change request", 1, status, output)
 
   # An engine-only rise fails; the engine file is aggregated, not just the root.
@@ -134,7 +134,7 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   write_engine(dir, "skipped_tests" => 5)
   commit(dir, "engine rise")
   cases += 1
-  status, output = run_case(script, dir, base, outsider)
+  status, output = run_case(script, dir, base, outsider, author: "outsider")
   failures = check(failures, "engine-only rise", 1, status, output, "engines/widgets/config/ratchets.yml:skipped_tests")
 
   # A fall passes without an approval.
@@ -160,7 +160,7 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   write_root(dir, "rubocop_disable" => 1)
   commit(dir, "raise the ceiling to the real count")
   cases += 1
-  status, output = run_case(script, dir, base, owner)
+  status, output = run_case(script, dir, base, owner, author: "outsider")
   failures = check(failures, "raise to the real count with an owner", 0, status, output)
 
   # --update lowers a ceiling and preserves settings.
@@ -187,6 +187,14 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     failures += 1
     warn "ratchet_canary: update rise: exited #{status}: #{output}"
   end
+
+  # An unknown author cannot approve a YAML rise.
+  FileUtils.rm_f(File.join(dir, "app", "rise.rb"))
+  write_root(dir, "eslint_disable" => 3)
+  commit(dir, "empty author rise")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", owner, author: "")
+  failures = check(failures, "empty author fails closed", 1, status, output)
 
   # A string ceiling cannot hide a rise.
   write_root(dir, "rubocop_disable" => "99")
