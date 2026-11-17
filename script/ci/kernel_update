@@ -25,6 +25,8 @@ module KernelUpdate
     bin/kernel_update
     .env.ci.production
     spec/fixtures/hostile_urls.json
+    spec/rails_helper.rb
+    spec/spec_helper.rb
     spec/core
     spec/generators
     spec/patches

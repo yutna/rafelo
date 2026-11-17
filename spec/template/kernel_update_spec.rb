@@ -6,8 +6,13 @@ require "open3"
 require "tmpdir"
 require "yaml"
 require "rails_helper"
+load Rails.root.join("script/ci/kernel_update").to_s
 
 RSpec.describe "bin/kernel_update" do
+  it "carries the kernel test helpers" do
+    expect(KernelUpdate::DEFAULT_PATHS).to include("spec/rails_helper.rb", "spec/spec_helper.rb")
+  end
+
   let(:script) { File.expand_path("../../script/ci/kernel_update", __dir__) }
 
   def write_release(root, version:, files:)
