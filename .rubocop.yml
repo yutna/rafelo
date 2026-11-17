@@ -18,6 +18,7 @@ require:
   - ./script/ci/cops/rafelo/config_x_only_in_core
   - ./script/ci/cops/rafelo/cache_only_through_scoped_cache
   - ./script/ci/cops/rafelo/return_to_only_in_value_object
+  - ./script/ci/cops/rafelo/env_only_in_config
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -29,3 +30,13 @@ Rafelo/CacheOnlyThroughScopedCache:
   Enabled: true
 Rafelo/ReturnToOnlyInValueObject:
   Enabled: true
+Rafelo/EnvOnlyInConfig:
+  Enabled: true
+  Include:
+    - app/**/*.rb
+    - engines/*/app/**/*.rb
+    - lib/**/*.rb
+  Exclude:
+    - config/**/*
+    - spec/**/*
+    - engines/*/spec/**/*
