@@ -52,6 +52,8 @@ CASES = [
     rules: [ "no-restricted-syntax" ] },
   { name: "type exports", fixture: "type_exports/bad.tsx", path: ENGINE_PAGE,
     rules: [ "no-restricted-syntax" ] },
+  { name: "readonly fields", fixture: "prefer_readonly/bad.ts", path: CORE_DOMAIN,
+    rules: [ "@typescript-eslint/prefer-readonly" ] },
   { name: "class components", fixture: "class_components/bad.tsx", path: ENGINE_PAGE,
     rules: [ "no-restricted-syntax" ] },
   { name: "test selectors", fixture: "selectors/bad.tsx", path: UNIT_TEST,
@@ -74,6 +76,7 @@ LEGAL_CASES = [
   { name: "page resolver glob", fixture: "glob/legal.ts", path: PAGE_RESOLVER },
   { name: "test URLs", fixture: "urls/legal.ts", path: ENGINE_E2E },
   { name: "error boundary class", fixture: "class_components/legal.tsx", path: ERROR_BOUNDARY },
+  { name: "readonly fields legal", fixture: "prefer_readonly/legal.ts", path: CORE_DOMAIN },
   { name: "role and test id selectors", fixture: "selectors/legal.tsx", path: UNIT_TEST },
   { name: "design_system raw elements", fixture: "elements/legal.tsx", path: DESIGN_SYSTEM },
   { name: "known Tailwind classes", fixture: "tailwind/legal.tsx", path: ENGINE_PAGE },
@@ -117,7 +120,8 @@ PRINT_CONFIG = [
   },
   {
     path: CORE_DOMAIN,
-    syntax: { include: [ "Intl", "TemplateLiteral", "property.name='glob'" ], exclude: [ "getFullYear" ] }
+    syntax: { include: [ "Intl", "TemplateLiteral", "property.name='glob'" ], exclude: [ "getFullYear" ] },
+    prefer_readonly: :on
   },
   {
     path: FORMATTERS,
@@ -295,6 +299,9 @@ PRINT_CONFIG.each do |test|
   end
   if test[:skip_rule] == :on && severity(config, "rafelo/skip-needs-issue") != 2
     problems << "rafelo/skip-needs-issue is off"
+  end
+  if test[:prefer_readonly] == :on && severity(config, "@typescript-eslint/prefer-readonly") != 2
+    problems << "@typescript-eslint/prefer-readonly is off"
   end
   next if problems.empty?
 

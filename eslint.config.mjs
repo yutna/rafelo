@@ -240,6 +240,7 @@ export default [
       ...jsxA11y.configs.recommended.rules,
       "unicorn/filename-case": ["error", { case: "snakeCase" }],
       "perfectionist/sort-imports": "error",
+      "@typescript-eslint/prefer-readonly": "error",
       "better-tailwindcss/no-unknown-classes": "error",
       "@eslint-community/eslint-comments/require-description": "error",
       "react/no-danger": "error",
