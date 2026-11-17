@@ -1,0 +1,98 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+since = "30 days ago"
+open_issue = false
+dry_run = false
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/touch_rate [--root DIR] [--since DATE] [--open-issue] [--dry-run]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--since DATE") { |value| since = value }
+  parser.on("--open-issue") { open_issue = true }
+  parser.on("--dry-run") { dry_run = true }
+end.parse!
+
+root = File.expand_path(root)
+abort "touch_rate: root does not exist: #{root}" unless Dir.exist?(root)
+abort "touch_rate: #{root} is not a git repository" unless Dir.exist?(File.join(root, ".git"))
+
+budgets = YAML.load_file(File.join(root, "config", "budgets.yml")).fetch("growth").fetch("touch_rate")
+max = Float(budgets.fetch("max"))
+min_modules = Integer(budgets.fetch("min_modules"))
+
+modules = Dir[File.join(root, "engines", "*", "config", "module.rb")]
+          .map { |path| File.basename(File.dirname(File.dirname(path))) }
+          .reject { |name| name.start_with?("example_") }
+          .sort
+
+if modules.length < min_modules
+  warn "touch_rate: #{modules.length} product module(s), below #{min_modules}; the metric is disabled"
+  exit 0
+end
+
+def git(root, *args)
+  output, status = Open3.capture2("git", "-C", root, *args)
+  abort "touch_rate: git #{args.join(' ')} failed" unless status.success?
+
+  output
+end
+
+commits = git(root, "log", "--since=#{since}", "--first-parent", "--no-merges", "--format=%H")
+          .lines.map(&:strip).reject(&:empty?)
+touching = git(root, "log", "--since=#{since}", "--first-parent", "--no-merges", "--format=%H",
+               "--", "engines/core", "engines/design_system")
+           .lines.map(&:strip).reject(&:empty?)
+
+if commits.empty?
+  abort "touch_rate: no merged commit in the last #{since}"
+end
+
+share = touching.length.to_f / commits.length
+percent = (share * 100).round(1)
+puts "touch_rate: #{touching.length}/#{commits.length} merged pull requests in the last #{since} touched core/design_system (#{percent}%); max #{(max * 100).round(1)}%"
+
+exit 0 if share <= max
+
+title = "chore(ci): touch rate #{percent}% above #{(max * 100).round(1)}%"
+body = <<~BODY
+  The share of merged pull requests in the last #{since} touching
+  `engines/core` or `engines/design_system` is #{percent}%
+  (#{touching.length}/#{commits.length}), above the
+  `growth.touch_rate.max` budget of #{(max * 100).round(1)}%.
+
+  This is a metric, not a merge gate. Split or extract the kernel engine that
+  is absorbing the changes (ARCH-12, ARCH-05).
+BODY
+
+unless open_issue
+  puts "touch_rate: above the budget; the scheduled job opens an issue with --open-issue"
+  exit 0
+end
+
+if dry_run
+  puts "touch_rate: would open: #{title}"
+  puts body
+  exit 0
+end
+
+repository = ENV["GITHUB_REPOSITORY"].to_s
+abort "touch_rate: GITHUB_REPOSITORY is required with --open-issue" if repository.empty?
+
+existing, = Open3.capture2e("gh", "issue", "list", "-R", repository, "--state", "open",
+                            "--search", "touch rate in:title", "--json", "number", "--jq", ".[0].number")
+unless existing.strip.empty?
+  puts "touch_rate: issue ##{existing.strip} is already open"
+  exit 0
+end
+
+output, status = Open3.capture2e("gh", "issue", "create", "-R", repository,
+                                 "--title", title, "--body", body, "--label", "chore")
+abort "touch_rate: gh issue create failed: #{output}" unless status.success?
+
+puts "touch_rate: opened #{output.strip}"

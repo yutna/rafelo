@@ -1,0 +1,99 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+require "yaml"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "touch_rate")
+failures = 0
+cases = 0
+
+def git(dir, *args)
+  output, error, status = Open3.capture3("git", "-C", dir, *args)
+  abort "touch_rate_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
+
+  output
+end
+
+def fixture(dir, modules:)
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(dir, "config"))
+  File.write(File.join(dir, "config", "budgets.yml"), <<~YAML)
+    growth:
+      touch_rate:
+        max: 0.15
+        min_modules: 3
+  YAML
+  modules.times do |index|
+    FileUtils.mkdir_p(File.join(dir, "engines", "module_#{index}", "config"))
+    File.write(File.join(dir, "engines", "module_#{index}", "config", "module.rb"), "module X; end\n")
+  end
+  FileUtils.mkdir_p(File.join(dir, "engines", "core"))
+end
+
+def commit(dir, index, core:)
+  path = core ? File.join(dir, "engines", "core", "f#{index}.rb") : File.join(dir, "app", "f#{index}.rb")
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, "x = #{index}\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "commit #{index}")
+end
+
+def run(script, dir, *args)
+  output, status = Open3.capture2e(script, "--root", dir, *args)
+  [ status.exitstatus, output ]
+end
+
+Dir.mktmpdir("rafelo-touch-rate-") do |dir|
+  fixture(dir, modules: 0)
+  commit(dir, 0, core: true)
+  cases += 1
+  status, output = run(script, dir)
+  unless status == 0 && output.include?("below 3")
+    failures += 1
+    warn "touch_rate_canary: below threshold: #{status}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-touch-rate-") do |dir|
+  fixture(dir, modules: 3)
+  10.times { |index| commit(dir, index, core: index < 1) }
+  cases += 1
+  status, output = run(script, dir, "--dry-run")
+  unless status == 0 && output.include?("10.0%")
+    failures += 1
+    warn "touch_rate_canary: under budget: #{status}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-touch-rate-") do |dir|
+  fixture(dir, modules: 3)
+  10.times { |index| commit(dir, index, core: index < 2) }
+  cases += 1
+  status, output = run(script, dir, "--open-issue", "--dry-run")
+  unless status == 0 && output.include?("would open:") && output.include?("20.0%")
+    failures += 1
+    warn "touch_rate_canary: over budget: #{status}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-touch-rate-") do |dir|
+  cases += 1
+  status, output = run(script, dir)
+  unless status == 1 && output.include?("not a git repository")
+    failures += 1
+    warn "touch_rate_canary: empty root: #{status}: #{output}"
+  end
+end
+
+if failures.positive?
+  warn "touch_rate_canary: checked #{cases} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "touch_rate_canary: checked #{cases} cases; failures=0"
