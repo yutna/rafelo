@@ -105,17 +105,31 @@ module Approvals
 
   # An approval counts only when its author is not the pull request author
   # (WF-03): an agent or owner cannot approve its own change.
+  def pull_request_author(repository:, number:)
+    return if repository.to_s.empty? || number.to_s.empty?
+
+    output, status = Open3.capture2(
+      "gh", "api", "repos/#{repository}/pulls/#{number}", "--jq", ".user.login"
+    )
+    return unless status.success?
+
+    login = output.strip
+    login.empty? ? nil : login
+  end
+
   def approved_by_owner?(root, reviews, base: nil, author: nil)
     owners = owner_logins(root, base: base)
     states = latest_states(reviews)
     return false if states.values.include?("CHANGES_REQUESTED")
 
-    author = author.to_s.downcase
+    author = author.to_s.strip.downcase
+    return false if author.empty?
+
     states.any? do |login, state|
       next false unless state == "APPROVED"
       next false unless owners.any? { |owner| owner.casecmp?(login) }
 
-      author.empty? || !login.casecmp?(author)
+      !login.casecmp?(author)
     end
   end
 
