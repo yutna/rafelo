@@ -35,9 +35,9 @@ repository does not apply that ruleset or require those checks. Name every
 guard-file change in the pull request for the owner's review.
 
 A release is made when its version milestone is complete: the release pull
-request sets `VERSION`, and after it merges the green CI push to `main` runs
-the release workflow, which creates the tag and the GitHub Release with
-generated notes. The release notes on GitHub are the changelog.
+request sets `VERSION` and the formats fixture, and closing the milestone runs
+the oss-kit release caller (see [Releases](#releases)). The release notes on
+GitHub are the changelog.
 
 ## Local development
 
