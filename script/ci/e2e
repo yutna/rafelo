@@ -11,7 +11,7 @@ cleanup() {
   if [ -n "$rails_pid" ]; then kill "$rails_pid" 2>/dev/null || true; fi
   if [ -n "$upstream_pid" ]; then kill "$upstream_pid" 2>/dev/null || true; fi
   if [ -n "$rails_pid" ]; then
-    RAILS_ENV=test bin/rails runner 'ActiveRecord::Base.connection.execute("TRUNCATE TABLE core_sessions, core_idempotency_keys, core_exports, core_audits RESTART IDENTITY")' >/dev/null 2>&1 || true
+    RAILS_ENV=test bin/rails runner 'ActiveRecord::Base.connection.execute("TRUNCATE TABLE core_sessions, core_idempotency_keys, core_exports, core_audits, core_audit_events RESTART IDENTITY CASCADE")' >/dev/null 2>&1 || true
   fi
   rm -f "$log" "$upstream_log"
 }
@@ -21,6 +21,8 @@ rm -f tmp/pids/server.pid
 RAILS_ENV=test bin/vite build >/tmp/rafelo-e2e-vite-build.log 2>&1
 
 export E2E_SERVER=1
+# The smoke proves the Report-Only rollout: violation reports must stay empty.
+export CSP_REPORT_ONLY=true
 export ACME_API_BASE_URL="http://127.0.0.1:${upstream_port}/"
 export E2E_UPSTREAM_URL="http://127.0.0.1:${upstream_port}"
 bundle exec puma -b "tcp://127.0.0.1:${upstream_port}" script/ci/e2e_upstream.ru >"$upstream_log" 2>&1 &

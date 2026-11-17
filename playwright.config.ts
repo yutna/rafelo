@@ -37,7 +37,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
     : {
-        command: "bin/dev",
+        command: "CSP_REPORT_ONLY=true bin/dev",
         url: "http://localhost:3000/en/component_catalog",
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,
