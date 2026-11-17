@@ -102,7 +102,8 @@ if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
   cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
 fi
 ( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
-    --base-source "$work/base-src" --source "$current_src" )
+    --base-source "$work/base-src" --source "$current_src" \
+    --include design_system/app/frontend )
 # The N-1 fixture is a generated app with no dependency changes of its own.
 # Bring its app-owned Gemfile and lockfile to the release under test, as an
 # adopter does when resolving the stack again (00_README.md step 5), so the
@@ -119,6 +120,16 @@ cp "$current_src/Gemfile" "$current_src/Gemfile.lock" "$work/smoke_shop_prev/"
   text = File.read(source)
   File.write(target, RafeloTemplate.render_text(text, "app", app_name, RafeloTemplate.namespace(app_name)))
 ' "$current_src/config/application.rb" "$work/smoke_shop_prev/config/application.rb" smoke_shop_prev
+# The example engines are app-owned after adoption (GEN-08). A newly stricter
+# kernel check must not fail on the fixture's older copy; a generated fixture
+# has no customizations, so refresh both examples too (same #403 reading). The
+# design-system frontend comes from the release under test through the
+# documented folder include (GEN-07); a real adopter requests it when it
+# wants that component, and the refreshed examples use its test ids.
+for example in example_customers example_orders; do
+  rm -rf "$work/smoke_shop_prev/engines/$example"
+  cp -R "$current_src/engines/$example" "$work/smoke_shop_prev/engines/$example"
+done
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \

@@ -16,6 +16,8 @@ patterns = %w[
   app/frontend/**/*.test.ts
   app/frontend/**/*.test.tsx
   e2e/**/*.ts
+  engines/*/app/frontend/**/*.test.ts
+  engines/*/app/frontend/**/*.test.tsx
   engines/*/e2e/**/*.ts
 ]
 files = patterns.flat_map { |pattern| Dir[File.join(root, pattern)] }.uniq.select { |path| File.file?(path) }

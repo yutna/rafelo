@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "skips")
+
+cases = [
+  # [name, path, contents, expected exit]
+  [ "engine spec skip without issue", "engines/sample/spec/thing_spec.rb",
+    "it 'works' do\n  skip\nend\n", 1 ],
+  [ "engine spec skip with issue", "engines/sample/spec/thing_spec.rb",
+    "it 'works' do\n  skip #123\nend\n", 0 ],
+  [ "engine vitest skip", "engines/sample/app/frontend/thing.test.tsx",
+    "it.skip('renders', () => {});\n", 1 ],
+  [ "engine e2e skip", "engines/sample/e2e/thing.spec.ts",
+    "test.describe.skip('flow', () => {});\n", 1 ]
+]
+
+failures = 0
+cases.each do |name, path, contents, expected|
+  Dir.mktmpdir("rafelo-skips") do |tmp|
+    FileUtils.mkdir_p(File.dirname(File.join(tmp, path)))
+    FileUtils.mkdir_p(File.join(tmp, "spec"))
+    File.write(File.join(tmp, "spec", "ok_spec.rb"), "it 'is clean' do\n  expect(1).to eq(1)\nend\n")
+    File.write(File.join(tmp, path), contents)
+
+    output, status = Open3.capture2e(script, "--root", tmp)
+    next if status.exitstatus == expected && (expected.zero? || output.include?(path))
+
+    failures += 1
+    warn "skips_canary: #{name} exited #{status.exitstatus}, expected #{expected}"
+    warn output
+  end
+end
+
+if failures.positive?
+  warn "skips_canary: checked #{cases.length} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "skips_canary: checked #{cases.length} cases; failures=0"
