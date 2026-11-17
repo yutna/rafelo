@@ -6,12 +6,11 @@ require Rails.root.join("engines/core/db/migrate/20261114000000_partition_core_a
 # a throwaway database: the expand copy keeps the legacy rows, and a rollback
 # copies the v0.19.0 rows back without duplicating the rows it already copied
 # (BE-22, OPS-08).
-RSpec.describe "Audit partition migration" do
+RSpec.describe "Audit partition migration", :database_roles,
+               if: DatabaseRoleSpecs.available?("rafelo_audit_migration") do
   let(:scratch) { ScratchDatabase.new("rafelo_audit_migration") }
 
   before do
-    skip "requires a PostgreSQL superuser to create a scratch database (see #333)" unless scratch.supported?
-
     scratch.create!
     @created = true
     config = ActiveRecord::DatabaseConfigurations::HashConfig.new(

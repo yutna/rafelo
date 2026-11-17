@@ -12,11 +12,58 @@ script = File.join(root, "script", "ci", "ratchet")
 failures = 0
 cases = 0
 
+ROOT_KEYS = {
+  "eslint_disable" => 0,
+  "rubocop_disable" => 0,
+  "use_no_memo" => 0,
+  "skipped_tests" => 0,
+  "clone_baseline_entries" => 0,
+  "legacy_lint_paths" => 0,
+  "clone_min_tokens" => 5
+}.freeze
+ENGINE_KEYS = {
+  "eslint_disable" => 0,
+  "rubocop_disable" => 0,
+  "use_no_memo" => 0,
+  "skipped_tests" => 0,
+  "page_budget_overrides" => 0,
+  "legacy_table_prefixes" => 0,
+  "legacy_constants" => 0
+}.freeze
+
 def git(dir, *args)
   output, error, status = Open3.capture3("git", "-C", dir, *args)
   abort "ratchet_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
 
   output
+end
+
+def init_repo(dir)
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(dir, ".github"))
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/widgets/app/ @owner\n")
+end
+
+def write_yaml(path, data)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, data.to_yaml)
+end
+
+def write_root(dir, overrides = {})
+  write_yaml(File.join(dir, "config", "ratchets.yml"), ROOT_KEYS.merge(overrides))
+end
+
+def write_engine(dir, overrides = {})
+  write_yaml(File.join(dir, "engines", "widgets", "config", "ratchets.yml"),
+             ENGINE_KEYS.merge(overrides))
+end
+
+def commit(dir, message)
+  git(dir, "add", "-A")
+  git(dir, "commit", "-q", "-m", message)
+  git(dir, "rev-parse", "HEAD").strip
 end
 
 def reviews(dir, name, entries)
@@ -37,25 +84,19 @@ def run_update(script, dir)
   [ status.exitstatus, output ]
 end
 
-Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
-  git(dir, "init", "-q")
-  git(dir, "config", "user.email", "canary@rafelo.invalid")
-  git(dir, "config", "user.name", "Canary")
-  FileUtils.mkdir_p(File.join(dir, "config"))
-  FileUtils.mkdir_p(File.join(dir, "engines", "core", "app"))
-  FileUtils.mkdir_p(File.join(dir, "engines", "core", "config"))
-  FileUtils.mkdir_p(File.join(dir, ".github"))
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/core/app/ @owner\n")
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\nclone_min_tokens: 5\n")
-  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "base")
-  base = git(dir, "rev-parse", "HEAD").strip
+def check(failures, name, expected, status, output, needle = nil)
+  ok = status == expected && (needle.nil? || output.include?(needle))
+  return failures if ok
 
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 1\nrubocop_disable: 1\n")
-  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "rise")
+  warn "ratchet_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  failures + 1
+end
+
+Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  base = commit(dir, "base")
 
   owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
   outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
@@ -64,72 +105,143 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
   ])
 
-  [
-    [ "rise without approval", nil, 1 ],
-    [ "rise with an owner approval", owner, 0 ],
-    [ "rise with a non-owner approval", outsider, 1 ],
-    [ "rise with a later change request", rejected, 1 ]
-  ].each do |name, file, expected|
-    cases += 1
-    status, output = run_case(script, dir, base, file)
-    next if status == expected
-
-    failures += 1
-    warn "ratchet_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
-  end
-
-  # An engine-only rise fails; this proves the engine ratchet is aggregated,
-  # not just the root file whose value is unchanged here.
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\n")
-  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "engine rise")
+  # A recorded ceiling rise needs an owner who did not author the pull request.
+  write_root(dir, "rubocop_disable" => 2)
+  commit(dir, "root rise")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "rise without approval", 1, status, output)
+  cases += 1
+  status, output = run_case(script, dir, base, owner)
+  failures = check(failures, "rise with an owner approval", 0, status, output)
   cases += 1
   status, output = run_case(script, dir, base, outsider)
-  if status != 1 || !output.include?("engines/core/config/ratchets.yml:skipped_tests")
-    failures += 1
-    warn "ratchet_canary: engine-only rise: exited #{status}: #{output}"
-  end
+  failures = check(failures, "rise with a non-owner approval", 1, status, output)
+  cases += 1
+  status, output = run_case(script, dir, base, rejected)
+  failures = check(failures, "rise with a later change request", 1, status, output)
+
+  # An engine-only rise fails; the engine file is aggregated, not just the root.
+  write_root(dir)
+  write_engine(dir, "skipped_tests" => 5)
+  commit(dir, "engine rise")
+  cases += 1
+  status, output = run_case(script, dir, base, outsider)
+  failures = check(failures, "engine-only rise", 1, status, output, "engines/widgets/config/ratchets.yml:skipped_tests")
 
   # A fall passes without an approval.
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 1\n")
-  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 0\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "fall")
+  write_root(dir, "rubocop_disable" => 2)
+  write_engine(dir)
+  commit(dir, "before the fall")
+  write_root(dir, "rubocop_disable" => 1)
+  commit(dir, "fall")
   cases += 1
   status, output = run_case(script, dir, "HEAD~1", nil)
-  if status != 0
-    failures += 1
-    warn "ratchet_canary: fall without approval: exited #{status}: #{output}"
-  end
+  failures = check(failures, "fall without approval", 0, status, output)
+
+  # The real count is compared with the committed ceiling in check mode.
+  FileUtils.mkdir_p(File.join(dir, "app"))
+  File.write(File.join(dir, "app", "thing.rb"), "# rubocop:disable Rails/Thing\n")
+  write_root(dir)
+  commit(dir, "real count above the ceiling")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "real count above the ceiling", 1, status, output, "above its ceiling")
+
+  # Raising the ceiling to the real value is a recorded rise that needs an owner.
+  write_root(dir, "rubocop_disable" => 1)
+  commit(dir, "raise the ceiling to the real count")
+  cases += 1
+  status, output = run_case(script, dir, base, owner)
+  failures = check(failures, "raise to the real count with an owner", 0, status, output)
 
   # --update lowers a ceiling and preserves settings.
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 2\nclone_min_tokens: 5\n")
-  File.write(File.join(dir, "engines", "core", "config", "ratchets.yml"), "skipped_tests: 5\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "update candidates")
+  write_root(dir, "eslint_disable" => 3, "rubocop_disable" => 1)
+  commit(dir, "update candidates")
   cases += 1
   status, output = run_update(script, dir)
   updated = YAML.load_file(File.join(dir, "config", "ratchets.yml"))
-  engine_updated = YAML.load_file(File.join(dir, "engines", "core", "config", "ratchets.yml"))
-  if status != 0 || updated["rubocop_disable"] != 0 || engine_updated["skipped_tests"] != 0 || updated["clone_min_tokens"] != 5
+  cases += 1
+  if status != 0 || updated["eslint_disable"] != 0 || updated["clone_min_tokens"] != 5
     failures += 1
     warn "ratchet_canary: update falls: exited #{status}: #{output}"
   end
 
-  # --update reports a rise but never raises a ceiling.
-  File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\nrubocop_disable: 0\nclone_min_tokens: 5\n")
-  FileUtils.mkdir_p(File.join(dir, "app"))
+  # --update reports a real rise and never raises a ceiling.
+  write_root(dir)
   File.write(File.join(dir, "app", "rise.rb"), "# rubocop:disable Rails/Thing\n")
-  git(dir, "add", ".")
-  git(dir, "commit", "-q", "-m", "rise candidate")
+  commit(dir, "rise candidate")
   cases += 1
   status, output = run_update(script, dir)
   updated = YAML.load_file(File.join(dir, "config", "ratchets.yml"))
+  cases += 1
   if status != 0 || updated["rubocop_disable"] != 0 || !output.include?("above its ceiling")
     failures += 1
     warn "ratchet_canary: update rise: exited #{status}: #{output}"
   end
+end
+
+# A new key is recorded at its real value; it is not a rise.
+Dir.mktmpdir("rafelo-ratchet-new-key-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  engine = ENGINE_KEYS.reject { |key, _| key == "legacy_constants" }
+  write_yaml(File.join(dir, "engines", "widgets", "config", "ratchets.yml"), engine)
+  base = commit(dir, "base without the new key")
+
+  write_engine(dir)
+  commit(dir, "record the new key")
+  outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
+  cases += 1
+  status, output = run_case(script, dir, base, outsider)
+  failures = check(failures, "new key at its real value", 0, status, output)
+end
+
+# A missing key in an engine file fails.
+Dir.mktmpdir("rafelo-ratchet-missing-key-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  path = File.join(dir, "engines", "widgets", "config", "ratchets.yml")
+  data = YAML.load_file(path)
+  data.delete("use_no_memo")
+  File.write(path, data.to_yaml)
+  base = commit(dir, "missing key")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "missing engine key", 1, status, output, "missing use_no_memo")
+end
+
+# Every engine needs a ratchets file.
+Dir.mktmpdir("rafelo-ratchet-missing-file-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  FileUtils.mkdir_p(File.join(dir, "engines", "widgets"))
+  base = commit(dir, "missing engine file")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "missing engine ratchets file", 1, status, output, "every engine needs a ratchets file")
+end
+
+# An identifier such as :skip_post_write is not a skipped test; a real skip is.
+Dir.mktmpdir("rafelo-ratchet-skip-count-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  FileUtils.mkdir_p(File.join(dir, "spec"))
+  File.write(File.join(dir, "spec", "identifier_spec.rb"),
+             "it 'checks an option' do\n  expect(options).not_to have_key(:skip_post_write) # see #288\nend\n")
+  base = commit(dir, "identifier")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "identifier is not a skip", 0, status, output)
+
+  File.write(File.join(dir, "spec", "identifier_spec.rb"),
+             "it 'skips' do\n  skip #123\nend\n")
+  commit(dir, "real skip")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "real skip above the ceiling", 1, status, output, "skipped_tests")
 end
 
 if failures.positive?

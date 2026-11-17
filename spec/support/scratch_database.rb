@@ -5,7 +5,8 @@ require "securerandom"
 
 # A throwaway PostgreSQL database for the OPS-06/OPS-08 role and migration
 # specs. The specs need a superuser to run the role script and create roles;
-# in an environment without one they skip instead of weakening the checks.
+# without one they are filtered out by metadata instead of weakening the
+# checks (the `skips` guard only sees real skipped tests).
 class ScratchDatabase
   attr_reader :name, :admin
 
@@ -63,5 +64,18 @@ class ScratchDatabase
     password = @config[:password] || ENV["DB_PASSWORD"]
     options[:password] = password if password
     options
+  end
+end
+
+# The role and migration specs run only in a single test process with a
+# superuser; parallel workers and managed databases filter them out through
+# example metadata, so they are never counted as skipped tests.
+module DatabaseRoleSpecs
+  def self.available?(prefix)
+    return false unless ENV["DATABASE_ROLES"] == "1"
+
+    ScratchDatabase.new(prefix).supported?
+  rescue PG::Error
+    false
   end
 end

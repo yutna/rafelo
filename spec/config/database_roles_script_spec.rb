@@ -3,16 +3,14 @@ require "rails_helper"
 # Runs the operator-facing role script for real against a throwaway database,
 # so the grants and ownership transfer are proved by PostgreSQL, not by
 # matching strings in the SQL file (OPS-06, OPS-08).
-RSpec.describe "Database role script" do
+RSpec.describe "Database role script", :database_roles,
+               if: DatabaseRoleSpecs.available?("rafelo_roles") do
   let(:password) { "drill-password" }
 
   let(:scratch) { ScratchDatabase.new("rafelo_roles") }
   let(:roles) { %w[acme_runtime acme_migrator] }
 
   before do
-    skip "role specs run in the primary test process only (see #333)" if ENV["TEST_ENV_NUMBER"].present?
-    skip "requires a PostgreSQL superuser to create roles (see #333)" unless scratch.supported?
-
     scratch.create!
     @created = true
     @connection = scratch.connect

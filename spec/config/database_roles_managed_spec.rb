@@ -5,16 +5,14 @@ require "securerandom"
 # which is not a superuser. PostgreSQL 16+ gives that admin ADMIN OPTION on
 # the roles it creates, so the script can grant itself membership in the
 # migration role and transfer ownership (OPS-06, OPS-08).
-RSpec.describe "Database role script on a managed admin" do
+RSpec.describe "Database role script on a managed admin", :database_roles,
+               if: DatabaseRoleSpecs.available?("rafelo_managed") do
   let(:password) { "drill-password" }
 
   let(:scratch) { ScratchDatabase.new("rafelo_managed") }
   let(:admin_role) { "rafelo_managed_admin_#{Process.pid}_#{SecureRandom.hex(3)}" }
 
   before do
-    skip "role specs run in the primary test process only (see #333)" if ENV["TEST_ENV_NUMBER"].present?
-    skip "requires a PostgreSQL superuser to create the managed admin (see #333)" unless scratch.supported?
-
     @admin = scratch.admin
     @admin.exec("CREATE ROLE #{@admin.escape_identifier(admin_role)} LOGIN CREATEROLE PASSWORD #{@admin.escape_literal(password)}")
     @admin.exec("CREATE DATABASE #{@admin.escape_identifier(scratch.name)} OWNER #{@admin.escape_identifier(admin_role)}")
