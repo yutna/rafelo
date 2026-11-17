@@ -112,6 +112,7 @@ module Rafelo
       def resource_singular = resource_name.singularize
       def controller_class = "#{resource_plural.camelize}Controller"
       def page_key_base = "#{mod}/#{resource_plural}"
+      def engine_alias = "@#{mod}"
       def permission_read = "#{mod}:#{resource_plural}:read"
       def permission_create = "#{mod}:#{resource_plural}:create"
       def capability_key(permission_key) = permission_key.split(":")[1..].join(".")
@@ -490,8 +491,8 @@ module Rafelo
             "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
           end
           create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
-            import { z } from "zod";
             import { definePage } from "@core/contracts/page_props.schema";
+            import { z } from "zod";
 
             export const pageSchema = definePage({
               data: #{data_props},
@@ -503,10 +504,13 @@ module Rafelo
             export type #{resource_singular.camelize}Item = { id: string; label: string };
           TS
           create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
-            import { Head } from "@inertiajs/react";
             import type { LayoutName } from "@core/contracts/layout.types";
+
+            import { Head } from "@inertiajs/react";
+
+            import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
+
             import { pageSchema } from "./index.schema";
-            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
 
             export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
               const page = pageSchema.parse(props);
@@ -523,7 +527,7 @@ module Rafelo
           screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
           new_link = effective_actions.include?("new") ? "\n          {can[\"#{capability_key(permission_create)}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
           create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}Screen } from "../../screens/#{resource_plural}/index_screen";
+            import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
 
             export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
               return <#{resource_plural.camelize}Screen {...props} />;
@@ -542,7 +546,7 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
-            import { #{resource_plural.camelize}List } from "../../components/#{resource_plural}/list";
+            import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
 
             export function #{resource_plural.camelize}Screen(#{screen_props}) {
               return (
@@ -557,8 +561,8 @@ module Rafelo
 
         if effective_actions.include?("show")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
-            import { z } from "zod";
             import { definePage } from "@core/contracts/page_props.schema";
+            import { z } from "zod";
 
             export const pageSchema = definePage({
               data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexPath: z.string() }),
@@ -568,10 +572,13 @@ module Rafelo
             });
           TS
           create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
-            import { Head } from "@inertiajs/react";
             import type { LayoutName } from "@core/contracts/layout.types";
+
+            import { Head } from "@inertiajs/react";
+
+            import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
+
             import { pageSchema } from "./show.schema";
-            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
 
             export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
               const page = pageSchema.parse(props);
@@ -586,7 +593,7 @@ module Rafelo
             #{resource_singular.camelize}Show.layoutName = "app" satisfies LayoutName;
           TSX
           create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
-            import { #{resource_singular.camelize}ShowScreen } from "../../screens/#{resource_plural}/show_screen";
+            import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
 
             export function #{resource_singular.camelize}ShowContainer(props: Parameters<typeof #{resource_singular.camelize}ShowScreen>[0]) {
               return <#{resource_singular.camelize}ShowScreen {...props} />;
@@ -618,8 +625,8 @@ module Rafelo
 
         if effective_actions.include?("new")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
-            import { z } from "zod";
             import { definePage } from "@core/contracts/page_props.schema";
+            import { z } from "zod";
 
             export const pageSchema = definePage({
               data: z.object({ createPath: z.string(), indexPath: z.string() }),
@@ -630,10 +637,13 @@ module Rafelo
             });
           TS
           create_managed engine_file("app/frontend/pages/#{resource_plural}/new.tsx"), <<~TSX
-            import { Head } from "@inertiajs/react";
             import type { LayoutName } from "@core/contracts/layout.types";
+
+            import { Head } from "@inertiajs/react";
+
+            import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
+
             import { pageSchema } from "./new.schema";
-            import { #{resource_plural.camelize}NewScreen } from "../../screens/#{resource_plural}/new_screen";
 
             export default function #{resource_plural.camelize}New(props: Record<string, unknown>) {
               const page = pageSchema.parse(props);
@@ -648,44 +658,42 @@ module Rafelo
             #{resource_plural.camelize}New.layoutName = "app" satisfies LayoutName;
           TSX
           create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}NewScreen } from "../../screens/#{resource_plural}/new_screen";
+            import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
 
             export function #{resource_plural.camelize}NewContainer(props: Parameters<typeof #{resource_plural.camelize}NewScreen>[0]) {
               return <#{resource_plural.camelize}NewScreen {...props} />;
             }
           TSX
           create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
-            import { Button } from "@design_system/public";
+            import { Button, TextField } from "@design_system/public";
 
             type Props = {
               name: string;
               errors: Record<string, string>;
               onNameChange: (value: string) => void;
-              onSubmit: () => void;
             };
 
-            export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange, onSubmit }: Props) {
+            export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange }: Props) {
               return (
                 <>
-                  <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
-                  <input
-                    id="#{resource_singular}-name"
-                    data-testid="#{mod}.#{resource_plural}.new.name"
-                    className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
-                    value={name}
-                    onChange={(event) => onNameChange(event.target.value)}
+                  <TextField
+                    testId="#{mod}.#{resource_plural}.new.name"
+                    label="Name"
                     name="name"
+                    value={name}
+                    error={errors.name}
+                    onChange={onNameChange}
                   />
-                  {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
                   <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
                 </>
               );
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
-            import { useForm } from "@inertiajs/react";
             import { Link } from "@design_system/public";
-            import { #{resource_singular.camelize}FormFields } from "../../components/#{resource_plural}/form";
+            import { useForm } from "@inertiajs/react";
+
+            import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
 
             export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
@@ -704,7 +712,6 @@ module Rafelo
                       name={form.data.name}
                       errors={errors}
                       onNameChange={(value) => form.setData("name", value)}
-                      onSubmit={() => undefined}
                     />
                     <div className="flex gap-3">
                       <Link href={indexPath}>Back</Link>
@@ -718,8 +725,8 @@ module Rafelo
 
         if effective_actions.include?("edit")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
-            import { z } from "zod";
             import { definePage } from "@core/contracts/page_props.schema";
+            import { z } from "zod";
 
             export const pageSchema = definePage({
               data: z.object({
@@ -734,10 +741,13 @@ module Rafelo
             });
           TS
           create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
-            import { Head } from "@inertiajs/react";
             import type { LayoutName } from "@core/contracts/layout.types";
+
+            import { Head } from "@inertiajs/react";
+
+            import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
+
             import { pageSchema } from "./edit.schema";
-            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
 
             export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
               const page = pageSchema.parse(props);
@@ -752,15 +762,15 @@ module Rafelo
             #{resource_singular.camelize}Edit.layoutName = "app" satisfies LayoutName;
           TSX
           create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}EditScreen } from "../../screens/#{resource_plural}/edit_screen";
+            import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
 
             export function #{resource_plural.camelize}EditContainer(props: Parameters<typeof #{resource_plural.camelize}EditScreen>[0]) {
               return <#{resource_plural.camelize}EditScreen {...props} />;
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
+            import { Button, Link, TextField } from "@design_system/public";
             import { useForm } from "@inertiajs/react";
-            import { Link } from "@design_system/public";
 
             export function #{resource_plural.camelize}EditScreen({
               #{resource_singular},
@@ -787,18 +797,16 @@ module Rafelo
                     }}
                     className="mt-6 space-y-4"
                   >
-                    <label htmlFor="#{resource_singular}-name" className="block text-sm font-medium">Name</label>
-                    <input
-                      id="#{resource_singular}-name"
-                      data-testid="#{mod}.#{resource_plural}.edit.name"
-                      className="mt-1 w-full rounded-card border border-slate-300 px-3 py-2"
-                      value={form.data.name}
-                      onChange={(event) => form.setData("name", event.target.value)}
+                    <TextField
+                      testId="#{mod}.#{resource_plural}.edit.name"
+                      label="Name"
                       name="name"
+                      value={form.data.name}
+                      error={errors.name}
+                      onChange={(value) => form.setData("name", value)}
                     />
-                    {errors.name ? <p className="mt-1 text-danger">{errors.name}</p> : null}
                     <div className="flex gap-3">
-                      <button data-testid="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</button>
+                      <Button testId="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</Button>
                       <Link href={showPath}>Back</Link>
                     </div>
                   </form>
