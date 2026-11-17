@@ -3,6 +3,7 @@
 
 require "json"
 require "open3"
+require "tmpdir"
 
 root = File.expand_path("../..", __dir__)
 eslint = File.join(root, "node_modules", ".bin", "eslint")
@@ -318,15 +319,25 @@ else
   end
 end
 
+node = ENV.fetch("NODE_BIN", "node")
 [ [ "check_config legal", [], 0 ],
   [ "check_config project", [ "--root", File.join(FIXTURES, "check_config", "project") ], 1 ] ].each do |name, args, expected|
   checks += 1
-  node = ENV.fetch("NODE_BIN", "node")
   output, status = Open3.capture2e(node, File.join(root, "script", "ci", "eslint", "check_config.mjs"), *args, chdir: root)
   next if status.exitstatus == expected && (expected.zero? || output.include?("parserOptions.project"))
 
   failures += 1
   warn "eslint_canary: #{name} exited #{status.exitstatus}, expected #{expected}: #{output.lines.last}"
+end
+
+Dir.mktmpdir("rafelo-eslint-empty-") do |dir|
+  checks += 1
+  output, status = Open3.capture2e(node, File.join(root, "script", "ci", "eslint", "check_config.mjs"),
+                                   "--root", dir, chdir: root)
+  next if status.exitstatus == 1 && output.include?("checked 0")
+
+  failures += 1
+  warn "eslint_canary: check_config empty root exited #{status.exitstatus}, expected 1 with checked 0: #{output.lines.last}"
 end
 
 if checks.zero?
