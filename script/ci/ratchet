@@ -70,6 +70,9 @@ def validate_keys!(root, file, required)
   data = YAML.safe_load_file(path) || {}
   missing = required - data.keys
   abort "ratchet: #{file} is missing #{missing.join(", ")}" unless missing.empty?
+
+  invalid = required.reject { |key| data[key].is_a?(Integer) }
+  abort "ratchet: #{file} has non-integer values for #{invalid.join(", ")}" unless invalid.empty?
 end
 
 missing_engines = required_engine_files(root).reject { |file| File.file?(File.join(root, file)) }
