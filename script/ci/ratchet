@@ -29,30 +29,65 @@ end.parse!
 root = File.expand_path(root)
 abort "ratchet: root does not exist: #{root}" unless Dir.exist?(root)
 
+# Each product module and domain engine keeps every count where its code
+# lives; the root file holds the kernel/app counts and the clone baseline.
+# The kernel engines are covered by the root file (ARCH-11, ARCH-12).
+REQUIRED_ROOT_KEYS = %w[
+  eslint_disable rubocop_disable use_no_memo skipped_tests
+  clone_baseline_entries legacy_lint_paths clone_min_tokens
+].freeze
+REQUIRED_ENGINE_KEYS = %w[
+  eslint_disable rubocop_disable use_no_memo skipped_tests
+  page_budget_overrides legacy_table_prefixes legacy_constants
+].freeze
+KERNEL_ENGINES = %w[core design_system].freeze
+
+def required_engine_files(root)
+  Dir[File.join(root, "engines", "*")].select { |dir| File.directory?(dir) }
+    .reject { |dir| KERNEL_ENGINES.include?(File.basename(dir)) }
+    .map { |dir| "engines/#{File.basename(dir)}/config/ratchets.yml" }
+    .sort
+end
+
 def ratchet_files(root)
-  [ "config/ratchets.yml" ] +
-    Dir[File.join(root, "engines", "*", "config", "ratchets.yml")]
-      .map { |path| path.delete_prefix("#{root}/") }
-      .sort
+  [ "config/ratchets.yml" ] + required_engine_files(root).select do |file|
+    File.file?(File.join(root, file))
+  end
 end
 
 def load_ratchets(root, revision, file)
-  output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:#{file}")
+  output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:#{file}", err: File::NULL)
   return {} unless status.success?
 
   YAML.safe_load(output) || {}
 end
 
+def validate_keys!(root, file, required)
+  path = File.join(root, file)
+  abort "ratchet: #{file} is missing" unless File.file?(path)
+
+  data = YAML.safe_load_file(path) || {}
+  missing = required - data.keys
+  abort "ratchet: #{file} is missing #{missing.join(", ")}" unless missing.empty?
+end
+
+missing_engines = required_engine_files(root).reject { |file| File.file?(File.join(root, file)) }
+unless missing_engines.empty?
+  abort "ratchet: every engine needs a ratchets file: missing #{missing_engines.join(", ")}"
+end
+
 files = ratchet_files(root)
 abort "ratchet: no ratchet file was found" if files.empty?
+
+files.each do |file|
+  validate_keys!(root, file, file == "config/ratchets.yml" ? REQUIRED_ROOT_KEYS : REQUIRED_ENGINE_KEYS)
+end
 
 if update
   rises = []
   updates = []
   files.each do |file|
     path = File.join(root, file)
-    abort "ratchet: #{file} is missing" unless File.file?(path)
-
     current = YAML.safe_load_file(path) || {}
     RatchetCounts.for(root, file, clones: clones).each do |key, value|
       next unless current[key].is_a?(Integer) && value.is_a?(Integer)
@@ -85,8 +120,6 @@ base_counts = {}
 
 files.each do |file|
   path = File.join(root, file)
-  abort "ratchet: #{file} is missing" unless File.file?(path)
-
   (YAML.safe_load_file(path) || {}).each do |key, value|
     current["#{file}:#{key}"] = value if value.is_a?(Integer)
   end
@@ -95,9 +128,31 @@ files.each do |file|
   end
 end
 
+# Count the real values in check mode: a value above its committed ceiling
+# fails even when the YAML file was not edited. A new key required by the
+# check set is recorded at its real value, not treated as a rise.
+over = 0
+files.each do |file|
+  path = File.join(root, file)
+  committed = YAML.safe_load_file(path) || {}
+  RatchetCounts.for(root, file, clones: clones).each do |key, value|
+    ceiling = committed[key]
+    next unless ceiling.is_a?(Integer) && value.is_a?(Integer)
+    next unless value > ceiling
+
+    warn "ratchet: #{file}:#{key} is #{value}, above its ceiling #{ceiling}"
+    over += 1
+  end
+end
+if over.positive?
+  warn "ratchet: #{over} real count(s) above their ceilings"
+  exit 1
+end
+
 rises = current.filter_map do |key, value|
   previous = base_counts[key]
-  previous = 0 unless previous.is_a?(Integer)
+  next unless previous.is_a?(Integer)
+
   [ key, previous, value ] if value > previous
 end
 falls = current.filter_map do |key, value|

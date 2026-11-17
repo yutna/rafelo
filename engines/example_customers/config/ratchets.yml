@@ -1,0 +1,7 @@
+eslint_disable: 0
+rubocop_disable: 0
+use_no_memo: 0
+skipped_tests: 0
+page_budget_overrides: 0
+legacy_table_prefixes: 0
+legacy_constants: 0

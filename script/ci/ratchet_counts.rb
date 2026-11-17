@@ -9,7 +9,7 @@ require "yaml"
 # baseline) are computed by the existing clones script.
 module RatchetCounts
   SKIP_FORMS = [
-    /(?<![\w.])skip(?!\s*:)/,
+    /(?<![\w.:])skip(?![\w:])/,
     /\b(?:xit|xspecify|xexample|xdescribe|xcontext)\b/,
     /\.skip\b/,
     /\bpending(?!\s*:)\b/,

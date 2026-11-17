@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Runs the role and migration specs in one process as the database superuser.
+# Parallel workers filter them out through DatabaseRoleSpecs.available?.
+set -euo pipefail
+
+DATABASE_ROLES=1 RAILS_ENV=test bundle exec rspec --tag database_roles
