@@ -17,9 +17,13 @@ module KernelUpdate
   DEFAULT_PATHS = %w[
     engines/core
     script/ci
-    script/contracts/permissions
+    script/contracts
+    script/docs
     script/ops/database_roles.sql
     script/ops/restore_drill
+    playwright.config.ts
+    vite.config.mts
+    vitest.config.mts
     bin/check
     bin/docker-entrypoint
     bin/kernel_update

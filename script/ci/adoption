@@ -131,7 +131,17 @@ for example in example_customers example_orders; do
   rm -rf "$work/smoke_shop_prev/engines/$example"
   cp -R "$current_src/engines/$example" "$work/smoke_shop_prev/engines/$example"
 done
+# The generated fixture has no app-owned customizations either; keep its app
+# and end-to-end code at the release under test so the new lint layer sees the
+# updated files rather than the older release's formatting and imports.
+for path in app/frontend e2e engines/design_system/e2e; do
+  rm -rf "$work/smoke_shop_prev/$path"
+  cp -R "$current_src/$path" "$work/smoke_shop_prev/$path"
+done
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
+# A generated fixture has no customizations; apply the release's format step
+# to the refreshed app-owned docs and files before the gate.
+( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null && npm run format >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
       commit -q -m "chore: update the kernel to v$version" )
