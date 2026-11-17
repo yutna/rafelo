@@ -74,6 +74,10 @@ module KernelUpdate
     .github
   ].freeze
 
+  # App-owned paths a template update may refresh only with --app-owned; the
+  # update leaves them alone by default (GEN-07).
+  APP_OWNED_PATHS = %w[app/frontend e2e engines/design_system/e2e AGENTS.md config/application.rb].freeze
+
   # The example engines are optional (GEN-08) and are never updated.
   UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
 
@@ -181,19 +185,21 @@ module KernelUpdate
 
     attr_reader :results
 
-    def initialize(root:, base:, target:, includes:, namespace:, slug:)
+    def initialize(root:, base:, target:, includes:, namespace:, slug:, app_owned: false)
       @root = root
       @base = base
       @target = target
       @includes = includes
       @namespace = namespace
       @slug = slug
+      @app_owned = app_owned
       @results = []
     end
 
     def paths
       @paths ||= (
         DEFAULT_PATHS +
+        (@app_owned ? APP_OWNED_PATHS : []) +
         @includes.map { |folder| "engines/#{folder}" } +
         (@includes.any? { |folder| folder.start_with?("design_system/") } ? [ "engines/design_system/api.d.ts" ] : [])
       ).uniq
@@ -390,7 +396,10 @@ module KernelUpdate
 
   class CLI
     def initialize(argv)
-      @options = { root: Dir.pwd, includes: [], base_source: nil, source: nil, continue: false }
+      @options = {
+        root: Dir.pwd, includes: [], base_source: nil, source: nil, continue: false,
+        app_owned: false, base_version: nil
+      }
       @version = parse(argv)
     end
 
@@ -404,8 +413,8 @@ module KernelUpdate
         return 0
       end
 
-      current = current_version(root)
-      return report_current(current) if current == @version
+      current = @options[:base_version] || current_version(root)
+      return report_current(current) if current == @version && @options[:base_version].nil?
 
       workspace = Dir.mktmpdir("rafelo-kernel-update-")
       base = Release.new(version: current, source: @options[:base_source], workspace: workspace)
@@ -422,7 +431,8 @@ module KernelUpdate
         target: target,
         includes: @options[:includes],
         namespace: KernelUpdate.namespace(root),
-        slug: KernelUpdate.slug(KernelUpdate.namespace(root))
+        slug: KernelUpdate.slug(KernelUpdate.namespace(root)),
+        app_owned: @options[:app_owned]
       ).run
 
       update.results.each do |result|
@@ -447,11 +457,13 @@ module KernelUpdate
 
     def parse(argv)
       parser = OptionParser.new do |options|
-        options.banner = "Usage: bin/kernel_update VERSION [--root DIR] [--base-source DIR] [--source DIR] [--include design_system/FOLDER] [--continue]"
+        options.banner = "Usage: bin/kernel_update VERSION [--root DIR] [--base-source DIR] [--base-version VERSION] [--source DIR] [--include design_system/FOLDER] [--app-owned] [--continue]"
         options.on("--root DIR") { |value| @options[:root] = value }
         options.on("--base-source DIR") { |value| @options[:base_source] = value }
+        options.on("--base-version VERSION") { |value| @options[:base_version] = value.delete_prefix("v") }
         options.on("--source DIR") { |value| @options[:source] = value }
         options.on("--include FOLDER") { |value| @options[:includes] << value }
+        options.on("--app-owned") { @options[:app_owned] = true }
         options.on("--continue") { @options[:continue] = true }
         options.on("-h", "--help") { puts options; exit 0 }
       end
@@ -470,6 +482,9 @@ module KernelUpdate
         unless folder.match?(%r{\Adesign_system/[a-z0-9_]+(?:/[a-z0-9_]+)*\z})
           raise Error, "--include must be design_system/<folder>: #{folder.inspect}"
         end
+      end
+      if @options[:base_version] && !@options[:base_version].match?(/\A(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\z/)
+        raise Error, "--base-version must be MAJOR.MINOR.PATCH: #{@options[:base_version].inspect}"
       end
 
       version
