@@ -101,6 +101,7 @@ module Rafelo
 
           changed = body.dup
           changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
+          changed = changed.gsub("@#{@source}/", "@#{@target}/")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
           changed = changed.gsub("\"#{@source}/#{plural}\"", "\"#{@target}/#{plural}\"")
           changed = changed.gsub("'#{@source}/#{plural}'", "'#{@target}/#{plural}'")
