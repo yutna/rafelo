@@ -70,6 +70,7 @@ CI.run do
   step "Tests: page matchers", "npm run pages:check -- --matchers"
   step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: database roles", "script/ci/database_roles"
+  step "Tests: database roles canary", "script/ci/database_roles_canary"
   step "Tests: Seeds", "env RAILS_ENV=test bin/rails db:seed:replant"
   step "Generators: smoke", "script/ci/generator_smoke"
 

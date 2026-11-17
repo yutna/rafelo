@@ -3,4 +3,13 @@
 # Parallel workers filter them out through DatabaseRoleSpecs.available?.
 set -euo pipefail
 
-DATABASE_ROLES=1 RAILS_ENV=test bundle exec rspec --tag database_roles
+if ! output="$(DATABASE_ROLES=1 RAILS_ENV=test bundle exec rspec --tag database_roles 2>&1)"; then
+  printf '%s\n' "$output"
+  exit 1
+fi
+printf '%s\n' "$output"
+
+if printf '%s\n' "$output" | grep -q "0 examples"; then
+  echo "database_roles: no example ran; the database user must be a superuser (OPS-06)" >&2
+  exit 1
+fi
