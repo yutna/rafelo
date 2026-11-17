@@ -23,6 +23,7 @@ RSpec.describe Rafelo::Core::SharedProps do
         locale: "th",
         locales: %w[en th],
         localeHrefs: [ { locale: "en", href: "/en" }, { locale: "th", href: "/th" } ],
+        signInHref: "/th/sign_in",
         timeZone: Time.zone.name
       },
       nav: []

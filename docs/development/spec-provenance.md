@@ -40,24 +40,24 @@ exclude it.
 
 ## File inventory
 
-| File | Lines | SHA-256 |
-| --- | ---: | --- |
-| `00_README.md` | 434 | `cf9f021c429d0917c96e5b2399809dd07136554eba5d3fb4c51989f3a76db91f` |
-| `01_architecture.md` | 675 | `40eb45ba64ab16d3af25eb572f15da25370feb6bd1d07e1078251cb80ab9a4f4` |
-| `02_backend.md` | 1295 | `d483745f0049581dbb4385347b9ec8e7803d2d9de920ee8ffc2f48f7d537c3c8` |
-| `03_session_security.md` | 596 | `0685a391df29ca4b54bd923bad5d08f1a971c37c7d02b44088ba431eb84c5cab` |
-| `04_contracts.md` | 676 | `8da88d681dd412c42513dc81618639fcf87bedffb6374ffcf26465bd79024459` |
-| `05_frontend.md` | 1082 | `53e889b074cc9c71fd409a11618462143430d64049ef16deb7ed74ba939b565a` |
-| `06_frontend_oop.md` | 378 | `ecab39b8392521a029c4da215258357ef3fd41d39c87b9ef18604a001de3b926` |
-| `07_testing.md` | 572 | `59cbf050d63a0d370885630dd93ca63113cb3164d8573da0121c654097f20efa` |
-| `08_generators.md` | 429 | `6c9560e44edc44f28468a5b2485c6af9131570f919c7019a7915e9699e61395e` |
-| `09_enforcement.md` | 1233 | `a3c7e8d3e1fee28da7a7d5205882712a5827f56a6085d77bbf4a892f4d93b296` |
-| `10_decisions.md` | 564 | `ecc2d662ea84046d3ab5bce858af49fdd406851a6a49377fbff5f590c4f3cae2` |
-| `11_workflow.md` | 482 | `85a253963e75b761fb6388416b1520e476d133217afd4a1a17d592857a761188` |
-| `12_hardening.md` | 209 | `d53108eb6c11bfcc97c48c243c52df74d1674ed2ad76c59641036b2ad5c6e532` |
-| `13_operations.md` | 476 | `866dc4782ccfe4b40202d9f45221ec1f7f56f0bfde6ce1c84dbec42af5e6132e` |
-| `14_working_with_ai.md` | 328 | `2443c51763907bf72891c4cb9d35ae458bdfd723ef848e813ea237eb3c21b78a` |
-| `AGENTS.md` | 172 | `17b54479c9c82aa2f7ee471cd0b119977267865928a0b151b27ce5cebbff74a3` |
+| File                     | Lines | SHA-256                                                            |
+| ------------------------ | ----: | ------------------------------------------------------------------ |
+| `00_README.md`           |   434 | `cf9f021c429d0917c96e5b2399809dd07136554eba5d3fb4c51989f3a76db91f` |
+| `01_architecture.md`     |   675 | `40eb45ba64ab16d3af25eb572f15da25370feb6bd1d07e1078251cb80ab9a4f4` |
+| `02_backend.md`          |  1295 | `d483745f0049581dbb4385347b9ec8e7803d2d9de920ee8ffc2f48f7d537c3c8` |
+| `03_session_security.md` |   596 | `0685a391df29ca4b54bd923bad5d08f1a971c37c7d02b44088ba431eb84c5cab` |
+| `04_contracts.md`        |   676 | `8da88d681dd412c42513dc81618639fcf87bedffb6374ffcf26465bd79024459` |
+| `05_frontend.md`         |  1082 | `53e889b074cc9c71fd409a11618462143430d64049ef16deb7ed74ba939b565a` |
+| `06_frontend_oop.md`     |   378 | `ecab39b8392521a029c4da215258357ef3fd41d39c87b9ef18604a001de3b926` |
+| `07_testing.md`          |   572 | `59cbf050d63a0d370885630dd93ca63113cb3164d8573da0121c654097f20efa` |
+| `08_generators.md`       |   429 | `6c9560e44edc44f28468a5b2485c6af9131570f919c7019a7915e9699e61395e` |
+| `09_enforcement.md`      |  1233 | `a3c7e8d3e1fee28da7a7d5205882712a5827f56a6085d77bbf4a892f4d93b296` |
+| `10_decisions.md`        |   564 | `ecc2d662ea84046d3ab5bce858af49fdd406851a6a49377fbff5f590c4f3cae2` |
+| `11_workflow.md`         |   482 | `85a253963e75b761fb6388416b1520e476d133217afd4a1a17d592857a761188` |
+| `12_hardening.md`        |   209 | `d53108eb6c11bfcc97c48c243c52df74d1674ed2ad76c59641036b2ad5c6e532` |
+| `13_operations.md`       |   476 | `866dc4782ccfe4b40202d9f45221ec1f7f56f0bfde6ce1c84dbec42af5e6132e` |
+| `14_working_with_ai.md`  |   328 | `2443c51763907bf72891c4cb9d35ae458bdfd723ef848e813ea237eb3c21b78a` |
+| `AGENTS.md`              |   172 | `17b54479c9c82aa2f7ee471cd0b119977267865928a0b151b27ce5cebbff74a3` |
 
 ## The `b9696bb..12dd497` change
 

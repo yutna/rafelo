@@ -3,9 +3,15 @@ import { expect, test } from "@playwright/test";
 
 test("catalog has no serious axe violations", async ({ page }) => {
   await page.goto("/en/component_catalog");
-  const results = await new AxeBuilder({ page }).withTags([ "wcag2a", "wcag2aa", "wcag21aa", "wcag22aa" ]).analyze();
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+    .analyze();
 
-  expect(results.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
+  expect(
+    results.violations.filter(
+      (violation) => violation.impact === "serious" || violation.impact === "critical",
+    ),
+  ).toEqual([]);
 });
 
 test("catalog screenshot matches its committed baseline", async ({ page }) => {

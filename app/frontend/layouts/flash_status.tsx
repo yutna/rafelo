@@ -1,6 +1,5 @@
-import { usePage } from "@inertiajs/react";
-
 import { flashSchema } from "@core/contracts/page_props.schema";
+import { usePage } from "@inertiajs/react";
 
 export function FlashStatus() {
   const page = usePage() as { flash?: unknown };
@@ -9,7 +8,12 @@ export function FlashStatus() {
   const alert = flash.alert;
 
   return (
-    <div role={alert ? "alert" : "status"} aria-live={alert ? "assertive" : "polite"} data-testid="page.flash" className="mx-auto max-w-3xl px-6 pt-4">
+    <div
+      role={alert ? "alert" : "status"}
+      aria-live={alert ? "assertive" : "polite"}
+      data-testid="page.flash"
+      className="mx-auto max-w-3xl px-6 pt-4"
+    >
       {alert ?? flash.notice ?? ""}
     </div>
   );

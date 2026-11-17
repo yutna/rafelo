@@ -1,0 +1,38 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/apply_check [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "apply_check: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
+
+output, status = Open3.capture2("git", "-C", root, "ls-files", "*.css")
+abort "apply_check: git ls-files failed; checked 0" unless status.success?
+
+files = output.lines.map(&:strip).reject(&:empty?)
+abort "apply_check: no CSS files found under #{root}; checked 0" if files.empty?
+
+findings = 0
+files.each do |path|
+  next if path.start_with?("engines/design_system/")
+
+  absolute = File.join(root, path)
+  next unless File.file?(absolute)
+
+  File.readlines(absolute, chomp: true).each_with_index do |line, index|
+    next unless line.match?(/@apply\b/)
+
+    puts "#{path}:#{index + 1}: apply-outside-design-system: @apply is allowed only in engines/design_system/ (FE-06)"
+    findings += 1
+  end
+end
+
+warn "apply_check: checked #{files.length} CSS files; findings=#{findings}"
+exit(findings.zero? ? 0 : 1)

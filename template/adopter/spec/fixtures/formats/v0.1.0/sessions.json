@@ -13,9 +13,7 @@
     "locale": "en",
     "created_at": "2026-11-14 04:06:09 UTC",
     "updated_at": "2026-11-14 04:06:09 UTC",
-    "permission_grants": [
-      "fixture:read"
-    ],
+    "permission_grants": ["fixture:read"],
     "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
     "grants_refreshed_at": "2026-11-14 04:06:09 UTC",
     "last_seen_at": "2026-11-14 04:06:09 UTC",
@@ -38,9 +36,7 @@
     "locale": "en",
     "created_at": "2026-11-14 04:06:09 UTC",
     "updated_at": "2026-11-14 04:06:09 UTC",
-    "permission_grants": [
-      "fixture:read"
-    ],
+    "permission_grants": ["fixture:read"],
     "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
     "grants_refreshed_at": "2026-11-14 04:06:09 UTC",
     "last_seen_at": "2026-11-14 04:06:09 UTC",

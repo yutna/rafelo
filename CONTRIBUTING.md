@@ -6,13 +6,13 @@ process is small and the same for every change.
 ## How a change gets in
 
 1. **Issue first.** Open or find an issue that describes the change. Use the
-   *Implementation change* form for planned work; it asks for the outcome,
+   _Implementation change_ form for planned work; it asks for the outcome,
    acceptance checks, spec rule IDs, out-of-scope work and evidence. The
    maintainer triages it into a milestone.
 2. **Branch** from `main` as `<type>/<issue>-<slug>`, for example
    `feat/12-login`.
 3. **Open a draft pull request early.** CI runs on drafts too. Mark it
-   *Ready for review* when the work is done.
+   _Ready for review_ when the work is done.
 4. **Title the pull request in [Conventional Commits](https://www.conventionalcommits.org/)
    form:** `<type>(<scope>)!: <summary>`, where type is one of `feat`, `fix`,
    `docs`, `chore`, `refactor`, `test`, `ci`, `build`, `perf`, `style`,

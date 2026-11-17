@@ -1,6 +1,5 @@
-import { existsSync, readdirSync } from "node:fs";
-
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync, readdirSync } from "node:fs";
 
 const sessionHeaders: Record<string, string> = {};
 if (process.env.E2E_SESSION_COOKIE) {

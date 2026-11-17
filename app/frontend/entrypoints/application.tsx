@@ -1,9 +1,8 @@
 import { createInertiaApp } from "@inertiajs/react";
 
-import { installGlobalErrorReporting } from "../lib/report_client_error";
-import { resolvePage } from "../lib/page_resolver";
-
-import "../styles/application.css";
+import { resolvePage } from "@/lib/page_resolver";
+import { installGlobalErrorReporting } from "@/lib/report_client_error";
+import "@/styles/application.css";
 
 installGlobalErrorReporting();
 

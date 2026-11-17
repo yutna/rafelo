@@ -12,10 +12,7 @@ export default defineConfig({
         test: {
           name: "app",
           environment: "jsdom",
-          include: [
-            "app/frontend/**/*.test.tsx",
-            "app/frontend/**/hooks/**/*.test.ts",
-          ],
+          include: ["app/frontend/**/*.test.tsx", "app/frontend/**/hooks/**/*.test.ts"],
           setupFiles: ["./vitest.setup.ts"],
         },
       },
@@ -24,7 +21,10 @@ export default defineConfig({
         test: {
           name: "engines",
           environment: "jsdom",
-          include: ["engines/*/app/frontend/**/*.test.tsx", "engines/*/app/frontend/**/hooks/**/*.test.ts"],
+          include: [
+            "engines/*/app/frontend/**/*.test.tsx",
+            "engines/*/app/frontend/**/hooks/**/*.test.ts",
+          ],
           exclude: ["engines/*/spec/**"],
           setupFiles: ["./vitest.setup.ts"],
         },

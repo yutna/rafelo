@@ -29,7 +29,9 @@ async function violations(page: Page): Promise<Violation[]> {
 test("the smoke server runs under CSP Report-Only", async ({ page }) => {
   const response = await page.goto("/en/sign_in");
 
-  expect(response?.headers()["content-security-policy-report-only"]).toContain("report-uri /core/csp_reports");
+  expect(response?.headers()["content-security-policy-report-only"]).toContain(
+    "report-uri /core/csp_reports",
+  );
   expect(response?.headers()["content-security-policy"]).toBeUndefined();
 });
 

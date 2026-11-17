@@ -1,9 +1,11 @@
-import { DateRange } from "../domain/date_range";
-import type { DateRangePlain } from "../domain/date_range.types";
-import { useDomainReducer } from "../lib/use_domain_reducer";
-import { assertPlain } from "../lib/assert_plain";
+import type { DateRangePlain } from "@core/domain/date_range.types";
 
-type DateRangeEvent = { type: "start_changed"; start: string } | { type: "end_changed"; end: string };
+import { DateRange } from "@core/domain/date_range";
+import { assertPlain } from "@core/lib/assert_plain";
+import { useDomainReducer } from "@core/lib/use_domain_reducer";
+
+type DateRangeEvent =
+  { type: "start_changed"; start: string } | { type: "end_changed"; end: string };
 
 function reducer(state: DateRangePlain, event: DateRangeEvent): DateRangePlain {
   const current = DateRange.fromPlain(state);

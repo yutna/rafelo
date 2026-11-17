@@ -48,6 +48,7 @@ export const sharedPropsSchema = z.object({
     locale: localeSchema,
     locales: z.array(localeSchema),
     localeHrefs: z.array(z.object({ locale: localeSchema, href: appPathSchema })),
+    signInHref: appPathSchema,
     timeZone: z.string(),
   }),
   nav: z.array(
@@ -69,7 +70,9 @@ function canSchema<const K extends readonly string[]>(keys: K) {
   return z.strictObject(shape as Record<K[number], typeof capabilitySchema>);
 }
 
-type PaginationFor<P extends boolean> = P extends false ? z.ZodNull : z.ZodNullable<typeof paginationSchema>;
+type PaginationFor<P extends boolean> = P extends false
+  ? z.ZodNull
+  : z.ZodNullable<typeof paginationSchema>;
 
 export function definePage<
   D extends z.ZodType,

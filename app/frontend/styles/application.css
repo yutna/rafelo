@@ -3,8 +3,7 @@
 @source "../../../engines";
 
 @theme {
-  --font-sans:
-    "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {

@@ -1,5 +1,6 @@
-import { DomainError } from "./domain_error";
 import type { MoneyPlain } from "./money.types";
+
+import { DomainError } from "./domain_error";
 
 export class Money {
   private constructor(
@@ -26,7 +27,8 @@ export class Money {
   }
 
   multiply(quantity: number): Money {
-    if (!Number.isInteger(quantity) || quantity < 0) throw new DomainError("money.invalid_quantity");
+    if (!Number.isInteger(quantity) || quantity < 0)
+      throw new DomainError("money.invalid_quantity");
     return Money.of(this.minor * quantity, this.currency);
   }
 }

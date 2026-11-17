@@ -26,9 +26,8 @@ if Dir.exist?(File.join("engines", engine, "spec"))
   run!("bundle exec rspec engines/#{engine}/spec")
 end
 
-if File.exist?("eslint.config.mjs") || File.exist?("eslint.config.js")
-  frontend = File.join("engines", engine, "app/frontend")
-  run!("npx eslint #{frontend}") if Dir.exist?(frontend)
-end
+run!("node script/ci/eslint/check_config.mjs")
+run!("npx eslint --cache --cache-location tmp/cache/eslint/#{engine}/ --max-warnings 0 engines/#{engine}")
+run!("npx prettier --check --cache engines/#{engine}")
 
 puts "bin/check #{engine}: ok"

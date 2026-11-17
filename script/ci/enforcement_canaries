@@ -14,7 +14,7 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
-CANARY_SCRIPTS = %w[affected_canary clones_canary deploy_preflight_canary fan_in_canary graph_canaries growth_canary production_routes_canary].freeze
+CANARY_SCRIPTS = %w[affected_canary clones_canary deploy_preflight_canary fan_in_canary graph_canaries growth_canary production_routes_canary apply_check_canary eslint_canary].freeze
 
 config_ci = File.read(File.join(root, "config", "ci.rb"))
 CANARY_SCRIPTS.each do |script|
@@ -24,6 +24,16 @@ CANARY_SCRIPTS.each do |script|
   abort "enforcement_canaries: script/ci/#{script} is not wired into config/ci.rb" unless config_ci.include?("script/ci/#{script}")
 end
 warn "enforcement_canaries: checked #{CANARY_SCRIPTS.length} canary scripts"
+
+plugin = File.read(File.join(root, "script", "ci", "eslint", "rafelo.mjs"))
+rules_block = plugin[/rules:\s*\{(.*?)\}/m, 1].to_s
+local_rules = rules_block.scan(/"([\w-]+)"\s*:/).flatten.uniq
+abort "enforcement_canaries: the local ESLint plugin exports no rules" if local_rules.empty?
+
+eslint_canary = File.read(File.join(root, "script", "ci", "eslint_canary"))
+missing = local_rules.reject { |rule| eslint_canary.include?("rafelo/#{rule}") }
+abort "enforcement_canaries: no ESLint canary for #{missing.join(', ')}" if missing.any?
+warn "enforcement_canaries: checked #{local_rules.length} local ESLint rules"
 
 canaries = [
   {

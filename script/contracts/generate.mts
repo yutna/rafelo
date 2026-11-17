@@ -24,15 +24,34 @@ function fail(message: string): never {
 
 function outputPath(source: string): string {
   if (source.startsWith("app/frontend/pages/")) {
-    return resolve(root, "config/contracts/pages", relative("app/frontend/pages", source).replace(/\.schema\.ts$/, ".json"));
+    return resolve(
+      root,
+      "config/contracts/pages",
+      relative("app/frontend/pages", source).replace(/\.schema\.ts$/, ".json"),
+    );
   }
   const match = source.match(/^engines\/([^/]+)\/app\/frontend\/pages\//);
   if (match) {
-    return resolve(root, "engines", match[1], "config/contracts/pages", relative(`engines/${match[1]}/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"));
+    return resolve(
+      root,
+      "engines",
+      match[1],
+      "config/contracts/pages",
+      relative(`engines/${match[1]}/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"),
+    );
   }
   const dummy = source.match(/^engines\/([^/]+)\/spec\/dummy_engine\/app\/frontend\/pages\//);
   if (dummy) {
-    return resolve(root, "engines", dummy[1], "spec/dummy_engine/config/contracts/pages", relative(`engines/${dummy[1]}/spec/dummy_engine/app/frontend/pages`, source).replace(/\.schema\.ts$/, ".json"));
+    return resolve(
+      root,
+      "engines",
+      dummy[1],
+      "spec/dummy_engine/config/contracts/pages",
+      relative(`engines/${dummy[1]}/spec/dummy_engine/app/frontend/pages`, source).replace(
+        /\.schema\.ts$/,
+        ".json",
+      ),
+    );
   }
   fail(`unexpected page schema path ${source}`);
 }
@@ -51,7 +70,8 @@ function checkStringIds(value: unknown, path: string) {
   }
   for (const key of ["items", "anyOf", "oneOf", "allOf", "additionalProperties"]) {
     const child = node[key];
-    if (Array.isArray(child)) child.forEach((entry, index) => checkStringIds(entry, `${path}.${key}[${index}]`));
+    if (Array.isArray(child))
+      child.forEach((entry, index) => checkStringIds(entry, `${path}.${key}[${index}]`));
     else checkStringIds(child, `${path}.${key}`);
   }
 }
@@ -95,7 +115,10 @@ for (const source of sources) {
   if (!pageSchema) {
     fail(`${source} does not export pageSchema`);
   }
-  const schema = z.toJSONSchema(pageSchema, { io: "output", target: "draft-2020-12" }) as Record<string, any>;
+  const schema = z.toJSONSchema(pageSchema, { io: "output", target: "draft-2020-12" }) as Record<
+    string,
+    unknown
+  >;
   checkStringIds(schema, source);
   const properties = (schema.properties ?? {}) as Record<string, unknown>;
   schema.properties = properties;
@@ -109,10 +132,11 @@ for (const source of sources) {
   writeGenerated(outputPath(source), schema);
 }
 
-const expectedOutputs = new Set(
-  sources.map((source) => outputPath(source)),
-);
-for (const pattern of ["config/contracts/pages/**/*.json", "engines/*/config/contracts/pages/**/*.json"]) {
+const expectedOutputs = new Set(sources.map((source) => outputPath(source)));
+for (const pattern of [
+  "config/contracts/pages/**/*.json",
+  "engines/*/config/contracts/pages/**/*.json",
+]) {
   for (const path of globSync(pattern, { cwd: root })) {
     const full = resolve(root, path);
     if (!expectedOutputs.has(full)) fail(`${path} has no page schema`);

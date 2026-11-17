@@ -1,4 +1,5 @@
-import { DateRange } from "../domain/date_range";
+import { DateRange } from "@core/domain/date_range";
+
 import type { DateRangeFormPlain } from "./date_range_form.types";
 
 export class DateRangeForm {

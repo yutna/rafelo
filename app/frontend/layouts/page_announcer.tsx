@@ -32,5 +32,13 @@ export function PageAnnouncer() {
     return () => document.removeEventListener("inertia:navigate", handler);
   }, []);
 
-  return <div ref={liveRef} aria-live="polite" aria-atomic="true" className="sr-only" data-testid="page.announcer" />;
+  return (
+    <div
+      ref={liveRef}
+      aria-live="polite"
+      aria-atomic="true"
+      className="sr-only"
+      data-testid="page.announcer"
+    />
+  );
 }

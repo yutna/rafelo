@@ -1,8 +1,21 @@
 name: pr-check
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft,
-            assigned, unassigned, milestoned, demilestoned, labeled, unlabeled]
+    types:
+      [
+        opened,
+        edited,
+        synchronize,
+        reopened,
+        ready_for_review,
+        converted_to_draft,
+        assigned,
+        unassigned,
+        milestoned,
+        demilestoned,
+        labeled,
+        unlabeled,
+      ]
 permissions:
   contents: read
 jobs:

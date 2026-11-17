@@ -14,7 +14,7 @@ describe("formatters", () => {
   });
 });
 
-  it("formats money with the currency exponent", () => {
-    expect(formatMoney(1234, "THB", 2, "en")).toContain("12.34");
-    expect(formatMoney(1234, "JPY", 0, "en")).toContain("1,234");
-  });
+it("formats money with the currency exponent", () => {
+  expect(formatMoney(1234, "THB", 2, "en")).toContain("12.34");
+  expect(formatMoney(1234, "JPY", 0, "en")).toContain("1,234");
+});

@@ -1,5 +1,6 @@
-import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
+
+import { createContext, useContext } from "react";
 
 import { calendarFor } from "./formatters";
 
@@ -15,7 +16,15 @@ const LocaleContext = createContext<LocaleContextValue>({
   timeZone: "UTC",
 });
 
-export function I18nProvider({ locale, timeZone, children }: { locale: string; timeZone: string; children: ReactNode }) {
+export function I18nProvider({
+  locale,
+  timeZone,
+  children,
+}: {
+  locale: string;
+  timeZone: string;
+  children: ReactNode;
+}) {
   return (
     <LocaleContext.Provider value={{ locale, calendar: calendarFor(locale), timeZone }}>
       {children}

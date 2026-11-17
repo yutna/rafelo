@@ -4,9 +4,9 @@ import { createTV } from "tailwind-variants/lite";
 export const twMerge = extendTailwindMerge({
   extend: {
     theme: {
-      text: [ "display" ],
-      shadow: [ "card" ],
-      radius: [ "card" ],
+      text: ["display"],
+      shadow: ["card"],
+      radius: ["card"],
     },
   },
 });

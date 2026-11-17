@@ -14,9 +14,7 @@ export function setPageContext(context: PageContext): void {
 }
 
 function csrfToken(): string | undefined {
-  const match = document.cookie
-    .split("; ")
-    .find((entry) => entry.startsWith("XSRF-TOKEN="));
+  const match = document.cookie.split("; ").find((entry) => entry.startsWith("XSRF-TOKEN="));
   if (!match) return undefined;
 
   const value = match.slice("XSRF-TOKEN=".length);
@@ -67,7 +65,10 @@ export function reportClientError(error: Error, info: ErrorInfo, context: Trace)
 
 export function reportUncaughtError(reason: unknown): void {
   if (reason instanceof Error) {
-    send({ message: reason.message.slice(0, MESSAGE_LIMIT), stack: reason.stack?.slice(0, STACK_LIMIT) });
+    send({
+      message: reason.message.slice(0, MESSAGE_LIMIT),
+      stack: reason.stack?.slice(0, STACK_LIMIT),
+    });
     return;
   }
 

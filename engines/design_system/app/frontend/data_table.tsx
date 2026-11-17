@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
+
+import { lazy, Suspense } from "react";
 
 import { Skeleton } from "./skeleton";
 

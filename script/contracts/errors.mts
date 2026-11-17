@@ -16,7 +16,11 @@ const engines = readdirSync(join(root, "engines"), { withFileTypes: true })
   .map((entry) => entry.name)
   .sort();
 
-type Catalog = { path: string; engine: string | null; codes: Record<string, Record<string, unknown>> };
+type Catalog = {
+  path: string;
+  engine: string | null;
+  codes: Record<string, Record<string, unknown>>;
+};
 const catalogs: Catalog[] = [];
 
 function fail(message: string): never {
@@ -41,7 +45,7 @@ function readCatalog(path: string, engine: string | null) {
     if (!engine && engines.some((name) => code.startsWith(`${name}.`))) {
       fail(`${relative(root, path)}: ${code} belongs to an engine catalog`);
     }
-    const entry: any = data[code];
+    const entry = data[code] as { status: number; i18n_key: string; [key: string]: unknown };
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
       fail(`${relative(root, path)}: ${code} must map to an entry`);
     }
@@ -74,7 +78,9 @@ const seen = new Map<string, string>();
 for (const catalog of catalogs) {
   for (const code of Object.keys(catalog.codes)) {
     if (seen.has(code)) {
-      fail(`${code} is defined in ${relative(root, seen.get(code)!)} and ${relative(root, catalog.path)}`);
+      fail(
+        `${code} is defined in ${relative(root, seen.get(code)!)} and ${relative(root, catalog.path)}`,
+      );
     }
     seen.set(code, catalog.path);
   }
@@ -94,7 +100,10 @@ for (const [engine, catalog] of groups) {
   const target = join(root, "engines", engine, "app", "frontend", "errors.generated.ts");
   const entries = Object.entries(catalog.codes)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([code, entry]) => `  ${JSON.stringify(code)}: { status: ${entry.status}, retryable: ${entry.retryable} },`)
+    .map(
+      ([code, entry]) =>
+        `  ${JSON.stringify(code)}: { status: ${entry.status}, retryable: ${entry.retryable} },`,
+    )
     .join("\n");
   const content = `// Generated from config/errors.yml; do not edit.\nexport const errors = {\n${entries}\n} as const;\n`;
   if (check) {
@@ -120,4 +129,6 @@ for (const engine of engines) {
   }
 }
 
-console.log(`errors: ${check ? "checked" : "generated"} ${catalogs.length} catalog(s), ${seen.size} code(s)`);
+console.log(
+  `errors: ${check ? "checked" : "generated"} ${catalogs.length} catalog(s), ${seen.size} code(s)`,
+);

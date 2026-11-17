@@ -1,5 +1,6 @@
-import { Link as InertiaLink } from "@inertiajs/react";
 import type { ReactNode } from "react";
+
+import { Link as InertiaLink } from "@inertiajs/react";
 
 import { isSafeUrl } from "./safe_url";
 

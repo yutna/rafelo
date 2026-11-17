@@ -1,0 +1,42 @@
+node_modules
+public
+tmp
+vendor
+coverage
+test-results
+playwright-report
+docs/architecture
+# the generated envelope table
+docs/contracts.md
+docs/development/implementation-protocol.md
+.opencode/skills/oo-*
+engines/design_system/api.d.ts
+config/contracts
+spec/fixtures
+config/locales
+engines/*/config/locales
+package-lock.json
+.devcontainer/image_digest
+config/database.yml
+config/storage.yml
+config/upstreams.yml
+spec/enforcement/fixtures
+# Generated files; regenerate them instead of formatting.
+.dependency-cruiser.engines.generated.json
+app/frontend/tsconfig.json
+engines/*/tsconfig.json
+tsconfig.json
+tsconfig.base.json
+tsconfig.tooling.json
+config/frontend_aliases.mts
+engines/*/app/frontend/errors.generated.ts
+engines/*/app/frontend/contracts/locales.generated.ts
+engines/*/config/contracts
+engines/core/spec/dummy_engine/config/contracts
+# The committed production route list keeps its generator's layout.
+config/production_routes.yml
+# The module and page generators update this YAML file.
+engines/*/config/permissions.yml
+# Rendered with the adopter's app name (GEN-07); the replacements reflow them.
+docs/deployment.md
+docs/operations/

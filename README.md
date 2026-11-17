@@ -65,9 +65,9 @@ what CI runs, so a local pass and a CI pass use the same tools.
 Forwarded ports:
 
 | Port | Purpose |
-| ---: | --- |
-| 3000 | Rails |
-| 3036 | Vite |
+| ---: | ------- |
+| 3000 | Rails   |
+| 3036 | Vite    |
 
 PostgreSQL is reachable from the app as `postgres:5432` on the Dev Container
 network. It is not published to the host.
