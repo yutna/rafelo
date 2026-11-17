@@ -9,7 +9,7 @@ if ! output="$(DATABASE_ROLES=1 RAILS_ENV=test bundle exec rspec --tag database_
 fi
 printf '%s\n' "$output"
 
-if printf '%s\n' "$output" | grep -q "0 examples"; then
+if printf '%s\n' "$output" | grep -Eq '(^|[^0-9])0 examples'; then
   echo "database_roles: no example ran; the database user must be a superuser (OPS-06)" >&2
   exit 1
 fi

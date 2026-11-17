@@ -14,10 +14,13 @@ fake_bundle() {
 fake_bundle 6
 PATH="$tmp/bin:$PATH" "$root/script/ci/database_roles" >/dev/null
 
+fake_bundle 10
+PATH="$tmp/bin:$PATH" "$root/script/ci/database_roles" >/dev/null
+
 fake_bundle 0
 if PATH="$tmp/bin:$PATH" "$root/script/ci/database_roles" >/dev/null 2>&1; then
   echo "database_roles_canary: zero examples passed" >&2
   exit 1
 fi
 
-echo "database_roles_canary: checked 2 cases"
+echo "database_roles_canary: checked 3 cases"
