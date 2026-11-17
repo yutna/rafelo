@@ -332,7 +332,10 @@ export function checkPaths(
     }
     if (ignored(token)) continue;
     checked += 1;
-    if (!existsSync(resolve(root, token))) {
+    // The template repository ships the adopter's .github/ files under
+    // template/ (GEN-07); in an adopted app the same path exists at the root.
+    const shipped = token.startsWith(".github/") && existsSync(resolve(root, "template", token));
+    if (!existsSync(resolve(root, token)) && !shipped) {
       findings.push({ file: place.file, line: place.line, message: `names missing path ${token}` });
     }
   }

@@ -95,8 +95,15 @@ unless File.file?(hook) && File.executable?(hook)
   fail_with(errors, "#{hook} must exist and be executable")
 end
 
-audit_workflow = ".github/workflows/audits.yml"
-fail_with(errors, "the daily advisory workflow is missing") unless File.file?(audit_workflow)
+# The template repository keeps the payload workflows under template/.github;
+# an adopted app gets them at .github/workflows.
+audit_workflow =
+  if File.directory?(File.join(root, "template"))
+    "template/.github/workflows/audits.yml"
+  else
+    ".github/workflows/audits.yml"
+  end
+fail_with(errors, "the daily advisory workflow is missing (#{audit_workflow})") unless File.file?(audit_workflow)
 if File.file?(audit_workflow) && !File.read(audit_workflow).match?(/^\s*schedule:/)
   fail_with(errors, "the daily advisory workflow is not scheduled")
 end

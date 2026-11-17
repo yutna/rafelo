@@ -123,6 +123,8 @@ try {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), "canary\n");
   }
+  mkdirSync(join(root, "template", ".github", "workflows"), { recursive: true });
+  writeFileSync(join(root, "template", ".github", "workflows", "pull_request.yml"), "canary\n");
 
   const topic = (text: string) => [ { file: "docs/architecture/01_test.md", text, kind: "topic" as const } ];
   const instruction = (text: string) => [ { file: "AGENTS.md", text, kind: "instruction" as const } ];
@@ -135,6 +137,8 @@ try {
   expectNone("illustrative engine path in a topic", checkPaths(root, topic("`engines/example_orders/missing.rb`"), {}, noIgnore).findings);
   expectNone("engine-relative config path in a topic", checkPaths(root, topic("`config/locales/en.yml`"), {}, noIgnore).findings);
   expectFinding("instruction missing config path", checkPaths(root, instruction("`config/missing.yml`"), {}, noIgnore).findings, /config\/missing.yml/);
+  expectNone("payload .github path", checkPaths(root, topic("`.github/workflows/pull_request.yml`"), {}, noIgnore).findings);
+  expectFinding("missing payload .github path", checkPaths(root, topic("`.github/workflows/missing.yml`"), {}, noIgnore).findings, /missing.yml/);
   expectFinding(
     "deferred path that now exists",
     checkPaths(root, topic("`script/ci/exists`"), { "script/ci/exists": "later" }, noIgnore).findings,

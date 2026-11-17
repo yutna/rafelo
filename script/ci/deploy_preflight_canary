@@ -299,4 +299,13 @@ SECRETS
 git -C "$tmp" add -f .kamal/secrets
 expect_fail_with "tracked .kamal/secrets" "OPS-06/SEC-07"
 
-echo "deploy_preflight_canary: checked 24 cases"
+reset
+rm -f "$tmp/.github/workflows/audits.yml"
+expect_fail_with "missing daily advisory workflow" "daily advisory workflow"
+
+reset
+mkdir -p "$tmp/template/.github/workflows"
+mv "$tmp/.github/workflows/audits.yml" "$tmp/template/.github/workflows/audits.yml"
+expect_pass "template repository uses the payload audits workflow"
+
+echo "deploy_preflight_canary: checked 26 cases"
