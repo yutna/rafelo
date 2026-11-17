@@ -2,9 +2,15 @@
 # frozen_string_literal: true
 
 require "open3"
+require "optparse"
 
 root = File.expand_path("../..", __dir__)
 base = ENV["BASE_SHA"].to_s
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/release_check [--root DIR] [--base REV]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--base REV") { |value| base = value }
+end.parse!
 if base.empty?
   output, status = Open3.capture2("git", "-C", root, "merge-base", "origin/main", "HEAD")
   base = status.success? ? output.strip : "HEAD~1"
@@ -18,4 +24,16 @@ if output.strip.empty?
   exit 0
 end
 
-exec File.join(root, "script", "ci", "release"), "--check"
+version = File.read(File.join(root, "VERSION")).strip
+tag = "v#{version}"
+tag_ref = "refs/tags/#{tag}"
+if system("git", "-C", root, "rev-parse", "-q", "--verify", tag_ref, out: File::NULL, err: File::NULL)
+  tag_sha, = Open3.capture2("git", "-C", root, "rev-list", "-n", "1", tag)
+  head_sha, = Open3.capture2("git", "-C", root, "rev-parse", "HEAD")
+  if tag_sha.strip == head_sha.strip
+    puts "release_check: #{tag} is the current release commit"
+    exit 0
+  end
+end
+
+exec File.expand_path("release", __dir__), "--check", "--root", root
