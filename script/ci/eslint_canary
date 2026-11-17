@@ -9,9 +9,19 @@ eslint = File.join(root, "node_modules", ".bin", "eslint")
 abort "eslint_canary: ESLint is not installed at #{eslint}; checked 0" unless File.executable?(eslint)
 
 FIXTURES = File.join(root, "spec", "enforcement", "fixtures", "eslint")
-ENGINE_PAGE = "engines/example_orders/app/frontend/pages/orders/index.tsx"
+
+def existing_path(root, *paths)
+  paths.find { |path| File.exist?(File.join(root, path)) } ||
+    abort("eslint_canary: none of #{paths.join(', ')} exists; checked 0")
+end
+
+# The examples are removable (GEN-08); use them when present and fall back to
+# kernel/app paths the template always ships.
+ENGINE_PAGE = existing_path(root, "engines/example_orders/app/frontend/pages/orders/index.tsx",
+                            "app/frontend/pages/home/index.tsx")
 ENGINE_TEST = "app/frontend/components/page_heading.test.tsx"
-ENGINE_E2E = "engines/example_orders/e2e/orders.spec.ts"
+ENGINE_E2E = existing_path(root, "engines/example_orders/e2e/orders.spec.ts",
+                           "engines/design_system/e2e/catalog.spec.ts")
 DESIGN_SYSTEM = "engines/design_system/app/frontend/button.tsx"
 DESIGN_SYSTEM_TEST = "engines/design_system/app/frontend/date_field.test.tsx"
 ERROR_BOUNDARY = "engines/design_system/app/frontend/error_boundary.tsx"
