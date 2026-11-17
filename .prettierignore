@@ -35,3 +35,5 @@ engines/*/config/contracts
 engines/core/spec/dummy_engine/config/contracts
 # The committed production route list keeps its generator's layout.
 config/production_routes.yml
+# The module and page generators update this YAML file.
+engines/*/config/permissions.yml
