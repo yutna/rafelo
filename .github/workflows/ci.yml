@@ -150,6 +150,9 @@ jobs:
       - name: Install gems
         run: bundle check || bundle install
 
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Prepare RuboCop cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         env:
