@@ -13,6 +13,7 @@ reviews_file = nil
 pr = ENV["PR_NUMBER"]
 head_ref = ENV["HEAD_REF"]
 repository = ENV["GITHUB_REPOSITORY"]
+author = ENV["PR_AUTHOR"]
 update = false
 clones = true
 
@@ -168,9 +169,9 @@ end
 
 number = Approvals.pull_request_number(pr, head_ref)
 reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
-unless Approvals.approved_by_owner?(root, reviews)
+unless Approvals.approved_by_owner?(root, reviews, base: base, author: author)
   rises.each { |key, previous, value| warn "ratchet: #{key} rose from #{previous} to #{value}" }
-  warn "ratchet: a rise needs an approving review from a CODEOWNERS owner"
+  warn "ratchet: a rise needs an approval from a CODEOWNERS owner other than the pull request author"
   exit 1
 end
 

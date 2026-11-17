@@ -40,7 +40,8 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   FileUtils.mkdir_p(File.join(dir, "script", "ci"))
   FileUtils.mkdir_p(File.join(dir, "config"))
   FileUtils.mkdir_p(File.join(dir, "spec", "enforcement", "fixtures"))
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner\n/engines/core/app/ @owner\n/spec/enforcement/ @owner\n")
+  File.write(File.join(dir, ".github", "CODEOWNERS"),
+             "/script/ci/ @owner\n/engines/core/app/ @owner\n/spec/enforcement/ @owner\n/.github/CODEOWNERS @owner\n")
   File.write(File.join(dir, "script", "ci", "guard"), "one\n")
   File.write(File.join(dir, "config", "ratchets.yml"), "skipped_tests: 0\n")
   File.write(File.join(dir, "spec", "enforcement", "fixtures", "guard"), "one\n")
@@ -66,7 +67,8 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     [ "guard with a non-owner approval", outsider, 1 ],
     [ "guard with a later change request", rejected, 1 ],
     [ "merge queue", nil, 0, "merge_group" ],
-    [ "single-owner author", nil, 0, "pull_request", "owner" ]
+    [ "single-owner author", nil, 1, "pull_request", "owner" ],
+    [ "author-only approval", owner, 1, "pull_request", "owner" ]
   ].each do |name, file, expected, event, author|
     cases += 1
     status, output = run_case(script, dir, base, file, event || "pull_request", author)
@@ -76,8 +78,9 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     warn "guard_approval_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
   end
 
-  # A second owner removes the single-owner fallback.
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner @second\n/engines/core/app/ @owner\n/spec/enforcement/ @owner\n")
+  # A second owner can approve a change the author cannot approve.
+  File.write(File.join(dir, ".github", "CODEOWNERS"),
+             "/script/ci/ @owner @second\n/engines/core/app/ @owner @second\n/spec/enforcement/ @owner @second\n/.github/CODEOWNERS @owner @second\n")
   git(dir, "add", ".")
   git(dir, "commit", "-q", "-m", "second owner")
   File.write(File.join(dir, "script", "ci", "guard"), "three\n")
@@ -88,6 +91,36 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   if status != 1
     failures += 1
     warn "guard_approval_canary: two owners still needs an approval: exited #{status}: #{output}"
+  end
+
+  second = reviews(dir, "second", [ { "user" => { "login" => "second" }, "state" => "APPROVED" } ])
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", second, "pull_request", "owner")
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: another owner approval: exited #{status}: #{output}"
+  end
+
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", owner, "pull_request", "owner")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: author-only approval: exited #{status}: #{output}"
+  end
+
+  # Removing a guard path from CODEOWNERS in the pull request does not remove
+  # the guard: the owners are read from the merge base.
+  base_before_removal = git(dir, "rev-parse", "HEAD").strip
+  File.write(File.join(dir, ".github", "CODEOWNERS"),
+             "/engines/core/app/ @owner @second\n/spec/enforcement/ @owner @second\n")
+  File.write(File.join(dir, "script", "ci", "guard"), "four\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "remove the guard path")
+  cases += 1
+  status, output = run_case(script, dir, base_before_removal, nil)
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: CODEOWNERS removal: exited #{status}: #{output}"
   end
 
   # A ratchet file changed is not a guard.

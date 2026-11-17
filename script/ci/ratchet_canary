@@ -43,7 +43,7 @@ def init_repo(dir)
   git(dir, "config", "user.email", "canary@rafelo.invalid")
   git(dir, "config", "user.name", "Canary")
   FileUtils.mkdir_p(File.join(dir, ".github"))
-  File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/widgets/app/ @owner\n")
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/engines/widgets/app/ @owner @second\n")
 end
 
 def write_yaml(path, data)
@@ -72,10 +72,11 @@ def reviews(dir, name, entries)
   path
 end
 
-def run_case(script, dir, base, reviews_file)
+def run_case(script, dir, base, reviews_file, author: nil)
   args = [ script, "--root", dir, "--base", base ]
   args += [ "--reviews", reviews_file ] if reviews_file
-  output, status = Open3.capture2e(*args)
+  env = author ? { "PR_AUTHOR" => author } : {}
+  output, status = Open3.capture2e(env, *args)
   [ status.exitstatus, output ]
 end
 
@@ -99,6 +100,7 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   base = commit(dir, "base")
 
   owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
+  second = reviews(dir, "second", [ { "user" => { "login" => "second" }, "state" => "APPROVED" } ])
   outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
   rejected = reviews(dir, "rejected", [
     { "user" => { "login" => "owner" }, "state" => "APPROVED" },
@@ -114,6 +116,12 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   cases += 1
   status, output = run_case(script, dir, base, owner)
   failures = check(failures, "rise with an owner approval", 0, status, output)
+  cases += 1
+  status, output = run_case(script, dir, base, owner, author: "owner")
+  failures = check(failures, "rise with the author's approval", 1, status, output)
+  cases += 1
+  status, output = run_case(script, dir, base, second, author: "owner")
+  failures = check(failures, "rise with another owner's approval", 0, status, output)
   cases += 1
   status, output = run_case(script, dir, base, outsider)
   failures = check(failures, "rise with a non-owner approval", 1, status, output)
