@@ -16,6 +16,7 @@ CI.run do
   step "Growth: fan-in", "script/ci/fan_in"
   step "Growth: fan-in canaries", "script/ci/fan_in_canary"
   step "Growth: canaries", "script/ci/growth_canary"
+  step "Growth: touch rate canary", "script/ci/touch_rate_canary"
   step "Clones: cross-engine", "script/ci/clones"
   step "Clones: canaries", "script/ci/clones_canary"
   step "Frontend: Typecheck", "npm run typecheck"

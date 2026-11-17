@@ -27,7 +27,8 @@ WRITE_ALLOW_LIST = {
   "ratchet_update" => %w[contents pull-requests],
   "audits" => %w[issues],
   "repo_rules" => %w[issues],
-  "devcontainer" => %w[packages]
+  "devcontainer" => %w[packages],
+  "touch-rate" => %w[issues]
 }.freeze
 PRIVILEGED_TRIGGERS = %w[pull_request_target workflow_run].freeze
 

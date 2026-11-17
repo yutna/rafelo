@@ -25,4 +25,3 @@ deferred_paths:
   script/ci/eslint: "TS-05/FE-06 guards, final hardening milestone"
   script/ci/eslint/check_config.mjs: "TS-05/FE-06 guard, final hardening milestone"
   script/ci/eslint/rafelo.mjs: "TS-05 guard, final hardening milestone"
-  script/ci/touch_rate: "ARCH-12 scheduled metric; enabled at three product modules"
