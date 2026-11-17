@@ -108,6 +108,17 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     warn "guard_approval_canary: author-only approval: exited #{status}: #{output}"
   end
 
+  # A renamed guard file is still a guard: the old path is in the diff.
+  FileUtils.mkdir_p(File.join(dir, "docs"))
+  git(dir, "mv", "script/ci/guard", "docs/guard")
+  git(dir, "commit", "-q", "-m", "rename the guard")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: renamed guard: exited #{status}: #{output}"
+  end
+
   # Removing a guard path from CODEOWNERS in the pull request does not remove
   # the guard: the owners are read from the merge base.
   base_before_removal = git(dir, "rev-parse", "HEAD").strip

@@ -70,7 +70,8 @@ module Approvals
   end
 
   def changed_files(root, base)
-    output, status = Open3.capture2("git", "-C", root, "diff", "--name-only", "#{base}...HEAD")
+    # Rename detection would hide a guard file moved to an unguarded path.
+    output, status = Open3.capture2("git", "-C", root, "diff", "--name-only", "--no-renames", "#{base}...HEAD")
     abort "approvals: git diff failed for base #{base}" unless status.success?
 
     output.lines.map(&:strip).reject(&:empty?)
