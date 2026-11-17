@@ -64,8 +64,18 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_REF: ${{ github.event.merge_group.head_ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           GH_TOKEN: ${{ github.token }}
-        run: script/ci/ratchet
+        run: |
+          set -euo pipefail
+          lib="$(mktemp -d)"
+          trap 'rm -rf "$lib"' EXIT
+          # Run the merge base's checker, not the pull request's copy.
+          git show "$BASE_SHA:script/ci/ratchet" > "$lib/ratchet"
+          git show "$BASE_SHA:script/ci/ratchet_counts.rb" > "$lib/ratchet_counts.rb"
+          git show "$BASE_SHA:script/ci/approvals.rb" > "$lib/approvals.rb"
+          chmod +x "$lib/ratchet"
+          ruby "$lib/ratchet" --root "$PWD" --base "$BASE_SHA"
 
   guard_approval:
     runs-on: ubuntu-latest
@@ -92,4 +102,13 @@ jobs:
           HEAD_REF: ${{ github.event.merge_group.head_ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
-        run: script/ci/guard_approval
+        run: |
+          set -euo pipefail
+          lib="$(mktemp -d)"
+          trap 'rm -rf "$lib"' EXIT
+          # Run the merge base's checker and CODEOWNERS, not the pull
+          # request's copies.
+          git show "$BASE_SHA:script/ci/guard_approval" > "$lib/guard_approval"
+          git show "$BASE_SHA:script/ci/approvals.rb" > "$lib/approvals.rb"
+          chmod +x "$lib/guard_approval"
+          ruby "$lib/guard_approval" --root "$PWD" --base "$BASE_SHA" --event "$EVENT" --author "$PR_AUTHOR"
