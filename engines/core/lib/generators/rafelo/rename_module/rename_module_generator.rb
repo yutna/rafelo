@@ -193,6 +193,7 @@ module Rafelo
         files = Dir[engine.join("app/frontend/**/*.{ts,tsx,mts,json}")]
           .concat([ engine.join("package.yml"), engine.join("config/ratchets.yml") ])
           .select { |p| File.file?(p) }
+          .map(&:to_s)
           .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
         files.uniq!
         return if files.empty?
