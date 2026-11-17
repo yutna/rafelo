@@ -740,7 +740,7 @@ jobs:
     container:
       image: ${{ needs.image.outputs.ref }}
       options: --user root
-    needs: [image, affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, gate, examples-removable, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke]
+    needs: [image, affected, actionlint, scan_ruby, scan_js, lint, guards, canaries, test, gate, examples-removable, concurrency, e2e, production-image-needed, production-image, smoke-needed, generator-smoke, touch-rate]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
