@@ -180,7 +180,7 @@ no_constantize_bad, no_constantize_bad_status = stdin_run(
   "Rafelo/NoConstantize", "engines/smoke_check/app/models/no_constantize_canary.rb",
   "Thing.constantize\nThing.safe_constantize\nThing.const_get(:Thing)\nbelongs_to :thing, class_name: \"Thing\"\n"
 )
-unless !no_constantize_bad_status.success? && no_constantize_bad.include?("Rafelo/NoConstantize")
+unless !no_constantize_bad_status.success? && no_constantize_bad.scan("Rafelo/NoConstantize").length >= 4
   warn "cops_canary: NoConstantize did not report the engine fixture"
   warn no_constantize_bad
   exit 1
@@ -199,7 +199,7 @@ date_bad, date_bad_status = stdin_run(
   "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
   "date.strftime(\"%Y\")\nI18n.l(date)\nl(date)\ndate.to_fs\ndate.to_formatted_s\n"
 )
-unless !date_bad_status.success? && date_bad.include?("Rafelo/DateFormatterOnly")
+unless !date_bad_status.success? && date_bad.scan("Rafelo/DateFormatterOnly").length >= 5
   warn "cops_canary: DateFormatterOnly did not report the engine app fixture"
   warn date_bad
   exit 1
@@ -254,7 +254,7 @@ internals_bad, internals_bad_status = stdin_run(
   "Rafelo/NoKernelInternals", "engines/example_orders/app/models/internals_canary.rb",
   "Rafelo::Core::Internal::Thing\nRafelo::DesignSystem::Internal::Thing\n"
 )
-unless !internals_bad_status.success? && internals_bad.include?("Rafelo/NoKernelInternals")
+unless !internals_bad_status.success? && internals_bad.scan("Rafelo/NoKernelInternals").length >= 2
   warn "cops_canary: NoKernelInternals did not report a non-kernel reference"
   warn internals_bad
   exit 1
@@ -293,7 +293,7 @@ skip_bad_source = <<~RUBY
   end
 RUBY
 skip_bad, skip_bad_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_bad_source)
-unless !skip_bad_status.success? && skip_bad.include?("Rafelo/SkipNeedsIssue")
+unless !skip_bad_status.success? && skip_bad.scan("Rafelo/SkipNeedsIssue").length >= 7
   warn "cops_canary: SkipNeedsIssue did not report the skip fixture"
   warn skip_bad
   exit 1
@@ -361,7 +361,7 @@ cache_config, cache_config_status = stdin_run(
   "Rafelo/CacheOnlyThroughScopedCache", "config/initializers/cache_canary.rb",
   "Rails.cache.fetch(\"x\") { 1 }\n::Rails.cache.fetch(\"x\") { 1 }\n"
 )
-unless !cache_config_status.success? && cache_config.include?("Rafelo/CacheOnlyThroughScopedCache")
+unless !cache_config_status.success? && cache_config.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 2
   warn "cops_canary: CacheOnlyThroughScopedCache exempted config or ::Rails.cache"
   warn cache_config
   exit 1
@@ -488,7 +488,7 @@ cache_lookalike, cache_lookalike_status = stdin_run(
   "Rafelo/CacheOnlyThroughScopedCache", "engines/example_orders/app/models/scoped_cache.rb",
   "Rails.cache.fetch(\"x\") { 1 }\n"
 )
-unless !cache_lookalike_status.success? && cache_lookalike.include?("Rafelo/CacheOnlyThroughScopedCache")
+unless !cache_lookalike_status.success? && cache_lookalike.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 1
   warn "cops_canary: CacheOnlyThroughScopedCache exempted a look-alike file"
   warn cache_lookalike
   exit 1
