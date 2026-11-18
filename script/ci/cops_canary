@@ -110,4 +110,21 @@ unless current_middleware_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 3} cops"
+stream_bad, stream_bad_status = stdin_run("Rafelo/SendStreamOnlyInDownloads",
+                                          "app/controllers/stream_canary_controller.rb", "send_stream(filename: \"x\")\n")
+unless !stream_bad_status.success? && stream_bad.include?("Rafelo/SendStreamOnlyInDownloads")
+  warn "cops_canary: SendStreamOnlyInDownloads did not report the app fixture"
+  warn stream_bad
+  exit 1
+end
+stream_legal, stream_legal_status = stdin_run(
+  "Rafelo/SendStreamOnlyInDownloads", "engines/core/app/controllers/rafelo/core/download_controller.rb",
+  "send_stream(filename: \"x\")\n"
+)
+unless stream_legal_status.success?
+  warn "cops_canary: SendStreamOnlyInDownloads flagged the download controller"
+  warn stream_legal
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 4} cops"
