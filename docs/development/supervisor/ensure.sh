@@ -10,6 +10,9 @@ if [ -f "$state/STOPPED" ]; then
   fi
   exit 0
 fi
+if [ -f "$state/NEEDS_OWNER" ]; then
+  exit 0
+fi
 if [ -f "$state/STOP" ]; then
   touch "$state/STOPPED"
   if crontab -l >/tmp/rafelo-cron 2>/dev/null; then
