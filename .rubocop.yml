@@ -23,6 +23,7 @@ require:
   - ./script/ci/cops/rafelo/current_at_the_edge
   - ./script/ci/cops/rafelo/send_stream_only_in_downloads
   - ./script/ci/cops/rafelo/page_context_through_factory
+  - ./script/ci/cops/rafelo/no_permission_literals
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -44,6 +45,11 @@ Rafelo/CurrentAtTheEdge:
 Rafelo/SendStreamOnlyInDownloads:
   Enabled: true
 Rafelo/PageContextThroughFactory:
+  Enabled: true
+  Exclude:
+    - spec/**/*
+    - engines/*/spec/**/*
+Rafelo/NoPermissionLiterals:
   Enabled: true
   Exclude:
     - spec/**/*
