@@ -278,4 +278,54 @@ unless internals_design_system_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 10} cops"
+skip_bad_source = <<~RUBY
+  RSpec.describe "skip canary" do
+    it "a", :skip do
+    end
+    it "b", skip: "reason" do
+    end
+    xit "c"
+    skip
+    pending
+    Prosopite.pause
+    it "d", prosopite: false do
+    end
+  end
+RUBY
+skip_bad, skip_bad_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_bad_source)
+unless !skip_bad_status.success? && skip_bad.include?("Rafelo/SkipNeedsIssue")
+  warn "cops_canary: SkipNeedsIssue did not report the skip fixture"
+  warn skip_bad
+  exit 1
+end
+skip_legal_source = <<~RUBY
+  RSpec.describe "skip canary" do
+    it "a", :skip do #123
+    end
+    it "b", skip: "reason" do #123
+    end
+    xit "c" #123
+    skip #123
+    pending #123
+    Prosopite.pause # https://github.com/yutna/rafelo/issues/123
+    it "d", prosopite: false do #123
+    end
+  end
+RUBY
+skip_legal, skip_legal_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_legal_source)
+unless skip_legal_status.success?
+  warn "cops_canary: SkipNeedsIssue flagged issue-linked skips"
+  warn skip_legal
+  exit 1
+end
+skip_enforcement, skip_enforcement_status = stdin_run(
+  "Rafelo/SkipNeedsIssue", "spec/enforcement/skip_canary_spec.rb",
+  "Prosopite.pause\n"
+)
+unless skip_enforcement_status.success?
+  warn "cops_canary: SkipNeedsIssue flagged enforcement prosopite pause"
+  warn skip_enforcement
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 11} cops"
