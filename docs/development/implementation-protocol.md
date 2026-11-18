@@ -314,3 +314,42 @@ E7 S2 Plural permission keys; the drift catalog lives in engines/core (every
 Start now: open the re-sync issue, then plan the milestones from section 4.
 
 อ่านแล้ววางแผนทำตามได้เลย
+
+## 10. Decision authority and staying in motion
+
+You decide, record, and continue (never ask) when every one of these holds:
+1. The spec, this protocol, or an owner answer settles it, or the spec allows
+   more than one reading and "How to decide" picks one.
+2. It loosens, skips, or downgrades nothing: no check, cop, lint rule, canary,
+   budget, ratchet, audit, or matrix status; no skip or exception list.
+3. It changes no repository setting, ruleset, permission, secret, or token.
+4. It reverses no owner decision or ADR and adds no framework-level library.
+5. It spends no money and adds no new external service or data flow.
+6. A later pull request can undo it.
+Typical examples: design and naming inside a rule, refactors, test strategy,
+issue order and splitting, the reading of an ambiguous rule (record it in
+lessons-learned and file a "spec:" question, then follow the reading), a
+dependency bump to a patched release with no ADR needed, fixing a flaky test at
+its cause. Record each such decision in the pull request body under
+"Decisions".
+
+Only these go to the owner: a secret, credential, or token; a repository
+setting, ruleset, or permission; any exception to or relaxation of a guard
+(as #535 was); a framework-level library or an ADR; reversing an owner
+decision; money, licensing, or legal questions; a security trade-off with no
+fixed release; deleting tags, releases, or anything outside the repository.
+
+Before you ask, prove you are blocked:
+a. You tried at least two approaches inside the rules; name them.
+b. No other open issue can make progress without the answer. If any can, label
+   the blocked issue "blocked", write the question there, and keep working on
+   the others. Ask only when every remaining issue depends on the answer.
+c. Ask once, in the blocked issue and in your final message, in this form:
+   "OWNER DECISION NEEDED #<issue>", the options, your recommendation, and
+   what each option changes. Then stop.
+
+A turn never ends with a summary, a status report, or a question you could
+answer yourself. If the turn is about to end for any other reason (context,
+tool limits, a long-running command), first push your work and update the
+open pull request's status checklist, then end with "CONTINUE" so the next
+run picks up from GitHub.
