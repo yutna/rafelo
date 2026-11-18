@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "json"
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+base = ENV["BASE_SHA"]
+event_path = ENV["GITHUB_EVENT_PATH"]
+pr = ENV["PR_NUMBER"]
+head_ref = ENV["HEAD_REF"]
+repository = ENV["GITHUB_REPOSITORY"]
+author = ENV["PR_AUTHOR"]
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/ratchet_ci [--root DIR] [--base REV] [--event FILE]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--base REV") { |value| base = value }
+  parser.on("--event FILE") { |value| event_path = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "ratchet_ci: root does not exist: #{root}" unless Dir.exist?(root)
+
+if event_path && File.file?(event_path)
+  event = JSON.parse(File.read(event_path))
+  pull = event["pull_request"] || event["merge_group"] || {}
+  pr ||= pull["number"]
+  base ||= pull.dig("base", "sha") || event.dig("merge_group", "base_sha")
+  head_ref ||= pull.dig("head", "ref") || event.dig("merge_group", "head_ref")
+  author ||= pull.dig("user", "login")
+end
+
+if base.to_s.empty?
+  output, status = Open3.capture2("git", "-C", root, "merge-base", "origin/main", "HEAD", err: File::NULL)
+  base = status.success? ? output.strip : "HEAD~1"
+end
+
+ENV["PR_NUMBER"] = pr.to_s
+ENV["HEAD_REF"] = head_ref.to_s
+ENV["GITHUB_REPOSITORY"] = repository.to_s
+ENV["PR_AUTHOR"] = author.to_s
+
+puts "ratchet_ci: base=#{base}"
+exec RbConfig.ruby, File.join(__dir__, "ratchet"), "--root", root, "--base", base, "--no-clones"

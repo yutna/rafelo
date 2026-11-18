@@ -46,6 +46,7 @@ CI.run do
   step "Policy: workflows canary", "script/ci/workflow_policy_canary"
   step "Policy: title canary", "script/ci/title_canary"
   step "Policy: ratchet canary", "script/ci/ratchet_canary"
+  step "Policy: ratchets", "script/ci/ratchet_ci"
   step "Policy: guard approval canary", "script/ci/guard_approval_canary"
   step "Policy: repo rules canary", "script/ci/repo_rules_canary"
   step "Policy: deploy preflight", "script/ci/deploy_preflight"

@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "json"
+require "net/http"
 require "open3"
+require "uri"
 
 # Shared CODEOWNERS and review readers for the pull request checks (WF-03).
 module Approvals
@@ -83,12 +85,10 @@ module Approvals
     abort "approvals: PR_NUMBER or HEAD_REF is required to read reviews" if pr.nil? || pr.to_s.empty?
     abort "approvals: GITHUB_REPOSITORY is required to read reviews" if repository.to_s.empty?
 
-    output, status = Open3.capture2(
-      "gh", "api", "--paginate", "repos/#{repository}/pulls/#{pr}/reviews"
-    )
-    abort "approvals: gh api failed for pull request #{pr}" unless status.success?
-
-    JSON.parse(output)
+    api_get("/repos/#{repository}/pulls/#{pr}/reviews?per_page=100") do |path|
+      output, status = Open3.capture2("gh", "api", "--paginate", path, err: File::NULL)
+      JSON.parse(output) if status.success?
+    end
   end
 
   def latest_states(reviews)
@@ -108,13 +108,36 @@ module Approvals
   def pull_request_author(repository:, number:)
     return if repository.to_s.empty? || number.to_s.empty?
 
-    output, status = Open3.capture2(
-      "gh", "api", "repos/#{repository}/pulls/#{number}", "--jq", ".user.login"
-    )
-    return unless status.success?
+    value = api_get("/repos/#{repository}/pulls/#{number}") do |path|
+      output, status = Open3.capture2("gh", "api", path, "--jq", ".user.login", err: File::NULL)
+      output.strip if status.success?
+    end
+    value.is_a?(Hash) ? value.dig("user", "login") : value
+  end
 
-    login = output.strip
-    login.empty? ? nil : login
+  # CI has no pull-request permission by default. Use the authenticated gh
+  # client when it works, then the public API (the check fails closed if the
+  # repository is private and no token is available).
+  def api_get(path)
+    value = begin
+      yield(path)
+    rescue Errno::ENOENT
+      nil
+    end
+    return value unless value.nil?
+
+    uri = URI("https://api.github.com#{path}")
+    response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 5, read_timeout: 10) do |http|
+      request = Net::HTTP::Get.new(uri)
+      request["Accept"] = "application/vnd.github+json"
+      request["User-Agent"] = "rafelo-ci"
+      http.request(request)
+    end
+    abort "approvals: GitHub API failed for #{path}" unless response.is_a?(Net::HTTPSuccess)
+
+    JSON.parse(response.body)
+  rescue JSON::ParserError
+    abort "approvals: GitHub API returned invalid JSON for #{path}"
   end
 
   def approved_by_owner?(root, reviews, base: nil, author: nil)
