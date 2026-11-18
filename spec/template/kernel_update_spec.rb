@@ -192,6 +192,46 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+
+  it "migrates only known generated props and controllers, never custom ones" do
+    base = {
+      "engines/legacy/app/props/legacy/widgets_new_props.rb" =>
+        "class WidgetsNewProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) }\nend\n",
+      "engines/legacy/app/controllers/legacy/widgets_controller.rb" =>
+        "class WidgetsController < Rafelo::Core::BaseController\n  def create\n  end\nend\n",
+      "engines/custom/app/props/custom/thing_props.rb" =>
+        "class ThingProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::Current.session&.id }\nend\n",
+      "engines/custom/app/controllers/custom/thing_controller.rb" =>
+        "class ThingController < ActionController::Base\n  def create\n  end\nend\n"
+    }
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: base)
+          local = base.dup
+          local["engines/custom/app/props/custom/thing_props.rb"] =
+            "class ThingProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::Current.session&.id, custom: true }\nend\n"
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root,
+                                         "--source", target_root, "--migrate-generated")
+
+          expect(status).to be_success, err
+          props = File.read(File.join(app_root, "engines/legacy/app/props/legacy/widgets_new_props.rb"))
+          expect(props).to include("context.session_id")
+          controller = File.read(File.join(app_root, "engines/legacy/app/controllers/legacy/widgets_controller.rb"))
+          expect(controller).to include("throttle to: 30")
+          custom_props = File.read(File.join(app_root, "engines/custom/app/props/custom/thing_props.rb"))
+          expect(custom_props).to include("Rafelo::Core::Current.session&.id")
+          expect(custom_props).to include("custom: true")
+          custom_controller = File.read(File.join(app_root, "engines/custom/app/controllers/custom/thing_controller.rb"))
+          expect(custom_controller).not_to include("throttle to:")
+        end
+      end
+    end
+  end
+
   it "keeps a bootstrapped updater that already matches the target release" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
