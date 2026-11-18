@@ -127,7 +127,10 @@ jobs:
         run: npm ci
 
       - name: Scan for security vulnerabilities in JavaScript dependencies
-        run: npm audit --audit-level=high
+        run: script/ci/npm_audit
+
+      - name: Check the npm audit canary
+        run: script/ci/npm_audit_canary
 
   lint:
     defaults:

@@ -1,0 +1,127 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "date"
+require "json"
+require "open3"
+require "optparse"
+require "yaml"
+
+root = Dir.pwd
+audit_file = nil
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/npm_audit [--root DIR] [--audit FILE]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--audit FILE") { |value| audit_file = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "npm_audit: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
+
+def fail!(message)
+  warn "npm_audit: #{message}"
+  exit 1
+end
+
+def advisory_id(entry)
+  entry["url"].to_s[/(GHSA-[A-Za-z0-9-]+)/, 1]
+end
+
+def ids_for(vulnerabilities, package, seen = [])
+  return [] if seen.include?(package)
+
+  entry = vulnerabilities[package]
+  return [] unless entry
+
+  Array(entry["via"]).flat_map do |via|
+    if via.is_a?(Hash)
+      next [] unless %w[high critical].include?(via["severity"])
+
+      [ advisory_id(via) ].compact
+    elsif via.is_a?(String)
+      ids_for(vulnerabilities, via, seen + [ package ])
+    else
+      []
+    end
+  end.uniq
+end
+
+config_path = File.join(root, "config", "audit_exceptions.yml")
+fail!("missing config/audit_exceptions.yml; checked 0") unless File.file?(config_path)
+
+config = YAML.safe_load_file(config_path, aliases: false) || {}
+entries = config["exceptions"]
+fail!("config/audit_exceptions.yml must contain an exceptions list") unless entries.is_a?(Array)
+
+exceptions = entries.map do |entry|
+  fail!("an exception must be a mapping") unless entry.is_a?(Hash)
+  id = entry["id"].to_s
+  fail!("an exception has no GHSA id") unless id.match?(/\AGHSA-[A-Za-z0-9-]+\z/)
+  packages = entry["packages"]
+  fail!("#{id} has no packages") unless packages.is_a?(Array) && packages.any? && packages.all? { |package| package.is_a?(String) && !package.empty? }
+  fail!("#{id} has no reason") unless entry["reason"].is_a?(String) && !entry["reason"].strip.empty?
+  issue = entry["issue"].to_s
+  unless issue.match?(%r{\Ahttps://github\.com/[^/\s]+/[^/\s]+/issues/\d+\z}) || issue.match?(/\A#\d+\z/)
+    fail!("#{id} has no issue reference")
+  end
+  expires_on = begin
+    Date.iso8601(entry["expires_on"].to_s)
+  rescue ArgumentError
+    fail!("#{id} has no ISO expires_on")
+  end
+  { id: id, packages: packages, issue: issue, expires_on: expires_on }
+end
+
+duplicate = exceptions.group_by { |entry| entry[:id] }.select { |_id, list| list.length > 1 }.keys
+fail!("duplicate exception ids: #{duplicate.join(', ')}") if duplicate.any?
+
+expired = exceptions.select { |entry| entry[:expires_on] < Date.today }
+fail!("expired exception #{expired.first[:id]} (expired #{expired.first[:expires_on]})") if expired.any?
+
+active = exceptions
+active.each do |entry|
+  warn "npm_audit: active exception #{entry[:id]} packages=#{entry[:packages].join(',')} issue=#{entry[:issue]} expires=#{entry[:expires_on]}"
+end
+warn "npm_audit: no active exceptions" if active.empty?
+
+raw = if audit_file
+  fail!("audit file does not exist: #{audit_file}; checked 0") unless File.file?(audit_file)
+  File.read(audit_file)
+else
+  output, error, _status = Open3.capture3("npm", "audit", "--json", chdir: root)
+  fail!("npm audit did not run: #{error.strip}") if output.strip.empty?
+  output
+end
+
+begin
+  audit = JSON.parse(raw)
+rescue JSON::ParserError => error
+  fail!("npm audit returned invalid JSON: #{error.message}")
+end
+
+total = audit.dig("metadata", "dependencies", "total").to_i
+fail!("checked 0 dependencies") if total.zero?
+
+vulnerabilities = audit["vulnerabilities"] || {}
+high = vulnerabilities.select { |_package, entry| %w[high critical].include?(entry["severity"]) }
+allowed_ids = active.map { |entry| entry[:id] }
+allowed_packages = active.flat_map { |entry| entry[:packages] }.uniq
+uncovered = []
+
+high.each do |package, _entry|
+  ids = ids_for(vulnerabilities, package)
+  ids = [ "unknown" ] if ids.empty?
+  unless allowed_packages.include?(package)
+    uncovered << "#{package} (not listed in an exception)"
+    next
+  end
+  next if ids.all? { |id| allowed_ids.include?(id) }
+
+  uncovered << "#{package} (#{ids.join(', ')})"
+end
+
+if uncovered.any?
+  fail!("#{uncovered.length} high advisor#{uncovered.length == 1 ? 'y' : 'ies'} not covered: #{uncovered.join('; ')}")
+end
+
+warn "npm_audit: checked #{total} dependencies; high=#{high.length}; active exceptions=#{active.length}"

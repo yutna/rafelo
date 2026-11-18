@@ -1,0 +1,25 @@
+# Time-boxed npm audit exceptions (SEC-07, WF-06). The owner approved each
+# entry and its expiry; only the owner may extend it. The npm audit step still
+# runs on every bin/ci and CI run and prints every active exception.
+exceptions:
+  - id: GHSA-fc5q-39xc-vjpf
+    packages:
+      - "@inertiajs/vite"
+      - "@rolldown/plugin-babel"
+      - "@typescript-eslint/typescript-estree"
+      - "@typescript-eslint/utils"
+      - "@vitejs/plugin-react"
+      - "@vitest/coverage-v8"
+      - dependency-cruiser
+      - eslint-plugin-perfectionist
+      - fdir
+      - picomatch
+      - tinyglobby
+      - vite
+      - vite-plugin-ruby
+      - vitest
+    reason: >-
+      picomatch <= 4.0.7 ReDoS has no patched release. It is build/test-only:
+      the production image removes node_modules, and no Rails process loads it.
+    issue: "https://github.com/yutna/rafelo/issues/535"
+    expires_on: "2026-12-18"
