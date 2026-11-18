@@ -151,8 +151,9 @@ done
 # the release's current toolchain and run the documented format step here too,
 # so a generated page from the previous release is measured against the
 # current stylesheet.
-( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null && npm run format >/dev/null )
+( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null )
 if [ -d "$work/smoke_shop_prev/engines/legacy_check" ]; then
+  ( cd "$work/smoke_shop_prev" && npx prettier --write engines/legacy_check >/dev/null )
   ( cd "$work/smoke_shop_prev" && bin/rubocop -A engines/legacy_check spec/requests/legacy_check >/dev/null )
   # The generated module's permission keys must exist in the central fake
   # upstream, exactly as an adopter adds its own keys; align the fixture here.
