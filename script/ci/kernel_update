@@ -215,6 +215,7 @@ module KernelUpdate
         (fresh + stale + changed).uniq.each { |relative| merge(relative) }
       end
       migrate_generated_props
+      format_app_owned_frontend
       self
     end
 
@@ -231,6 +232,19 @@ module KernelUpdate
         File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
         results << Result.new(relative: relative, status: "migrated")
       end
+    end
+
+    def format_app_owned_frontend
+      prettier = File.join(@root, "node_modules", ".bin", "prettier")
+      return unless File.executable?(prettier)
+
+      files = Dir[File.join(@root, "engines", "*", "app", "frontend", "**", "*.{ts,tsx,mts,json}")]
+              .select { |path| File.file?(path) }
+              .reject { |path| path.end_with?(".generated.ts", ".generated.tsx", ".d.ts") || path.include?("/locales/") }
+      return if files.empty?
+
+      _output, status = Open3.capture2e(prettier, "--write", *files, chdir: @root)
+      raise Error, "kernel_update: prettier failed on app-owned frontend" unless status.success?
     end
 
     def conflicts?
