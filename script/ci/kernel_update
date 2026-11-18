@@ -233,7 +233,7 @@ module KernelUpdate
         next if KernelUpdate.untouched?(relative)
 
         body = File.read(path)
-        next unless generated_props?(body, path)
+        next unless generated_props?(body, relative)
 
         File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
         results << Result.new(relative: relative, status: "migrated")
@@ -246,10 +246,10 @@ module KernelUpdate
         next if KernelUpdate.untouched?(relative)
 
         body = File.read(path)
-        next unless generated_controller?(body)
+        next unless generated_controller?(body, relative)
         next unless body.include?("def create") && !body.match?(/^\s*throttle /)
 
-        engine = path.delete_prefix("#{@root}/engines/").split("/").first
+        engine = relative.split("/")[1]
         actions = %w[create update].select { |action| body.match?(/^\s*def #{action}\b/) }
         next if actions.empty?
 
@@ -263,33 +263,223 @@ module KernelUpdate
     end
 
     def generated_props?(body, path)
-      action = File.basename(path)[/_(new|edit)_props\.rb\z/, 1]
-      return false unless action
+      match = path.match(%r{\Aengines/[^/]+/app/props/([^/]+)/([^/]+)/([^/]+)_(new|edit)_props\.rb\z})
+      return false unless match
 
-      parts = path.split("/")
-      props_index = parts.index("props")
-      return false unless props_index
-      module_name = parts[-2]
-      resource = File.basename(path).sub(/_(?:new|edit)_props\.rb\z/, "")
-      resource_class = resource.split("_").map(&:capitalize).join
-      return false unless body.match?(/class #{resource_class}(?:New|Edit)Props < Rafelo::Core::PageProps/)
-      return false unless body.include?("context.urls.route(:#{module_name}, :#{resource}")
-
-      if action == "new"
-        body.match?(/\A# frozen_string_literal: true\n\nmodule [\w:]+\n  class \w+NewProps < Rafelo::Core::PageProps\n    def envelope\n      \{\n        data: \{\n          createPath: context\.urls\.route\(:\w+, :\w+\),\n          indexPath: context\.urls\.route\(:\w+, :\w+\)\n        \},\n        meta: \{ formToken: Rafelo::Core::FormToken\.issue\(session_id: Rafelo::Core::Current\.session&\.id\) \},\n        query: \{\},\n        pagination: nil,\n        can: \{\}\n      \}\n    end\n  end\nend\n\z/)
-      else
-        body.match?(/\A# frozen_string_literal: true\n\nmodule [\w:]+\n  class \w+EditProps < Rafelo::Core::PageProps\n    def initialize\(context:, id:\)\n      super\(context: context\)\n      @id = id\n    end\n\n    def envelope\n      \{\n        data: \{\n          [a-z_]+: \{ id: @id, name: @id \},\n          updatePath: context\.urls\.route\(:\w+, :\w+, id: @id\),\n          showPath: context\.urls\.route\(:\w+, :\w+, id: @id\)\n        \},\n        meta: \{ formToken: Rafelo::Core::FormToken\.issue\(session_id: Rafelo::Core::Current\.session&\.id\) \},\n        query: \{\},\n        pagination: nil,\n        can: \{\}\n      \}\n    end\n  end\nend\n\z/)
-      end
+      app_ns, mod, plural, action = match.captures
+      module_class = "#{camelize(app_ns)}::#{camelize(mod)}"
+      singular = singularize(plural)
+      expected = action == "new" ? new_props_template(module_class, mod, plural) : edit_props_template(module_class, mod, plural, singular)
+      normalize_body(body) == normalize_body(expected)
     end
 
-    def generated_controller?(body)
-      body = body.delete_prefix("# frozen_string_literal: true\n")
-      return false unless body.match?(/class \w+Controller < Rafelo::Core::BaseController/)
-      return false unless body.include?('layout "application"')
-      return false if body.match?(/^\s*(before_action|after_action|around_action|skip_before_action|rescue_from|helper_method|protect_from_forgery|attr_|private|include|extend|[A-Z]\w*\s*=|#)/)
+    def generated_controller?(body, path)
+      match = path.match(%r{\Aengines/([^/]+)/app/controllers/([^/]+)/([^/]+)/([^/]+)_controller\.rb\z})
+      return false unless match
 
-      methods = body.scan(/^\s+def (\w+)/).flatten
-      methods.include?("create") && (methods - %w[index show new create edit update]).empty?
+      engine, app_ns, mod, plural = match.captures
+      actions = body.scan(/^\s*def (\w+)/).flatten
+      return false if actions.empty? || (actions - %w[index show new create edit update]).any?
+
+      module_class = "#{camelize(app_ns)}::#{camelize(mod)}"
+      expected = controller_template(engine, module_class, mod, plural, actions)
+      normalize_body(body) == normalize_body(expected)
+    end
+
+    def controller_template(engine, module_class, mod, plural, actions)
+      singular = singularize(plural)
+      methods = []
+      methods << controller_index(module_class, mod, plural, singular) if actions.include?("index")
+      methods << controller_show(module_class, mod, plural, singular) if actions.include?("show")
+      methods << controller_new(module_class, mod, plural, singular) if actions.include?("new")
+      methods << controller_create(module_class, mod, plural, singular) if actions.include?("create")
+      methods << controller_edit(module_class, mod, plural, singular) if actions.include?("edit")
+      methods << controller_update(module_class, mod, plural, singular) if actions.include?("update")
+
+      <<~RUBY
+        # frozen_string_literal: true
+
+        module #{module_class}
+          class #{camelize(plural)}Controller < Rafelo::Core::BaseController
+            layout "application"
+
+        #{methods.join("\n\n")}
+          end
+        end
+      RUBY
+    end
+
+    def controller_index(module_class, mod, plural, singular)
+      <<~RUBY
+        def index
+          authorize :#{singular}, :index?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          query = Rafelo::Core::ListQuery.from(params, sort: %w[id label], filters: {})
+          items = gateway(#{module_class}::#{camelize(plural)}Gateway).list(
+            page: query.page, per_page: query.per_page
+          )
+          render_page "#{mod}/#{plural}/index", props: #{module_class}::#{camelize(plural)}IndexProps.new(
+            context: page_context, items: items, query: query
+          )
+        end
+      RUBY
+    end
+
+    def controller_show(module_class, mod, plural, singular)
+      <<~RUBY
+        def show
+          authorize :#{singular}, :show?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          render_page "#{mod}/#{plural}/show", props: #{module_class}::#{camelize(plural)}ShowProps.new(context: page_context, id: params[:id].to_s)
+        end
+      RUBY
+    end
+
+    def controller_new(module_class, mod, plural, singular)
+      <<~RUBY
+        def new
+          authorize :#{singular}, :new?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          render_page "#{mod}/#{plural}/new", props: #{module_class}::#{camelize(plural)}NewProps.new(context: page_context)
+        end
+      RUBY
+    end
+
+    def controller_create(module_class, mod, plural, singular)
+      <<~RUBY
+        def create
+          authorize :#{singular}, :create?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          form = #{module_class}::#{camelize(singular)}Form.new(params.permit(:name, :token))
+          back = page_context.urls.route(:#{mod}, :new_#{singular})
+          if form.invalid?
+            return redirect_after_write(back, errors: form.error_messages)
+          end
+
+          Rafelo::Core::IdempotencyClaim.call(
+            self,
+            token: form.token,
+            payload: form.payload,
+            back: back
+          ) do |idempotency_key|
+            created = gateway(#{module_class}::#{camelize(plural)}Gateway).create(
+              payload: form.payload, idempotency_key: idempotency_key
+            )
+            request.env["rafelo.audit.upstream_id"] = created.id.to_s if created.respond_to?(:id)
+            redirect_after_write(page_context.urls.route(:#{mod}, :#{plural}), notice: "Created.")
+          end
+        rescue Rafelo::Core::ValidationFailed => error
+          redirect_after_write(back, errors: form.translate(error.field_codes))
+        rescue Rafelo::Core::ApplicationError => error
+          raise unless error.code == "resource.conflict"
+
+          redirect_after_write(back, errors: { "base" => I18n.t("core.errors.fields.conflict") })
+        end
+      RUBY
+    end
+
+    def controller_edit(module_class, mod, plural, singular)
+      <<~RUBY
+        def edit
+          authorize :#{singular}, :edit?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          render_page "#{mod}/#{plural}/edit", props: #{module_class}::#{camelize(plural)}EditProps.new(context: page_context, id: params[:id].to_s)
+        end
+      RUBY
+    end
+
+    def controller_update(module_class, mod, plural, singular)
+      <<~RUBY
+        def update
+          authorize :#{singular}, :update?, policy_class: #{module_class}::#{camelize(singular)}Policy
+          form = #{module_class}::#{camelize(singular)}Form.new(params.permit(:name, :token))
+          back = page_context.urls.route(:#{mod}, :edit_#{singular}, id: params[:id])
+          if form.invalid?
+            return redirect_after_write(back, errors: form.error_messages)
+          end
+
+          Rafelo::Core::IdempotencyClaim.call(
+            self,
+            token: form.token,
+            payload: form.payload.merge(id: params[:id].to_s),
+            back: back
+          ) do |idempotency_key|
+            updated = gateway(#{module_class}::#{camelize(plural)}Gateway).update(
+              id: params[:id].to_s, payload: form.payload, idempotency_key: idempotency_key
+            )
+            request.env["rafelo.audit.upstream_id"] = updated.id.to_s if updated.respond_to?(:id)
+            redirect_after_write(page_context.urls.route(:#{mod}, :#{singular}, id: params[:id]), notice: "Updated.")
+          end
+        rescue Rafelo::Core::ValidationFailed => error
+          redirect_after_write(back, errors: form.translate(error.field_codes))
+        rescue Rafelo::Core::ApplicationError => error
+          raise unless error.code == "resource.conflict"
+
+          redirect_after_write(back, errors: { "base" => I18n.t("core.errors.fields.conflict") })
+        end
+      RUBY
+    end
+
+    def new_props_template(module_class, mod, plural)
+      <<~RUBY
+        # frozen_string_literal: true
+
+        module #{module_class}
+          class #{camelize(plural)}NewProps < Rafelo::Core::PageProps
+            def envelope
+              {
+                data: {
+                  createPath: context.urls.route(:#{mod}, :#{plural}),
+                  indexPath: context.urls.route(:#{mod}, :#{plural})
+                },
+                meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                query: {},
+                pagination: nil,
+                can: {}
+              }
+            end
+          end
+        end
+      RUBY
+    end
+
+    def edit_props_template(module_class, mod, plural, singular)
+      <<~RUBY
+        # frozen_string_literal: true
+
+        module #{module_class}
+          class #{camelize(plural)}EditProps < Rafelo::Core::PageProps
+            def initialize(context:, id:)
+              super(context: context)
+              @id = id
+            end
+
+            def envelope
+              {
+                data: {
+                  #{singular}: { id: @id, name: @id },
+                  updatePath: context.urls.route(:#{mod}, :#{singular}, id: @id),
+                  showPath: context.urls.route(:#{mod}, :#{singular}, id: @id)
+                },
+                meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                query: {},
+                pagination: nil,
+                can: {}
+              }
+            end
+          end
+        end
+      RUBY
+    end
+
+    def normalize_body(body)
+      body.lines.map(&:strip).reject(&:empty?).join("\n")
+    end
+
+    def camelize(name)
+      name.split("_").map { |part| part[0].upcase + part[1..] }.join
+    end
+
+    def singularize(name)
+      return "#{name[0..-4]}y" if name.end_with?("ies")
+      return name[0..-2] if name.end_with?("s")
+
+      name
     end
 
     def conflicts?

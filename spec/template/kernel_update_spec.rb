@@ -193,40 +193,124 @@ RSpec.describe "bin/kernel_update" do
   end
 
 
-  it "migrates only known generated props and controllers, never custom ones" do
+  it "migrates only the exact generated new/edit props and controller shapes" do
+    generated_new_props = <<~'RUBY'
+      # frozen_string_literal: true
+
+      module Rafelo::Legacy
+        class WidgetsNewProps < Rafelo::Core::PageProps
+          def envelope
+            {
+              data: {
+                createPath: context.urls.route(:legacy, :widgets),
+                indexPath: context.urls.route(:legacy, :widgets)
+              },
+              meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+              query: {},
+              pagination: nil,
+              can: {}
+            }
+          end
+        end
+      end
+    RUBY
+    generated_edit_props = <<~'RUBY'
+      # frozen_string_literal: true
+
+      module Rafelo::Legacy
+        class WidgetsEditProps < Rafelo::Core::PageProps
+          def initialize(context:, id:)
+            super(context: context)
+            @id = id
+          end
+
+          def envelope
+            {
+              data: {
+                widget: { id: @id, name: @id },
+                updatePath: context.urls.route(:legacy, :widget, id: @id),
+                showPath: context.urls.route(:legacy, :widget, id: @id)
+              },
+              meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+              query: {},
+              pagination: nil,
+              can: {}
+            }
+          end
+        end
+      end
+    RUBY
+    generated_controller = <<~'RUBY'
+      # frozen_string_literal: true
+
+      module Rafelo::Legacy
+        class WidgetsController < Rafelo::Core::BaseController
+          layout "application"
+
+      def create
+        authorize :widget, :create?, policy_class: Rafelo::Legacy::WidgetPolicy
+        form = Rafelo::Legacy::WidgetForm.new(params.permit(:name, :token))
+        back = page_context.urls.route(:legacy, :new_widget)
+        if form.invalid?
+          return redirect_after_write(back, errors: form.error_messages)
+        end
+
+        Rafelo::Core::IdempotencyClaim.call(
+          self,
+          token: form.token,
+          payload: form.payload,
+          back: back
+        ) do |idempotency_key|
+          created = gateway(Rafelo::Legacy::WidgetsGateway).create(
+            payload: form.payload, idempotency_key: idempotency_key
+          )
+          request.env["rafelo.audit.upstream_id"] = created.id.to_s if created.respond_to?(:id)
+          redirect_after_write(page_context.urls.route(:legacy, :widgets), notice: "Created.")
+        end
+      rescue Rafelo::Core::ValidationFailed => error
+        redirect_after_write(back, errors: form.translate(error.field_codes))
+      rescue Rafelo::Core::ApplicationError => error
+        raise unless error.code == "resource.conflict"
+
+        redirect_after_write(back, errors: { "base" => I18n.t("core.errors.fields.conflict") })
+      end
+        end
+      end
+    RUBY
+    custom_new_props = generated_new_props.sub("route(:legacy, :widgets)", "route(:legacy, :other)")
+    custom_edit_props = generated_edit_props.sub("widget:", "thing:")
+    custom_controller = generated_controller.sub("def create\n", "def create\n  head :ok\n")
     base = {
-      "engines/legacy/app/props/legacy/widgets_new_props.rb" =>
-        "# frozen_string_literal: true\n\nmodule Rafelo::Legacy\n  class WidgetsNewProps < Rafelo::Core::PageProps\n    def envelope\n      {\n        data: {\n          createPath: context.urls.route(:legacy, :widgets),\n          indexPath: context.urls.route(:legacy, :widgets)\n        },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
-      "engines/legacy/app/controllers/legacy/widgets_controller.rb" =>
-        "# frozen_string_literal: true\n\nclass WidgetsController < Rafelo::Core::BaseController\n  layout \"application\"\n  def create\n  end\nend\n",
-      "engines/custom/app/props/custom/thing_new_props.rb" =>
-        "# frozen_string_literal: true\n\nmodule Rafelo::Custom\n  class ThingNewProps < Rafelo::Core::PageProps\n    include SomeFormatting\n    def envelope\n      {\n        data: { createPath: context.urls.route(:custom, :things), indexPath: context.urls.route(:custom, :things) },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
-      "engines/custom/app/controllers/custom/thing_controller.rb" =>
-        "class ThingController < Rafelo::Core::BaseController\n  layout \"application\"\n  before_action :authenticate\n  def create\n  end\nend\n"
+      "engines/legacy/app/props/rafelo/legacy/widgets_new_props.rb" => generated_new_props,
+      "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb" => generated_edit_props,
+      "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb" => generated_controller,
+      "engines/custom/app/props/rafelo/custom/things_new_props.rb" => custom_new_props,
+      "engines/custom/app/props/rafelo/custom/things_edit_props.rb" => custom_edit_props,
+      "engines/custom/app/controllers/rafelo/custom/things_controller.rb" => custom_controller
     }
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
         Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
           write_release(base_root, version: "0.1.0", files: base)
           write_release(target_root, version: "0.2.0", files: base)
-          local = base.dup
-          local["engines/custom/app/props/custom/thing_new_props.rb"] =
-            "# frozen_string_literal: true\n\nmodule Rafelo::Custom\n  class ThingNewProps < Rafelo::Core::PageProps\n    include SomeFormatting\n    def envelope\n      {\n        data: { createPath: context.urls.route(:custom, :things), indexPath: context.urls.route(:custom, :things) },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n"
-          write_app(app_root, version: "0.1.0", files: local)
+          write_app(app_root, version: "0.1.0", files: base)
 
           _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root,
                                          "--source", target_root, "--migrate-generated")
 
           expect(status).to be_success, err
-          props = File.read(File.join(app_root, "engines/legacy/app/props/legacy/widgets_new_props.rb"))
+          props = File.read(File.join(app_root, "engines/legacy/app/props/rafelo/legacy/widgets_new_props.rb"))
           expect(props).to include("context.session_id")
-          controller = File.read(File.join(app_root, "engines/legacy/app/controllers/legacy/widgets_controller.rb"))
-          expect(controller).to include("throttle to: 30")
-          custom_props = File.read(File.join(app_root, "engines/custom/app/props/custom/thing_new_props.rb"))
-          expect(custom_props).to include("Rafelo::Core::Current.session&.id")
-          expect(custom_props).to include("include SomeFormatting")
-          custom_controller = File.read(File.join(app_root, "engines/custom/app/controllers/custom/thing_controller.rb"))
-          expect(custom_controller).not_to include("throttle to:")
+          edit_props = File.read(File.join(app_root, "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb"))
+          expect(edit_props).to include("context.session_id")
+          controller = File.read(File.join(app_root, "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb"))
+          expect(controller).to include('throttle to: 30, within: 1.minute, only: %i[create], name: "legacy/write"')
+          custom_props = File.read(File.join(app_root, "engines/custom/app/props/rafelo/custom/things_new_props.rb"))
+          expect(custom_props).to eq(custom_new_props)
+          custom_edit = File.read(File.join(app_root, "engines/custom/app/props/rafelo/custom/things_edit_props.rb"))
+          expect(custom_edit).to eq(custom_edit_props)
+          custom_controller_file = File.read(File.join(app_root, "engines/custom/app/controllers/rafelo/custom/things_controller.rb"))
+          expect(custom_controller_file).to eq(custom_controller)
         end
       end
     end
