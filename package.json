@@ -52,7 +52,6 @@
   },
   "dependencies": {
     "@inertiajs/react": "3.11.0",
-    "@inertiajs/vite": "3.11.0",
     "@tanstack/react-table": "8.21.3",
     "echarts": "6.1.0",
     "i18next": "27.1.1",
@@ -69,6 +68,7 @@
     "@babel/core": "7.29.13",
     "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
     "@eslint/js": "9.39.5",
+    "@inertiajs/vite": "3.11.0",
     "@playwright/test": "1.65.0",
     "@rolldown/plugin-babel": "0.3.1",
     "@tailwindcss/vite": "4.3.5",

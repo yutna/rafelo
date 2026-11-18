@@ -684,3 +684,27 @@ exists. `docs:check` could fail an unlisted non-`oo-*` skill. The final
 traceability table is the place to record a spec-versus-code gap, not to repeat
 the matrix's claim. Related IDs: ADR-32; TS-07; CT-09; BE-13; BE-08; WF-06;
 ARCH-09; BE-09.
+
+## 2026-11-18 — v0.27.0 — issue #535 (dependency advisory with no patch)
+
+**What happened.** `npm audit --audit-level=high` blocked every gate after
+GitHub published GHSA-fc5q-39xc-vjpf / CVE-2026-112366 for `picomatch <= 4.0.7`.
+The advisory lists no patched version, `4.0.7` is the latest release, and
+`npm audit fix` cannot resolve it. The package is reachable only through
+build/test tooling; the production image removes `node_modules` and no Rails
+process loads it.
+
+**What changed.** The owner approved a time-boxed exception for exactly that
+GHSA and the packages npm reports because of it, recorded in
+`config/audit_exceptions.yml` with issue #535 and an expiry of 2026-12-18.
+`script/ci/npm_audit` still runs on every `bin/ci` and CI run, prints the active
+exception, rejects any other high advisory, rejects an expired or incomplete
+exception, and fails once the expiry passes. `npm_audit_canary` proves the
+uncovered, expired, missing-issue, missing-expiry, inactive, and empty cases.
+`@inertiajs/vite` moved to `devDependencies`, so `npm ls picomatch --omit=dev`
+is empty. The exception is removed in the pull request that pins a patched
+picomatch or a tree without it.
+
+**Spec feedback.** `WF-06` has no rule for an advisory with no patched version;
+the exception mechanism and its owner-only renewal belong in the spec. See the
+"spec: WF-06" Backlog issue. Related IDs: SEC-07, SEC-14, WF-06, OPS-06.

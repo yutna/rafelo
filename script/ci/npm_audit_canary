@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "json"
+require "open3"
+require "tmpdir"
+require "yaml"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "npm_audit")
+
+def config(entries)
+  { "exceptions" => entries }
+end
+
+def entry(overrides = {})
+  {
+    "id" => "GHSA-fc5q-39xc-vjpf",
+    "packages" => %w[picomatch vite],
+    "reason" => "build-only advisory with no patch",
+    "issue" => "https://github.com/yutna/rafelo/issues/535",
+    "expires_on" => "2026-12-18"
+  }.merge(overrides)
+end
+
+def advisory(id, severity: "high")
+  {
+    "source" => 1,
+    "name" => "picomatch",
+    "dependency" => "picomatch",
+    "title" => "advisory",
+    "url" => "https://github.com/advisories/#{id}",
+    "severity" => severity,
+    "range" => "<= 4.0.7"
+  }
+end
+
+def audit(vulnerabilities, total = 10)
+  {
+    "metadata" => { "dependencies" => { "total" => total } },
+    "vulnerabilities" => vulnerabilities
+  }
+end
+
+def write_case(dir, config_entries, audit_hash)
+  FileUtils.mkdir_p(File.join(dir, "config"))
+  File.write(File.join(dir, "config", "audit_exceptions.yml"), YAML.dump(config(config_entries)))
+  path = File.join(dir, "audit.json")
+  File.write(path, JSON.generate(audit_hash))
+  path
+end
+
+def run(script, dir, path)
+  Open3.capture2e(script, "--root", dir, "--audit", path)
+end
+
+cases = []
+cases << [ "active exception", [ entry ], audit({ "picomatch" => { "severity" => "high", "via" => [ advisory("GHSA-fc5q-39xc-vjpf") ] }, "vite" => { "severity" => "high", "via" => [ "picomatch" ] } }), 0, "active exception" ]
+cases << [ "other high advisory", [ entry ], audit({ "other" => { "severity" => "high", "via" => [ advisory("GHSA-other-0000-0000") ] } }), 1, "not covered" ]
+cases << [ "expired exception", [ entry("expires_on" => "2020-01-01") ], audit({ "picomatch" => { "severity" => "high", "via" => [ advisory("GHSA-fc5q-39xc-vjpf") ] } }), 1, "expired" ]
+cases << [ "missing issue", [ entry.except("issue") ], audit({ "picomatch" => { "severity" => "high", "via" => [ advisory("GHSA-fc5q-39xc-vjpf") ] } }), 1, "no issue reference" ]
+cases << [ "missing expiry", [ entry.except("expires_on") ], audit({ "picomatch" => { "severity" => "high", "via" => [ advisory("GHSA-fc5q-39xc-vjpf") ] } }), 1, "no ISO expires_on" ]
+cases << [ "moderate only", [], audit({ "other" => { "severity" => "moderate", "via" => [ advisory("GHSA-moderate-0000", severity: "moderate") ] } }), 0, "checked" ]
+cases << [ "empty audit", [], audit({}, 0), 1, "checked 0" ]
+cases << [ "package not listed", [ entry("packages" => %w[picomatch]) ], audit({ "vite" => { "severity" => "high", "via" => [ "picomatch" ] } }), 1, "not listed" ]
+
+failures = 0
+cases.each do |name, config_entries, audit_hash, expected, expected_output|
+  Dir.mktmpdir("rafelo-npm-audit-") do |dir|
+    path = write_case(dir, config_entries, audit_hash)
+    output, status = run(script, dir, path)
+    next if status.exitstatus == expected && output.include?(expected_output)
+
+    failures += 1
+    warn "npm_audit_canary: #{name} exited #{status.exitstatus}, expected #{expected}: #{output.lines.last}"
+  end
+end
+
+if failures.positive?
+  warn "npm_audit_canary: checked #{cases.length} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "npm_audit_canary: checked #{cases.length} cases; failures=0"

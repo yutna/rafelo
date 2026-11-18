@@ -48,6 +48,7 @@ module KernelUpdate
     .prettierignore
     .prettierrc.json
     eslint.config.mjs
+    config/audit_exceptions.yml
     config/budgets.yml
     config/ci.rb
     config/ratchets.yml

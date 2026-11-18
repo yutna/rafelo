@@ -56,7 +56,8 @@ CI.run do
   step "Policy: gem patches canary", "script/ci/patches_canary"
 
   step "Security: Gem audit", "bin/bundler-audit"
-  step "Security: npm audit", "npm audit --audit-level=high"
+  step "Security: npm audit", "script/ci/npm_audit"
+  step "Security: npm audit canary", "script/ci/npm_audit_canary"
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
   step "Contracts: check", "npm run contracts:check"
   step "Contracts: errors", "npm run errors:check"
