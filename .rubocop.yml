@@ -56,11 +56,9 @@ Rafelo/NoPermissionLiterals:
     - engines/*/spec/**/*
 Rafelo/EnvOnlyInConfig:
   Enabled: true
-  Include:
-    - app/**/*.rb
-    - engines/*/app/**/*.rb
-    - lib/**/*.rb
   Exclude:
     - config/**/*
+    - lib/tasks/**/*.rake
+    - script/**/*
     - spec/**/*
     - engines/*/spec/**/*

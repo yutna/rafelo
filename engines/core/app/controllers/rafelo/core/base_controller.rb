@@ -124,6 +124,7 @@ module Rafelo
         Current.permissions = PermissionSet.new(session.permission_grants)
         Current.token_provider = viewer_token_provider(session)
         request.env["rafelo.viewer_id"] = session.viewer_id.to_s
+        request.env["rafelo.session_id"] = session.id
         request.env["rafelo.log.viewer"] = LogPayload.opaque_viewer(session.viewer_id)
       end
 
@@ -138,7 +139,8 @@ module Rafelo
           session,
           request_id: request.request_id,
           trace_id: Current.trace_id,
-          budget: Current.call_budget,
+          trace_sampled: Current.trace_sampled,
+          budget: -> { Current.call_budget ||= CallBudget.default(deadline: request_deadline) },
           deadline: request_deadline,
           on_refresh: lambda do |refreshed|
             Current.permissions = refreshed.permission_set if Current.session&.id == refreshed.id
@@ -152,7 +154,8 @@ module Rafelo
         gateway = AuthGateway.new(
           budget: budget,
           request_id: request.request_id,
-          trace_id: Current.trace_id
+          trace_id: Current.trace_id,
+          trace_sampled: Current.trace_sampled
         )
         SessionRefresher.new(
           session: Current.session,
@@ -180,6 +183,7 @@ module Rafelo
         Current.session&.destroy
         Current.session = nil
         request.env["rafelo.viewer_id"] = nil
+        request.env["rafelo.session_id"] = nil
         Current.viewer = nil
         Current.permissions = nil
         Current.token_provider = nil
@@ -208,10 +212,8 @@ module Rafelo
 
       def page_context
         @page_context ||= PageContextFactory.build(
-          viewer: Current.viewer,
-          permissions: Current.permissions,
+          session: Current.session,
           trace_id: Current.trace_id,
-          session_id: Current.session&.id,
           flags: Flags.current,
           locale: I18n.locale,
           request_id: Current.request_id,

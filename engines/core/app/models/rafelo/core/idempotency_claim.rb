@@ -30,8 +30,9 @@ module Rafelo
         @token = token.to_s
         @payload = payload
         @back = back
-        @session_id = session_id
-        @viewer_id = viewer_id&.to_s
+        request_env = controller.respond_to?(:request) ? controller.request.env : {}
+        @session_id = session_id || request_env["rafelo.session_id"]
+        @viewer_id = (viewer_id || request_env["rafelo.viewer_id"])&.to_s
         @upstream_idempotent = upstream_idempotent
       end
 

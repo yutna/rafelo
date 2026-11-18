@@ -1,0 +1,11 @@
+default: &default
+  puma_threads: <%= ENV.fetch("RAILS_MAX_THREADS", 3) %>
+  database:
+    runtime_role: <%= ENV["DB_USER"] %>
+
+development:
+  <<: *default
+test:
+  <<: *default
+production:
+  <<: *default

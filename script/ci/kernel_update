@@ -50,6 +50,7 @@ module KernelUpdate
     eslint.config.mjs
     config/audit_exceptions.yml
     config/budgets.yml
+    config/core.yml
     config/ci.rb
     config/ratchets.yml
     config/contracts/_shared.json
@@ -213,7 +214,23 @@ module KernelUpdate
         changed = @base.files_under(path) & @target.files_under(path)
         (fresh + stale + changed).uniq.each { |relative| merge(relative) }
       end
+      migrate_generated_props
       self
+    end
+
+    # The v0.26 page generator wrote Current.session&.id into the props
+    # object. The v0.27 kernel passes the session id through PageContext, so
+    # an unchanged generated props object is migrated in place; a customized
+    # one is left for the adopter to review.
+    def migrate_generated_props
+      Dir[File.join(@root, "engines", "*", "app", "props", "**", "*.rb")].sort.each do |path|
+        body = File.read(path)
+        next unless body.include?("Rafelo::Core::Current.session&.id")
+
+        relative = path.delete_prefix("#{@root}/")
+        File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
+        results << Result.new(relative: relative, status: "migrated")
+      end
     end
 
     def conflicts?

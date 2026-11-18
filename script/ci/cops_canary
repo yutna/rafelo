@@ -36,7 +36,7 @@ def stdin_run(cop, path, source)
 end
 
 env_bad, env_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "app/models/env_canary.rb",
-                                    "ENV.fetch(\"SECRET_KEY\")\nRails.application.credentials.dig(:database, :password)\n")
+                                    "ENV[\"SECRET_KEY\"]\nENV.fetch(\"SECRET_KEY\")\nRails.application.credentials\nRails.application.credentials.dig(:database, :password)\n")
 unless !env_bad_status.success? && env_bad.include?("Rafelo/EnvOnlyInConfig")
   warn "cops_canary: EnvOnlyInConfig did not report the app fixture"
   warn env_bad
@@ -79,7 +79,7 @@ unless concurrency_spec_status.success?
 end
 
 current_bad, current_bad_status = stdin_run("Rafelo/CurrentAtTheEdge", "app/models/current_canary.rb",
-                                            "Current.trace_id\n")
+                                            "Current.trace_id\nCurrent&.trace_id\n")
 unless !current_bad_status.success? && current_bad.include?("Rafelo/CurrentAtTheEdge")
   warn "cops_canary: CurrentAtTheEdge did not report the app fixture"
   warn current_bad
@@ -162,6 +162,16 @@ permission_legal, permission_legal_status = stdin_run(
 unless permission_legal_status.success?
   warn "cops_canary: NoPermissionLiterals flagged the generated constant"
   warn permission_legal
+  exit 1
+end
+
+env_engine_bad, env_engine_bad_status = stdin_run(
+  "Rafelo/EnvOnlyInConfig", "engines/example_orders/lib/rafelo/example_orders/config.rb",
+  "ENV.fetch(\"SECRET_KEY\")\n"
+)
+unless !env_engine_bad_status.success? && env_engine_bad.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig did not report an engine lib file"
+  warn env_engine_bad
   exit 1
 end
 
