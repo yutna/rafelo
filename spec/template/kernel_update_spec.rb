@@ -277,13 +277,30 @@ RSpec.describe "bin/kernel_update" do
         end
       end
     RUBY
+    irregular_edit_props = generated_edit_props
+      .gsub("Rafelo::Legacy", "MyAPI::Statuses")
+      .gsub("Widgets", "Statuses")
+      .gsub("widget:", "status:")
+      .gsub(":widgets", ":statuses")
+      .gsub(":widget", ":status")
+      .gsub(":legacy", ":statuses")
+    irregular_controller = generated_controller
+      .gsub("Rafelo::Legacy", "MyAPI::Statuses")
+      .gsub("Widgets", "Statuses")
+      .gsub("WidgetForm", "StatusForm")
+      .gsub("WidgetPolicy", "StatusPolicy")
+      .gsub("widgets", "statuses")
+      .gsub("widget", "status")
+      .gsub(":legacy", ":statuses")
     custom_new_props = generated_new_props.sub("route(:legacy, :widgets)", "route(:legacy, :other)")
     custom_edit_props = generated_edit_props.sub("widget:", "thing:")
     custom_controller = generated_controller.sub("def create\n", "def create\n  head :ok\n")
     base = {
       "engines/legacy/app/props/rafelo/legacy/widgets_new_props.rb" => generated_new_props,
       "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb" => generated_edit_props,
+      "engines/legacy/app/props/my_api/statuses/statuses_edit_props.rb" => irregular_edit_props,
       "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb" => generated_controller,
+      "engines/legacy/app/controllers/my_api/statuses/statuses_controller.rb" => irregular_controller,
       "engines/custom/app/props/rafelo/custom/things_new_props.rb" => custom_new_props,
       "engines/custom/app/props/rafelo/custom/things_edit_props.rb" => custom_edit_props,
       "engines/custom/app/controllers/rafelo/custom/things_controller.rb" => custom_controller
@@ -303,6 +320,10 @@ RSpec.describe "bin/kernel_update" do
           expect(props).to include("context.session_id")
           edit_props = File.read(File.join(app_root, "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb"))
           expect(edit_props).to include("context.session_id")
+          irregular = File.read(File.join(app_root, "engines/legacy/app/props/my_api/statuses/statuses_edit_props.rb"))
+          expect(irregular).to include("context.session_id")
+          irregular_controller_file = File.read(File.join(app_root, "engines/legacy/app/controllers/my_api/statuses/statuses_controller.rb"))
+          expect(irregular_controller_file).to include('name: "legacy/write"')
           controller = File.read(File.join(app_root, "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb"))
           expect(controller).to include('throttle to: 30, within: 1.minute, only: %i[create], name: "legacy/write"')
           custom_props = File.read(File.join(app_root, "engines/custom/app/props/rafelo/custom/things_new_props.rb"))

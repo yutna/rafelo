@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "active_support/inflector"
 require "fileutils"
 require "open-uri"
 require "open3"
@@ -266,8 +267,10 @@ module KernelUpdate
       match = path.match(%r{\Aengines/[^/]+/app/props/([^/]+)/([^/]+)/([^/]+)_(new|edit)_props\.rb\z})
       return false unless match
 
-      app_ns, mod, plural, action = match.captures
-      module_class = "#{camelize(app_ns)}::#{camelize(mod)}"
+      _app_ns, mod, plural, action = match.captures
+      module_class = module_class_from(body, mod)
+      return false unless module_class
+
       singular = singularize(plural)
       expected = action == "new" ? new_props_template(module_class, mod, plural) : edit_props_template(module_class, mod, plural, singular)
       normalize_body(body) == normalize_body(expected)
@@ -277,11 +280,13 @@ module KernelUpdate
       match = path.match(%r{\Aengines/([^/]+)/app/controllers/([^/]+)/([^/]+)/([^/]+)_controller\.rb\z})
       return false unless match
 
-      engine, app_ns, mod, plural = match.captures
+      engine, _app_ns, mod, plural = match.captures
       actions = body.scan(/^\s*def (\w+)/).flatten
       return false if actions.empty? || (actions - %w[index show new create edit update]).any?
 
-      module_class = "#{camelize(app_ns)}::#{camelize(mod)}"
+      module_class = module_class_from(body, mod)
+      return false unless module_class
+
       expected = controller_template(engine, module_class, mod, plural, actions)
       normalize_body(body) == normalize_body(expected)
     end
@@ -471,15 +476,20 @@ module KernelUpdate
       body.lines.map(&:strip).reject(&:empty?).join("\n")
     end
 
+    def module_class_from(body, mod)
+      module_class = body[/^module ([A-Z]\w*(?:::[A-Z]\w*)*)$/, 1]
+      return unless module_class
+      return unless module_class == camelize(mod) || module_class.end_with?("::#{camelize(mod)}")
+
+      module_class
+    end
+
     def camelize(name)
-      name.split("_").map { |part| part[0].upcase + part[1..] }.join
+      ActiveSupport::Inflector.camelize(name)
     end
 
     def singularize(name)
-      return "#{name[0..-4]}y" if name.end_with?("ies")
-      return name[0..-2] if name.end_with?("s")
-
-      name
+      ActiveSupport::Inflector.singularize(name)
     end
 
     def conflicts?
