@@ -3,16 +3,27 @@
 module RuboCop
   module Cop
     module Rafelo
+      # TLS verification stays on (BE-05, SEC-14).
       class NoTlsVerifyDisable < Base
-        MSG = "TLS verification must stay on."
+        MSG = "Rafelo/NoTlsVerifyDisable: TLS verification must stay on (BE-05, SEC-14)."
+        RESTRICT_ON_SEND = %i[verify_mode=].freeze
 
         def on_send(node)
-          return unless node.method_name == :verify_mode=
+          add_offense(node) if verify_none?(node.first_argument)
+        end
 
-          argument = node.first_argument
-          return unless argument&.const_name.to_s.end_with?("VERIFY_NONE")
+        def on_pair(node)
+          key = node.key
+          return unless key.sym_type?
 
-          add_offense(node)
+          add_offense(node) if key.value == :verify && node.value.false_type?
+          add_offense(node) if key.value == :verify_mode && verify_none?(node.value)
+        end
+
+        private
+
+        def verify_none?(node)
+          node&.const_name.to_s.end_with?("VERIFY_NONE")
         end
       end
     end
