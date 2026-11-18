@@ -144,6 +144,10 @@ for example in example_customers example_orders; do
   cp -R "$current_src/engines/$example" "$work/smoke_shop_prev/engines/$example"
 done
 ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
+# The updater formats app-owned frontend when node_modules is present; run the
+# documented format step here too so a generated page from the previous
+# release is measured against the current stylesheet.
+( cd "$work/smoke_shop_prev" && npm run format >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
       commit -q -m "chore: update the kernel to v$version" )
