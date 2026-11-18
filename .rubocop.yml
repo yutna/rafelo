@@ -25,6 +25,7 @@ require:
   - ./script/ci/cops/rafelo/page_context_through_factory
   - ./script/ci/cops/rafelo/no_permission_literals
   - ./script/ci/cops/rafelo/no_constantize
+  - ./script/ci/cops/rafelo/date_formatter_only
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -61,6 +62,13 @@ Rafelo/NoConstantize:
     - engines/**/*.rb
   Exclude:
     - engines/core/**/modules.rb
+Rafelo/DateFormatterOnly:
+  Enabled: true
+  Include:
+    - app/**/*.rb
+    - engines/*/app/**/*.rb
+  Exclude:
+    - engines/core/app/models/rafelo/core/date_formatter.rb
 Rafelo/EnvOnlyInConfig:
   Enabled: true
   Exclude:
