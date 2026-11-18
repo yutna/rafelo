@@ -266,6 +266,15 @@ module KernelUpdate
       action = File.basename(path)[/_(new|edit)_props\.rb\z/, 1]
       return false unless action
 
+      parts = path.split("/")
+      props_index = parts.index("props")
+      return false unless props_index
+      module_name = parts[-2]
+      resource = File.basename(path).sub(/_(?:new|edit)_props\.rb\z/, "")
+      resource_class = resource.split("_").map(&:capitalize).join
+      return false unless body.match?(/class #{resource_class}(?:New|Edit)Props < Rafelo::Core::PageProps/)
+      return false unless body.include?("context.urls.route(:#{module_name}, :#{resource}")
+
       if action == "new"
         body.match?(/\A# frozen_string_literal: true\n\nmodule [\w:]+\n  class \w+NewProps < Rafelo::Core::PageProps\n    def envelope\n      \{\n        data: \{\n          createPath: context\.urls\.route\(:\w+, :\w+\),\n          indexPath: context\.urls\.route\(:\w+, :\w+\)\n        \},\n        meta: \{ formToken: Rafelo::Core::FormToken\.issue\(session_id: Rafelo::Core::Current\.session&\.id\) \},\n        query: \{\},\n        pagination: nil,\n        can: \{\}\n      \}\n    end\n  end\nend\n\z/)
       else
@@ -274,6 +283,7 @@ module KernelUpdate
     end
 
     def generated_controller?(body)
+      body = body.delete_prefix("# frozen_string_literal: true\n")
       return false unless body.match?(/class \w+Controller < Rafelo::Core::BaseController/)
       return false unless body.include?('layout "application"')
       return false if body.match?(/^\s*(before_action|after_action|around_action|skip_before_action|rescue_from|helper_method|protect_from_forgery|attr_|private|include|extend|[A-Z]\w*\s*=|#)/)
