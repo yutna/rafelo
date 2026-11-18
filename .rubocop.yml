@@ -29,6 +29,7 @@ require:
   - ./script/ci/cops/rafelo/engine_table_prefix
   - ./script/ci/cops/rafelo/no_kernel_internals
   - ./script/ci/cops/rafelo/skip_needs_issue
+  - ./script/ci/cops/rafelo/own_permission_prefixes
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -86,6 +87,10 @@ Rafelo/SkipNeedsIssue:
   Include:
     - spec/**/*.rb
     - engines/*/spec/**/*.rb
+Rafelo/OwnPermissionPrefixes:
+  Enabled: true
+  Include:
+    - engines/*/config/module.rb
 Rafelo/EnvOnlyInConfig:
   Enabled: true
   Exclude:
