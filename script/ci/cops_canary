@@ -194,4 +194,23 @@ unless no_constantize_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 7} cops"
+date_bad, date_bad_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
+  "date.strftime(\"%Y\")\nI18n.l(date)\nl(date)\ndate.to_fs\ndate.to_formatted_s\n"
+)
+unless !date_bad_status.success? && date_bad.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the engine app fixture"
+  warn date_bad
+  exit 1
+end
+date_legal, date_legal_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/core/app/models/rafelo/core/date_formatter.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_legal_status.success?
+  warn "cops_canary: DateFormatterOnly flagged the formatter"
+  warn date_legal
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 8} cops"

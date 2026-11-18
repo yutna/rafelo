@@ -104,20 +104,26 @@ module Rafelo
       end
 
       def create_month!(month)
-        name = "core_audit_events_#{month.strftime("%Y_%m")}"
+        name = "core_audit_events_#{partition_key(month)}"
         @connection.execute(<<~SQL)
           CREATE TABLE IF NOT EXISTS #{name}
             PARTITION OF #{TABLE}
-            FOR VALUES FROM ('#{month.strftime("%Y-%m-%d")}') TO ('#{month.next_month.strftime("%Y-%m-%d")}')
+            FOR VALUES FROM ('#{partition_date(month)}') TO ('#{partition_date(month.next_month)}')
         SQL
       rescue ActiveRecord::StatementInvalid => error
         if error.cause.is_a?(PG::CheckViolation) && default_rows.positive?
           alert_default!
-          raise DefaultPartitionOccupied, "#{DEFAULT_TABLE} holds rows for #{month.strftime("%Y-%m")}: #{error.message}"
+          raise DefaultPartitionOccupied, "#{DEFAULT_TABLE} holds rows for #{partition_label(month)}: #{error.message}"
         end
 
         raise
       end
+
+      # ISO-shaped names, not user-facing dates; the presentation cop only
+      # allows DateFormatter for those.
+      def partition_key(month) = format("%04d_%02d", month.year, month.month)
+      def partition_date(month) = format("%04d-%02d-%02d", month.year, month.month, month.day)
+      def partition_label(month) = format("%04d-%02d", month.year, month.month)
     end
   end
 end
