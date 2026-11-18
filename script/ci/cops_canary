@@ -175,4 +175,23 @@ unless !env_engine_bad_status.success? && env_engine_bad.include?("Rafelo/EnvOnl
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 6} cops"
+no_constantize_bad, no_constantize_bad_status = stdin_run(
+  "Rafelo/NoConstantize", "engines/smoke_check/app/models/no_constantize_canary.rb",
+  "Thing.constantize\nThing.safe_constantize\nThing.const_get(:Thing)\nbelongs_to :thing, class_name: \"Thing\"\n"
+)
+unless !no_constantize_bad_status.success? && no_constantize_bad.include?("Rafelo/NoConstantize")
+  warn "cops_canary: NoConstantize did not report the engine fixture"
+  warn no_constantize_bad
+  exit 1
+end
+no_constantize_legal, no_constantize_legal_status = stdin_run(
+  "Rafelo/NoConstantize", "engines/core/app/models/rafelo/core/modules.rb",
+  "Thing.constantize\n"
+)
+unless no_constantize_legal_status.success?
+  warn "cops_canary: NoConstantize flagged the registry"
+  warn no_constantize_legal
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 7} cops"
