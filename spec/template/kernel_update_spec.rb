@@ -198,7 +198,7 @@ RSpec.describe "bin/kernel_update" do
       "engines/legacy/app/props/legacy/widgets_new_props.rb" =>
         "# frozen_string_literal: true\n\nmodule Rafelo::Legacy\n  class WidgetsNewProps < Rafelo::Core::PageProps\n    def envelope\n      {\n        data: {\n          createPath: context.urls.route(:legacy, :widgets),\n          indexPath: context.urls.route(:legacy, :widgets)\n        },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
       "engines/legacy/app/controllers/legacy/widgets_controller.rb" =>
-        "class WidgetsController < Rafelo::Core::BaseController\n  layout \"application\"\n  def create\n  end\nend\n",
+        "# frozen_string_literal: true\n\nclass WidgetsController < Rafelo::Core::BaseController\n  layout \"application\"\n  def create\n  end\nend\n",
       "engines/custom/app/props/custom/thing_new_props.rb" =>
         "# frozen_string_literal: true\n\nmodule Rafelo::Custom\n  class ThingNewProps < Rafelo::Core::PageProps\n    include SomeFormatting\n    def envelope\n      {\n        data: { createPath: context.urls.route(:custom, :things), indexPath: context.urls.route(:custom, :things) },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
       "engines/custom/app/controllers/custom/thing_controller.rb" =>
