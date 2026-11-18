@@ -22,6 +22,7 @@ require:
   - ./script/ci/cops/rafelo/concurrency_only_in_executor
   - ./script/ci/cops/rafelo/current_at_the_edge
   - ./script/ci/cops/rafelo/send_stream_only_in_downloads
+  - ./script/ci/cops/rafelo/page_context_through_factory
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -42,6 +43,11 @@ Rafelo/CurrentAtTheEdge:
     - engines/*/spec/**/*
 Rafelo/SendStreamOnlyInDownloads:
   Enabled: true
+Rafelo/PageContextThroughFactory:
+  Enabled: true
+  Exclude:
+    - spec/**/*
+    - engines/*/spec/**/*
 Rafelo/EnvOnlyInConfig:
   Enabled: true
   Include:

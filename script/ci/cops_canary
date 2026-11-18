@@ -127,4 +127,23 @@ unless stream_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 4} cops"
+page_context_bad, page_context_bad_status = stdin_run(
+  "Rafelo/PageContextThroughFactory", "app/controllers/page_context_canary_controller.rb",
+  "Rafelo::Core::PageContext.new\n"
+)
+unless !page_context_bad_status.success? && page_context_bad.include?("Rafelo/PageContextThroughFactory")
+  warn "cops_canary: PageContextThroughFactory did not report the app fixture"
+  warn page_context_bad
+  exit 1
+end
+page_context_legal, page_context_legal_status = stdin_run(
+  "Rafelo/PageContextThroughFactory", "engines/core/app/models/rafelo/core/page_context_factory.rb",
+  "Rafelo::Core::PageContext.new\n"
+)
+unless page_context_legal_status.success?
+  warn "cops_canary: PageContextThroughFactory flagged the factory"
+  warn page_context_legal
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 5} cops"
