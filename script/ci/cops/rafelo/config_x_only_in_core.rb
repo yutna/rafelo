@@ -4,7 +4,7 @@ module RuboCop
   module Cop
     module Rafelo
       class ConfigXOnlyInCore < Base
-        MSG = "Read config.x only in core."
+        MSG = "Rafelo/ConfigXOnlyInCore: read config.x only in engines/core; pass configuration through config/ or a typed setting (ARCH-01, ARCH-10, BE-08)."
 
         def on_send(node)
           return unless node.method_name == :x

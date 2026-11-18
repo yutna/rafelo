@@ -12,7 +12,7 @@ module RuboCop
         RESTRICT_ON_SEND = %i[register].freeze
 
         def on_send(node)
-          return unless node.receiver&.source == "Rafelo::Core::Modules"
+          return unless node.receiver&.const_name == "Rafelo::Core::Modules"
 
           hash = node.arguments.find(&:hash_type?)
           return unless hash

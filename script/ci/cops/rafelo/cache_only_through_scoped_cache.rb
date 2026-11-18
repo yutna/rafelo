@@ -11,7 +11,7 @@ module RuboCop
           return unless node.source.match?(/\A(?:::)?Rails\.cache\b/)
 
           path = processed_source.file_path
-          return if path.end_with?("/scoped_cache.rb")
+          return if path.end_with?("/engines/core/app/models/rafelo/core/scoped_cache.rb")
           return if path.include?("/spec/") && !path.include?("/spec/enforcement/fixtures/")
 
           add_offense(node)

@@ -11,7 +11,7 @@ module RuboCop
         def on_send(node)
           if node.method_name == :l
             receiver = node.receiver
-            return unless receiver.nil? || receiver.source == "I18n"
+            return unless receiver.nil? || receiver.const_name == "I18n"
           end
 
           add_offense(node.loc.selector)
