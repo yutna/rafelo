@@ -477,9 +477,24 @@ module KernelUpdate
       body.lines.map(&:strip).reject(&:empty?).join("\n")
     end
 
+    # Read inflections instead of executing app initializers in the updater:
+    # a Rails-dependent initializer must not abort an update, and an app may
+    # keep them in application.rb, another initializer, or an engine.
     def load_app_inflections
-      path = File.join(@root, "config/initializers/inflections.rb")
-      load path if File.file?(path)
+      patterns = [
+        File.join(@root, "config", "application.rb"),
+        File.join(@root, "config", "initializers", "*.rb"),
+        File.join(@root, "engines", "*", "config", "initializers", "*.rb")
+      ]
+      patterns.flat_map { |pattern| Dir[pattern] }.uniq.each do |path|
+        source = File.read(path)
+        source.scan(/inflect\.acronym\s+["']([^"']+)["']/).flatten.each do |acronym|
+          ActiveSupport::Inflector.inflections { |inflect| inflect.acronym(acronym) }
+        end
+        source.scan(/inflect\.irregular\s+["']([^"']+)["'],\s*["']([^"']+)["']/).each do |single, plural|
+          ActiveSupport::Inflector.inflections { |inflect| inflect.irregular(single, plural) }
+        end
+      end
     end
 
     def module_class_from(body, mod)

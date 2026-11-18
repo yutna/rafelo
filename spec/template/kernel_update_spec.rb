@@ -317,8 +317,10 @@ RSpec.describe "bin/kernel_update" do
       .gsub("WidgetsNewProps", "GadgetsNewProps")
       .gsub(":legacy, :widgets", ":legacy, :gadgets")
     base = {
-      "config/initializers/inflections.rb" =>
+      "config/initializers/company_inflections.rb" =>
         "# frozen_string_literal: true\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"API\"\nend\n",
+      "config/initializers/broken_inflections.rb" =>
+        "raise \"this initializer needs a booted app\"\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"API\"\nend\n",
       "engines/legacy/app/props/smoke_shop/legacy/widgets_new_props.rb" => generated_new_props,
       "engines/legacy/app/props/smoke_shop/legacy/widgets_edit_props.rb" => generated_edit_props,
       "engines/legacy/app/props/smoke_shop/api/statuses_edit_props.rb" => irregular_edit_props,
