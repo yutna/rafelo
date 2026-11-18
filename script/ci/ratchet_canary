@@ -267,6 +267,36 @@ Dir.mktmpdir("rafelo-ratchet-skip-count-") do |dir|
   failures = check(failures, "real skip above the ceiling", 1, status, output, "skipped_tests")
 end
 
+
+# The CI wrapper derives the base from origin/main and fails a rise without a
+# pull request context; a fall still passes.
+Dir.mktmpdir("rafelo-ratchet-ci-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  base = commit(dir, "base")
+  git(dir, "update-ref", "refs/remotes/origin/main", base)
+  ci_script = File.join(root, "script", "ci", "ratchet_ci")
+
+  cases += 1
+  output, status = Open3.capture2e(ci_script, "--root", dir)
+  failures = check(failures, "ratchet_ci unchanged", 0, status.exitstatus, output, "rises=0")
+
+  write_root(dir, "rubocop_disable" => 1)
+  rise = commit(dir, "rise")
+  cases += 1
+  output, status = Open3.capture2e(ci_script, "--root", dir)
+  failures = check(failures, "ratchet_ci rise without a pull request", 1, status.exitstatus, output,
+                   "PR_NUMBER or HEAD_REF is required")
+
+  git(dir, "update-ref", "refs/remotes/origin/main", rise)
+  write_root(dir)
+  commit(dir, "fall")
+  cases += 1
+  output, status = Open3.capture2e(ci_script, "--root", dir)
+  failures = check(failures, "ratchet_ci fall", 0, status.exitstatus, output, "falls=1")
+end
+
 if failures.positive?
   warn "ratchet_canary: checked #{cases} cases; failures=#{failures}"
   exit 1
