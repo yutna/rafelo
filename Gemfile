@@ -14,7 +14,7 @@ gem "net-http-persistent", "4.0.8"
 gem "stoplight", "6.0.1"
 gem "pg", "1.7.0"
 # Use the Puma web server [https://github.com/puma/puma]
-gem "puma", "8.0.3"
+gem "puma", "8.1.1"
 # Render React pages from Rails [https://inertiajs.com]
 gem "inertia_rails", "3.23.0"
 # Build frontend assets with Vite [https://vite-ruby.netlify.app]
