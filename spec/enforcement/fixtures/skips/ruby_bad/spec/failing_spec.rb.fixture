@@ -1,5 +1,7 @@
 RSpec.describe "bad skip" do
   it "hides a failure" do
     skip
+    describe "bad group", :skip do
   end
+end
 end

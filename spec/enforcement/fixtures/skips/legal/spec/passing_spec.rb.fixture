@@ -1,5 +1,7 @@
 RSpec.describe "legal skip" do
   it "names an issue" do
     skip #123
+    describe "legal group", :skip do #123
   end
+end
 end
