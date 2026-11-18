@@ -8,7 +8,7 @@ module RuboCop
         MSG = "Rafelo/ConcurrencyOnlyInExecutor: use Rafelo::Core::Executor; only it may reference Concurrent."
 
         def on_const(node)
-          return unless node.source.start_with?("Concurrent::")
+          return unless node.const_name.start_with?("Concurrent::")
           return if executor_file? || spec_file?
 
           add_offense(node)

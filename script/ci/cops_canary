@@ -418,6 +418,15 @@ begin
     warn permission_legal
     exit 1
   end
+  permission_colon, permission_colon_status = stdin_run(
+    "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
+    "::Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary,\n  permission_prefixes: [ \"smoke_permission_canary\" ]\n)\n"
+  )
+  unless !permission_colon_status.success? && permission_colon.include?("Rafelo/OwnPermissionPrefixes")
+    warn "cops_canary: OwnPermissionPrefixes missed ::Rafelo::Core::Modules"
+    warn permission_colon
+    exit 1
+  end
   File.write(manifest, "smoke_permission_canary:\n  widget: [read]\n")
   permission_own, permission_own_status = stdin_run(
     "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
@@ -430,6 +439,76 @@ begin
   end
 ensure
   FileUtils.rm_rf(permission_engine)
+end
+
+current_colon, current_colon_status = stdin_run(
+  "Rafelo/CurrentAtTheEdge", "app/models/current_canary.rb", "::Current.trace_id\n"
+)
+unless !current_colon_status.success? && current_colon.include?("Rafelo/CurrentAtTheEdge")
+  warn "cops_canary: CurrentAtTheEdge missed ::Current"
+  warn current_colon
+  exit 1
+end
+concurrency_colon, concurrency_colon_status = stdin_run(
+  "Rafelo/ConcurrencyOnlyInExecutor", "app/models/concurrency_canary.rb",
+  "::Concurrent::FixedThreadPool.new(1)\n"
+)
+unless !concurrency_colon_status.success? && concurrency_colon.include?("Rafelo/ConcurrencyOnlyInExecutor")
+  warn "cops_canary: ConcurrencyOnlyInExecutor missed ::Concurrent"
+  warn concurrency_colon
+  exit 1
+end
+env_colon, env_colon_status = stdin_run(
+  "Rafelo/EnvOnlyInConfig", "app/models/env_canary.rb", "::Rails.application.credentials\n"
+)
+unless !env_colon_status.success? && env_colon.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig missed ::Rails.application.credentials"
+  warn env_colon
+  exit 1
+end
+internals_colon, internals_colon_status = stdin_run(
+  "Rafelo/NoKernelInternals", "engines/example_orders/app/models/internals_canary.rb",
+  "::Rafelo::Core::Internal::Thing\n"
+)
+unless !internals_colon_status.success? && internals_colon.include?("Rafelo/NoKernelInternals")
+  warn "cops_canary: NoKernelInternals missed a leading ::"
+  warn internals_colon
+  exit 1
+end
+date_colon, date_colon_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
+  "::I18n.l(date)\n"
+)
+unless !date_colon_status.success? && date_colon.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly missed ::I18n"
+  warn date_colon
+  exit 1
+end
+cache_lookalike, cache_lookalike_status = stdin_run(
+  "Rafelo/CacheOnlyThroughScopedCache", "engines/example_orders/app/models/scoped_cache.rb",
+  "Rails.cache.fetch(\"x\") { 1 }\n"
+)
+unless !cache_lookalike_status.success? && cache_lookalike.include?("Rafelo/CacheOnlyThroughScopedCache")
+  warn "cops_canary: CacheOnlyThroughScopedCache exempted a look-alike file"
+  warn cache_lookalike
+  exit 1
+end
+config_bad, config_bad_status = stdin_run(
+  "Rafelo/ConfigXOnlyInCore", "app/models/config_canary.rb", "Rails.application.config.x.thing\n"
+)
+unless !config_bad_status.success? && config_bad.include?("Rafelo/ConfigXOnlyInCore")
+  warn "cops_canary: ConfigXOnlyInCore missed the app path"
+  warn config_bad
+  exit 1
+end
+config_legal, config_legal_status = stdin_run(
+  "Rafelo/ConfigXOnlyInCore", "engines/core/app/models/rafelo/core/config_canary.rb",
+  "Rails.application.config.x.thing\n"
+)
+unless config_legal_status.success?
+  warn "cops_canary: ConfigXOnlyInCore flagged core"
+  warn config_legal
+  exit 1
 end
 
 warn "cops_canary: checked #{COPS.split(",").length + 12} cops"

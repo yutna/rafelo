@@ -24,7 +24,7 @@ module RuboCop
         end
 
         def credentials_read?(node)
-          node.source.to_s.start_with?("Rails.application.credentials", "Rails.application&.credentials")
+          node.source.to_s.delete_prefix("::").start_with?("Rails.application.credentials", "Rails.application&.credentials")
         end
       end
     end

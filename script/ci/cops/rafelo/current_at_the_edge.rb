@@ -10,7 +10,7 @@ module RuboCop
         def on_send(node)
           receiver = node.receiver
           return unless receiver
-          return unless receiver.source == "Current" || receiver.source == "Rafelo::Core::Current"
+          return unless %w[Current Rafelo::Core::Current].include?(receiver.const_name)
           return if edge_file?
 
           add_offense(node)
