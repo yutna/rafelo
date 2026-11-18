@@ -196,9 +196,9 @@ RSpec.describe "bin/kernel_update" do
   it "migrates only known generated props and controllers, never custom ones" do
     base = {
       "engines/legacy/app/props/legacy/widgets_new_props.rb" =>
-        "class WidgetsNewProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) }\nend\n",
+        "class WidgetsNewProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\nend\n",
       "engines/legacy/app/controllers/legacy/widgets_controller.rb" =>
-        "class WidgetsController < Rafelo::Core::BaseController\n  def create\n  end\nend\n",
+        "class WidgetsController < Rafelo::Core::BaseController\n  layout \"application\"\n  def create\n  end\nend\n",
       "engines/custom/app/props/custom/thing_props.rb" =>
         "class ThingProps < Rafelo::Core::PageProps\n  meta: { formToken: Rafelo::Core::Current.session&.id }\nend\n",
       "engines/custom/app/controllers/custom/thing_controller.rb" =>

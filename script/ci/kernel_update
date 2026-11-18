@@ -233,10 +233,7 @@ module KernelUpdate
         next if KernelUpdate.untouched?(relative)
 
         body = File.read(path)
-        next unless body.include?("Rafelo::Core::Current.session&.id")
-
-        base_path = @base.file(relative)
-        next unless base_path && File.binread(base_path) == body
+        next unless generated_props?(body)
 
         File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
         results << Result.new(relative: relative, status: "migrated")
@@ -249,10 +246,8 @@ module KernelUpdate
         next if KernelUpdate.untouched?(relative)
 
         body = File.read(path)
-        base_path = @base.file(relative)
-        next unless base_path && File.binread(base_path) == body
+        next unless generated_controller?(body)
         next unless body.include?("def create") && !body.match?(/^\s*throttle /)
-        next unless body.match?(/class .* < Rafelo::Core::BaseController/)
 
         engine = path.delete_prefix("#{@root}/engines/").split("/").first
         actions = %w[create update].select { |action| body.match?(/^\s*def #{action}\b/) }
@@ -265,6 +260,17 @@ module KernelUpdate
         File.write(path, migrated)
         results << Result.new(relative: relative, status: "migrated")
       end
+    end
+
+    def generated_props?(body)
+      body.include?("class ") && body.include?("< Rafelo::Core::PageProps") &&
+        body.include?("meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },") &&
+        !body.include?("custom:")
+    end
+
+    def generated_controller?(body)
+      body.include?("class ") && body.include?("< Rafelo::Core::BaseController") &&
+        body.include?('layout "application"') && body.include?("def create")
     end
 
     def conflicts?
