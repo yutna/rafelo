@@ -395,4 +395,41 @@ unless return_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 11} cops"
+permission_engine = File.join(ROOT, "engines", "smoke_permission_canary")
+begin
+  FileUtils.mkdir_p(File.join(permission_engine, "config"))
+  manifest = File.join(permission_engine, "config", "permissions.yml")
+  File.write(manifest, "payments:\n  invoice: [read]\n")
+  permission_default, permission_default_status = stdin_run(
+    "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
+    "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary\n)\n"
+  )
+  unless !permission_default_status.success? && permission_default.include?("Rafelo/OwnPermissionPrefixes")
+    warn "cops_canary: OwnPermissionPrefixes missed a foreign key with the default prefix"
+    warn permission_default
+    exit 1
+  end
+  permission_legal, permission_legal_status = stdin_run(
+    "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
+    "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary,\n  permission_prefixes: [ \"payments\" ]\n)\n"
+  )
+  unless permission_legal_status.success?
+    warn "cops_canary: OwnPermissionPrefixes flagged a declared prefix"
+    warn permission_legal
+    exit 1
+  end
+  File.write(manifest, "smoke_permission_canary:\n  widget: [read]\n")
+  permission_own, permission_own_status = stdin_run(
+    "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
+    "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary\n)\n"
+  )
+  unless permission_own_status.success?
+    warn "cops_canary: OwnPermissionPrefixes flagged the module's own default prefix"
+    warn permission_own
+    exit 1
+  end
+ensure
+  FileUtils.rm_rf(permission_engine)
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 12} cops"
