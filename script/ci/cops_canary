@@ -250,4 +250,32 @@ ensure
   FileUtils.rm_rf(legacy_engine)
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 9} cops"
+internals_bad, internals_bad_status = stdin_run(
+  "Rafelo/NoKernelInternals", "engines/example_orders/app/models/internals_canary.rb",
+  "Rafelo::Core::Internal::Thing\nRafelo::DesignSystem::Internal::Thing\n"
+)
+unless !internals_bad_status.success? && internals_bad.include?("Rafelo/NoKernelInternals")
+  warn "cops_canary: NoKernelInternals did not report a non-kernel reference"
+  warn internals_bad
+  exit 1
+end
+internals_core, internals_core_status = stdin_run(
+  "Rafelo/NoKernelInternals", "engines/core/app/models/rafelo/core/internals_canary.rb",
+  "Rafelo::Core::Internal::Thing\n"
+)
+unless internals_core_status.success?
+  warn "cops_canary: NoKernelInternals flagged the owning kernel"
+  warn internals_core
+  exit 1
+end
+internals_design_system, internals_design_system_status = stdin_run(
+  "Rafelo/NoKernelInternals", "engines/design_system/app/models/internals_canary.rb",
+  "Rafelo::DesignSystem::Internal::Thing\n"
+)
+unless internals_design_system_status.success?
+  warn "cops_canary: NoKernelInternals flagged design_system"
+  warn internals_design_system
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 10} cops"

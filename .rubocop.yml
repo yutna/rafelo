@@ -27,6 +27,7 @@ require:
   - ./script/ci/cops/rafelo/no_constantize
   - ./script/ci/cops/rafelo/date_formatter_only
   - ./script/ci/cops/rafelo/engine_table_prefix
+  - ./script/ci/cops/rafelo/no_kernel_internals
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -74,6 +75,11 @@ Rafelo/EngineTablePrefix:
   Enabled: true
   Include:
     - engines/*/db/migrate/**/*.rb
+Rafelo/NoKernelInternals:
+  Enabled: true
+  Include:
+    - app/**/*.rb
+    - engines/**/*.rb
 Rafelo/EnvOnlyInConfig:
   Enabled: true
   Exclude:
