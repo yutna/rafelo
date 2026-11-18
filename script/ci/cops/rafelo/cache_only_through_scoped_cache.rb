@@ -3,13 +3,15 @@
 module RuboCop
   module Cop
     module Rafelo
+      # Cached data goes through the scoped cache (BE-17).
       class CacheOnlyThroughScopedCache < Base
-        MSG = "Use Rafelo::Core::ScopedCache; only it and config/specs may call Rails.cache."
+        MSG = "Rafelo/CacheOnlyThroughScopedCache: use Rafelo::Core::ScopedCache; only it and specs may call Rails.cache (BE-17)."
 
         def on_send(node)
-          return unless node.source.start_with?("Rails.cache")
+          return unless node.source.match?(/\A(?:::)?Rails\.cache\b/)
+
           path = processed_source.file_path
-          return if path.end_with?("scoped_cache.rb") || path.include?("/config/")
+          return if path.end_with?("/scoped_cache.rb")
           return if path.include?("/spec/") && !path.include?("/spec/enforcement/fixtures/")
 
           add_offense(node)

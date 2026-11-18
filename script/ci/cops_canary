@@ -328,4 +328,71 @@ unless skip_enforcement_status.success?
   exit 1
 end
 
+faraday_named, faraday_named_status = stdin_run(
+  "Rafelo/FaradayOnlyInUpstreamClient", "engines/example_orders/app/models/upstream_client.rb",
+  "Faraday.new(\"http://example.test\")\n"
+)
+unless !faraday_named_status.success? && faraday_named.include?("Rafelo/FaradayOnlyInUpstreamClient")
+  warn "cops_canary: FaradayOnlyInUpstreamClient exempted a look-alike file"
+  warn faraday_named
+  exit 1
+end
+faraday_legal_client, faraday_legal_client_status = stdin_run(
+  "Rafelo/FaradayOnlyInUpstreamClient", "engines/core/app/models/rafelo/core/upstream_client.rb",
+  "Faraday.new(\"http://example.test\")\n"
+)
+unless faraday_legal_client_status.success?
+  warn "cops_canary: FaradayOnlyInUpstreamClient flagged the client"
+  warn faraday_legal_client
+  exit 1
+end
+
+tls_pair, tls_pair_status = stdin_run(
+  "Rafelo/NoTlsVerifyDisable", "app/models/tls_canary.rb",
+  "connection.ssl = { verify: false }\nconnection.ssl = { verify_mode: OpenSSL::SSL::VERIFY_NONE }\n"
+)
+unless !tls_pair_status.success? && tls_pair.scan("Rafelo/NoTlsVerifyDisable").length >= 2
+  warn "cops_canary: NoTlsVerifyDisable missed the hash forms"
+  warn tls_pair
+  exit 1
+end
+
+cache_config, cache_config_status = stdin_run(
+  "Rafelo/CacheOnlyThroughScopedCache", "config/initializers/cache_canary.rb",
+  "Rails.cache.fetch(\"x\") { 1 }\n::Rails.cache.fetch(\"x\") { 1 }\n"
+)
+unless !cache_config_status.success? && cache_config.include?("Rafelo/CacheOnlyThroughScopedCache")
+  warn "cops_canary: CacheOnlyThroughScopedCache exempted config or ::Rails.cache"
+  warn cache_config
+  exit 1
+end
+cache_scoped, cache_scoped_status = stdin_run(
+  "Rafelo/CacheOnlyThroughScopedCache", "engines/core/app/models/rafelo/core/scoped_cache.rb",
+  "Rails.cache.fetch(\"x\") { 1 }\n"
+)
+unless cache_scoped_status.success?
+  warn "cops_canary: CacheOnlyThroughScopedCache flagged the scoped cache"
+  warn cache_scoped
+  exit 1
+end
+
+return_fetch, return_fetch_status = stdin_run(
+  "Rafelo/ReturnToOnlyInValueObject", "app/controllers/return_canary_controller.rb",
+  "params.fetch(:return_to)\nparams[:return_to]\n"
+)
+unless !return_fetch_status.success? && return_fetch.scan("Rafelo/ReturnToOnlyInValueObject").length >= 2
+  warn "cops_canary: ReturnToOnlyInValueObject missed fetch or a non-fixture path"
+  warn return_fetch
+  exit 1
+end
+return_legal, return_legal_status = stdin_run(
+  "Rafelo/ReturnToOnlyInValueObject", "engines/core/app/models/rafelo/core/return_to.rb",
+  "params[:return_to]\nparams.fetch(:return_to)\n"
+)
+unless return_legal_status.success?
+  warn "cops_canary: ReturnToOnlyInValueObject flagged the value object"
+  warn return_legal
+  exit 1
+end
+
 warn "cops_canary: checked #{COPS.split(",").length + 11} cops"
