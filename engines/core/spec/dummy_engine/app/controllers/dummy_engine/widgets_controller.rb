@@ -43,7 +43,9 @@ module DummyEngine
         self,
         token: form.token,
         payload: form.payload,
-        back: "/en/dummy/widgets"
+        back: "/en/dummy/widgets",
+        session_id: Rafelo::Core::Current.session&.id,
+        viewer_id: Rafelo::Core::Current.viewer&.id
       ) do
         redirect_after_write("/en/dummy/widgets", notice: "Widget created.")
       end
@@ -96,7 +98,9 @@ module DummyEngine
         token_provider: Rafelo::Core::Current.token_provider,
         budget: Rafelo::Core::Current.call_budget ||= Rafelo::Core::CallBudget.default(deadline: request_deadline),
         request_id: Rafelo::Core::Current.request_id,
-        trace_id: Rafelo::Core::Current.trace_id
+        trace_id: Rafelo::Core::Current.trace_id,
+        trace_sampled: Rafelo::Core::Current.trace_sampled,
+        session: Rafelo::Core::Current.session
       ).get("forbidden")
     end
 

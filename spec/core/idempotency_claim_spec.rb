@@ -11,15 +11,14 @@ RSpec.describe Rafelo::Core::IdempotencyClaim do
     allow(controller).to receive(:redirect_after_write)
     allow(controller).to receive(:redirect_to)
 
-    Rafelo::Core::Current.session = session
-    first = described_class.call(controller, token: token, payload: { name: "ada" }, back: "/en/form") { :ok }
-    second = described_class.call(controller, token: token, payload: { name: "grace" }, back: "/en/form") { :ok }
+    first = described_class.call(controller, token: token, payload: { name: "ada" }, back: "/en/form",
+                                 session_id: session.id, viewer_id: viewer.id) { :ok }
+    second = described_class.call(controller, token: token, payload: { name: "grace" }, back: "/en/form",
+                                  session_id: session.id, viewer_id: viewer.id) { :ok }
 
     expect(first).to eq(:performed)
     expect(second).to eq(:handled)
     expect(controller).to have_received(:redirect_after_write).once
-  ensure
-    Rafelo::Core::Current.reset
   end
 
   it "keeps the row retention at least one session lifetime plus a margin" do
@@ -44,17 +43,14 @@ RSpec.describe Rafelo::Core::IdempotencyClaim do
     controller = double("controller", response: double(location: "/en/done"))
     allow(controller).to receive(:redirect_after_write)
     allow(controller).to receive(:redirect_to)
-    Rafelo::Core::Current.session = session
-
     expect do
       described_class.call(
         controller, token: token, payload: { name: "ada" }, back: "/en/form",
+        session_id: session.id, viewer_id: viewer.id,
         upstream_idempotent: upstream_idempotent
       ) { raise Rafelo::Core::ApplicationError.new("upstream.timeout") }
     end.to raise_error(Rafelo::Core::ApplicationError)
 
     Rafelo::Core::IdempotencyKey.find_by(token_digest: Digest::SHA256.hexdigest(token)).status
-  ensure
-    Rafelo::Core::Current.reset
   end
 end

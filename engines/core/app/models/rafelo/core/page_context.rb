@@ -2,6 +2,6 @@
 
 module Rafelo
   module Core
-    PageContext = Data.define(:viewer, :permissions, :flags, :locale, :request_id, :urls)
+    PageContext = Data.define(:viewer, :permissions, :flags, :locale, :request_id, :trace_id, :session_id, :urls)
   end
 end

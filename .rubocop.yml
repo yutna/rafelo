@@ -20,6 +20,7 @@ require:
   - ./script/ci/cops/rafelo/return_to_only_in_value_object
   - ./script/ci/cops/rafelo/env_only_in_config
   - ./script/ci/cops/rafelo/concurrency_only_in_executor
+  - ./script/ci/cops/rafelo/current_at_the_edge
 
 Rafelo/FaradayOnlyInUpstreamClient:
   Enabled: true
@@ -33,6 +34,11 @@ Rafelo/ReturnToOnlyInValueObject:
   Enabled: true
 Rafelo/ConcurrencyOnlyInExecutor:
   Enabled: true
+Rafelo/CurrentAtTheEdge:
+  Enabled: true
+  Exclude:
+    - spec/**/*
+    - engines/*/spec/**/*
 Rafelo/EnvOnlyInConfig:
   Enabled: true
   Include:

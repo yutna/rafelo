@@ -37,7 +37,8 @@ module Rafelo
         back = page_context.urls.route(:example_orders, :new_order)
         return redirect_after_write(back, errors: form.error_messages) if form.invalid?
 
-        Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back) do |idempotency_key|
+        Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back,
+                                        session_id: Rafelo::Core::Current.session&.id, viewer_id: Rafelo::Core::Current.viewer&.id) do |idempotency_key|
           order = gateway(OrdersGateway).create(payload: form.payload, idempotency_key: idempotency_key)
           request.env["rafelo.audit.upstream_id"] = order.id.to_s
           redirect_after_write(
@@ -67,7 +68,8 @@ module Rafelo
         form.errors.add(:version, :blank) if form.version.blank?
         return redirect_after_write(back, errors: form.error_messages) if form.errors.any? || form.invalid?
 
-        Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back) do |idempotency_key|
+        Rafelo::Core::IdempotencyClaim.call(self, token: form.token, payload: form.payload, back: back,
+                                        session_id: Rafelo::Core::Current.session&.id, viewer_id: Rafelo::Core::Current.viewer&.id) do |idempotency_key|
           order = gateway(OrdersGateway).update(
             id: params[:id],
             payload: form.payload.except(:version),
@@ -92,7 +94,9 @@ module Rafelo
         authorize :order, :export?, policy_class: OrderPolicy
         back = page_context.urls.route(:example_orders, :orders)
         Rafelo::Core::IdempotencyClaim.call(
-          self, token: params[:token], payload: { status: params[:status].presence }, back: back
+          self, token: params[:token], payload: { status: params[:status].presence }, back: back,
+          session_id: Rafelo::Core::Current.session&.id,
+          viewer_id: Rafelo::Core::Current.viewer&.id
         ) do
           export = Rafelo::Core::Export.build_for(
             viewer: Rafelo::Core::Current.viewer,

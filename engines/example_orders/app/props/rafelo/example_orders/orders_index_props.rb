@@ -25,7 +25,7 @@ module Rafelo
             nextHref: @query.page < page_count ? page_href(@query.page + 1) : nil,
             chart: InertiaRails.defer { chart }
           },
-          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: @context.session_id) },
           query: @query.to_h,
           pagination: {
             kind: "offset",

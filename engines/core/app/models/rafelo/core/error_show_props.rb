@@ -14,7 +14,7 @@ module Rafelo
             code: @error.code,
             message: @error.message,
             requestId: @context.request_id.to_s,
-            traceId: (Current.trace_id.to_s.presence || @context.request_id.to_s),
+            traceId: (@context.trace_id.to_s.presence || @context.request_id.to_s),
             retryable: @error.retryable?
           },
           meta: {},

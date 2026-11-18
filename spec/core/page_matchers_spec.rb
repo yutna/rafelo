@@ -126,6 +126,8 @@ RSpec.describe "Page matchers", type: :request do
         flags: {},
         locale: :en,
         request_id: "request-1",
+        trace_id: "trace-1",
+        session_id: nil,
         urls: Rafelo::Core::Urls.new(locale: :en)
       )
     end

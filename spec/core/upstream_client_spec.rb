@@ -290,10 +290,12 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       viewer: viewer, access_token: "access", refresh_token: "refresh",
       access_expires_at: 5.minutes.from_now, grants: [ "billing:invoice:read" ]
     )
-    Rafelo::Core::Current.session = session
+    forbidden = described_class.new(name: :test_api, config: config, token_provider: token,
+                                    request_id: "request-1", trace_id: "a" * 32, trace_sampled: false,
+                                    session: session)
     stub_request(:get, "http://upstream.test/invoices").to_return(status: 403, body: "{}")
 
-    expect { client.get("invoices") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("auth.forbidden") }
+    expect { forbidden.get("invoices") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("auth.forbidden") }
 
     session.reload
     expect(session.grants_generation).to eq(1)

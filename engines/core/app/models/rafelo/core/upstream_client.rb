@@ -16,20 +16,23 @@ module Rafelo
       end
       self.transaction_baseline = 0
 
-      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, trace_sampled: nil, deadline: nil, kind: :page)
+      def self.for(name, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil,
+                   trace_sampled: false, session: nil, deadline: nil, kind: :page)
         new(name: name, config: config, token_provider: token_provider, budget: budget,
             request_id: request_id, trace_id: trace_id, trace_sampled: trace_sampled,
-            deadline: deadline, kind: kind)
+            session: session, deadline: deadline, kind: kind)
       end
 
-      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil, trace_sampled: nil, deadline: nil, kind: :page)
+      def initialize(name:, config:, token_provider:, budget: nil, request_id: nil, trace_id: nil,
+                     trace_sampled: false, session: nil, deadline: nil, kind: :page)
         @name = name.to_sym
         @config = config
         @token_provider = token_provider
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
-        @trace_sampled = trace_sampled.nil? ? Current.trace_sampled == true : trace_sampled
+        @trace_sampled = trace_sampled == true
+        @session = session
         @kind = kind.to_sym
         @deadline = deadline || RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
@@ -280,7 +283,7 @@ module Rafelo
         when 200..299, 304 then return response
         when 401 then "auth.expired"
         when 403
-          Current.session&.mark_grants_stale!
+          @session&.mark_grants_stale!
           "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"

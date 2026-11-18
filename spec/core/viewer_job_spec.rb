@@ -10,11 +10,11 @@ RSpec.describe Rafelo::Core::ViewerJob do
       def perform(session_id)
         with_viewer_session(session_id) do
           self.class.seen = {
-            viewer: Rafelo::Core::Current.viewer.id,
-            token: Rafelo::Core::Current.token_provider.token,
+            viewer: job_session.viewer.id,
+            token: job_token_provider.token,
             locale: I18n.locale
           }
-          @second_token = Rafelo::Core::Current.token_provider.token
+          @second_token = job_token_provider.token
         end
       end
     end
@@ -107,11 +107,11 @@ RSpec.describe Rafelo::Core::ViewerJob do
           client = Rafelo::Core::UpstreamClient.new(
             name: :api,
             config: Rails.application.config.x.upstreams.fetch(:api).with(base_url: "http://127.0.0.1:#{port}"),
-            token_provider: Rafelo::Core::Current.token_provider,
-            budget: Rafelo::Core::Current.call_budget,
-            deadline: Rafelo::Core::Current.call_budget.deadline,
-            request_id: Rafelo::Core::Current.request_id,
-            trace_id: Rafelo::Core::Current.trace_id
+            token_provider: job_token_provider,
+            budget: job_budget,
+            deadline: job_budget.deadline,
+            request_id: rafelo_request_id,
+            trace_id: rafelo_trace_id
           )
           client.get("slow")
         end

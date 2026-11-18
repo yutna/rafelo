@@ -9,7 +9,7 @@ module Rafelo
             createPath: context.urls.route(:example_orders, :orders),
             indexPath: context.urls.route(:example_orders, :orders)
           },
-          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: @context.session_id) },
           query: {},
           pagination: nil,
           can: {}

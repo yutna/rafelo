@@ -23,10 +23,10 @@ module Rafelo
       def fetch_orders(status)
         query = Rafelo::Core::ListQuery.from({ per_page: "100", status: status }, sort: %w[number])
         gateway = OrdersGateway.new(
-          token_provider: Rafelo::Core::Current.token_provider,
-          budget: Rafelo::Core::Current.call_budget,
-          request_id: Rafelo::Core::Current.request_id,
-          trace_id: Rafelo::Core::Current.trace_id
+          token_provider: job_token_provider,
+          budget: job_budget,
+          request_id: rafelo_request_id,
+          trace_id: rafelo_trace_id
         )
         orders = []
         page = 1

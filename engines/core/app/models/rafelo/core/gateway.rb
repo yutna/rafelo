@@ -34,7 +34,7 @@ module Rafelo
 
       attr_reader :budget, :request_id, :trace_id
 
-      def initialize(token_provider:, budget:, request_id:, trace_id:)
+      def initialize(token_provider:, budget:, request_id:, trace_id:, trace_sampled: false, session: nil)
         expected_service = self.class.token == :service
         unless token_provider.respond_to?(:service?) && token_provider.service? == expected_service
           raise ArgumentError, "#{self.class.name} requires a #{expected_service ? 'service' : 'viewer'} token provider"
@@ -43,6 +43,8 @@ module Rafelo
         @budget = budget
         @request_id = request_id
         @trace_id = trace_id
+        @trace_sampled = trace_sampled
+        @session = session
       end
 
       def client
@@ -53,6 +55,8 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
+          trace_sampled: @trace_sampled,
+          session: @session,
           deadline: @budget.respond_to?(:deadline) ? @budget.deadline : nil
         )
       end
