@@ -153,6 +153,20 @@ done
 # current stylesheet.
 ( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null && npm run format >/dev/null )
 ( cd "$work/smoke_shop_prev" && bin/rubocop -A engines/legacy_check spec/requests/legacy_check >/dev/null )
+# The generated module's permission keys must exist in the central fake
+# upstream, exactly as an adopter adds its own keys; align the fixture here.
+"$ruby_bin" -rjson -ryaml -e '
+  root, module_name = ARGV
+  grants_path = File.join(root, "engines/core/spec/fixtures/upstream/api/grants.json")
+  manifest = YAML.load_file(File.join(root, "engines", module_name, "config/permissions.yml"))
+  grants = JSON.parse(File.read(grants_path)).fetch("grants")
+  manifest.each do |prefix, resources|
+    resources.each do |resource, actions|
+      actions.each { |action| grants << "#{prefix}:#{resource}:#{action}" }
+    end
+  end
+  File.write(grants_path, JSON.pretty_generate("grants" => grants.uniq.sort) + "\n")
+' "$work/smoke_shop_prev" legacy_check
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
       commit -q -m "chore: update the kernel to v$version" )
