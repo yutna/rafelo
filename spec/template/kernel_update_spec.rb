@@ -196,11 +196,11 @@ RSpec.describe "bin/kernel_update" do
   it "migrates only known generated props and controllers, never custom ones" do
     base = {
       "engines/legacy/app/props/legacy/widgets_new_props.rb" =>
-        "class WidgetsNewProps < Rafelo::Core::PageProps\n  def envelope\n    {\n      data: { createPath: context.urls.route(:legacy, :widgets), indexPath: context.urls.route(:legacy, :widgets) },\n      meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n      query: {},\n      pagination: nil,\n      can: {}\n    }\n  end\nend\n",
+        "# frozen_string_literal: true\n\nmodule Rafelo::Legacy\n  class WidgetsNewProps < Rafelo::Core::PageProps\n    def envelope\n      {\n        data: {\n          createPath: context.urls.route(:legacy, :widgets),\n          indexPath: context.urls.route(:legacy, :widgets)\n        },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
       "engines/legacy/app/controllers/legacy/widgets_controller.rb" =>
         "class WidgetsController < Rafelo::Core::BaseController\n  layout \"application\"\n  def create\n  end\nend\n",
       "engines/custom/app/props/custom/thing_new_props.rb" =>
-        "class ThingNewProps < Rafelo::Core::PageProps\n  def envelope\n    {\n      meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n      chart: {}\n    }\n  end\nend\n",
+        "# frozen_string_literal: true\n\nmodule Rafelo::Custom\n  class ThingNewProps < Rafelo::Core::PageProps\n    include SomeFormatting\n    def envelope\n      {\n        data: { createPath: context.urls.route(:custom, :things), indexPath: context.urls.route(:custom, :things) },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n",
       "engines/custom/app/controllers/custom/thing_controller.rb" =>
         "class ThingController < Rafelo::Core::BaseController\n  layout \"application\"\n  before_action :authenticate\n  def create\n  end\nend\n"
     }
@@ -211,7 +211,7 @@ RSpec.describe "bin/kernel_update" do
           write_release(target_root, version: "0.2.0", files: base)
           local = base.dup
           local["engines/custom/app/props/custom/thing_new_props.rb"] =
-            "class ThingNewProps < Rafelo::Core::PageProps\n  def envelope\n    {\n      meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n      chart: {}\n    }\n  end\nend\n"
+            "# frozen_string_literal: true\n\nmodule Rafelo::Custom\n  class ThingNewProps < Rafelo::Core::PageProps\n    include SomeFormatting\n    def envelope\n      {\n        data: { createPath: context.urls.route(:custom, :things), indexPath: context.urls.route(:custom, :things) },\n        meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },\n        query: {},\n        pagination: nil,\n        can: {}\n      }\n    end\n  end\nend\n"
           write_app(app_root, version: "0.1.0", files: local)
 
           _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root,
@@ -224,7 +224,7 @@ RSpec.describe "bin/kernel_update" do
           expect(controller).to include("throttle to: 30")
           custom_props = File.read(File.join(app_root, "engines/custom/app/props/custom/thing_new_props.rb"))
           expect(custom_props).to include("Rafelo::Core::Current.session&.id")
-          expect(custom_props).to include("chart: {}")
+          expect(custom_props).to include("include SomeFormatting")
           custom_controller = File.read(File.join(app_root, "engines/custom/app/controllers/custom/thing_controller.rb"))
           expect(custom_controller).not_to include("throttle to:")
         end
