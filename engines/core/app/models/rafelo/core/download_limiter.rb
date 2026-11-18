@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "concurrent"
-
 module Rafelo
   module Core
     class DownloadLimiter
@@ -15,13 +13,13 @@ module Rafelo
         end
 
         def reset!
-          @semaphore = nil
+          Executor.reset_semaphores!
         end
 
         private
 
         def semaphore
-          @semaphore ||= Concurrent::Semaphore.new(Rails.application.config.x.downloads.max_concurrent)
+          Executor.semaphore(Rails.application.config.x.downloads.max_concurrent)
         end
       end
     end
