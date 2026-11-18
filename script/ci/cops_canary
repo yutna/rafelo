@@ -290,6 +290,8 @@ skip_bad_source = <<~RUBY
     Prosopite.pause
     it "d", prosopite: false do
     end
+    describe "e", :skip do
+    end
   end
 RUBY
 skip_bad, skip_bad_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_bad_source)
@@ -309,6 +311,8 @@ skip_legal_source = <<~RUBY
     pending #123
     Prosopite.pause # https://github.com/yutna/rafelo/issues/123
     it "d", prosopite: false do #123
+    end
+    describe "e", :skip do #123
     end
   end
 RUBY
@@ -378,9 +382,9 @@ end
 
 return_fetch, return_fetch_status = stdin_run(
   "Rafelo/ReturnToOnlyInValueObject", "app/controllers/return_canary_controller.rb",
-  "params.fetch(:return_to)\nparams[:return_to]\n"
+  "params.fetch(:return_to)\nparams[:return_to]\nparams.dig(:page, :return_to)\n"
 )
-unless !return_fetch_status.success? && return_fetch.scan("Rafelo/ReturnToOnlyInValueObject").length >= 2
+unless !return_fetch_status.success? && return_fetch.scan("Rafelo/ReturnToOnlyInValueObject").length >= 3
   warn "cops_canary: ReturnToOnlyInValueObject missed fetch or a non-fixture path"
   warn return_fetch
   exit 1

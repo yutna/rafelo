@@ -7,7 +7,7 @@ module RuboCop
       class SkipNeedsIssue < Base
         MSG = "Rafelo/SkipNeedsIssue: add #<issue> or an issue URL on the same line (TS-05)."
         SKIP_METHODS = %i[skip pending xit xspecify xexample xdescribe xcontext].freeze
-        EXAMPLE_METHODS = %i[it specify example].freeze
+        EXAMPLE_METHODS = %i[it specify example describe context feature scenario].freeze
         SKIP_METADATA = %i[skip pending].freeze
         RESTRICT_ON_SEND = (SKIP_METHODS + EXAMPLE_METHODS + [ :pause ]).freeze
 
