@@ -146,4 +146,23 @@ unless page_context_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 5} cops"
+permission_bad, permission_bad_status = stdin_run(
+  "Rafelo/NoPermissionLiterals", "app/policies/permission_canary_policy.rb",
+  "permissions.allows?(\"orders:read\")\n"
+)
+unless !permission_bad_status.success? && permission_bad.include?("Rafelo/NoPermissionLiterals")
+  warn "cops_canary: NoPermissionLiterals did not report the string fixture"
+  warn permission_bad
+  exit 1
+end
+permission_legal, permission_legal_status = stdin_run(
+  "Rafelo/NoPermissionLiterals", "engines/example_orders/app/policies/rafelo/example_orders/order_policy.rb",
+  "permissions.allows?(Rafelo::ExampleOrders::Permissions::ORDER_READ)\n"
+)
+unless permission_legal_status.success?
+  warn "cops_canary: NoPermissionLiterals flagged the generated constant"
+  warn permission_legal
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 6} cops"
