@@ -233,7 +233,7 @@ module KernelUpdate
         next if KernelUpdate.untouched?(relative)
 
         body = File.read(path)
-        next unless generated_props?(body)
+        next unless generated_props?(body, path)
 
         File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
         results << Result.new(relative: relative, status: "migrated")
@@ -262,29 +262,30 @@ module KernelUpdate
       end
     end
 
-    PROPS_KEYS = %w[
-      data meta query pagination can formToken createPath indexPath items newHref
-      exportPath filterHrefs previousHref nextHref chart id name updatePath showPath
-    ].freeze
-
-    def generated_props?(body)
+    def generated_props?(body, path)
+      action = File.basename(path)[/_(new|edit)_props\.rb\z/, 1]
+      return false unless action
       return false unless body.match?(/class \w+Props < Rafelo::Core::PageProps/)
       return false unless body.include?("meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },")
 
       methods = body.scan(/^\s+def (\w+)/).flatten
-      return false unless (methods - %w[initialize envelope]).empty?
+      allowed_methods = action == "edit" ? %w[initialize envelope] : %w[envelope]
+      return false unless methods == allowed_methods
 
       keys = body.scan(/^\s{6,}([a-z_]+):/).flatten.uniq
-      (keys - PROPS_KEYS).empty?
+      allowed = %w[data meta query pagination can formToken]
+      allowed += action == "new" ? %w[createPath indexPath] : %w[updatePath showPath]
+      allowed << File.basename(path).sub(/_edit_props\.rb\z/, "").singularize if action == "edit"
+      (keys - allowed).empty?
     end
 
     def generated_controller?(body)
       return false unless body.match?(/class \w+Controller < Rafelo::Core::BaseController/)
       return false unless body.include?('layout "application"')
+      return false if body.match?(/^\s*(before_action|after_action|around_action|attr_|private|include|extend)\b/)
 
       methods = body.scan(/^\s+def (\w+)/).flatten
-      return false unless methods.include?("create")
-      (methods - %w[index show new create edit update]).empty?
+      methods.include?("create") && (methods - %w[index show new create edit update]).empty?
     end
 
     def conflicts?
