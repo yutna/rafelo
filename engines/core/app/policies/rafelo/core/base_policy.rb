@@ -5,6 +5,8 @@ module Rafelo
     class BasePolicy
       attr_reader :user, :record
 
+      PolicyUser = Data.define(:viewer, :permissions)
+
       def initialize(user, record = nil, permissions: nil)
         @user = user
         @record = record
@@ -15,7 +17,7 @@ module Rafelo
         return @permissions if @permissions
         return user.permissions if user.respond_to?(:permissions)
 
-        Current.permissions
+        raise ArgumentError, "a policy needs permissions on its user"
       end
 
       def index? = false

@@ -187,7 +187,9 @@ module Rafelo
                 self,
                 token: form.token,
                 payload: form.payload,
-                back: back
+                back: back,
+                session_id: Rafelo::Core::Current.session&.id,
+                viewer_id: Rafelo::Core::Current.viewer&.id
               ) do |idempotency_key|
                 created = gateway(#{module_class}::#{resource_plural.camelize}Gateway).create(
                   payload: form.payload, idempotency_key: idempotency_key
@@ -226,7 +228,9 @@ module Rafelo
                 self,
                 token: form.token,
                 payload: form.payload.merge(id: params[:id].to_s),
-                back: back
+                back: back,
+                session_id: Rafelo::Core::Current.session&.id,
+                viewer_id: Rafelo::Core::Current.viewer&.id
               ) do |idempotency_key|
                 updated = gateway(#{module_class}::#{resource_plural.camelize}Gateway).update(
                   id: params[:id].to_s, payload: form.payload, idempotency_key: idempotency_key
@@ -424,7 +428,7 @@ module Rafelo
                       createPath: context.urls.route(:#{mod}, :#{resource_plural}),
                       indexPath: context.urls.route(:#{mod}, :#{resource_plural})
                     },
-                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
                     pagination: nil,
                     can: {}
@@ -453,7 +457,7 @@ module Rafelo
                       updatePath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
                       showPath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
                     },
-                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+                    meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
                     pagination: nil,
                     can: {}

@@ -80,7 +80,9 @@ module Rafelo
           token_provider: Current.token_provider,
           budget: budget,
           request_id: Current.request_id,
-          trace_id: Current.trace_id
+          trace_id: Current.trace_id,
+          trace_sampled: Current.trace_sampled,
+          session: Current.session
         )
       end
 
@@ -120,7 +122,8 @@ module Rafelo
         Current.session = session
         Current.viewer = Viewer.new(id: session.viewer_id, name: session.viewer_name.to_s)
         Current.permissions = PermissionSet.new(session.permission_grants)
-        Current.token_provider = ViewerTokenProvider.new(session)
+        Current.token_provider = viewer_token_provider(session)
+        request.env["rafelo.viewer_id"] = session.viewer_id.to_s
         request.env["rafelo.log.viewer"] = LogPayload.opaque_viewer(session.viewer_id)
       end
 
@@ -128,6 +131,19 @@ module Rafelo
         return unless Current.session
 
         refresh_session!
+      end
+
+      def viewer_token_provider(session)
+        ViewerTokenProvider.new(
+          session,
+          request_id: request.request_id,
+          trace_id: Current.trace_id,
+          budget: Current.call_budget,
+          deadline: request_deadline,
+          on_refresh: lambda do |refreshed|
+            Current.permissions = refreshed.permission_set if Current.session&.id == refreshed.id
+          end
+        )
       end
 
       def refresh_session!
@@ -145,7 +161,7 @@ module Rafelo
           wait: Rails.application.config.x.sessions.refresh_timeout_seconds + 2,
           deadline: request_deadline
         ).call
-        Current.token_provider = ViewerTokenProvider.new(Current.session.reload)
+        Current.token_provider = viewer_token_provider(Current.session.reload)
         Current.permissions = Current.session.permission_set
       rescue ApplicationError => error
         raise if error.code == "auth.expired"
@@ -163,6 +179,7 @@ module Rafelo
       def clear_session!
         Current.session&.destroy
         Current.session = nil
+        request.env["rafelo.viewer_id"] = nil
         Current.viewer = nil
         Current.permissions = nil
         Current.token_provider = nil
@@ -191,7 +208,10 @@ module Rafelo
 
       def page_context
         @page_context ||= PageContextFactory.build(
-          session: Current.session,
+          viewer: Current.viewer,
+          permissions: Current.permissions,
+          trace_id: Current.trace_id,
+          session_id: Current.session&.id,
           flags: Flags.current,
           locale: I18n.locale,
           request_id: Current.request_id,
@@ -217,7 +237,7 @@ module Rafelo
       end
 
       def pundit_user
-        Current.viewer
+        Rafelo::Core::BasePolicy::PolicyUser.new(viewer: Current.viewer, permissions: Current.permissions)
       end
 
       def deny_access(error = nil)

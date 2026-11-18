@@ -21,7 +21,7 @@ module Rafelo
             updatePath: context.urls.route(:example_orders, :order, id: @order.id),
             showPath: context.urls.route(:example_orders, :order, id: @order.id)
           },
-          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
+          meta: { formToken: Rafelo::Core::FormToken.issue(session_id: @context.session_id) },
           query: {},
           pagination: nil,
           can: {}

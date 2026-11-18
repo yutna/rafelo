@@ -22,7 +22,7 @@ module Rafelo
       def trace
         {
           requestId: @context.request_id.to_s,
-          traceId: Current.trace_id.to_s.presence || @context.request_id.to_s
+          traceId: @context.trace_id.to_s.presence || @context.request_id.to_s
         }
       end
 

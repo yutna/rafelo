@@ -78,4 +78,36 @@ unless concurrency_spec_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 2} cops"
+current_bad, current_bad_status = stdin_run("Rafelo/CurrentAtTheEdge", "app/models/current_canary.rb",
+                                            "Current.trace_id\n")
+unless !current_bad_status.success? && current_bad.include?("Rafelo/CurrentAtTheEdge")
+  warn "cops_canary: CurrentAtTheEdge did not report the app fixture"
+  warn current_bad
+  exit 1
+end
+current_controller, current_controller_status = stdin_run(
+  "Rafelo/CurrentAtTheEdge", "app/controllers/current_canary_controller.rb", "Current.viewer\n"
+)
+unless current_controller_status.success?
+  warn "cops_canary: CurrentAtTheEdge flagged a controller"
+  warn current_controller
+  exit 1
+end
+current_job, current_job_status = stdin_run(
+  "Rafelo/CurrentAtTheEdge", "engines/core/app/jobs/rafelo/core/base_job.rb", "Current.request_id\n"
+)
+unless current_job_status.success?
+  warn "cops_canary: CurrentAtTheEdge flagged BaseJob"
+  warn current_job
+  exit 1
+end
+current_middleware, current_middleware_status = stdin_run(
+  "Rafelo/CurrentAtTheEdge", "engines/core/lib/rafelo/core/trace_middleware.rb", "Current.trace_id = 1\n"
+)
+unless current_middleware_status.success?
+  warn "cops_canary: CurrentAtTheEdge flagged middleware"
+  warn current_middleware
+  exit 1
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 3} cops"

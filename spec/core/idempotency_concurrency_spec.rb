@@ -26,7 +26,7 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
 
     first = Thread.new do
       Rafelo::Core::Current.set(session: current_session) do
-        Rafelo::Core::IdempotencyClaim.call(first_controller, token: token, payload: { name: "ada" }, back: "/en/form") do
+        Rafelo::Core::IdempotencyClaim.call(first_controller, token: token, payload: { name: "ada" }, back: "/en/form", session_id: current_session.id, viewer_id: 7) do
           entered.count_down
           release.wait(5)
           :ok
@@ -38,7 +38,7 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
 
     second = Thread.new do
       Rafelo::Core::Current.set(session: current_session) do
-        Rafelo::Core::IdempotencyClaim.call(second_controller, token: token, payload: { name: "ada" }, back: "/en/form") { :ok }
+        Rafelo::Core::IdempotencyClaim.call(second_controller, token: token, payload: { name: "ada" }, back: "/en/form", session_id: current_session.id, viewer_id: 7) { :ok }
       end
     end
     expect(second.value).to eq(:performed)
@@ -65,7 +65,7 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
 
     first = Thread.new do
       Rafelo::Core::Current.set(session: current_session) do
-        results << Rafelo::Core::IdempotencyClaim.call(controller, token: token, payload: { name: "ada" }, back: "/en/form") do
+        results << Rafelo::Core::IdempotencyClaim.call(controller, token: token, payload: { name: "ada" }, back: "/en/form", session_id: current_session.id, viewer_id: 7) do
           entered.count_down
           release.wait(5)
           :ok
@@ -76,7 +76,7 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
 
     second = Thread.new do
       Rafelo::Core::Current.set(session: current_session) do
-        results << Rafelo::Core::IdempotencyClaim.call(controller, token: token, payload: { name: "ada" }, back: "/en/form") { :ok }
+        results << Rafelo::Core::IdempotencyClaim.call(controller, token: token, payload: { name: "ada" }, back: "/en/form", session_id: current_session.id, viewer_id: 7) { :ok }
       end
     end
     second.value
@@ -102,7 +102,8 @@ RSpec.describe "Idempotency claim concurrency", :concurrency, truncate: %w[core_
         Rafelo::Core::Current.set(session: current_session) do
           start.wait
           results << Rafelo::Core::IdempotencyClaim.call(
-            controller, token: token, payload: { name: "ada" }, back: "/en/form"
+            controller, token: token, payload: { name: "ada" }, back: "/en/form",
+            session_id: current_session.id, viewer_id: 7
           ) { :ok }
         end
       end

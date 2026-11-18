@@ -17,17 +17,17 @@ module Rafelo
 
       def self.record(controller:, event:, outcome:, target: nil, viewer_id: nil, resource: nil,
                       action: nil, upstream_id: nil, policy: nil, page: nil)
-        return if Current.audit_recorded
-
         request = controller.request
+        return if request.env["rafelo.audit_recorded"]
+
         AuditEvent.create!(
           occurred_at: Time.current,
           event: event,
           outcome: outcome,
           target: target.to_s.presence,
-          viewer_id: (viewer_id || Current.viewer&.id)&.to_s,
-          request_id: Current.request_id.to_s.presence || request.request_id,
-          trace_id: Current.trace_id.to_s.presence || request.env["rafelo.trace_id"].to_s.presence || request.request_id,
+          viewer_id: (viewer_id || request.env["rafelo.viewer_id"])&.to_s,
+          request_id: request.request_id.to_s.presence || "unknown",
+          trace_id: request.env["rafelo.trace_id"].to_s.presence || request.request_id,
           ip: truncate_ip(request.remote_ip),
           user_agent_family: family(request.user_agent),
           resource: resource || inferred_resource(controller),
@@ -38,7 +38,7 @@ module Rafelo
           created_at: Time.current,
           format_version: AuditEvent::FORMAT_VERSION
         )
-        Current.audit_recorded = true
+        request.env["rafelo.audit_recorded"] = true
       end
 
       def self.inferred_resource(controller)

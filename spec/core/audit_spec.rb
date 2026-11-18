@@ -21,9 +21,6 @@ RSpec.describe Rafelo::Core::AuditRecorder do
   it "writes one row per request even when called twice" do
     request = double("request", request_id: request_id, remote_ip: "203.0.113.7", user_agent: "Chrome/140.0", path: "/en", env: {})
     controller = double("controller", request: request)
-    Rafelo::Core::Current.request_id = request_id
-    Rafelo::Core::Current.trace_id = "trace-1"
-
     2.times do
       described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
     end
@@ -40,7 +37,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
     expect do
       described_class.record(controller: controller, event: "write", outcome: "success", target: "/en/done")
     end.to raise_error(ActiveRecord::StatementInvalid)
-    expect(Rafelo::Core::Current.audit_recorded).to be_falsey
+    expect(request.env["rafelo.audit_recorded"]).to be_falsey
   end
 
   it "records the audit format version" do

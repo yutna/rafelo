@@ -3,13 +3,15 @@
 module Rafelo
   module Core
     class PageContextFactory
-      def self.build(session:, flags:, locale:, request_id:, urls:)
+      def self.build(viewer:, permissions:, trace_id:, session_id:, flags:, locale:, request_id:, urls:)
         PageContext.new(
-          viewer: session&.viewer || Current.viewer,
-          permissions: session&.permission_set || Current.permissions,
+          viewer: viewer,
+          permissions: permissions,
           flags: flags,
           locale: locale,
           request_id: request_id,
+          trace_id: trace_id,
+          session_id: session_id,
           urls: urls
         )
       end

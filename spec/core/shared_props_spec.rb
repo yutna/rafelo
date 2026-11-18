@@ -10,6 +10,8 @@ RSpec.describe Rafelo::Core::SharedProps do
       flags: {},
       locale: :th,
       request_id: "request-1",
+      trace_id: "trace-1",
+      session_id: nil,
       urls: Rafelo::Core::Urls.new(locale: :th, router: Class.new.new)
     )
   end
@@ -30,12 +32,8 @@ RSpec.describe Rafelo::Core::SharedProps do
     )
   end
 
-  it "builds trace from the response ids" do
-    Rafelo::Core::Current.trace_id = "trace-1"
-
+  it "builds trace from the context ids" do
     expect(props.trace).to eq(requestId: "request-1", traceId: "trace-1")
-  ensure
-    Rafelo::Core::Current.trace_id = nil
   end
 
   it "keeps shared props inside their byte budget" do

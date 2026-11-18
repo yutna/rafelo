@@ -101,7 +101,10 @@ RSpec.describe Rafelo::Core::BaseController do
   it "builds a page context through the factory" do
     urls = Rafelo::Core::Urls.new(locale: :en, router: double("router"))
     context = Rafelo::Core::PageContextFactory.build(
-      session: nil,
+      viewer: nil,
+      permissions: nil,
+      trace_id: nil,
+      session_id: nil,
       flags: { search: true },
       locale: :en,
       request_id: "request-1",

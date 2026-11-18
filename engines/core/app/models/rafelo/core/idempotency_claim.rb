@@ -11,21 +11,27 @@ module Rafelo
       AMBIGUOUS = %w[upstream.timeout upstream.unavailable upstream.circuit_open unexpected].freeze
       STALE_MARGIN = 5
 
-      def self.call(controller, token:, payload:, back:, upstream_idempotent: false, &block)
+      def self.call(controller, token:, payload:, back:, session_id: nil, viewer_id: nil,
+                    upstream_idempotent: false, &block)
         new(
           controller: controller,
           token: token,
           payload: payload,
           back: back,
+          session_id: session_id,
+          viewer_id: viewer_id,
           upstream_idempotent: upstream_idempotent
         ).call(&block)
       end
 
-      def initialize(controller:, token:, payload:, back:, upstream_idempotent: false)
+      def initialize(controller:, token:, payload:, back:, session_id: nil, viewer_id: nil,
+                     upstream_idempotent: false)
         @controller = controller
         @token = token.to_s
         @payload = payload
         @back = back
+        @session_id = session_id
+        @viewer_id = viewer_id&.to_s
         @upstream_idempotent = upstream_idempotent
       end
 
@@ -53,12 +59,12 @@ module Rafelo
       attr_reader :controller, :payload, :back
 
       def valid_token?
-        @token_data = FormToken.verify(@token, session_id: Current.session&.id)
+        @token_data = FormToken.verify(@token, session_id: @session_id)
         @token_data.present?
       end
 
       def viewer_id
-        @viewer_id ||= Current.session&.viewer_id.to_s
+        @viewer_id ||= Session.find_by(id: @session_id)&.viewer_id.to_s
       end
 
       def token_digest
