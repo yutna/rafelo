@@ -32,6 +32,10 @@ logline "started"
 no_progress=0
 while true; do
   if [ -f "$state/STOP" ]; then stop_supervisor; fi
+  if [ -f "$state/NEEDS_OWNER" ]; then
+    logline "paused for owner: $(cat "$state/NEEDS_OWNER")"
+    exit 0
+  fi
   if [ -f "$state/DONE" ]; then
     if docs/development/supervisor/final_audit.sh >>"$log" 2>&1; then
       logline "DONE verified"
@@ -51,15 +55,23 @@ Previous supervisor state:
 $(cat "$state/STATE.md")"
   fi
   if [ "$no_progress" -ge 3 ]; then
-    prompt="$prompt
-
-No repository progress was detected in the last $no_progress runs. Rebuild state, find the exact blocker, create a Backlog issue if it needs the owner, and continue with a different unblocked issue."
+    printf 'no progress\n' > "$state/NEEDS_OWNER"
+    logline "paused: no progress in $no_progress runs"
+    exit 0
   fi
 
+  start_line="$(wc -l < "$log")"
   logline "run start"
   timeout --signal=TERM --kill-after=60s 10800 \
     opencode run --auto --archived --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
   rc=$?
+  run_output="$(tail -n +"$((start_line + 1))" "$log")"
+  if printf '%s\n' "$run_output" | grep -q "OWNER DECISION NEEDED #[0-9][0-9]*"; then
+    issue="$(printf '%s\n' "$run_output" | grep -o "OWNER DECISION NEEDED #[0-9][0-9]*" | tail -1 | grep -o '[0-9][0-9]*')"
+    printf 'OWNER DECISION NEEDED #%s\n' "$issue" > "$state/NEEDS_OWNER"
+    logline "paused for owner issue #$issue"
+    exit 0
+  fi
   after="$(state_hash)"
   if [ "$before" = "$after" ]; then
     no_progress=$((no_progress + 1))
