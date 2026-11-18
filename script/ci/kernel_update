@@ -211,6 +211,7 @@ module KernelUpdate
     end
 
     def run
+      load_app_inflections
       paths.each do |path|
         fresh = @target.files_under(path) - @base.files_under(path)
         stale = @base.files_under(path) - @target.files_under(path)
@@ -476,12 +477,17 @@ module KernelUpdate
       body.lines.map(&:strip).reject(&:empty?).join("\n")
     end
 
+    def load_app_inflections
+      path = File.join(@root, "config/initializers/inflections.rb")
+      load path if File.file?(path)
+    end
+
     def module_class_from(body, mod)
       module_class = body[/^module ([A-Z]\w*(?:::[A-Z]\w*)*)$/, 1]
       return unless module_class
-      return unless module_class == camelize(mod) || module_class.end_with?("::#{camelize(mod)}")
 
-      module_class
+      expected = "#{@namespace}::#{camelize(mod)}"
+      module_class if module_class == expected
     end
 
     def camelize(name)
