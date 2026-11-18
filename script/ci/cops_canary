@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "fileutils"
 require "open3"
 
 ROOT = File.expand_path(Dir.pwd)
@@ -213,4 +214,40 @@ unless date_legal_status.success?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 8} cops"
+legacy_engine = File.join(ROOT, "engines", "smoke_legacy_canary")
+begin
+  FileUtils.mkdir_p(File.join(legacy_engine, "db", "migrate"))
+  File.write(File.join(legacy_engine, "package.yml"),
+             "metadata:\n  legacy_table_prefix: legacy\n")
+  table_bad, table_bad_status = stdin_run(
+    "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
+    "create_table :widgets do |t|\nend\n"
+  )
+  unless !table_bad_status.success? && table_bad.include?("Rafelo/EngineTablePrefix")
+    warn "cops_canary: EngineTablePrefix did not report an unprefixed table"
+    warn table_bad
+    exit 1
+  end
+  table_legal, table_legal_status = stdin_run(
+    "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
+    "create_table :smoke_legacy_canary_widgets do |t|\nend\n"
+  )
+  unless table_legal_status.success?
+    warn "cops_canary: EngineTablePrefix flagged a prefixed table"
+    warn table_legal
+    exit 1
+  end
+  table_legacy, table_legacy_status = stdin_run(
+    "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
+    "create_table :legacy_widgets do |t|\nend\n"
+  )
+  unless table_legacy_status.success?
+    warn "cops_canary: EngineTablePrefix flagged the recorded legacy prefix"
+    warn table_legacy
+    exit 1
+  end
+ensure
+  FileUtils.rm_rf(legacy_engine)
+end
+
+warn "cops_canary: checked #{COPS.split(",").length + 9} cops"
