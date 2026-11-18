@@ -50,6 +50,7 @@ module KernelUpdate
     eslint.config.mjs
     config/audit_exceptions.yml
     config/budgets.yml
+    config/core.yml
     config/ci.rb
     config/ratchets.yml
     config/contracts/_shared.json
@@ -213,7 +214,57 @@ module KernelUpdate
         changed = @base.files_under(path) & @target.files_under(path)
         (fresh + stale + changed).uniq.each { |relative| merge(relative) }
       end
+      migrate_generated_props
+      migrate_generated_controllers
+      format_app_owned_frontend
       self
+    end
+
+    # The v0.26 page generator wrote Current.session&.id into the props
+    # object. The v0.27 kernel passes the session id through PageContext, so
+    # an unchanged generated props object is migrated in place; a customized
+    # one is left for the adopter to review.
+    def migrate_generated_props
+      Dir[File.join(@root, "engines", "*", "app", "props", "**", "*.rb")].sort.each do |path|
+        body = File.read(path)
+        next unless body.include?("Rafelo::Core::Current.session&.id")
+
+        relative = path.delete_prefix("#{@root}/")
+        File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
+        results << Result.new(relative: relative, status: "migrated")
+      end
+    end
+
+    def migrate_generated_controllers
+      Dir[File.join(@root, "engines", "*", "app", "controllers", "**", "*_controller.rb")].sort.each do |path|
+        body = File.read(path)
+        next unless body.include?("def create") && !body.match?(/^\s*throttle /)
+
+        engine = path.delete_prefix("#{@root}/engines/").split("/").first
+        actions = %w[create update].select { |action| body.match?(/^\s*def #{action}\b/) }
+        next if actions.empty?
+
+        line = "      throttle to: 30, within: 1.minute, only: %i[#{actions.join(' ')}], name: \"#{engine}/write\"\n"
+        migrated = body.sub(/^(\s*class .*< .*\n)/, "\\1#{line}")
+        next if migrated == body
+
+        relative = path.delete_prefix("#{@root}/")
+        File.write(path, migrated)
+        results << Result.new(relative: relative, status: "migrated")
+      end
+    end
+
+    def format_app_owned_frontend
+      prettier = File.join(@root, "node_modules", ".bin", "prettier")
+      return unless File.executable?(prettier)
+
+      files = Dir[File.join(@root, "engines", "*", "app", "frontend", "**", "*.{ts,tsx,mts,json}")]
+              .select { |path| File.file?(path) }
+              .reject { |path| path.end_with?(".generated.ts", ".generated.tsx", ".d.ts") || path.include?("/locales/") }
+      return if files.empty?
+
+      _output, status = Open3.capture2e(prettier, "--write", *files, chdir: @root)
+      raise Error, "kernel_update: prettier failed on app-owned frontend" unless status.success?
     end
 
     def conflicts?

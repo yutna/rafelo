@@ -30,7 +30,8 @@ module Rafelo
           deadline: RequestDeadline.new(Rails.application.config.x.jobs.upstream_deadline_seconds)
         )
         @job_token_provider = JobTokenProvider.new(
-          session.id, budget: @job_budget, request_id: rafelo_request_id, trace_id: rafelo_trace_id
+          session.id, budget: @job_budget, request_id: rafelo_request_id, trace_id: rafelo_trace_id,
+          trace_sampled: rafelo_trace_sampled
         )
 
         yield session

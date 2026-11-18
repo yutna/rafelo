@@ -26,7 +26,9 @@ module Rafelo
           token_provider: job_token_provider,
           budget: job_budget,
           request_id: rafelo_request_id,
-          trace_id: rafelo_trace_id
+          trace_id: rafelo_trace_id,
+          trace_sampled: rafelo_trace_sampled,
+          session: job_session
         )
         orders = []
         page = 1

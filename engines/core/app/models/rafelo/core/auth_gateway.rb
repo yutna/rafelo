@@ -5,7 +5,7 @@ module Rafelo
     class AuthGateway
       Result = Data.define(:viewer, :access_token, :refresh_token, :access_expires_at, :grants)
 
-      def initialize(budget:, request_id:, trace_id:)
+      def initialize(budget:, request_id:, trace_id:, trace_sampled: false)
         @budget = budget
         # A v0.23.0 adopter's app-owned sessions controller passes a budget
         # without a deadline. Keep that upgrade working with a fresh request
@@ -14,6 +14,7 @@ module Rafelo
                     RequestDeadline.new(Rails.application.config.x.requests.upstream_deadline_seconds)
         @request_id = request_id
         @trace_id = trace_id
+        @trace_sampled = trace_sampled
       end
 
       def refresh(refresh_token:)
@@ -36,6 +37,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
+          trace_sampled: @trace_sampled,
           deadline: @deadline,
           kind: :auth
         )
@@ -65,6 +67,7 @@ module Rafelo
           budget: @budget,
           request_id: @request_id,
           trace_id: @trace_id,
+          trace_sampled: @trace_sampled,
           deadline: @deadline,
           kind: :session_refresh
         )

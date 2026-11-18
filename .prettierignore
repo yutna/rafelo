@@ -40,3 +40,5 @@ engines/*/config/permissions.yml
 # Rendered with the adopter's app name (GEN-07); the replacements reflow them.
 docs/deployment.md
 docs/operations/
+# ERB in the core defaults; the YAML parser cannot read it.
+config/core.yml

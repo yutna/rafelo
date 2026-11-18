@@ -254,6 +254,7 @@ module Rafelo
           module #{module_class}
             class #{controller_class} < Rafelo::Core::BaseController
               layout "application"
+              throttle to: 30, within: 1.minute, only: %i[#{(effective_actions & %w[create update]).join(" ")}], name: "#{mod}/write"
 
           #{methods.map { |m| m.rstrip }.join("\n\n")}
             end

@@ -17,7 +17,8 @@ module Rafelo
 
       initializer "rafelo_core.runtime" do |app|
         app.config.x.executor_threads = 4
-        app.config.x.puma_threads = ENV.fetch("RAILS_MAX_THREADS", 3).to_i
+        core_config = app.config_for(:core)
+        app.config.x.puma_threads = core_config.fetch("puma_threads", 3).to_i
         app.config.x.requests.upstream_deadline_seconds = 10
         app.config.x.sessions.refresh_timeout_seconds = 15
         app.config.x.sessions.idle_timeout_seconds = 30 * 60
@@ -28,7 +29,7 @@ module Rafelo
         app.config.x.exports.ttl_seconds = 6 * 60 * 60
         app.config.x.audit.retention_days = 365
         app.config.x.audit.partition_months_ahead = 2
-        app.config.x.database.runtime_role = ENV["DB_USER"]
+        app.config.x.database.runtime_role = core_config.dig("database", "runtime_role")
         app.config.x.sessions.touch_interval_seconds = 5 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800

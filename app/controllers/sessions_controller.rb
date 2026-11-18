@@ -18,7 +18,8 @@ class SessionsController < ApplicationController
     result = Rafelo::Core::AuthGateway.new(
       budget: Rafelo::Core::CallBudget.default(deadline: request_deadline),
       request_id: request.request_id,
-      trace_id: Rafelo::Core::Current.trace_id
+      trace_id: Rafelo::Core::Current.trace_id,
+      trace_sampled: Rafelo::Core::Current.trace_sampled
     ).sign_in(email: params[:email], password: params[:password])
     Rafelo::Core::Session.find_by_token(cookies[session_cookie_name])&.destroy if cookies[session_cookie_name]
     reset_session
