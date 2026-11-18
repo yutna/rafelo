@@ -215,6 +215,7 @@ module KernelUpdate
         (fresh + stale + changed).uniq.each { |relative| merge(relative) }
       end
       migrate_generated_props
+      migrate_generated_controllers
       format_app_owned_frontend
       self
     end
@@ -230,6 +231,25 @@ module KernelUpdate
 
         relative = path.delete_prefix("#{@root}/")
         File.write(path, body.gsub("Rafelo::Core::Current.session&.id", "context.session_id"))
+        results << Result.new(relative: relative, status: "migrated")
+      end
+    end
+
+    def migrate_generated_controllers
+      Dir[File.join(@root, "engines", "*", "app", "controllers", "**", "*_controller.rb")].sort.each do |path|
+        body = File.read(path)
+        next unless body.include?("def create") && !body.match?(/^\s*throttle /)
+
+        engine = path.delete_prefix("#{@root}/engines/").split("/").first
+        actions = %w[create update].select { |action| body.match?(/^\s*def #{action}\b/) }
+        next if actions.empty?
+
+        line = "      throttle to: 30, within: 1.minute, only: %i[#{actions.join(' ')}], name: \"#{engine}/write\"\n"
+        migrated = body.sub(/^(\s*class .*< .*\n)/, "\\1#{line}")
+        next if migrated == body
+
+        relative = path.delete_prefix("#{@root}/")
+        File.write(path, migrated)
         results << Result.new(relative: relative, status: "migrated")
       end
     end

@@ -149,6 +149,7 @@ done
 # so a generated page from the previous release is measured against the
 # current stylesheet.
 ( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null && npm run format >/dev/null )
+( cd "$work/smoke_shop_prev" && bin/rubocop -A engines/legacy_check spec/requests/legacy_check >/dev/null )
 ( cd "$work/smoke_shop_prev" && git add -A && \
     git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
       commit -q -m "chore: update the kernel to v$version" )
