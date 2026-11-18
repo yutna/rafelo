@@ -197,7 +197,7 @@ RSpec.describe "bin/kernel_update" do
     generated_new_props = <<~'RUBY'
       # frozen_string_literal: true
 
-      module Rafelo::Legacy
+      module SmokeShop::Legacy
         class WidgetsNewProps < Rafelo::Core::PageProps
           def envelope
             {
@@ -217,7 +217,7 @@ RSpec.describe "bin/kernel_update" do
     generated_edit_props = <<~'RUBY'
       # frozen_string_literal: true
 
-      module Rafelo::Legacy
+      module SmokeShop::Legacy
         class WidgetsEditProps < Rafelo::Core::PageProps
           def initialize(context:, id:)
             super(context: context)
@@ -243,13 +243,13 @@ RSpec.describe "bin/kernel_update" do
     generated_controller = <<~'RUBY'
       # frozen_string_literal: true
 
-      module Rafelo::Legacy
+      module SmokeShop::Legacy
         class WidgetsController < Rafelo::Core::BaseController
           layout "application"
 
       def create
-        authorize :widget, :create?, policy_class: Rafelo::Legacy::WidgetPolicy
-        form = Rafelo::Legacy::WidgetForm.new(params.permit(:name, :token))
+        authorize :widget, :create?, policy_class: SmokeShop::Legacy::WidgetPolicy
+        form = SmokeShop::Legacy::WidgetForm.new(params.permit(:name, :token))
         back = page_context.urls.route(:legacy, :new_widget)
         if form.invalid?
           return redirect_after_write(back, errors: form.error_messages)
@@ -261,7 +261,7 @@ RSpec.describe "bin/kernel_update" do
           payload: form.payload,
           back: back
         ) do |idempotency_key|
-          created = gateway(Rafelo::Legacy::WidgetsGateway).create(
+          created = gateway(SmokeShop::Legacy::WidgetsGateway).create(
             payload: form.payload, idempotency_key: idempotency_key
           )
           request.env["rafelo.audit.upstream_id"] = created.id.to_s if created.respond_to?(:id)
@@ -278,32 +278,56 @@ RSpec.describe "bin/kernel_update" do
       end
     RUBY
     irregular_edit_props = generated_edit_props
-      .gsub("Rafelo::Legacy", "MyAPI::Statuses")
+      .gsub("SmokeShop::Legacy", "SmokeShop::API")
       .gsub("Widgets", "Statuses")
       .gsub("widget:", "status:")
       .gsub(":widgets", ":statuses")
       .gsub(":widget", ":status")
-      .gsub(":legacy", ":statuses")
+      .gsub(":legacy", ":api")
     irregular_controller = generated_controller
-      .gsub("Rafelo::Legacy", "MyAPI::Statuses")
+      .gsub("SmokeShop::Legacy", "SmokeShop::API")
       .gsub("Widgets", "Statuses")
       .gsub("WidgetForm", "StatusForm")
       .gsub("WidgetPolicy", "StatusPolicy")
       .gsub("widgets", "statuses")
       .gsub("widget", "status")
-      .gsub(":legacy", ":statuses")
-    custom_new_props = generated_new_props.sub("route(:legacy, :widgets)", "route(:legacy, :other)")
-    custom_edit_props = generated_edit_props.sub("widget:", "thing:")
-    custom_controller = generated_controller.sub("def create\n", "def create\n  head :ok\n")
+      .gsub(":legacy", ":api")
+    custom_new_props = generated_new_props
+      .gsub("SmokeShop::Legacy", "SmokeShop::Custom")
+      .gsub("WidgetsNewProps", "ThingsNewProps")
+      .gsub(":legacy, :widgets", ":custom, :things")
+      .sub("createPath: context.urls.route(:custom, :things)", "createPath: context.urls.route(:custom, :other)")
+    custom_edit_props = generated_edit_props
+      .gsub("SmokeShop::Legacy", "SmokeShop::Custom")
+      .gsub("WidgetsEditProps", "ThingsEditProps")
+      .gsub("widget:", "thing:")
+      .gsub(":legacy, :widget", ":custom, :thing")
+      .gsub("thing:", "gadget:")
+    custom_controller = generated_controller
+      .gsub("SmokeShop::Legacy", "SmokeShop::Custom")
+      .gsub("Widgets", "Things")
+      .gsub("WidgetForm", "ThingForm")
+      .gsub("WidgetPolicy", "ThingPolicy")
+      .gsub("widgets", "things")
+      .gsub("widget", "thing")
+      .gsub(":legacy", ":custom")
+      .sub("def create\n", "def create\n  head :ok\n")
+    evil_props = generated_new_props
+      .gsub("SmokeShop::Legacy", "Evil::Legacy")
+      .gsub("WidgetsNewProps", "GadgetsNewProps")
+      .gsub(":legacy, :widgets", ":legacy, :gadgets")
     base = {
-      "engines/legacy/app/props/rafelo/legacy/widgets_new_props.rb" => generated_new_props,
-      "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb" => generated_edit_props,
-      "engines/legacy/app/props/my_api/statuses/statuses_edit_props.rb" => irregular_edit_props,
-      "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb" => generated_controller,
-      "engines/legacy/app/controllers/my_api/statuses/statuses_controller.rb" => irregular_controller,
-      "engines/custom/app/props/rafelo/custom/things_new_props.rb" => custom_new_props,
-      "engines/custom/app/props/rafelo/custom/things_edit_props.rb" => custom_edit_props,
-      "engines/custom/app/controllers/rafelo/custom/things_controller.rb" => custom_controller
+      "config/initializers/inflections.rb" =>
+        "# frozen_string_literal: true\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"API\"\nend\n",
+      "engines/legacy/app/props/smoke_shop/legacy/widgets_new_props.rb" => generated_new_props,
+      "engines/legacy/app/props/smoke_shop/legacy/widgets_edit_props.rb" => generated_edit_props,
+      "engines/legacy/app/props/smoke_shop/api/statuses_edit_props.rb" => irregular_edit_props,
+      "engines/legacy/app/props/smoke_shop/legacy/gadgets_new_props.rb" => evil_props,
+      "engines/legacy/app/controllers/smoke_shop/legacy/widgets_controller.rb" => generated_controller,
+      "engines/legacy/app/controllers/smoke_shop/api/statuses_controller.rb" => irregular_controller,
+      "engines/custom/app/props/smoke_shop/custom/things_new_props.rb" => custom_new_props,
+      "engines/custom/app/props/smoke_shop/custom/things_edit_props.rb" => custom_edit_props,
+      "engines/custom/app/controllers/smoke_shop/custom/things_controller.rb" => custom_controller
     }
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
@@ -316,22 +340,24 @@ RSpec.describe "bin/kernel_update" do
                                          "--source", target_root, "--migrate-generated")
 
           expect(status).to be_success, err
-          props = File.read(File.join(app_root, "engines/legacy/app/props/rafelo/legacy/widgets_new_props.rb"))
+          props = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/legacy/widgets_new_props.rb"))
           expect(props).to include("context.session_id")
-          edit_props = File.read(File.join(app_root, "engines/legacy/app/props/rafelo/legacy/widgets_edit_props.rb"))
+          edit_props = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/legacy/widgets_edit_props.rb"))
           expect(edit_props).to include("context.session_id")
-          irregular = File.read(File.join(app_root, "engines/legacy/app/props/my_api/statuses/statuses_edit_props.rb"))
+          irregular = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/api/statuses_edit_props.rb"))
           expect(irregular).to include("context.session_id")
-          irregular_controller_file = File.read(File.join(app_root, "engines/legacy/app/controllers/my_api/statuses/statuses_controller.rb"))
+          irregular_controller_file = File.read(File.join(app_root, "engines/legacy/app/controllers/smoke_shop/api/statuses_controller.rb"))
           expect(irregular_controller_file).to include('name: "legacy/write"')
-          controller = File.read(File.join(app_root, "engines/legacy/app/controllers/rafelo/legacy/widgets_controller.rb"))
+          controller = File.read(File.join(app_root, "engines/legacy/app/controllers/smoke_shop/legacy/widgets_controller.rb"))
           expect(controller).to include('throttle to: 30, within: 1.minute, only: %i[create], name: "legacy/write"')
-          custom_props = File.read(File.join(app_root, "engines/custom/app/props/rafelo/custom/things_new_props.rb"))
+          custom_props = File.read(File.join(app_root, "engines/custom/app/props/smoke_shop/custom/things_new_props.rb"))
           expect(custom_props).to eq(custom_new_props)
-          custom_edit = File.read(File.join(app_root, "engines/custom/app/props/rafelo/custom/things_edit_props.rb"))
+          custom_edit = File.read(File.join(app_root, "engines/custom/app/props/smoke_shop/custom/things_edit_props.rb"))
           expect(custom_edit).to eq(custom_edit_props)
-          custom_controller_file = File.read(File.join(app_root, "engines/custom/app/controllers/rafelo/custom/things_controller.rb"))
+          custom_controller_file = File.read(File.join(app_root, "engines/custom/app/controllers/smoke_shop/custom/things_controller.rb"))
           expect(custom_controller_file).to eq(custom_controller)
+          evil = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/legacy/gadgets_new_props.rb"))
+          expect(evil).to eq(evil_props)
         end
       end
     end
