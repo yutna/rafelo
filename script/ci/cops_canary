@@ -12,6 +12,11 @@ COPS = %w[
   Rafelo/CacheOnlyThroughScopedCache
   Rafelo/ReturnToOnlyInValueObject
 ].join(",")
+PROVEN = []
+
+cop_names = Dir[File.join(ROOT, "script", "ci", "cops", "rafelo", "*.rb")]
+            .map { |path| "Rafelo/#{File.basename(path, ".rb").split("_").map(&:capitalize).join}" }
+            .sort
 
 bad = File.join(ROOT, "spec/enforcement/fixtures/cops/bad/example.rb")
 legal = File.join(ROOT, "spec/enforcement/fixtures/cops/legal/example.rb")
@@ -32,6 +37,7 @@ unless status.exitstatus.zero?
 end
 
 def stdin_run(cop, path, source)
+  PROVEN << cop
   Open3.capture2e("bundle", "exec", "rubocop", "--format", "json", "--only", cop, "--stdin", path,
                   stdin_data: source, chdir: ROOT)
 end
@@ -515,4 +521,10 @@ unless config_legal_status.exitstatus.zero?
   exit 1
 end
 
-warn "cops_canary: checked #{COPS.split(",").length + 12} cops"
+missing = cop_names.reject { |name| COPS.split(",").include?(name) || PROVEN.include?(name) }
+if missing.any?
+  warn "cops_canary: no canary for #{missing.join(", ")}"
+  exit 1
+end
+
+warn "cops_canary: checked #{cop_names.length} cops"

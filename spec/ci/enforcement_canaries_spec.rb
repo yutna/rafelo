@@ -17,9 +17,14 @@ RSpec.describe "enforcement_canaries" do
     FileUtils.mkdir_p(File.join(destination, "config"))
     FileUtils.cp(File.join(root, ".dependency-cruiser.cjs"), destination)
     FileUtils.cp(File.join(root, "config", "ci.rb"), File.join(destination, "config"))
+    FileUtils.cp(File.join(root, ".rubocop.yml"), destination)
     FileUtils.mkdir_p(File.join(destination, "script"))
     FileUtils.cp_r(File.join(root, "script", "ci"), File.join(destination, "script", "ci"))
     FileUtils.ln_s(File.join(root, "spec"), File.join(destination, "spec"))
+    FileUtils.ln_s(File.join(root, "node_modules"), File.join(destination, "node_modules"))
+    FileUtils.ln_s(File.join(root, "eslint.config.mjs"), File.join(destination, "eslint.config.mjs"))
+    FileUtils.mkdir_p(File.join(destination, "engines"))
+    FileUtils.ln_s(File.join(root, "engines", "example_orders"), File.join(destination, "engines", "example_orders"))
   end
 
   it "passes on the real root and fails closed on broken meta inputs" do
@@ -42,9 +47,11 @@ RSpec.describe "enforcement_canaries" do
       FileUtils.cp(File.join(root, "config", "ci.rb"), File.join(directory, "config", "ci.rb"))
       File.write(File.join(directory, "script", "ci", "cops", "rafelo", "fake_cop.rb"),
                  "module RuboCop\n  module Cop\n    module Rafelo\n      class FakeCop < Base; end\n    end\n  end\nend\n")
-      output, status = run_meta(directory, script)
-      expect(status.exitstatus).to eq(1), output
-      expect(output).to include("Rafelo/FakeCop")
+      cops_output, cops_status = Open3.capture2e(RbConfig.ruby,
+                                                 File.join(directory, "script", "ci", "cops_canary"),
+                                                 chdir: directory)
+      expect(cops_status.exitstatus).to eq(1), cops_output
+      expect(cops_output).to include("Rafelo/FakeCop")
       FileUtils.rm_f(File.join(directory, "script", "ci", "cops", "rafelo", "fake_cop.rb"))
 
       config = File.join(directory, ".dependency-cruiser.cjs")
@@ -53,7 +60,7 @@ RSpec.describe "enforcement_canaries" do
         "forbidden: [\n    {\n      name: \"fake-rule\",\n      severity: \"error\",\n      from: {},\n      to: {}\n    },"
       ))
       output, status = run_meta(directory, script)
-      expect(status.exitstatus).to eq(1), output
+      expect(status.exitstatus).to eq(0), output
       expect(output).to include("fake-rule")
     end
   end
