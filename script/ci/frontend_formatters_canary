@@ -4,12 +4,28 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
 mkdir -p "$tmp/app/frontend"
 echo 'const x = new Intl.DateTimeFormat("en");' > "$tmp/app/frontend/bad.ts"
-
-if "$root/script/ci/frontend_formatters" "$tmp" >/dev/null 2>&1; then
+if "$root/script/ci/frontend_formatters" --root "$tmp" >/dev/null 2>&1; then
   echo "frontend_formatters_canary: a direct Intl call passed" >&2
   exit 1
 fi
 
-echo "frontend_formatters_canary: checked 1 case"
+empty="$(mktemp -d)"
+trap 'rm -rf "$tmp" "$empty"' EXIT
+if "$root/script/ci/frontend_formatters" --root "$empty" >/dev/null 2>&1; then
+  echo "frontend_formatters_canary: an empty root passed" >&2
+  exit 1
+fi
+
+legal="$(mktemp -d)"
+trap 'rm -rf "$tmp" "$empty" "$legal"' EXIT
+mkdir -p "$legal/app/frontend"
+echo 'export const value = 1;' > "$legal/app/frontend/legal.ts"
+if ! "$root/script/ci/frontend_formatters" --root "$legal" >/dev/null 2>&1; then
+  echo "frontend_formatters_canary: the legal root failed" >&2
+  exit 1
+fi
+
+echo "frontend_formatters_canary: checked 3 cases"
