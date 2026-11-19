@@ -487,11 +487,11 @@ module KernelUpdate
         File.join(@root, "engines", "*", "config", "initializers", "*.rb")
       ]
       patterns.flat_map { |pattern| Dir[pattern] }.uniq.each do |path|
-        source = File.read(path).lines.reject { |line| line.lstrip.start_with?("#") }.join
-        source.scan(/inflect\.acronym\s+["']([^"']+)["']/).flatten.each do |acronym|
+        source = File.read(path).lines.map { |line| line.sub(/\s+#.*$/, "") }.reject { |line| line.lstrip.start_with?("#") }.join
+        source.scan(/inflect\.acronym\(?\s*["']([^"']+)["']\s*\)?/).flatten.each do |acronym|
           ActiveSupport::Inflector.inflections { |inflect| inflect.acronym(acronym) }
         end
-        source.scan(/inflect\.irregular\s+["']([^"']+)["'],\s*["']([^"']+)["']/).each do |single, plural|
+        source.scan(/inflect\.irregular\(?\s*["']([^"']+)["'],\s*["']([^"']+)["']\s*\)?/).each do |single, plural|
           ActiveSupport::Inflector.inflections { |inflect| inflect.irregular(single, plural) }
         end
       end

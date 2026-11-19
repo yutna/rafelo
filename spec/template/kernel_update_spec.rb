@@ -316,15 +316,31 @@ RSpec.describe "bin/kernel_update" do
       .gsub("SmokeShop::Legacy", "Evil::Legacy")
       .gsub("WidgetsNewProps", "GadgetsNewProps")
       .gsub(":legacy, :widgets", ":legacy, :gadgets")
+    sku_props = generated_new_props
+      .gsub("SmokeShop::Legacy", "SmokeShop::SKU")
+      .gsub(":legacy, :widgets", ":sku, :widgets")
+    abc_props = generated_new_props
+      .gsub("SmokeShop::Legacy", "SmokeShop::ABC")
+      .gsub(":legacy, :widgets", ":abc, :widgets")
+    wrong_props = generated_new_props
+      .gsub("SmokeShop::Legacy", "SmokeShop::Wrong")
+      .gsub(":legacy, :widgets", ":wrong, :widgets")
     base = {
+      "config/application.rb" =>
+        "# frozen_string_literal: true\n\nmodule SmokeShop\n  class Application < Rails::Application\n  end\n\n  ActiveSupport::Inflector.inflections(:en) do |inflect|\n    inflect.acronym \"API\"\n  end\nend\n",
       "config/initializers/company_inflections.rb" =>
-        "# frozen_string_literal: true\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"API\"\nend\n",
+        "# frozen_string_literal: true\n# inflect.acronym \"WRONG\"\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"SKU\"\nend\n",
       "config/initializers/broken_inflections.rb" =>
-        "raise \"this initializer needs a booted app\"\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"API\"\nend\n",
+        "raise \"this initializer needs a booted app\"\n",
+      "engines/legacy/config/initializers/inflections.rb" =>
+        "# frozen_string_literal: true\n\nActiveSupport::Inflector.inflections(:en) do |inflect|\n  inflect.acronym \"ABC\"\nend\n",
       "engines/legacy/app/props/smoke_shop/legacy/widgets_new_props.rb" => generated_new_props,
       "engines/legacy/app/props/smoke_shop/legacy/widgets_edit_props.rb" => generated_edit_props,
       "engines/legacy/app/props/smoke_shop/api/statuses_edit_props.rb" => irregular_edit_props,
       "engines/legacy/app/props/smoke_shop/legacy/gadgets_new_props.rb" => evil_props,
+      "engines/legacy/app/props/smoke_shop/sku/widgets_new_props.rb" => sku_props,
+      "engines/legacy/app/props/smoke_shop/abc/widgets_new_props.rb" => abc_props,
+      "engines/legacy/app/props/smoke_shop/wrong/widgets_new_props.rb" => wrong_props,
       "engines/legacy/app/controllers/smoke_shop/legacy/widgets_controller.rb" => generated_controller,
       "engines/legacy/app/controllers/smoke_shop/api/statuses_controller.rb" => irregular_controller,
       "engines/custom/app/props/smoke_shop/custom/things_new_props.rb" => custom_new_props,
@@ -360,6 +376,12 @@ RSpec.describe "bin/kernel_update" do
           expect(custom_controller_file).to eq(custom_controller)
           evil = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/legacy/gadgets_new_props.rb"))
           expect(evil).to eq(evil_props)
+          sku = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/sku/widgets_new_props.rb"))
+          expect(sku).to include("context.session_id")
+          abc = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/abc/widgets_new_props.rb"))
+          expect(abc).to include("context.session_id")
+          wrong = File.read(File.join(app_root, "engines/legacy/app/props/smoke_shop/wrong/widgets_new_props.rb"))
+          expect(wrong).to include("context.session_id")
         end
       end
     end
