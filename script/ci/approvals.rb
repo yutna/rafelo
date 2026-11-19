@@ -86,8 +86,8 @@ module Approvals
     abort "approvals: GITHUB_REPOSITORY is required to read reviews" if repository.to_s.empty?
 
     api_get("/repos/#{repository}/pulls/#{pr}/reviews?per_page=100") do |path|
-      output, status = Open3.capture2("gh", "api", "--paginate", path, err: File::NULL)
-      JSON.parse(output) if status.success?
+      output, status = Open3.capture2("gh", "api", "--paginate", "--slurp", path, err: File::NULL)
+      JSON.parse(output).flatten(1) if status.success?
     end
   end
 
@@ -126,18 +126,34 @@ module Approvals
     end
     return value unless value.nil?
 
-    uri = URI("https://api.github.com#{path}")
-    response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 5, read_timeout: 10) do |http|
-      request = Net::HTTP::Get.new(uri)
-      request["Accept"] = "application/vnd.github+json"
-      request["User-Agent"] = "rafelo-ci"
-      http.request(request)
-    end
-    abort "approvals: GitHub API failed for #{path}" unless response.is_a?(Net::HTTPSuccess)
-
-    JSON.parse(response.body)
+    public_api_get(path)
   rescue JSON::ParserError
     abort "approvals: GitHub API returned invalid JSON for #{path}"
+  end
+
+  def public_api_get(path)
+    results = []
+    page = 1
+    loop do
+      separator = path.include?("?") ? "&" : "?"
+      uri = URI("https://api.github.com#{path}#{separator}per_page=100&page=#{page}")
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 5, read_timeout: 10) do |http|
+        request = Net::HTTP::Get.new(uri)
+        request["Accept"] = "application/vnd.github+json"
+        request["User-Agent"] = "rafelo-ci"
+        http.request(request)
+      end
+      abort "approvals: GitHub API failed for #{path}" unless response.is_a?(Net::HTTPSuccess)
+
+      body = JSON.parse(response.body)
+      return body unless body.is_a?(Array)
+
+      results.concat(body)
+      break unless response["link"].to_s.include?('rel="next"')
+
+      page += 1
+    end
+    results
   end
 
   def approved_by_owner?(root, reviews, base: nil, author: nil)

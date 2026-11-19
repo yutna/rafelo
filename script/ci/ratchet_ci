@@ -43,4 +43,5 @@ ENV["GITHUB_REPOSITORY"] = repository.to_s
 ENV["PR_AUTHOR"] = author.to_s
 
 puts "ratchet_ci: base=#{base}"
+$stdout.flush
 exec RbConfig.ruby, File.join(__dir__, "ratchet"), "--root", root, "--base", base, "--no-clones"
