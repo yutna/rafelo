@@ -17,28 +17,28 @@ bad = File.join(ROOT, "spec/enforcement/fixtures/cops/bad/example.rb")
 legal = File.join(ROOT, "spec/enforcement/fixtures/cops/legal/example.rb")
 abort "cops_canary: missing fixtures" unless File.file?(bad) && File.file?(legal)
 
-output, status = Open3.capture2e("bundle", "exec", "rubocop", "--only", COPS, bad, chdir: ROOT)
-unless !status.success? && COPS.split(",").all? { |cop| output.include?(cop) }
+output, status = Open3.capture2e("bundle", "exec", "rubocop", "--format", "json", "--only", COPS, bad, chdir: ROOT)
+unless status.exitstatus == 1 && COPS.split(",").all? { |cop| output.include?(cop) }
   warn "cops_canary: the bad fixture did not report every cop"
   warn output
   exit 1
 end
 
-output, status = Open3.capture2e("bundle", "exec", "rubocop", "--only", COPS, legal, chdir: ROOT)
-unless status.success?
+output, status = Open3.capture2e("bundle", "exec", "rubocop", "--format", "json", "--only", COPS, legal, chdir: ROOT)
+unless status.exitstatus.zero?
   warn "cops_canary: the legal fixture failed"
   warn output
   exit 1
 end
 
 def stdin_run(cop, path, source)
-  Open3.capture2e("bundle", "exec", "rubocop", "--only", cop, "--stdin", path,
+  Open3.capture2e("bundle", "exec", "rubocop", "--format", "json", "--only", cop, "--stdin", path,
                   stdin_data: source, chdir: ROOT)
 end
 
 env_bad, env_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "app/models/env_canary.rb",
                                     "ENV[\"SECRET_KEY\"]\nENV.fetch(\"SECRET_KEY\")\nRails.application.credentials\nRails.application.credentials.dig(:database, :password)\n")
-unless !env_bad_status.success? && env_bad.include?("Rafelo/EnvOnlyInConfig")
+unless env_bad_status.exitstatus == 1 && env_bad.include?("Rafelo/EnvOnlyInConfig")
   warn "cops_canary: EnvOnlyInConfig did not report the app fixture"
   warn env_bad
   exit 1
@@ -46,7 +46,7 @@ end
 
 env_legal, env_legal_status = stdin_run("Rafelo/EnvOnlyInConfig", "config/initializers/env_canary.rb",
                                         "ENV.fetch(\"SECRET_KEY\")\n")
-unless env_legal_status.success?
+unless env_legal_status.exitstatus.zero?
   warn "cops_canary: EnvOnlyInConfig flagged config/"
   warn env_legal
   exit 1
@@ -55,7 +55,7 @@ end
 concurrency_bad, concurrency_bad_status = stdin_run("Rafelo/ConcurrencyOnlyInExecutor",
                                                       "app/models/concurrency_canary.rb",
                                                       "Concurrent::FixedThreadPool.new(1)\n")
-unless !concurrency_bad_status.success? && concurrency_bad.include?("Rafelo/ConcurrencyOnlyInExecutor")
+unless concurrency_bad_status.exitstatus == 1 && concurrency_bad.include?("Rafelo/ConcurrencyOnlyInExecutor")
   warn "cops_canary: ConcurrencyOnlyInExecutor did not report the app fixture"
   warn concurrency_bad
   exit 1
@@ -64,7 +64,7 @@ concurrency_executor, concurrency_executor_status = stdin_run(
   "Rafelo/ConcurrencyOnlyInExecutor", "engines/core/app/models/rafelo/core/executor.rb",
   "Concurrent::FixedThreadPool.new(1)\n"
 )
-unless concurrency_executor_status.success?
+unless concurrency_executor_status.exitstatus.zero?
   warn "cops_canary: ConcurrencyOnlyInExecutor flagged the executor"
   warn concurrency_executor
   exit 1
@@ -73,7 +73,7 @@ concurrency_spec, concurrency_spec_status = stdin_run(
   "Rafelo/ConcurrencyOnlyInExecutor", "spec/core/concurrency_canary_spec.rb",
   "Concurrent::CyclicBarrier.new(2)\n"
 )
-unless concurrency_spec_status.success?
+unless concurrency_spec_status.exitstatus.zero?
   warn "cops_canary: ConcurrencyOnlyInExecutor flagged a spec"
   warn concurrency_spec
   exit 1
@@ -81,7 +81,7 @@ end
 
 current_bad, current_bad_status = stdin_run("Rafelo/CurrentAtTheEdge", "app/models/current_canary.rb",
                                             "Current.trace_id\nCurrent&.trace_id\n")
-unless !current_bad_status.success? && current_bad.include?("Rafelo/CurrentAtTheEdge")
+unless current_bad_status.exitstatus == 1 && current_bad.include?("Rafelo/CurrentAtTheEdge")
   warn "cops_canary: CurrentAtTheEdge did not report the app fixture"
   warn current_bad
   exit 1
@@ -89,7 +89,7 @@ end
 current_controller, current_controller_status = stdin_run(
   "Rafelo/CurrentAtTheEdge", "app/controllers/current_canary_controller.rb", "Current.viewer\n"
 )
-unless current_controller_status.success?
+unless current_controller_status.exitstatus.zero?
   warn "cops_canary: CurrentAtTheEdge flagged a controller"
   warn current_controller
   exit 1
@@ -97,7 +97,7 @@ end
 current_job, current_job_status = stdin_run(
   "Rafelo/CurrentAtTheEdge", "engines/core/app/jobs/rafelo/core/base_job.rb", "Current.request_id\n"
 )
-unless current_job_status.success?
+unless current_job_status.exitstatus.zero?
   warn "cops_canary: CurrentAtTheEdge flagged BaseJob"
   warn current_job
   exit 1
@@ -105,7 +105,7 @@ end
 current_middleware, current_middleware_status = stdin_run(
   "Rafelo/CurrentAtTheEdge", "engines/core/lib/rafelo/core/trace_middleware.rb", "Current.trace_id = 1\n"
 )
-unless current_middleware_status.success?
+unless current_middleware_status.exitstatus.zero?
   warn "cops_canary: CurrentAtTheEdge flagged middleware"
   warn current_middleware
   exit 1
@@ -113,7 +113,7 @@ end
 
 stream_bad, stream_bad_status = stdin_run("Rafelo/SendStreamOnlyInDownloads",
                                           "app/controllers/stream_canary_controller.rb", "send_stream(filename: \"x\")\n")
-unless !stream_bad_status.success? && stream_bad.include?("Rafelo/SendStreamOnlyInDownloads")
+unless stream_bad_status.exitstatus == 1 && stream_bad.include?("Rafelo/SendStreamOnlyInDownloads")
   warn "cops_canary: SendStreamOnlyInDownloads did not report the app fixture"
   warn stream_bad
   exit 1
@@ -122,7 +122,7 @@ stream_legal, stream_legal_status = stdin_run(
   "Rafelo/SendStreamOnlyInDownloads", "engines/core/app/controllers/rafelo/core/download_controller.rb",
   "send_stream(filename: \"x\")\n"
 )
-unless stream_legal_status.success?
+unless stream_legal_status.exitstatus.zero?
   warn "cops_canary: SendStreamOnlyInDownloads flagged the download controller"
   warn stream_legal
   exit 1
@@ -132,7 +132,7 @@ page_context_bad, page_context_bad_status = stdin_run(
   "Rafelo/PageContextThroughFactory", "app/controllers/page_context_canary_controller.rb",
   "Rafelo::Core::PageContext.new\n"
 )
-unless !page_context_bad_status.success? && page_context_bad.include?("Rafelo/PageContextThroughFactory")
+unless page_context_bad_status.exitstatus == 1 && page_context_bad.include?("Rafelo/PageContextThroughFactory")
   warn "cops_canary: PageContextThroughFactory did not report the app fixture"
   warn page_context_bad
   exit 1
@@ -141,7 +141,7 @@ page_context_legal, page_context_legal_status = stdin_run(
   "Rafelo/PageContextThroughFactory", "engines/core/app/models/rafelo/core/page_context_factory.rb",
   "Rafelo::Core::PageContext.new\n"
 )
-unless page_context_legal_status.success?
+unless page_context_legal_status.exitstatus.zero?
   warn "cops_canary: PageContextThroughFactory flagged the factory"
   warn page_context_legal
   exit 1
@@ -151,7 +151,7 @@ permission_bad, permission_bad_status = stdin_run(
   "Rafelo/NoPermissionLiterals", "app/policies/permission_canary_policy.rb",
   "permissions.allows?(\"orders:read\")\n"
 )
-unless !permission_bad_status.success? && permission_bad.include?("Rafelo/NoPermissionLiterals")
+unless permission_bad_status.exitstatus == 1 && permission_bad.include?("Rafelo/NoPermissionLiterals")
   warn "cops_canary: NoPermissionLiterals did not report the string fixture"
   warn permission_bad
   exit 1
@@ -160,7 +160,7 @@ permission_legal, permission_legal_status = stdin_run(
   "Rafelo/NoPermissionLiterals", "engines/example_orders/app/policies/rafelo/example_orders/order_policy.rb",
   "permissions.allows?(Rafelo::ExampleOrders::Permissions::ORDER_READ)\n"
 )
-unless permission_legal_status.success?
+unless permission_legal_status.exitstatus.zero?
   warn "cops_canary: NoPermissionLiterals flagged the generated constant"
   warn permission_legal
   exit 1
@@ -170,7 +170,7 @@ env_engine_bad, env_engine_bad_status = stdin_run(
   "Rafelo/EnvOnlyInConfig", "engines/example_orders/lib/rafelo/example_orders/config.rb",
   "ENV.fetch(\"SECRET_KEY\")\n"
 )
-unless !env_engine_bad_status.success? && env_engine_bad.include?("Rafelo/EnvOnlyInConfig")
+unless env_engine_bad_status.exitstatus == 1 && env_engine_bad.include?("Rafelo/EnvOnlyInConfig")
   warn "cops_canary: EnvOnlyInConfig did not report an engine lib file"
   warn env_engine_bad
   exit 1
@@ -180,7 +180,7 @@ no_constantize_bad, no_constantize_bad_status = stdin_run(
   "Rafelo/NoConstantize", "engines/smoke_check/app/models/no_constantize_canary.rb",
   "Thing.constantize\nThing.safe_constantize\nThing.const_get(:Thing)\nbelongs_to :thing, class_name: \"Thing\"\n"
 )
-unless !no_constantize_bad_status.success? && no_constantize_bad.scan("Rafelo/NoConstantize").length >= 4
+unless no_constantize_bad_status.exitstatus == 1 && no_constantize_bad.scan("Rafelo/NoConstantize").length >= 4
   warn "cops_canary: NoConstantize did not report the engine fixture"
   warn no_constantize_bad
   exit 1
@@ -189,7 +189,7 @@ no_constantize_legal, no_constantize_legal_status = stdin_run(
   "Rafelo/NoConstantize", "engines/core/app/models/rafelo/core/modules.rb",
   "Thing.constantize\n"
 )
-unless no_constantize_legal_status.success?
+unless no_constantize_legal_status.exitstatus.zero?
   warn "cops_canary: NoConstantize flagged the registry"
   warn no_constantize_legal
   exit 1
@@ -199,7 +199,7 @@ date_bad, date_bad_status = stdin_run(
   "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
   "date.strftime(\"%Y\")\nI18n.l(date)\nl(date)\ndate.to_fs\ndate.to_formatted_s\n"
 )
-unless !date_bad_status.success? && date_bad.scan("Rafelo/DateFormatterOnly").length >= 5
+unless date_bad_status.exitstatus == 1 && date_bad.scan("Rafelo/DateFormatterOnly").length >= 5
   warn "cops_canary: DateFormatterOnly did not report the engine app fixture"
   warn date_bad
   exit 1
@@ -208,7 +208,7 @@ date_legal, date_legal_status = stdin_run(
   "Rafelo/DateFormatterOnly", "engines/core/app/models/rafelo/core/date_formatter.rb",
   "date.strftime(\"%Y\")\n"
 )
-unless date_legal_status.success?
+unless date_legal_status.exitstatus.zero?
   warn "cops_canary: DateFormatterOnly flagged the formatter"
   warn date_legal
   exit 1
@@ -223,7 +223,7 @@ begin
     "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
     "create_table :widgets do |t|\nend\n"
   )
-  unless !table_bad_status.success? && table_bad.include?("Rafelo/EngineTablePrefix")
+  unless table_bad_status.exitstatus == 1 && table_bad.include?("Rafelo/EngineTablePrefix")
     warn "cops_canary: EngineTablePrefix did not report an unprefixed table"
     warn table_bad
     exit 1
@@ -232,7 +232,7 @@ begin
     "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
     "create_table :smoke_legacy_canary_widgets do |t|\nend\n"
   )
-  unless table_legal_status.success?
+  unless table_legal_status.exitstatus.zero?
     warn "cops_canary: EngineTablePrefix flagged a prefixed table"
     warn table_legal
     exit 1
@@ -241,7 +241,7 @@ begin
     "Rafelo/EngineTablePrefix", "engines/smoke_legacy_canary/db/migrate/20260101000000_create_widgets.rb",
     "create_table :legacy_widgets do |t|\nend\n"
   )
-  unless table_legacy_status.success?
+  unless table_legacy_status.exitstatus.zero?
     warn "cops_canary: EngineTablePrefix flagged the recorded legacy prefix"
     warn table_legacy
     exit 1
@@ -254,7 +254,7 @@ internals_bad, internals_bad_status = stdin_run(
   "Rafelo/NoKernelInternals", "engines/example_orders/app/models/internals_canary.rb",
   "Rafelo::Core::Internal::Thing\nRafelo::DesignSystem::Internal::Thing\n"
 )
-unless !internals_bad_status.success? && internals_bad.scan("Rafelo/NoKernelInternals").length >= 2
+unless internals_bad_status.exitstatus == 1 && internals_bad.scan("Rafelo/NoKernelInternals").length >= 2
   warn "cops_canary: NoKernelInternals did not report a non-kernel reference"
   warn internals_bad
   exit 1
@@ -263,7 +263,7 @@ internals_core, internals_core_status = stdin_run(
   "Rafelo/NoKernelInternals", "engines/core/app/models/rafelo/core/internals_canary.rb",
   "Rafelo::Core::Internal::Thing\n"
 )
-unless internals_core_status.success?
+unless internals_core_status.exitstatus.zero?
   warn "cops_canary: NoKernelInternals flagged the owning kernel"
   warn internals_core
   exit 1
@@ -272,7 +272,7 @@ internals_design_system, internals_design_system_status = stdin_run(
   "Rafelo/NoKernelInternals", "engines/design_system/app/models/internals_canary.rb",
   "Rafelo::DesignSystem::Internal::Thing\n"
 )
-unless internals_design_system_status.success?
+unless internals_design_system_status.exitstatus.zero?
   warn "cops_canary: NoKernelInternals flagged design_system"
   warn internals_design_system
   exit 1
@@ -295,7 +295,7 @@ skip_bad_source = <<~RUBY
   end
 RUBY
 skip_bad, skip_bad_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_bad_source)
-unless !skip_bad_status.success? && skip_bad.scan("Rafelo/SkipNeedsIssue").length >= 7
+unless skip_bad_status.exitstatus == 1 && skip_bad.scan("Rafelo/SkipNeedsIssue").length >= 7
   warn "cops_canary: SkipNeedsIssue did not report the skip fixture"
   warn skip_bad
   exit 1
@@ -317,7 +317,7 @@ skip_legal_source = <<~RUBY
   end
 RUBY
 skip_legal, skip_legal_status = stdin_run("Rafelo/SkipNeedsIssue", "spec/skip_canary_spec.rb", skip_legal_source)
-unless skip_legal_status.success?
+unless skip_legal_status.exitstatus.zero?
   warn "cops_canary: SkipNeedsIssue flagged issue-linked skips"
   warn skip_legal
   exit 1
@@ -326,7 +326,7 @@ skip_enforcement, skip_enforcement_status = stdin_run(
   "Rafelo/SkipNeedsIssue", "spec/enforcement/skip_canary_spec.rb",
   "Prosopite.pause\n"
 )
-unless skip_enforcement_status.success?
+unless skip_enforcement_status.exitstatus.zero?
   warn "cops_canary: SkipNeedsIssue flagged enforcement prosopite pause"
   warn skip_enforcement
   exit 1
@@ -336,7 +336,7 @@ faraday_named, faraday_named_status = stdin_run(
   "Rafelo/FaradayOnlyInUpstreamClient", "engines/example_orders/app/models/upstream_client.rb",
   "Faraday.new(\"http://example.test\")\n"
 )
-unless !faraday_named_status.success? && faraday_named.include?("Rafelo/FaradayOnlyInUpstreamClient")
+unless faraday_named_status.exitstatus == 1 && faraday_named.include?("Rafelo/FaradayOnlyInUpstreamClient")
   warn "cops_canary: FaradayOnlyInUpstreamClient exempted a look-alike file"
   warn faraday_named
   exit 1
@@ -345,7 +345,7 @@ faraday_legal_client, faraday_legal_client_status = stdin_run(
   "Rafelo/FaradayOnlyInUpstreamClient", "engines/core/app/models/rafelo/core/upstream_client.rb",
   "Faraday.new(\"http://example.test\")\n"
 )
-unless faraday_legal_client_status.success?
+unless faraday_legal_client_status.exitstatus.zero?
   warn "cops_canary: FaradayOnlyInUpstreamClient flagged the client"
   warn faraday_legal_client
   exit 1
@@ -355,7 +355,7 @@ tls_pair, tls_pair_status = stdin_run(
   "Rafelo/NoTlsVerifyDisable", "app/models/tls_canary.rb",
   "connection.ssl = { verify: false }\nconnection.ssl = { verify_mode: OpenSSL::SSL::VERIFY_NONE }\n"
 )
-unless !tls_pair_status.success? && tls_pair.scan("Rafelo/NoTlsVerifyDisable").length >= 2
+unless tls_pair_status.exitstatus == 1 && tls_pair.scan("Rafelo/NoTlsVerifyDisable").length >= 2
   warn "cops_canary: NoTlsVerifyDisable missed the hash forms"
   warn tls_pair
   exit 1
@@ -365,7 +365,7 @@ cache_config, cache_config_status = stdin_run(
   "Rafelo/CacheOnlyThroughScopedCache", "config/initializers/cache_canary.rb",
   "Rails.cache.fetch(\"x\") { 1 }\n::Rails.cache.fetch(\"x\") { 1 }\n"
 )
-unless !cache_config_status.success? && cache_config.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 2
+unless cache_config_status.exitstatus == 1 && cache_config.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 2
   warn "cops_canary: CacheOnlyThroughScopedCache exempted config or ::Rails.cache"
   warn cache_config
   exit 1
@@ -374,7 +374,7 @@ cache_scoped, cache_scoped_status = stdin_run(
   "Rafelo/CacheOnlyThroughScopedCache", "engines/core/app/models/rafelo/core/scoped_cache.rb",
   "Rails.cache.fetch(\"x\") { 1 }\n"
 )
-unless cache_scoped_status.success?
+unless cache_scoped_status.exitstatus.zero?
   warn "cops_canary: CacheOnlyThroughScopedCache flagged the scoped cache"
   warn cache_scoped
   exit 1
@@ -384,7 +384,7 @@ return_fetch, return_fetch_status = stdin_run(
   "Rafelo/ReturnToOnlyInValueObject", "app/controllers/return_canary_controller.rb",
   "params.fetch(:return_to)\nparams[:return_to]\nparams.dig(:page, :return_to)\n"
 )
-unless !return_fetch_status.success? && return_fetch.scan("Rafelo/ReturnToOnlyInValueObject").length >= 3
+unless return_fetch_status.exitstatus == 1 && return_fetch.scan("Rafelo/ReturnToOnlyInValueObject").length >= 3
   warn "cops_canary: ReturnToOnlyInValueObject missed fetch or a non-fixture path"
   warn return_fetch
   exit 1
@@ -393,7 +393,7 @@ return_legal, return_legal_status = stdin_run(
   "Rafelo/ReturnToOnlyInValueObject", "engines/core/app/models/rafelo/core/return_to.rb",
   "params[:return_to]\nparams.fetch(:return_to)\n"
 )
-unless return_legal_status.success?
+unless return_legal_status.exitstatus.zero?
   warn "cops_canary: ReturnToOnlyInValueObject flagged the value object"
   warn return_legal
   exit 1
@@ -408,7 +408,7 @@ begin
     "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
     "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary\n)\n"
   )
-  unless !permission_default_status.success? && permission_default.include?("Rafelo/OwnPermissionPrefixes")
+  unless permission_default_status.exitstatus == 1 && permission_default.include?("Rafelo/OwnPermissionPrefixes")
     warn "cops_canary: OwnPermissionPrefixes missed a foreign key with the default prefix"
     warn permission_default
     exit 1
@@ -417,7 +417,7 @@ begin
     "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
     "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary,\n  permission_prefixes: [ \"payments\" ]\n)\n"
   )
-  unless permission_legal_status.success?
+  unless permission_legal_status.exitstatus.zero?
     warn "cops_canary: OwnPermissionPrefixes flagged a declared prefix"
     warn permission_legal
     exit 1
@@ -426,7 +426,7 @@ begin
     "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
     "::Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary,\n  permission_prefixes: [ \"smoke_permission_canary\" ]\n)\n"
   )
-  unless !permission_colon_status.success? && permission_colon.include?("Rafelo/OwnPermissionPrefixes")
+  unless permission_colon_status.exitstatus == 1 && permission_colon.include?("Rafelo/OwnPermissionPrefixes")
     warn "cops_canary: OwnPermissionPrefixes missed ::Rafelo::Core::Modules"
     warn permission_colon
     exit 1
@@ -436,7 +436,7 @@ begin
     "Rafelo/OwnPermissionPrefixes", "engines/smoke_permission_canary/config/module.rb",
     "Rafelo::Core::Modules.register(\n  key: :smoke_permission_canary\n)\n"
   )
-  unless permission_own_status.success?
+  unless permission_own_status.exitstatus.zero?
     warn "cops_canary: OwnPermissionPrefixes flagged the module's own default prefix"
     warn permission_own
     exit 1
@@ -448,7 +448,7 @@ end
 current_colon, current_colon_status = stdin_run(
   "Rafelo/CurrentAtTheEdge", "app/models/current_canary.rb", "::Current.trace_id\n"
 )
-unless !current_colon_status.success? && current_colon.include?("Rafelo/CurrentAtTheEdge")
+unless current_colon_status.exitstatus == 1 && current_colon.include?("Rafelo/CurrentAtTheEdge")
   warn "cops_canary: CurrentAtTheEdge missed ::Current"
   warn current_colon
   exit 1
@@ -457,7 +457,7 @@ concurrency_colon, concurrency_colon_status = stdin_run(
   "Rafelo/ConcurrencyOnlyInExecutor", "app/models/concurrency_canary.rb",
   "::Concurrent::FixedThreadPool.new(1)\n"
 )
-unless !concurrency_colon_status.success? && concurrency_colon.include?("Rafelo/ConcurrencyOnlyInExecutor")
+unless concurrency_colon_status.exitstatus == 1 && concurrency_colon.include?("Rafelo/ConcurrencyOnlyInExecutor")
   warn "cops_canary: ConcurrencyOnlyInExecutor missed ::Concurrent"
   warn concurrency_colon
   exit 1
@@ -465,7 +465,7 @@ end
 env_colon, env_colon_status = stdin_run(
   "Rafelo/EnvOnlyInConfig", "app/models/env_canary.rb", "::Rails.application.credentials\n"
 )
-unless !env_colon_status.success? && env_colon.include?("Rafelo/EnvOnlyInConfig")
+unless env_colon_status.exitstatus == 1 && env_colon.include?("Rafelo/EnvOnlyInConfig")
   warn "cops_canary: EnvOnlyInConfig missed ::Rails.application.credentials"
   warn env_colon
   exit 1
@@ -474,7 +474,7 @@ internals_colon, internals_colon_status = stdin_run(
   "Rafelo/NoKernelInternals", "engines/example_orders/app/models/internals_canary.rb",
   "::Rafelo::Core::Internal::Thing\n"
 )
-unless !internals_colon_status.success? && internals_colon.include?("Rafelo/NoKernelInternals")
+unless internals_colon_status.exitstatus == 1 && internals_colon.include?("Rafelo/NoKernelInternals")
   warn "cops_canary: NoKernelInternals missed a leading ::"
   warn internals_colon
   exit 1
@@ -483,7 +483,7 @@ date_colon, date_colon_status = stdin_run(
   "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
   "::I18n.l(date)\n"
 )
-unless !date_colon_status.success? && date_colon.include?("Rafelo/DateFormatterOnly")
+unless date_colon_status.exitstatus == 1 && date_colon.include?("Rafelo/DateFormatterOnly")
   warn "cops_canary: DateFormatterOnly missed ::I18n"
   warn date_colon
   exit 1
@@ -492,7 +492,7 @@ cache_lookalike, cache_lookalike_status = stdin_run(
   "Rafelo/CacheOnlyThroughScopedCache", "engines/example_orders/app/models/scoped_cache.rb",
   "Rails.cache.fetch(\"x\") { 1 }\n"
 )
-unless !cache_lookalike_status.success? && cache_lookalike.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 1
+unless cache_lookalike_status.exitstatus == 1 && cache_lookalike.scan("Rafelo/CacheOnlyThroughScopedCache").length >= 1
   warn "cops_canary: CacheOnlyThroughScopedCache exempted a look-alike file"
   warn cache_lookalike
   exit 1
@@ -500,7 +500,7 @@ end
 config_bad, config_bad_status = stdin_run(
   "Rafelo/ConfigXOnlyInCore", "app/models/config_canary.rb", "Rails.application.config.x.thing\n"
 )
-unless !config_bad_status.success? && config_bad.include?("Rafelo/ConfigXOnlyInCore")
+unless config_bad_status.exitstatus == 1 && config_bad.include?("Rafelo/ConfigXOnlyInCore")
   warn "cops_canary: ConfigXOnlyInCore missed the app path"
   warn config_bad
   exit 1
@@ -509,7 +509,7 @@ config_legal, config_legal_status = stdin_run(
   "Rafelo/ConfigXOnlyInCore", "engines/core/app/models/rafelo/core/config_canary.rb",
   "Rails.application.config.x.thing\n"
 )
-unless config_legal_status.success?
+unless config_legal_status.exitstatus.zero?
   warn "cops_canary: ConfigXOnlyInCore flagged core"
   warn config_legal
   exit 1
