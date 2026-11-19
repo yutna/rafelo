@@ -17,6 +17,27 @@ REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_sel
 CANARY_SCRIPTS = %w[affected_canary clones_canary deploy_preflight_canary fan_in_canary graph_canaries growth_canary production_routes_canary apply_check_canary eslint_canary npm_audit_canary].freeze
 
 config_ci = File.read(File.join(root, "config", "ci.rb"))
+abort "enforcement_canaries: config/ci.rb is empty" if config_ci.strip.empty?
+config_ci.scan(%r{"script/ci/([^"]+)"}).flatten.map { |step| step.split.first }.uniq.each do |name|
+  path = File.join(root, "script", "ci", name)
+  abort "enforcement_canaries: config/ci.rb names missing script/ci/#{name}" unless File.file?(path)
+end
+
+cop_files = Dir[File.join(root, "script", "ci", "cops", "rafelo", "*.rb")]
+cop_names = cop_files.map do |path|
+  "Rafelo/#{File.basename(path, ".rb").split("_").map(&:capitalize).join}"
+end
+cops_canary = File.read(File.join(root, "script", "ci", "cops_canary"))
+missing_cops = cop_names.reject { |name| cops_canary.include?(name) }
+abort "enforcement_canaries: no canary for #{missing_cops.join(", ")}" if missing_cops.any?
+warn "enforcement_canaries: checked #{cop_names.length} Rafelo cops"
+
+depcruise = File.read(File.join(root, ".dependency-cruiser.cjs"))
+graph_canary = File.read(File.join(root, "script", "ci", "graph_canaries"))
+rules = depcruise.scan(/^\s+name: "([^"]+)"/).flatten
+missing_rules = rules.reject { |name| graph_canary.include?(name) }
+abort "enforcement_canaries: no canary for #{missing_rules.join(", ")}" if missing_rules.any?
+warn "enforcement_canaries: checked #{rules.length} hand-written dependency-cruiser rules"
 CANARY_SCRIPTS.each do |script|
   path = File.join(root, "script", "ci", script)
   abort "enforcement_canaries: missing canary script script/ci/#{script}" unless File.file?(path)
@@ -265,7 +286,7 @@ canaries.each do |canary|
   abort "enforcement_canaries: missing legal fixture #{legal_root}" unless Dir.exist?(legal_root)
 
   output, status = Open3.capture2e(*command(root, canary, canary[:bad_args], bad_root))
-  if status.success? || !output.include?(canary[:expected])
+  if status.exitstatus != 1 || !output.include?(canary[:expected])
     warn "canary #{canary[:name]}: expected failure containing #{canary[:expected].inspect}"
     warn output
     failures += 1

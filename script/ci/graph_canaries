@@ -263,6 +263,42 @@ unless !ts_status.success? && ts_failures.empty?
   exit 1
 end
 
+# One offending import per hand-written frontend rule (TS-07).
+write(root, "engines/canary_alpha/app/frontend/components/bad_component.tsx", <<~TS)
+  import { badContainer } from "../containers/bad_container";
+
+  export const badComponent = badContainer;
+TS
+write(root, "engines/canary_alpha/app/frontend/containers/bad_container.tsx", "export const badContainer = 1;\n")
+write(root, "engines/canary_alpha/app/frontend/pages/bad_page.tsx", <<~TS)
+  import { badComponent } from "../components/bad_component";
+
+  export const badPage = badComponent;
+TS
+write(root, "engines/canary_alpha/app/frontend/pages/bad_layout_page.tsx", <<~TS)
+  import { layout } from "../../../../../app/frontend/layouts/layout_root";
+
+  export const badLayoutPage = layout;
+TS
+write(root, "engines/canary_alpha/app/frontend/domain/bad_domain.ts", <<~TS)
+  import { useState } from "react";
+
+  export const badDomain = useState;
+TS
+{
+  "components-stay-presentational" => "engines/canary_alpha/app/frontend/components/bad_component.tsx",
+  "pages-render-screens" => "engines/canary_alpha/app/frontend/pages/bad_page.tsx",
+  "only-resolver-picks-layouts" => "engines/canary_alpha/app/frontend/pages/bad_layout_page.tsx",
+  "domain-is-framework-free" => "engines/canary_alpha/app/frontend/domain/bad_domain.ts"
+}.each do |rule, path|
+  output, status = run(root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err", path)
+  unless !status.success? && output.include?(rule)
+    warn "graph_canaries: expected #{rule} to fail"
+    warn output
+    exit 1
+  end
+end
+
 # GEN-08: the TypeScript rule also refuses an import of an example engine.
 write(root, "engines/example_canary/app/frontend/public/index.ts", "export const exampleCanary = \"example\";\n")
 write(root, "engines/canary_legal_beta/app/frontend/example_leak.ts", <<~TS)
