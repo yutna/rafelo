@@ -461,11 +461,12 @@ tree:
 | Every other custom check (`i18n:check` namespaces, `errors:check` prefixes, `aliases:check`, `script/ci/ratchet`, growth budgets) | that check |
 
 The table is not trusted to be complete. Before it runs the fixtures,
-`script/ci/enforcement_canaries` lists rule names from their sources (every
+`script/ci/enforcement_canaries` discovers names from their sources (every
 dependency-cruiser `forbidden[].name`, every `Rafelo/*` cop, every local ESLint
-rule (the `rafelo` plugin, `script/ci/eslint/rafelo.mjs`) and restriction
-entry from `eslint --print-config`, every
-`script/ci/*` check) and fails when a name has no fixture that expects it.
+rule and restriction printed by `eslint --print-config` at real paths, and
+every `script/ci/*` check) and requires a canary case per discovered name —
+the canary scripts run bad fixtures and legal counterparts, or the tools fail
+when a discovered name has no case.
 
 ### TS-08 — Accessibility is checked automatically (MUST · ADR-24)
 

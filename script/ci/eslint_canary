@@ -309,20 +309,33 @@ PRINT_CONFIG.each do |test|
   warn "eslint_canary: print-config for #{test[:path]}: #{problems.join('; ')}"
 end
 
-plugin = File.read(File.join(root, "script", "ci", "eslint", "rafelo.mjs"))
-rules_block = plugin[/rules:\s*\{(.*?)\}/m, 1].to_s
-local_rules = rules_block.scan(/"([\w-]+)"\s*:/).flatten.uniq
+def eslint_rules_at(eslint, root, path)
+  output, _stderr, status = Open3.capture3(eslint, "--print-config", path, chdir: root)
+  return [] unless status.success?
+  JSON.parse(output).fetch("rules", {}).filter_map do |name, value|
+    severity = value.is_a?(Array) ? value.first : value
+    next unless severity.is_a?(Integer) && severity.positive?
+    name if name.start_with?("rafelo/")
+  end
+rescue JSON::ParserError
+  []
+end
+
+# The local plugin rules are enumerated from the config printed at real paths,
+# and every discovered rule needs a canary case: a case with a bad fixture, a
+# legal counterpart and the expected rule in `rules`.
+local_rules = PRINT_CONFIG.flat_map { |test| eslint_rules_at(eslint, root, test[:path]) }.uniq
 if local_rules.empty?
   failures += 1
   warn "eslint_canary: the local plugin exports no rules"
 else
   checks += local_rules.length
+  covered = CASES.flat_map { |test| Array(test[:rules]) }.uniq
   local_rules.each do |name|
-    expected = "rafelo/#{name}"
-    next if CASES.any? { |test| test[:rules].include?(expected) }
+    next if covered.include?(name)
 
     failures += 1
-    warn "eslint_canary: local rule #{expected} has no fixture"
+    warn "eslint_canary: local rule #{name} has no case"
   end
 end
 
