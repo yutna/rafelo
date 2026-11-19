@@ -75,6 +75,7 @@ CI.run do
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
   step "Tests: engine specs", "script/ci/engine_specs"
+  step "Tests: engine specs canary", "script/ci/engine_specs_canary"
   step "Tests: page matchers", "npm run pages:check -- --matchers"
   step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: database roles", "script/ci/database_roles"
