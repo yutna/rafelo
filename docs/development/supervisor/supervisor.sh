@@ -82,6 +82,7 @@ $(cat "$state/STATE.md")"
       gh issue edit "$issue" --add-assignee "$owner" >/dev/null
       gh issue comment "$issue" -b "@$owner the supervisor paused: only blocked work remains. $marker" >/dev/null
     done
+    logline "run end rc=$rc outcome=blocked: $marker"
     logline "paused for owner: $marker"
     exit 0
   fi

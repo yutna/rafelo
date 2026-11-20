@@ -60,7 +60,7 @@ if File.file?(SUPERVISOR_SH)
 
     log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
     cases += 1
-    failures = note(failures, "the blocked outcome was not logged: #{log}") unless log.include?("paused for owner")
+    failures = note(failures, "the blocked outcome was not logged: #{log}") unless log.include?("outcome=blocked") && log.include?("paused for owner")
 
     calls_list = File.file?(calls) ? File.read(calls).lines.map(&:strip) : []
     [ 123, 456 ].each do |issue|
