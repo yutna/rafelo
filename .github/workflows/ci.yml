@@ -363,6 +363,9 @@ jobs:
           script/ci/repo_rules_canary
           script/ci/release_canary
 
+      - name: Run the supervisor canary
+        run: script/ci/supervisor_canary
+
       - name: Run the deploy preflight and its canary
         run: |
           script/ci/deploy_preflight

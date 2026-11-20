@@ -55,6 +55,7 @@ CI.run do
   step "Policy: production routes canary", "script/ci/production_routes_canary"
   step "Policy: gem patches", "script/ci/patches"
   step "Policy: gem patches canary", "script/ci/patches_canary"
+  step "Supervisor: canary", "script/ci/supervisor_canary"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "script/ci/npm_audit"
