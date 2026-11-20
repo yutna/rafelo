@@ -23,7 +23,7 @@ module RuboCop
         private
 
         def verify_none?(node)
-          node&.const_name.to_s.end_with?("VERIFY_NONE")
+          Matching.const_name(node)&.end_with?("VERIFY_NONE")
         end
       end
     end

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "yaml"
-
 module RuboCop
   module Cop
     module Rafelo
@@ -12,7 +10,7 @@ module RuboCop
         RESTRICT_ON_SEND = %i[register].freeze
 
         def on_send(node)
-          return unless node.receiver&.const_name == "Rafelo::Core::Modules"
+          return unless Matching.receiver_names(node).first == "Rafelo::Core::Modules"
 
           hash = node.arguments.find(&:hash_type?)
           return unless hash

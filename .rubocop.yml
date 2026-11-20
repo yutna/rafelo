@@ -13,6 +13,7 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 #   Enabled: false
 
 require:
+  - ./script/ci/cops/rafelo/matching
   - ./script/ci/cops/rafelo/faraday_only_in_upstream_client
   - ./script/ci/cops/rafelo/no_tls_verify_disable
   - ./script/ci/cops/rafelo/config_x_only_in_core
@@ -65,7 +66,7 @@ Rafelo/NoConstantize:
   Include:
     - engines/**/*.rb
   Exclude:
-    - engines/core/**/modules.rb
+    - engines/core/app/models/rafelo/core/modules.rb
 Rafelo/DateFormatterOnly: # runtime Ruby, the same set as EnvOnlyInConfig (FE-20, BE-08)
   Exclude:
     [

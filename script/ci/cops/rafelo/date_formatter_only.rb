@@ -9,9 +9,10 @@ module RuboCop
         RESTRICT_ON_SEND = %i[strftime to_fs to_formatted_s l].freeze
 
         def on_send(node)
-          if node.method_name == :l
+          name = Matching.method_name(node)
+          if name == "l"
             receiver = node.receiver
-            return unless receiver.nil? || receiver.const_name == "I18n"
+            return if receiver.nil? || (Matching.const_name(receiver) == "I18n" && !receiver.absolute?)
           end
 
           add_offense(node.loc.selector)

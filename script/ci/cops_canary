@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "json"
 require "open3"
 
 ROOT = File.expand_path(Dir.pwd)
@@ -14,9 +15,18 @@ COPS = %w[
 ].join(",")
 PROVEN = []
 
+# The shared matching module is not a cop (TS-07's new cop design).
+SHARED_MODULE = "matching"
+BYPASS_DIR = File.join(ROOT, "spec", "enforcement", "fixtures", "cops", "bypass")
+
 cop_names = Dir[File.join(ROOT, "script", "ci", "cops", "rafelo", "*.rb")]
+            .reject { |path| File.basename(path, ".rb") == SHARED_MODULE }
             .map { |path| "Rafelo/#{File.basename(path, ".rb").split("_").map(&:capitalize).join}" }
             .sort
+
+def bypass_snake(cop)
+  cop.delete_prefix("Rafelo/").gsub(/[A-Z]/) { |letter| "_#{letter.downcase}" }.sub(/\A_/, "").downcase
+end
 
 bad = File.join(ROOT, "spec/enforcement/fixtures/cops/bad/example.rb")
 legal = File.join(ROOT, "spec/enforcement/fixtures/cops/legal/example.rb")
@@ -643,6 +653,64 @@ unless config_legal_status.exitstatus.zero?
   warn "cops_canary: ConfigXOnlyInCore flagged core"
   warn config_legal
   exit 1
+end
+
+# Bypass fixtures (TS-07): every cop has one, next to its canary; the
+# fixture's first line states the exact offense count, and the run must
+# report exactly that many, all named after the cop; the forbidden name only
+# in strings and comments is not reported. The cop runs on the fixture
+# content at a path that is not excluded: the committed fixtures live under
+# spec/enforcement/fixtures, which some cops exclude, and `--stdin` keeps the
+# same exclusion; the path-specific behavior of the gated cops is proven by
+# their stdin cases above.
+cop_names.each do |cop|
+  fixture = Dir[File.join(BYPASS_DIR, "**", "#{bypass_snake(cop)}.rb")].first
+  unless fixture
+    warn "cops_canary: no bypass fixture for #{cop}"
+    exit 1
+  end
+
+  header = File.readlines(fixture, chomp: true).find { |line| line.start_with?("# expected offenses:") }
+  unless header
+    warn "cops_canary: bypass fixture for #{cop} has no expected offense count: #{fixture}"
+    exit 1
+  end
+  expected = header[/# expected offenses: (-?\d+)/, 1].to_i
+
+  # The cop runs on the fixture content at a path that is not excluded: the
+  # committed fixtures live under spec/enforcement/fixtures (excluded by
+  # AllCops and by some cops), so the tmp path mirrors the committed location
+  # and the spec path runs where a cop restricts its Include to spec/.
+  candidates = [
+    File.join("tmp", "cops_bypass_canary", "#{bypass_snake(cop)}.rb"),
+    File.join("spec", "enforcement", "bypass", "#{bypass_snake(cop)}.rb")
+  ]
+  last = nil
+  matched = false
+  candidates.each do |stdin_path|
+    output, status = Open3.capture2e(
+      "bundle", "exec", "rubocop", "--format", "json", "--only", cop,
+      "--stdin", stdin_path, stdin_data: File.read(fixture), chdir: ROOT
+    )
+    begin
+      offenses = JSON.parse(output).fetch("files", []).flat_map { |file| file["offenses"] || [] }
+    rescue JSON::ParserError
+      offenses = []
+    end
+    reported = offenses.map { |offense| offense["cop_name"] }
+    last = { output: output, reported: reported }
+    expected_status = expected.zero? ? 0 : 1
+    next unless status.exitstatus == expected_status && reported.length == expected &&
+                 reported.all? { |name| name == cop }
+
+    matched = true
+    break
+  end
+  unless matched
+    warn "cops_canary: bypass fixture for #{cop}: expected #{expected} offenses, got " \
+         "#{last[:reported].length} (#{last[:reported].uniq.join(', ')}) from #{fixture}: #{last[:output]}"
+    exit 1
+  end
 end
 
 missing = cop_names.reject { |name| COPS.split(",").include?(name) || PROVEN.include?(name) }
