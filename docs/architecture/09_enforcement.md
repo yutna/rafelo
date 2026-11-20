@@ -231,7 +231,7 @@ names the rule ID and the fix.
 | --- | --- | --- | --- |
 | `Rafelo/FaradayOnlyInUpstreamClient` | `Faraday` | `Rafelo::Core::UpstreamClient` | ARCH-01, ARCH-02, BE-05, SEC-14 |
 | `Rafelo/NoTlsVerifyDisable` | `verify: false`, `VERIFY_NONE` | nowhere | BE-05, SEC-14 |
-| `Rafelo/EnvOnlyInConfig` | `ENV[...]`, `ENV.fetch`, `Rails.application.credentials` | `config/` | ARCH-01, BE-04, BE-08 |
+| `Rafelo/EnvOnlyInConfig` | `ENV[...]`, `ENV.fetch`, `Rails.application.credentials` in runtime Ruby (BE-08): `app/`, `db/`, `lib/` outside `lib/tasks/`, and `engines/*/` outside `engines/*/spec/` | the application's `config/` (not `engines/*/config/`); tooling is outside the cop: `bin/` (rubocop-rails excludes `bin/*` from every cop), `lib/tasks/`, `script/`, `spec/`, `engines/*/spec/` | ARCH-01, BE-04, BE-08 |
 | `Rafelo/CurrentAtTheEdge` | `Current.` | controllers, middleware, `Rafelo::Core::LogPayload` (OPS-01), the `Rails.error` subscriber (OPS-03), `Rafelo::Core::BaseJob` at enqueue (BE-11) | BE-04, BE-09 |
 | `Rafelo/CacheOnlyThroughScopedCache` | `Rails.cache` | `Rafelo::Core::ScopedCache` (`rate_limit` writes to the cache store itself, a deliberate exemption, BE-12); specs (`spec/`, `engines/*/spec/`), which clear the store and call `increment` (TS-01, BE-12) | BE-17 |
 | `Rafelo/ConcurrencyOnlyInExecutor` | `Concurrent::` | `Rafelo::Core::Executor`; specs (`spec/`, `engines/*/spec/`), which force races with a `Concurrent::CyclicBarrier` (TS-10) | BE-16 |
@@ -296,8 +296,8 @@ Rafelo/CacheOnlyThroughScopedCache: # specs clear the cache store and call incre
 Rafelo/ConcurrencyOnlyInExecutor: # specs force races with Concurrent:: primitives (TS-10)
   Exclude: ["engines/core/**/executor.rb", "spec/**/*", "engines/*/spec/**/*"]
 
-Rafelo/EnvOnlyInConfig:
-  Exclude: ["config/**/*"]
+Rafelo/EnvOnlyInConfig: # runtime Ruby only; tooling reads its own environment (BE-08); rubocop-rails excludes bin/*
+  Exclude: ["config/**/*", "lib/tasks/**/*.rake", "script/**/*", "spec/**/*", "engines/*/spec/**/*"]
 
 Rafelo/EngineTablePrefix:
   Include: ["engines/*/db/migrate/**/*.rb"] # the engine name comes from the file path (GEN-01)

@@ -433,6 +433,14 @@ and gateways receive configuration; they never read `ENV` or credentials
 directly. Upstreams are configured in one file, `config/upstreams.yml`, with
 one entry per named upstream (BE-05).
 
+The rule covers runtime Ruby: what the deployed application loads to serve a request or run a job, that
+is `app/`, `db/`, `lib/` outside `lib/tasks/`, and every engine outside its `spec/`. Only the
+application's own `config/` reads `ENV` and credentials; an engine's `config/` does not, and engine code
+receives configuration from core (ARCH-10). Tooling runs outside that runtime and reads its own
+environment: binstubs in `bin/`, Rake tasks in `lib/tasks/` (an operator's `KEY=value` arguments, such as
+a restore confirmation), scripts in `script/`, and specs in `spec/` and `engines/*/spec/`, which set
+environment variables to drive a boot (the subprocess specs below).
+
 ```yaml
 # config/upstreams.yml (read with config_for, so it has per-environment sections)
 production:

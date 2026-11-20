@@ -58,6 +58,56 @@ unless env_legal_status.exitstatus.zero?
   exit 1
 end
 
+env_engine_app_bad, env_engine_app_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "engines/example_orders/app/models/env_canary.rb",
+                                                          "ENV.fetch(\"SECRET_KEY\")\n")
+unless env_engine_app_bad_status.exitstatus == 1 && env_engine_app_bad.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig did not report the engine app fixture"
+  warn env_engine_app_bad
+  exit 1
+end
+
+env_engine_initializer_bad, env_engine_initializer_bad_status = stdin_run(
+  "Rafelo/EnvOnlyInConfig", "engines/example_orders/config/initializers/env_canary.rb",
+  "ENV.fetch(\"SECRET_KEY\")\n"
+)
+unless env_engine_initializer_bad_status.exitstatus == 1 && env_engine_initializer_bad.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig did not report the engine config fixture"
+  warn env_engine_initializer_bad
+  exit 1
+end
+
+env_db_seeds_bad, env_db_seeds_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "db/seeds.rb",
+                                                      "ENV.fetch(\"SECRET_KEY\")\n")
+unless env_db_seeds_bad_status.exitstatus == 1 && env_db_seeds_bad.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig did not report the db fixture"
+  warn env_db_seeds_bad
+  exit 1
+end
+
+env_lib_bad, env_lib_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "lib/env_canary.rb",
+                                           "ENV.fetch(\"SECRET_KEY\")\n")
+unless env_lib_bad_status.exitstatus == 1 && env_lib_bad.include?("Rafelo/EnvOnlyInConfig")
+  warn "cops_canary: EnvOnlyInConfig did not report the lib fixture"
+  warn env_lib_bad
+  exit 1
+end
+
+env_script_legal, env_script_legal_status = stdin_run("Rafelo/EnvOnlyInConfig", "script/ci/env_canary.rb",
+                                                     "ENV.fetch(\"SECRET_KEY\")\n")
+unless env_script_legal_status.exitstatus.zero?
+  warn "cops_canary: EnvOnlyInConfig flagged a script"
+  warn env_script_legal
+  exit 1
+end
+
+env_lib_tasks_legal, env_lib_tasks_legal_status = stdin_run("Rafelo/EnvOnlyInConfig", "lib/tasks/env_canary.rake",
+                                                            "ENV.fetch(\"SECRET_KEY\")\n")
+unless env_lib_tasks_legal_status.exitstatus.zero?
+  warn "cops_canary: EnvOnlyInConfig flagged a Rake task"
+  warn env_lib_tasks_legal
+  exit 1
+end
+
 concurrency_bad, concurrency_bad_status = stdin_run("Rafelo/ConcurrencyOnlyInExecutor",
                                                       "app/models/concurrency_canary.rb",
                                                       "Concurrent::FixedThreadPool.new(1)\n")
