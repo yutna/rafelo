@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "fileutils"
 require "open3"
 require "optparse"
 require "tempfile"
+require "tmpdir"
 require "yaml"
 
 root = Dir.pwd
@@ -14,6 +16,13 @@ end.parse!
 
 root = File.expand_path(root)
 abort "affected_canary: root does not exist: #{root}" unless Dir.exist?(root)
+
+def git_merge_canary(dir, *args)
+  output, error, status = Open3.capture3("git", "-C", dir, *args)
+  abort "affected_canary: git #{args.join(' ')} failed: #{error}" unless status.success?
+
+  output.strip
+end
 
 fixture = File.join(root, "spec", "enforcement", "fixtures", "affected", "graph")
 cases_file = File.join(fixture, "cases.yml")
@@ -35,6 +44,53 @@ cases.each do |test_case|
     next if status.success? && actual == expected
 
     warn "affected_canary: #{test_case.fetch("name")}: expected #{expected.inspect}, got #{actual.inspect}"
+    warn output
+    failures += 1
+  end
+end
+
+# The pull request reading (WF-05): CI reads a pull request's changes from the
+# tested merge commit against its first parent, so a release bump the base
+# already carries is not the branch's own change; `affected` reports neither
+# the bump nor the engine change carried by the base.
+Dir.mktmpdir("rafelo-affected-merge-canary-") do |dir|
+  FileUtils.mkdir_p(File.join(dir, "engines", "core", "app", "models"))
+  git_merge_canary(dir, "init", "-q")
+  branch = git_merge_canary(dir, "symbolic-ref", "--short", "HEAD")
+  git_merge_canary(dir, "config", "user.email", "canary@rafelo.invalid")
+  git_merge_canary(dir, "config", "user.name", "Canary")
+  File.write(File.join(dir, "base.txt"), "base\n")
+  git_merge_canary(dir, "add", ".")
+  git_merge_canary(dir, "commit", "-q", "-m", "base")
+  base = git_merge_canary(dir, "rev-parse", "HEAD")
+
+  File.write(File.join(dir, "VERSION"), "0.30.0\n")
+  File.write(File.join(dir, "engines", "core", "app", "models", "canary.rb"), "class Canary; end\n")
+  git_merge_canary(dir, "add", ".")
+  git_merge_canary(dir, "commit", "-q", "-m", "release bump")
+  bump = git_merge_canary(dir, "rev-parse", "HEAD")
+
+  git_merge_canary(dir, "checkout", "-q", "-b", "branch-under-test", base)
+  FileUtils.mkdir_p(File.join(dir, "docs"))
+  File.write(File.join(dir, "docs", "under-test.md"), "# under test\n")
+  git_merge_canary(dir, "add", ".")
+  git_merge_canary(dir, "commit", "-q", "-m", "branch change")
+  git_merge_canary(dir, "checkout", "-q", branch)
+  git_merge_canary(dir, "merge", "-q", "--no-ff", "branch-under-test", "-m", "merge branch under test")
+
+  if git_merge_canary(dir, "rev-parse", "HEAD^1") != bump
+    failures += 1
+    warn "affected_canary: the merge commit's first parent is not the bump commit (verify the parent order of GitHub's test merge commit when adopting)"
+  end
+
+  cases << "merge commit reading"
+  output, status = Open3.capture2e(
+    RbConfig.ruby, File.join(root, "script", "ci", "affected"),
+    "--root", dir, "--base", "HEAD^1"
+  )
+  actual = output.lines.map(&:strip).reject(&:empty?).reject { |line| line.start_with?("affected:") }
+  unless status.success? && actual.empty?
+    warn "affected_canary: merge commit reading: expected no affected paths, got #{actual.inspect}"
     warn output
     failures += 1
   end

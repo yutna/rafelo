@@ -58,9 +58,7 @@ jobs:
           fetch-depth: 0
 
       - name: Select affected applications and engines
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
-        run: script/ci/affected --base "$BASE_SHA"
+        run: script/ci/affected --base HEAD^1
 
   actionlint:
     defaults:
@@ -244,7 +242,7 @@ jobs:
 
       - name: Check the release version
         env:
-          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: script/ci/release_check
 
       - name: Check frontend boundaries
@@ -575,7 +573,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false
@@ -759,7 +757,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false
