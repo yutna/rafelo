@@ -3,10 +3,13 @@
 require "open3"
 require "yaml"
 
-# Computes the counts behind the ratchet files. The check script only compares
-# the committed ceilings; `script/ci/ratchet --update` uses this module to lower
-# a ceiling after code fell. Counts that need a tool (the cross-engine clone
-# baseline) are computed by the existing clones script.
+# Computes the counts behind the ratchet files. `script/ci/ratchet --check`
+# (the default mode) compares the real counts with the committed ceilings: a
+# value above its committed ceiling fails even when the YAML file was not
+# edited, and a recorded rise needs an owner's approval;
+# `script/ci/ratchet --update` uses this module to lower a ceiling after code
+# fell. Counts that need a tool (the cross-engine clone baseline) are
+# computed by the existing clones script.
 module RatchetCounts
   SKIP_FORMS = [
     /(?<![\w.:])skip(?![\w:])/,
@@ -40,6 +43,8 @@ module RatchetCounts
       ruby: app_ruby + kernel.flat_map { |dir| glob(dir, "**", "*.rb") },
       tests: dirs.flat_map { |dir| test_globs(dir) },
       clone_root: clones ? root : nil
+    ).merge(
+      "legacy_lint_paths" => legacy_lint_paths(root)
     )
   end
 
@@ -139,5 +144,56 @@ module RatchetCounts
     File.readlines(path, chomp: true).count do |line|
       line.match?(/^\s*[A-Z][A-Za-z0-9_]*\s*=/)
     end
+  end
+
+  # legacy_lint_paths: the number of distinct app/ paths recorded by a
+  # "legacy-lint-path:" marker comment on a line of its own in the
+  # configurations that exempt them: `# legacy-lint-path: app/models/billing`
+  # in .rubocop.yml, `// legacy-lint-path: app/frontend/pages/billing` in
+  # eslint.config.mjs (09_enforcement.md, Ratchets; owner wording, #601).
+  # The marker checks fail the ratchet on a marker whose path is outside app/,
+  # contains a glob, does not exist, appears on no other line of its file, or
+  # is marked twice in one file; the two configurations are guard files, so
+  # an exemption added without a marker still needs an owner through
+  # guard_approval.
+  LEGACY_LINT_FILES = %w[.rubocop.yml eslint.config.mjs].freeze
+  LEGACY_LINT_MARKER = /\A\s*(?:#|\/\/)\s*legacy-lint-path:\s*(\S+)\s*\z/
+  LEGACY_LINT_GLOB = /[*?\[\]{}]/
+
+  def legacy_lint_paths(root)
+    marked = []
+    errors = []
+    LEGACY_LINT_FILES.each do |file|
+      path = File.join(root, file)
+      next unless File.file?(path)
+
+      lines = File.readlines(path, chomp: true)
+      in_file = {}
+      lines.each do |line|
+        match = line.match(LEGACY_LINT_MARKER)
+        next unless match
+
+        named = match[1]
+        if named.start_with?("app/") && File.exist?(File.join(root, named))
+          unless lines.any? { |other| other != line && other.include?(named) }
+            errors << "#{file}: legacy-lint-path for #{named} appears on no other line of #{file}"
+          end
+          if in_file.key?(named)
+            errors << "#{file}: legacy-lint-path for #{named} is marked twice in #{file}"
+          end
+        elsif !named.start_with?("app/")
+          errors << "#{file}: legacy-lint-path names a path outside app/: #{named}"
+        elsif named.match?(LEGACY_LINT_GLOB)
+          errors << "#{file}: legacy-lint-path names a glob: #{named}"
+        else
+          errors << "#{file}: legacy-lint-path names a path that does not exist: #{named}"
+        end
+        in_file[named] = true
+        marked << named
+      end
+    end
+    abort "ratchet: invalid legacy_lint_path markers: #{errors.join("; ")}" unless errors.empty?
+
+    marked.uniq.length
   end
 end
