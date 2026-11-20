@@ -9,12 +9,6 @@ prove it, without stopping until section 9 is met.
 
 ## 1. Sources of truth
 
-- The spec gist https://gist.github.com/yutna/6e3a34d9ee98dff5a00fbefc8bd780ae
-  was amended after round 1. First issue of round 2: re-sync the 16 copies in
-  docs/architecture/ from the gist's main (verbatim; update
-  docs/development/spec-provenance.md), and read the diff since b9696bb in
-  full. Then re-read every spec file in full before you plan, and write down
-  per file how many lines you read.
 - Precedence: "How to decide" in 00_README.md. This repository's own process:
   CONTRIBUTING.md and https://github.com/yutna/oss-kit/blob/main/docs/conventions.md.
 - Commit this prompt as docs/development/implementation-protocol.md, replacing
@@ -310,8 +304,6 @@ E7 S2 Plural permission keys; the drift catalog lives in engines/core (every
   decision trial is handed over; any change to an AI file or a generator after
   that reruns all trials.
 - The final gate passes with no open S1 or S2, and its release exists.
-
-Start now: open the re-sync issue, then plan the milestones from section 4.
 
 อ่านแล้ววางแผนทำตามได้เลย
 
