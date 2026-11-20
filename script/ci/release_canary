@@ -99,6 +99,49 @@ Dir.mktmpdir("rafelo-release-canary-") do |dir|
   cases, failures = expect("locale placeholder check", cases - 1, failures, status, 1, output, /locale placeholders/)
 end
 
+# The pull request reading (WF-05): CI reads a pull request's changes from the
+# tested merge commit against its first parent; a release bump the base already
+# carries reads as unchanged.
+Dir.mktmpdir("rafelo-release_check-merge-canary-") do |dir|
+  check = File.join(root, "script", "ci", "release_check")
+
+  git(dir, "init", "-q")
+  git(dir, "config", "user.email", "canary@rafelo.invalid")
+  git(dir, "config", "user.name", "Canary")
+  branch = git(dir, "symbolic-ref", "--short", "HEAD").strip
+  FileUtils.mkdir_p(File.join(dir, "engines", "core", "base"))
+  File.write(File.join(dir, "engines", "core", "base", "base.rb"), "class Base; end\n")
+  File.write(File.join(dir, "VERSION"), "0.1.0\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "base")
+  base = git(dir, "rev-parse", "HEAD").strip
+
+  # The base (first parent of the merge commit) carries the release bump.
+  File.write(File.join(dir, "VERSION"), "0.2.0\n")
+  File.write(File.join(dir, "engines", "core", "base", "release.rb"), "class Release; end\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "release bump")
+  bump = git(dir, "rev-parse", "HEAD").strip
+
+  # The branch under test fell behind main and adds a non-engine path.
+  git(dir, "checkout", "-q", "-b", "branch-under-test", base)
+  FileUtils.mkdir_p(File.join(dir, "docs"))
+  File.write(File.join(dir, "docs", "under-test.md"), "# under test\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "branch change")
+  git(dir, "checkout", "-q", branch)
+  git(dir, "merge", "-q", "--no-ff", "branch-under-test", "-m", "merge branch under test")
+
+  if git(dir, "rev-parse", "HEAD^1").strip != bump
+    failures += 1
+    warn "release_canary: the merge commit's first parent is not the bump commit (verify the parent order of GitHub's test merge commit when adopting)"
+  end
+
+  cases += 1
+  output, status = Open3.capture2e(check, "--root", dir, "--base", "HEAD^1")
+  cases, failures = expect("merge commit carries the bump in the base", cases - 1, failures, status.exitstatus, 0, output, /VERSION is unchanged/)
+end
+
 # The release commit's push CI: the milestone-close caller already created
 # the tag, so the check accepts it when it points at HEAD.
 Dir.mktmpdir("rafelo-release-check-") do |dir|
