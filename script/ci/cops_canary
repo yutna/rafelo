@@ -270,6 +270,80 @@ unless date_legal_status.exitstatus.zero?
   exit 1
 end
 
+# Widened (FE-20, BE-08): the cop covers all runtime Ruby.
+date_lib, date_lib_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/example_orders/lib/rafelo/example_orders/date_canary.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_lib_status.exitstatus == 1 && date_lib.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the engine lib fixture"
+  warn date_lib
+  exit 1
+end
+date_migrate, date_migrate_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/example_orders/db/migrate/20260101000000_date_canary.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_migrate_status.exitstatus == 1 && date_migrate.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the engine db fixture"
+  warn date_migrate
+  exit 1
+end
+date_root_lib, date_root_lib_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "lib/date_canary.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_root_lib_status.exitstatus == 1 && date_root_lib.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the lib fixture"
+  warn date_root_lib
+  exit 1
+end
+date_seeds, date_seeds_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "db/seeds.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_seeds_status.exitstatus == 1 && date_seeds.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the seeds fixture"
+  warn date_seeds
+  exit 1
+end
+date_initializer, date_initializer_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "config/initializers/date_canary.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_initializer_status.exitstatus == 1 && date_initializer.include?("Rafelo/DateFormatterOnly")
+  warn "cops_canary: DateFormatterOnly did not report the initializer fixture"
+  warn date_initializer
+  exit 1
+end
+date_script, date_script_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "script/ci/date_canary.rb",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_script_status.exitstatus.zero?
+  warn "cops_canary: DateFormatterOnly flagged a script"
+  warn date_script
+  exit 1
+end
+date_rake, date_rake_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "lib/tasks/date_canary.rake",
+  "date.strftime(\"%Y\")\n"
+)
+unless date_rake_status.exitstatus.zero?
+  warn "cops_canary: DateFormatterOnly flagged a Rake task"
+  warn date_rake
+  exit 1
+end
+date_machine, date_machine_status = stdin_run(
+  "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
+  "format(\"%04d_%02d\", date.year, date.month)\ndate.to_date.iso8601\n"
+)
+unless date_machine_status.exitstatus.zero?
+  warn "cops_canary: DateFormatterOnly flagged a machine format"
+  warn date_machine
+  exit 1
+end
+
 legacy_engine = File.join(ROOT, "engines", "smoke_legacy_canary")
 begin
   FileUtils.mkdir_p(File.join(legacy_engine, "db", "migrate"))

@@ -114,11 +114,15 @@ class PartitionCoreAuditEvents < ActiveRecord::Migration[8.1]
   end
 
   def create_month_partition(month)
-    name = "core_audit_events_#{month.strftime("%Y_%m")}"
+    # Built inline: a migration must not call app code (BE-22). The SQL is
+    # identical to the old strftime forms; iso8601 is not a formatting call the
+    # cop flags (the owner's wording said "iso86ize"; the Rails method is
+    # Date#iso8601).
+    name = "core_audit_events_#{format("%04d_%02d", month.year, month.month)}"
     execute <<~SQL
       CREATE TABLE IF NOT EXISTS #{name}
         PARTITION OF #{TABLE}
-        FOR VALUES FROM ('#{month.strftime("%Y-%m-%d")}') TO ('#{month.next_month.strftime("%Y-%m-%d")}')
+        FOR VALUES FROM ('#{month.to_date.iso8601}') TO ('#{month.next_month.to_date.iso8601}')
     SQL
   end
 end

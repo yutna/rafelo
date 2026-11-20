@@ -66,13 +66,15 @@ Rafelo/NoConstantize:
     - engines/**/*.rb
   Exclude:
     - engines/core/**/modules.rb
-Rafelo/DateFormatterOnly:
-  Enabled: true
-  Include:
-    - app/**/*.rb
-    - engines/*/app/**/*.rb
+Rafelo/DateFormatterOnly: # runtime Ruby, the same set as EnvOnlyInConfig (FE-20, BE-08)
   Exclude:
-    - engines/core/app/models/rafelo/core/date_formatter.rb
+    [
+      "engines/core/app/models/rafelo/core/date_formatter.rb",
+      "lib/tasks/**/*.rake",
+      "script/**/*",
+      "spec/**/*",
+      "engines/*/spec/**/*",
+    ]
 Rafelo/EngineTablePrefix:
   Enabled: true
   Include:
