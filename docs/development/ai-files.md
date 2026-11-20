@@ -73,7 +73,7 @@ conventions win for framework-built code.
 
 ## Root guide timeline
 
-The gist's `AGENTS.md` is preserved verbatim at
+The archived guide's `AGENTS.md` is preserved verbatim at
 [docs/architecture/AGENTS.md](../architecture/AGENTS.md). The root guide is
 staged while the commands and layers it describes do not exist yet. It becomes
 the adopter guide when the application template is wired (`v0.20.0`) and is
