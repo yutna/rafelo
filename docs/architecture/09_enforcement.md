@@ -1067,9 +1067,20 @@ overrides, `legacy_table_prefixes`, and `legacy_constants`. The root
 `config/ratchets.yml` holds the clone baseline, whose entries are pairs across
 two engines by nature, and the counts for core, design_system, and the app,
 including `legacy_lint_paths`: the legacy `app/` paths of a brownfield
-adoption, which `eslint.config.mjs` and `.rubocop.yml` list because the
-code-level rules do not yet apply to them in full (14_working_with_ai.md), so
-that list only shrinks. The kernel's counts sit at the root because code owners cover
+adoption, where the code-level rules do not yet apply in full
+(14_working_with_ai.md). Each such path is recorded by a marker comment on
+a line of its own in the configuration that exempts it: `# legacy-lint-path: app/models/billing` in
+`.rubocop.yml`, `// legacy-lint-path: app/frontend/pages/billing` in `eslint.config.mjs`. A marker names
+one existing file or directory under `app/`, with no glob, and the same file uses that path in an
+exemption (for example `app/models/billing/**/*` in a cop's `Exclude`). `legacy_lint_paths` is the
+number of distinct paths marked across the two files: a path marked in both counts once, and a Ruby-only
+or frontend-only path is marked only where it is exempted. `script/ci/ratchet` fails on a marker whose
+path is outside `app/`, contains a glob, does not exist, appears on no other line of its file, or is
+marked twice in one file. The two configurations are guard files, so an
+exemption added without a marker still needs an owner through
+`guard_approval`. The template marks nothing, so its count is 0. Canaries: a
+marker added (a rise), removed (a fall), and unchanged; one each of outside `app/`, a glob, a missing
+path, an unused path, and a duplicate; the same path in both files (counts once). The kernel's counts sit at the root because code owners cover
 `engines/core/` and `engines/design_system/`, and the ratchet files stay
 outside CODEOWNERS (below).
 
@@ -1080,7 +1091,7 @@ rubocop_disable: 0
 use_no_memo: 0             # FE-10
 skipped_tests: 0           # TS-05
 clone_baseline_entries: 0  # ARCH-05: every entry is a pair across two engines
-legacy_lint_paths: 0       # brownfield only: legacy app/ paths listed in eslint.config.mjs and .rubocop.yml
+legacy_lint_paths: 0       # brownfield only: distinct app/ paths marked "legacy-lint-path:" in .rubocop.yml and eslint.config.mjs
 ```
 
 ```yaml
