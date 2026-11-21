@@ -43,7 +43,7 @@ test("Thai catalog shows the Buddhist calendar", async ({ page }) => {
   const chart = page.getByTestId("catalog-chart");
   await expect(chart).toBeVisible();
   await expect(chart).toHaveAttribute("role", "img");
-  await expect(chart).toHaveAttribute("aria-label", /./);
+  await expect(chart).toHaveAttribute("aria-label", "แผนภูมิตัวอย่าง");
   await expect(chart).not.toHaveAttribute("aria-hidden");
   await expect(page.getByTestId("catalog-empty")).toBeVisible();
   await expectCatalogFits(page);
