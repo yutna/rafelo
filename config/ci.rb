@@ -73,6 +73,7 @@ CI.run do
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
   step "Frontend: design-system API", "npm run api:check"
+  step "Frontend: design-system API canary", "script/ci/design_system_api_canary"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
   step "Tests: engine specs", "script/ci/engine_specs"
