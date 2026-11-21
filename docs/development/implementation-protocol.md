@@ -9,12 +9,6 @@ prove it, without stopping until section 9 is met.
 
 ## 1. Sources of truth
 
-- The spec gist https://gist.github.com/yutna/6e3a34d9ee98dff5a00fbefc8bd780ae
-  was amended after round 1. First issue of round 2: re-sync the 16 copies in
-  docs/architecture/ from the gist's main (verbatim; update
-  docs/development/spec-provenance.md), and read the diff since b9696bb in
-  full. Then re-read every spec file in full before you plan, and write down
-  per file how many lines you read.
 - Precedence: "How to decide" in 00_README.md. This repository's own process:
   CONTRIBUTING.md and https://github.com/yutna/oss-kit/blob/main/docs/conventions.md.
 - Commit this prompt as docs/development/implementation-protocol.md, replacing
@@ -311,8 +305,6 @@ E7 S2 Plural permission keys; the drift catalog lives in engines/core (every
   that reruns all trials.
 - The final gate passes with no open S1 or S2, and its release exists.
 
-Start now: open the re-sync issue, then plan the milestones from section 4.
-
 อ่านแล้ววางแผนทำตามได้เลย
 
 ## 10. Decision authority and staying in motion
@@ -353,3 +345,47 @@ answer yourself. If the turn is about to end for any other reason (context,
 tool limits, a long-running command), first push your work and update the
 open pull request's status checklist, then end with "CONTINUE" so the next
 run picks up from GitHub.
+
+## 11. Hands-off owner (owner edit, 2026-11-20)
+
+The owner takes no part in the day-to-day work: no approvals, no merges, no
+pasted prompts, no supervisor files. Where sections 6, 7 or 10 say otherwise,
+this section wins.
+
+1. Merging. Merge every pull request yourself once its checks are green,
+   guard files included (ci.yml, script/ci/, cops, the ESLint and RuboCop
+   configurations, ratchets), with the evidence in its body. guard_approval
+   counts the owner's approval only after you work under your own identity
+   (#614); until then this repository needs no approval (section 2, items 3
+   and 5). An issue that says a pull request "needs the owner's approval
+   through guard_approval" means: merge on green until #614 is done. A change
+   that loosens a guard is never point 1; it is point 3.
+2. Owner answers and readings. An owner comment that gives exact wording for
+   named files and sections is the approval for that wording (#613). A
+   reading that tightens a guard or defines what the spec leaves undefined is
+   yours: decide, record it under "Decisions" and in lessons-learned, file the
+   "spec:" question, follow your reading, and continue. Only a reading that
+   keeps a guard narrower than the spec's text, or loosens one, waits for the
+   owner.
+3. Person-only work. Never do these yourself, and never wait for them:
+   creating a GitHub account, GitHub App, or token (#614, the trials
+   identity); a secret or credential; a repository setting, ruleset, label
+   definition, or permission; any exception to or relaxation of a guard, or
+   extending an exception's expiry; a framework-level library or an ADR;
+   reversing an owner decision; money, licensing, or legal questions;
+   deleting tags, releases, or anything outside the repository. First look
+   for a path that needs no person (fix the cause instead of an exception;
+   use a library already in the stack). If there is none, label the issue
+   "blocked", write in it the options, your recommendation, and what each
+   option changes, and continue with every other issue.
+4. Stopping. Stop for the owner only when every remaining issue in the plan is
+   "blocked". Then print one line, "OWNER DECISION NEEDED #<n> #<n> ...",
+   listing all of them, and stop. Never stop while any issue can move.
+5. Deadlines. Two weeks before any expiry in config/audit_exceptions.yml (the
+   picomatch entry of #535 expires 2026-12-18), check for a patched release.
+   If one exists, pin it and remove the exception in one pull request. If
+   none exists, write the options in the issue as point 3 says, before CI
+   turns red.
+6. Supervisor. You may re-arm docs/development/supervisor yourself; its prompt
+   is prompt.md (the continue prompt). Never leave it paused for a reason that
+   is already resolved.

@@ -14,7 +14,7 @@ gem "net-http-persistent", "4.0.8"
 gem "stoplight", "6.0.1"
 gem "pg", "1.7.0"
 # Use the Puma web server [https://github.com/puma/puma]
-gem "puma", "8.0.3"
+gem "puma", "8.1.1"
 # Render React pages from Rails [https://inertiajs.com]
 gem "inertia_rails", "3.23.0"
 # Build frontend assets with Vite [https://vite-ruby.netlify.app]
@@ -56,7 +56,7 @@ group :development, :test do
   gem "bundler-audit", "0.9.3", require: false
 
   # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
-  gem "brakeman", "8.1.0", require: false
+  gem "brakeman", "8.1.1", require: false
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", "1.1.0", require: false
@@ -81,6 +81,6 @@ end
 
 gem "strong_migrations", "= 2.8.0"
 
-gem "lograge", "= 0.15.1"
+gem "lograge", "0.16.0"
 
 gem "aws-sdk-s3", "= 1.242.0"

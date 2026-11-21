@@ -994,7 +994,13 @@ tables, charts, date fields, flash messages, and exports.
   (OOP-04), and the `Intl` and `toLocale*String` bans still apply.
   `DateRange` in `@core/domain` works on ISO calendar-date strings (CT-02).
 - **Rails.** The RuboCop cop `Rafelo/DateFormatterOnly` flags `strftime`,
-  `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` outside `DateFormatter`. A
+  `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` in all runtime Ruby (BE-08's
+  set: `app/`, `config/`, `db/`, `lib/` outside `lib/tasks/`, and every engine
+  outside its `spec/`) outside `DateFormatter`, whether or not the value
+  reaches a person. Machine formats need no exemption: `iso86ize` and `format`
+  build ISO dates and partition names
+  (`format("%04d_%02d", month.year, month.month)`), and the cop does not flag
+  them. Tooling (`bin/`, `lib/tasks/`, `script/`, specs) is outside the cop. A
   cop sees no types, so it cannot tell a `Date` from anything else; it flags
   the formatting calls only. Exports build on core's `Rafelo::Core::Export` base
   class, which formats every date through `DateFormatter`; its spec feeds it a

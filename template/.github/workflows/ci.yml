@@ -544,8 +544,10 @@ jobs:
             run=true
             reason="run: $EVENT_NAME"
           elif [ -n "$BASE_SHA" ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
+            if ! changed=$(git diff --name-only "$BASE_SHA" HEAD); then
+              run=true
+              reason="run: cannot read the change set"
+            elif echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
               run=true
               reason="run: production image inputs changed"
             fi
@@ -573,7 +575,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           bundler-cache: true
 
@@ -626,8 +628,10 @@ jobs:
             run=true
             reason="run: $EVENT_NAME"
           elif [ -n "$BASE_SHA" ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
+            if ! changed=$(git diff --name-only "$BASE_SHA" HEAD); then
+              run=true
+              reason="run: cannot read the change set"
+            elif echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
               run=true
               reason="run: triggering paths changed"
             fi

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+
+if "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
+  echo "engine_specs_canary: an empty root passed" >&2
+  exit 1
+fi
+
+echo "engine_specs_canary: checked 1 case"

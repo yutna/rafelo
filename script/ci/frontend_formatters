@@ -1,10 +1,22 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/frontend_formatters [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "frontend_formatters: root does not exist: #{root}" unless Dir.exist?(root)
+
 files = Dir[File.join(root, "app/frontend/**/*.{ts,tsx}")] +
         Dir[File.join(root, "engines/*/app/frontend/**/*.{ts,tsx}")]
 files.select! { |path| File.file?(path) && !path.end_with?(".test.ts", ".test.tsx") }
+abort "frontend_formatters: checked 0 files under #{root}" if files.empty?
+
 allowed = %w[engines/design_system/app/frontend/formatters.ts]
 errors = []
 files.each do |path|

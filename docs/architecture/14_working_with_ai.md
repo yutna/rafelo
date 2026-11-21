@@ -286,9 +286,10 @@ and lists synonyms to avoid so a concept does not get a second name.
   what it needs, or what it needs moves first: into the owning engine's public
   surface, a domain engine, core, or design_system (ARCH-05).
 - The dependency guards apply from the first engine (ARCH-08). Code-level lint
-  rules are scoped by path: they apply in full under `engines/`, and the ESLint
-  and RuboCop configurations list the legacy paths in `app/`. The ratchet
-  counts them (`legacy_lint_paths`), so the list only shrinks.
+  rules are scoped by path: they apply in full under `engines/`, and each legacy path in `app/`
+  that the ESLint or RuboCop configuration exempts carries a
+  `legacy-lint-path:` marker there (`09_enforcement.md`, Ratchets). The ratchet counts the marked paths
+  (`legacy_lint_paths`), so the list only shrinks.
 - The order:
   1. the guards, core, and design_system;
   2. the first module, migrated end to end and reviewed by a person as the

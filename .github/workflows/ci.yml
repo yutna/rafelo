@@ -58,9 +58,7 @@ jobs:
           fetch-depth: 0
 
       - name: Select affected applications and engines
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
-        run: script/ci/affected --base "$BASE_SHA"
+        run: script/ci/affected --base HEAD^1
 
   actionlint:
     defaults:
@@ -244,7 +242,7 @@ jobs:
 
       - name: Check the release version
         env:
-          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: script/ci/release_check
 
       - name: Check frontend boundaries
@@ -364,6 +362,10 @@ jobs:
           script/ci/guard_approval_canary
           script/ci/repo_rules_canary
           script/ci/release_canary
+          script/ci/adoption_needed_canary
+
+      - name: Run the supervisor canary
+        run: script/ci/supervisor_canary
 
       - name: Run the deploy preflight and its canary
         run: |
@@ -512,11 +514,39 @@ jobs:
       - name: Remove examples and run the gate
         run: script/ci/example_removal
 
-  adoption:
+  adoption-needed:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
     needs: image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 5
+    outputs:
+      current: ${{ steps.decide.outputs.current }}
+      update: ${{ steps.decide.outputs.update }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide which adoption proofs run
+        id: decide
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
+        run: script/ci/adoption_needed
+
+  adoption:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: [image, adoption-needed]
+    if: needs.adoption-needed.outputs.current == 'true'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -549,8 +579,49 @@ jobs:
       - name: Install gems
         run: bundle check || bundle install
 
-      - name: Adopt, update from N-1, and run each gate
-        run: script/ci/adoption
+      - name: Adopt the commit under test and run its gate
+        run: script/ci/adoption current
+
+  adoption-update:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: [image, adoption-needed]
+    if: needs.adoption-needed.outputs.update == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Adopt N-1 and update it to this release
+        run: script/ci/adoption update
 
   production-image-needed:
     defaults:
@@ -575,7 +646,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false
@@ -584,8 +655,10 @@ jobs:
             run=true
             reason="run: $EVENT_NAME"
           elif [ -n "$BASE_SHA" ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc)|config/application\.rb|config/environments/production\.rb|config/storage\.yml|config/database\.yml|config/initializers/active_record_encryption\.rb|\.github/workflows/ci\.yml)$'; then
+            if ! changed=$(git diff --name-only "$BASE_SHA" HEAD); then
+              run=true
+              reason="run: cannot read the change set"
+            elif echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc)|config/application\.rb|config/environments/production\.rb|config/storage\.yml|config/database\.yml|config/initializers/active_record_encryption\.rb|\.github/workflows/ci\.yml)$'; then
               run=true
               reason="run: production image inputs changed"
             fi
@@ -626,14 +699,19 @@ jobs:
           persist-credentials: false
 
       - name: Set up Ruby
-        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
           bundler-cache: true
 
       - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26.13.0
+          # setup-node v7 auto-caches the package manager via `npm config get
+          # cache`; the npm bundled with Node 26.13.0 (11.20.0) fails the repo's
+          # devEngines check (requires npm 12.2.2, onFail: error). Disabled
+          # here; the next step pins npm@12.2.2.
+          package-manager-cache: false
 
       - name: Pin npm
         run: npm install --global npm@12.2.2
@@ -757,7 +835,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false
@@ -766,8 +844,10 @@ jobs:
             run=true
             reason="run: $EVENT_NAME"
           elif [ -n "$BASE_SHA" ]; then
-            changed=$(git diff --name-only "$BASE_SHA" HEAD || true)
-            if echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
+            if ! changed=$(git diff --name-only "$BASE_SHA" HEAD); then
+              run=true
+              reason="run: cannot read the change set"
+            elif echo "$changed" | grep -Eq '^(engines/core/lib/generators/|engines/core/app/.*/core/(modules|registry|page_context|urls|page_props)|engines/core/app/frontend/contracts/|engines/core/app/models/rafelo/core/page_props\.rb|config/routes\.rb|engines/.*/config/routes\.rb|script/ci/generator_smoke)'; then
               run=true
               reason="run: triggering paths changed"
             fi
@@ -914,6 +994,8 @@ jobs:
         gate,
         examples-removable,
         adoption,
+        adoption-needed,
+        adoption-update,
         concurrency,
         e2e,
         production-image-needed,

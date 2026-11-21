@@ -146,10 +146,10 @@ jobs:
       - uses: actions/checkout@<full commit SHA> # version in this comment (WF-07)
         with:
           fetch-depth: 0
-      - run: script/ci/affected --base "$(git merge-base "$BASE_SHA" HEAD)"
-        env:
-          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+      - run: script/ci/affected --base HEAD^1
 ```
+
+In CI, whether a pull request changes `VERSION`, and which engines it affects (`script/ci/affected`), is read from the tested merge commit against its first parent (`git diff --name-only HEAD^1 HEAD`), the base branch as GitHub merged it, never against the event's `base.sha`: on a branch that fell behind `main`, `base.sha` predates the latest release pull request, so that pull request's `VERSION` bump would count as the branch's own change and the check would fail with "v<VERSION> already exists". Locally, `bin/ci` compares with `git merge-base origin/main HEAD`. Canary: a fixture merge commit whose first parent already carries the bump reads as unchanged (verify the parent order of GitHub's test merge commit when adopting).
 
 Verify the `merge_group` event fields against the current GitHub
 documentation when adopting.
@@ -289,6 +289,7 @@ gate (ADR-32).
   `VERSION` changed (`09_enforcement.md`): the release step's own `VERSION`
   checks run against the local tags without the API, so the two cannot
   disagree; its canaries are fixture `VERSION` files and tag lists (TS-07).
+- In CI, whether a pull request changes `VERSION`, and which engines it affects (`script/ci/affected`), is read from the tested merge commit against its first parent (`git diff --name-only HEAD^1 HEAD`), the base branch as GitHub merged it, never against the event's `base.sha`: on a branch that fell behind `main`, `base.sha` predates the latest release pull request, so that pull request's `VERSION` bump would count as the branch's own change and the check would fail with "v<VERSION> already exists". Locally, `bin/ci` compares with `git merge-base origin/main HEAD`. Canary: a fixture merge commit whose first parent already carries the bump reads as unchanged (verify the parent order of GitHub's test merge commit when adopting).
 - Only the release workflow creates `v*` tags. A tag ruleset on
   `refs/tags/v*` restricts their creation, update, and deletion, and its
   export is committed next to the branch ruleset

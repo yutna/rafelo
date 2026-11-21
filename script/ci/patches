@@ -1,12 +1,23 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-root = ARGV[0] ? File.expand_path(ARGV[0]) : Dir.pwd
+require "optparse"
+
+root = Dir.pwd
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/patches [--root DIR]"
+  parser.on("--root DIR") { |value| root = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "patches: root does not exist: #{root}" unless Dir.exist?(root)
 patch_dir = File.join(root, "config/initializers/patches")
 abort "patches: missing #{patch_dir}" unless Dir.exist?(patch_dir)
 
 errors = []
-Dir[File.join(patch_dir, "*.rb")].sort.each do |path|
+patch_files = Dir[File.join(patch_dir, "*.rb")].sort
+abort "patches: checked 0 patch files under #{root}" if patch_files.empty?
+patch_files.each do |path|
   name = File.basename(path, ".rb")
   body = File.read(path)
   spec = File.join(root, "spec/patches/#{name}_spec.rb")

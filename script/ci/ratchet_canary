@@ -7,6 +7,8 @@ require "open3"
 require "tmpdir"
 require "yaml"
 
+require_relative "ratchet_counts"
+
 root = File.expand_path("../..", __dir__)
 script = File.join(root, "script", "ci", "ratchet")
 failures = 0
@@ -286,6 +288,18 @@ Dir.mktmpdir("rafelo-ratchet-ci-") do |dir|
   output, status = Open3.capture2e(env, ci_script, "--root", dir)
   failures = check(failures, "ratchet_ci unchanged", 0, status.exitstatus, output, "rises=0")
 
+  File.write(File.join(dir, "README.md"), "second\n")
+  second = commit(dir, "second")
+  git(dir, "update-ref", "refs/remotes/origin/main", second)
+  event = File.join(dir, "event.json")
+  File.write(event, JSON.generate(
+    "pull_request" => { "number" => 1, "base" => { "sha" => base },
+                        "head" => { "ref" => "feature" }, "user" => { "login" => "author" } }
+  ))
+  cases += 1
+  output, status = Open3.capture2e(env.merge("GITHUB_EVENT_PATH" => event), ci_script, "--root", dir)
+  failures = check(failures, "ratchet_ci event base", 0, status.exitstatus, output, "base=#{base}")
+
   write_root(dir, "rubocop_disable" => 1)
   rise = commit(dir, "rise")
   cases += 1
@@ -299,6 +313,76 @@ Dir.mktmpdir("rafelo-ratchet-ci-") do |dir|
   cases += 1
   output, status = Open3.capture2e(env, ci_script, "--root", dir)
   failures = check(failures, "ratchet_ci fall", 0, status.exitstatus, output, "falls=1")
+end
+
+# legacy_lint_paths: the count is the number of distinct marked app/ paths
+# across .rubocop.yml and eslint.config.mjs (09_enforcement.md, Ratchets).
+Dir.mktmpdir("rafelo-ratchet-legacy-lint-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  base = commit(dir, "base")
+
+  FileUtils.mkdir_p(File.join(dir, "app", "models", "billing"))
+
+  rubocop_marker = lambda do |name|
+    File.write(File.join(dir, ".rubocop.yml"),
+               "Rafelo/Thing:\n  Exclude: [\"#{name}/**/*\"]\n# legacy-lint-path: #{name}\n")
+  end
+  eslint_marker = lambda do |name|
+    File.write(File.join(dir, "eslint.config.mjs"),
+               "const ignored = [\"#{name}\"];\n// legacy-lint-path: #{name}\n")
+  end
+
+  # A marker added is a rise: the count is 1 and the committed ceiling at 0 fails.
+  rubocop_marker.call("app/models/billing")
+  commit(dir, "marker added")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "legacy_lint_paths marker added", 1, status, output, "above its ceiling")
+  cases += 1
+  failures += 1 unless RatchetCounts.legacy_lint_paths(dir) == 1
+
+  # A path marked in both files counts once; the ceiling is raised to the
+  # marked count, so the pass proves the count is 1, not 2.
+  eslint_marker.call("app/models/billing")
+  write_root(dir, "legacy_lint_paths" => 1)
+  commit(dir, "marked in both files")
+  base = git(dir, "rev-parse", "HEAD").strip
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "the same path in both files counts once", 0, status, output)
+  cases += 1
+  failures += 1 unless RatchetCounts.legacy_lint_paths(dir) == 1
+
+  # The marker removed is a fall.
+  File.write(File.join(dir, ".rubocop.yml"), "Rafelo/Thing:\n")
+  File.write(File.join(dir, "eslint.config.mjs"), "const ignored = [];\n")
+  commit(dir, "markers removed")
+  cases += 1
+  failures += 1 unless RatchetCounts.legacy_lint_paths(dir) == 0
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "legacy_lint_paths marker removed", 0, status, output)
+
+  # The marker failures, each naming its rule (09_enforcement.md, Ratchets).
+  failure_cases = [
+    [ "outside app/", "# legacy-lint-path: lib/thing\n", "outside app/" ],
+    [ "a glob", "# legacy-lint-path: app/models/*\n", "names a glob" ],
+    [ "a missing path", "# legacy-lint-path: app/models/absent\n", "does not exist" ],
+    [ "an unused path", "# legacy-lint-path: app/models/billing\n", "appears on no other line" ],
+    [ "a duplicate",
+      "Rafelo/Thing:\n  Exclude: [\"app/models/billing/**/*\"]\n" \
+      "# legacy-lint-path: app/models/billing\n# legacy-lint-path: app/models/billing\n",
+      "marked twice" ]
+  ]
+  failure_cases.each do |name, content, needle|
+    File.write(File.join(dir, ".rubocop.yml"), content)
+    commit(dir, "bad marker: #{name}")
+    cases += 1
+    status, output = run_case(script, dir, base, nil)
+    failures = check(failures, "legacy_lint_path #{name}", 1, status, output, needle)
+  end
 end
 
 if failures.positive?

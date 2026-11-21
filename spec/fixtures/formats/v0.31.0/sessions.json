@@ -1,52 +1,52 @@
 [
   {
-    "id": 1688,
-    "token_digest": "b47a92ab72cdf89132ae7a23555fc6bf350892dcdb1c87e1e4d876c7a5de23d4",
+    "id": 1,
+    "token_digest": "9b3de76a6ec0105c047a2b23c7c72e5baa38f1ad2a000a876eec5691bd9e0397",
     "viewer_id": "fixture-1",
     "viewer_name": "Fixture 1",
     "access_token": "fixture-access-1",
     "refresh_token": "fixture-refresh-1",
-    "access_expires_at": "2026-11-17 13:40:57 UTC",
+    "access_expires_at": "2026-11-18 13:48:41 UTC",
     "refreshing_since": null,
     "refresh_version": 0,
-    "expires_at": "2026-11-18 01:35:57 UTC",
+    "expires_at": "2026-11-19 01:43:41 UTC",
     "locale": "en",
-    "created_at": "2026-11-17 13:35:57 UTC",
-    "updated_at": "2026-11-17 13:35:57 UTC",
+    "created_at": "2026-11-18 13:43:41 UTC",
+    "updated_at": "2026-11-18 13:43:41 UTC",
     "permission_grants": [
       "fixture:read"
     ],
     "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
-    "grants_refreshed_at": "2026-11-17 13:35:57 UTC",
-    "last_seen_at": "2026-11-17 13:35:57 UTC",
+    "grants_refreshed_at": "2026-11-18 13:43:41 UTC",
+    "last_seen_at": "2026-11-18 13:43:41 UTC",
     "grants_generation": 0,
     "grants_fetched_generation": 0,
     "format_version": 1,
-    "token": "PQtJoFG6ucoIm07lt_79spu0o1HTOAP1AoaqZNLK_TE"
+    "token": "L6BmwnsWI5_EAa2uq-uO7SuQrL4uUP5DCC0wxsORapQ"
   },
   {
-    "id": 1689,
-    "token_digest": "63e27c30607df21a7eae541cc6cb78e02e7eb52d1b01dd5dc059e468f29eb884",
+    "id": 2,
+    "token_digest": "043cfaac13d877f0cb08e6eeedb24edf06825db37dbc432b9953aab8acfc1523",
     "viewer_id": "fixture-2",
     "viewer_name": "Fixture 2",
     "access_token": "fixture-access-2",
     "refresh_token": "fixture-refresh-2",
-    "access_expires_at": "2026-11-17 13:40:57 UTC",
+    "access_expires_at": "2026-11-18 13:48:41 UTC",
     "refreshing_since": null,
     "refresh_version": 0,
-    "expires_at": "2026-11-18 01:35:57 UTC",
+    "expires_at": "2026-11-19 01:43:41 UTC",
     "locale": "en",
-    "created_at": "2026-11-17 13:35:57 UTC",
-    "updated_at": "2026-11-17 13:35:57 UTC",
+    "created_at": "2026-11-18 13:43:41 UTC",
+    "updated_at": "2026-11-18 13:43:41 UTC",
     "permission_grants": [
       "fixture:read"
     ],
     "grant_digest": "77ba666e9f2b01f1b026d9eb2896dca2bd5fea93bd8f997ab9a80fc5c936ff82",
-    "grants_refreshed_at": "2026-11-17 13:35:57 UTC",
-    "last_seen_at": "2026-11-17 13:35:57 UTC",
+    "grants_refreshed_at": "2026-11-18 13:43:41 UTC",
+    "last_seen_at": "2026-11-18 13:43:41 UTC",
     "grants_generation": 0,
     "grants_fetched_generation": 0,
     "format_version": 1,
-    "token": "wPCBeX9e0yLtOKGskxIK6YRw2kCyppuyEY5SZE6yo1A"
+    "token": "7mp1l9MJW399K9hTYUngYVrY-PIj8MG0j3XH-Gr3Fbo"
   }
 ]

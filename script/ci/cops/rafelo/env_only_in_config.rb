@@ -17,14 +17,16 @@ module RuboCop
         private
 
         def env_read?(node)
-          return false unless %i[[] fetch].include?(node.method_name)
+          return false unless %w[[] fetch].include?(Matching.method_name(node))
 
-          receiver = node.receiver
-          receiver&.const_type? && receiver.const_name == "ENV"
+          Matching.receiver_names(node) == [ "ENV" ]
         end
 
         def credentials_read?(node)
-          node.source.to_s.delete_prefix("::").start_with?("Rails.application.credentials", "Rails.application&.credentials")
+          return false unless node.send_type? || node.csend_type?
+          return false unless node.method_name.to_s == "credentials"
+
+          Matching.receiver_names(node) == [ "Rails", "application" ]
         end
       end
     end

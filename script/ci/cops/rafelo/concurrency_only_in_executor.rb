@@ -8,7 +8,7 @@ module RuboCop
         MSG = "Rafelo/ConcurrencyOnlyInExecutor: use Rafelo::Core::Executor; only it may reference Concurrent."
 
         def on_const(node)
-          return unless node.const_name.start_with?("Concurrent::")
+          return unless Matching.const_name(node).start_with?("Concurrent::")
           return if executor_file? || spec_file?
 
           add_offense(node)
@@ -21,7 +21,8 @@ module RuboCop
         end
 
         def spec_file?
-          processed_source.file_path.include?("/spec/") || processed_source.file_path.include?("/engines/") && processed_source.file_path.include?("/spec/")
+          path = processed_source.file_path
+          path.include?("/spec/") || path.include?("/engines/") && path.include?("/spec/")
         end
       end
     end

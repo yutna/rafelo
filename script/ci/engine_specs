@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+root="$(pwd)"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --root) root="$2"; shift 2 ;;
+    *) echo "engine_specs: unknown argument $1" >&2; exit 1 ;;
+  esac
+done
+cd "$root"
+
 mapfile -t spec_dirs < <(find engines -maxdepth 2 -type d -name spec | sort)
 if [ "${#spec_dirs[@]}" -eq 0 ]; then
-  echo "engine_specs: no engine spec directories"
-  exit 0
+  echo "engine_specs: checked 0 engine spec directories" >&2
+  exit 1
 fi
 
 bundle exec rspec "${spec_dirs[@]}"

@@ -1,6 +1,8 @@
-# Make sure RUBY_VERSION matches the Ruby version in .ruby-version and mise.toml.
-ARG RUBY_VERSION=4.0.9
-FROM ghcr.io/rails/devcontainer/images/ruby:${RUBY_VERSION}@sha256:4f9a4f82ce15d03b8ef96631d42334ee8cb0f88bbca85829db339b8a92a32356
+# The upstream Rails devcontainer image does not publish Ruby 4.0.10 yet.
+# Start from its 4.0.9 image and install the patched Ruby from mise.toml below.
+ARG RUBY_VERSION=4.0.10
+ARG BASE_RUBY_VERSION=4.0.9
+FROM ghcr.io/rails/devcontainer/images/ruby:${BASE_RUBY_VERSION}@sha256:4f9a4f82ce15d03b8ef96631d42334ee8cb0f88bbca85829db339b8a92a32356
 
 USER root
 
@@ -25,12 +27,14 @@ ENV BINDING="0.0.0.0" \
 # browser binaries (OPS-09).
 COPY --chown=vscode:vscode mise.toml package.json package-lock.json /tmp/
 RUN cd /tmp && \
+    ruby_version="$(sed -n 's/^ruby = "\(.*\)"/\1/p' mise.toml)" && \
     node_version="$(sed -n 's/^node = "\(.*\)"/\1/p' mise.toml)" && \
     npm_version="$(sed -n 's/^npm = "\(.*\)"/\1/p' mise.toml)" && \
     mise trust && \
     mise install && \
-    mise use -g "node@${node_version}" "npm@${npm_version}" && \
+    mise use -g "ruby@${ruby_version}" "node@${node_version}" "npm@${npm_version}" && \
     mise reshim && \
+    ruby -v && \
     mise exec -- npm ci && \
     mise exec -- npx playwright install --with-deps && \
     rm -rf node_modules package.json package-lock.json mise.toml

@@ -55,6 +55,7 @@ CI.run do
   step "Policy: production routes canary", "script/ci/production_routes_canary"
   step "Policy: gem patches", "script/ci/patches"
   step "Policy: gem patches canary", "script/ci/patches_canary"
+  step "Supervisor: canary", "script/ci/supervisor_canary"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "script/ci/npm_audit"
@@ -75,6 +76,7 @@ CI.run do
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
   step "Tests: engine specs", "script/ci/engine_specs"
+  step "Tests: engine specs canary", "script/ci/engine_specs_canary"
   step "Tests: page matchers", "npm run pages:check -- --matchers"
   step "Tests: concurrency", "script/ci/concurrency"
   step "Tests: database roles", "script/ci/database_roles"

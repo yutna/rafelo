@@ -28,6 +28,12 @@ state_hash() {
   printf '%s|%s|%s|%s' "$head" "$prs" "$issues" "$releases"
 }
 
+# Every issue number in the last owner-decision marker, unique, in order.
+owner_decision_issues() {
+  local output="$1"
+  printf '%s\n' "$output" | grep -o "OWNER DECISION NEEDED.*" | tail -1 | grep -o "#[0-9][0-9]*" | sed 's/^#//' | sort -un
+}
+
 logline "started"
 no_progress=0
 while true; do
@@ -62,22 +68,38 @@ $(cat "$state/STATE.md")"
 
   start_line="$(wc -l < "$log")"
   logline "run start"
+  # Pin the provider, model, and effort: the free model quota must never stop
+  # the loop and no fallback model may run this repository (#629).
   timeout --signal=TERM --kill-after=60s 10800 \
-    opencode run --auto --archived --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
+    opencode run --model "opencode-go/deepseek-v4.1-flash#max" --auto --archived \
+      --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
   rc=$?
   run_output="$(tail -n +"$((start_line + 1))" "$log")"
-  if printf '%s\n' "$run_output" | grep -q "OWNER DECISION NEEDED #[0-9][0-9]*"; then
-    issue="$(printf '%s\n' "$run_output" | grep -o "OWNER DECISION NEEDED #[0-9][0-9]*" | tail -1 | grep -o '[0-9][0-9]*')"
-    printf 'OWNER DECISION NEEDED #%s\n' "$issue" > "$state/NEEDS_OWNER"
-    logline "paused for owner issue #$issue"
+  if [ -n "$(printf '%s\n' "$run_output" | grep -o "OWNER DECISION NEEDED.*" | tail -1)" ]; then
+    issues="$(owner_decision_issues "$run_output")"
+    numbers="$(printf '%s\n' "$issues" | sed 's/^/#/' | tr '\n' ' ' | sed -e 's/ *$//')"
+    marker="OWNER DECISION NEEDED $numbers"
+    printf '%s\n' "$marker" > "$state/NEEDS_OWNER"
+    owner="$(gh api repos/yutna/rafelo --jq .owner.login)"
+    for issue in $issues; do
+      gh issue edit "$issue" --add-assignee "$owner" >/dev/null
+      gh issue comment "$issue" -b "@$owner the supervisor paused: only blocked work remains. $marker" >/dev/null
+    done
+    logline "run end rc=$rc outcome=blocked: $marker"
+    logline "paused for owner: $marker"
     exit 0
   fi
   after="$(state_hash)"
+  outcome="progress"
   if [ "$before" = "$after" ]; then
+    outcome="no-progress"
     no_progress=$((no_progress + 1))
   else
     no_progress=0
   fi
-  logline "run end rc=$rc progress=$([ "$before" = "$after" ] && echo no || echo yes) no_progress=$no_progress"
+  if [ "$rc" -ne 0 ]; then
+    outcome="aborted"
+  fi
+  logline "run end rc=$rc outcome=$outcome no_progress=$no_progress"
   sleep 20
 done

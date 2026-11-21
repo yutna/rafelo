@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "json"
 require "open3"
 require "optparse"
 
@@ -14,26 +15,79 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
-CANARY_SCRIPTS = %w[affected_canary clones_canary deploy_preflight_canary fan_in_canary graph_canaries growth_canary production_routes_canary apply_check_canary eslint_canary npm_audit_canary].freeze
 
-config_ci = File.read(File.join(root, "config", "ci.rb"))
-CANARY_SCRIPTS.each do |script|
-  path = File.join(root, "script", "ci", script)
-  abort "enforcement_canaries: missing canary script script/ci/#{script}" unless File.file?(path)
-  abort "enforcement_canaries: script/ci/#{script} is not executable" unless File.executable?(path)
-  abort "enforcement_canaries: script/ci/#{script} is not wired into config/ci.rb" unless config_ci.include?("script/ci/#{script}")
+config_path = File.join(root, "config", "ci.rb")
+abort "enforcement_canaries: config/ci.rb is missing" unless File.file?(config_path)
+
+config_ci = File.read(config_path)
+step_scripts = config_ci.lines.filter_map do |line|
+  line[/^\s*step\s+.*?"script\/ci\/([^"]+)"/, 1]&.split&.first
+end.uniq
+abort "enforcement_canaries: config/ci.rb has no script/ci steps" if step_scripts.empty?
+step_scripts.each do |name|
+  path = File.join(root, "script", "ci", name)
+  abort "enforcement_canaries: config/ci.rb names missing script/ci/#{name}" unless File.file?(path)
 end
-warn "enforcement_canaries: checked #{CANARY_SCRIPTS.length} canary scripts"
 
-plugin = File.read(File.join(root, "script", "ci", "eslint", "rafelo.mjs"))
-rules_block = plugin[/rules:\s*\{(.*?)\}/m, 1].to_s
-local_rules = rules_block.scan(/"([\w-]+)"\s*:/).flatten.uniq
-abort "enforcement_canaries: the local ESLint plugin exports no rules" if local_rules.empty?
+# Rafelo cops: discovered from the cops directory.
+cop_names = Dir[File.join(root, "script", "ci", "cops", "rafelo", "*.rb")]
+            .reject { |path| File.basename(path, ".rb") == "matching" }
+            .map { |path| "Rafelo/#{File.basename(path, ".rb").split("_").map(&:capitalize).join}" }
+            .sort
+abort "enforcement_canaries: no Rafelo cops in script/ci/cops/rafelo" if cop_names.empty?
 
-eslint_canary = File.read(File.join(root, "script", "ci", "eslint_canary"))
-missing = local_rules.reject { |rule| eslint_canary.include?("rafelo/#{rule}") }
-abort "enforcement_canaries: no ESLint canary for #{missing.join(', ')}" if missing.any?
-warn "enforcement_canaries: checked #{local_rules.length} local ESLint rules"
+# Bypass fixtures (TS-07): every cop has one, next to its canary; the counts
+# are proven by `script/ci/cops_canary` (syntax-only matching, exact counts).
+def bypass_snake(cop)
+  cop.delete_prefix("Rafelo/").gsub(/[A-Z]/) { |letter| "_#{letter.downcase}" }.sub(/\A_/, "").downcase
+end
+
+cop_names.each do |cop|
+  unless Dir[File.join(root, "spec", "enforcement", "fixtures", "cops", "bypass", "**", "#{bypass_snake(cop)}.rb")].any?
+    abort "enforcement_canaries: no bypass fixture for #{cop}"
+  end
+end
+
+# dependency-cruiser rules: discovered from .dependency-cruiser.cjs.
+depcruise_rules = File.read(File.join(root, ".dependency-cruiser.cjs"))
+                   .scan(/^\s+name: "([^"]+)"/).flatten.sort
+
+# ESLint: discovered by printing the config at real paths and reading the
+# active rules: the local plugin rules (rafelo/*) and the restriction rules.
+ESLINT_RESTRICTIONS = %w[
+  no-restricted-imports no-restricted-properties no-restricted-syntax
+  react/forbid-elements @typescript-eslint/prefer-readonly
+].freeze
+ESLINT_REAL_PATHS = [
+  "engines/example_orders/app/frontend/pages/orders/index.tsx",
+  "app/frontend/pages/home/index.tsx",
+  "app/frontend/components/page_heading.test.tsx",
+  "engines/design_system/app/frontend/button.tsx",
+  "engines/core/app/frontend/domain/money.ts"
+].freeze
+
+def eslint_rules_at(eslint, root, path)
+  output, _stderr, status = Open3.capture3(eslint, "--print-config", path, chdir: root)
+  return [] unless status.success?
+  JSON.parse(output).fetch("rules", {}).filter_map do |name, value|
+    severity = value.is_a?(Array) ? value.first : value
+    next unless severity.is_a?(Integer) && severity.positive?
+    name if name.start_with?("rafelo/") || ESLINT_RESTRICTIONS.include?(name)
+  end
+rescue JSON::ParserError
+  []
+end
+
+eslint = File.join(root, "node_modules", ".bin", "eslint")
+if File.executable?(eslint)
+  eslint_rules = ESLINT_REAL_PATHS.select { |path| File.exist?(File.join(root, path)) }
+                                 .flat_map { |path| eslint_rules_at(eslint, root, path) }
+                                 .uniq
+  warn "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
+else
+  warn "enforcement_canaries: eslint is not installed at #{eslint}; checked 0 ESLint rules"
+  eslint_rules = []
+end
 
 canaries = [
   {
@@ -245,12 +299,46 @@ canaries = [
     bad_args: [ "--root", "ROOT" ],
     legal_args: [ "--root", "ROOT" ],
     expected: "multi-word partial-reload key"
+  },
+  # A canary case (canary script, rules) per discovered name: cops,
+  # dependency-cruiser rules and ESLint rules are covered by the `rules` of
+  # these cases instead of hand-maintained lists or substring mentions.
+  {
+    check: "cops",
+    name: "Rafelo cops canary",
+    script: "script/ci/cops_canary",
+    rules: cop_names
+  },
+  {
+    check: "graph_canaries",
+    name: "dependency-cruise rules canary",
+    script: "script/ci/graph_canaries",
+    rules: depcruise_rules
+  },
+  {
+    check: "eslint",
+    name: "local ESLint rules canary",
+    script: "script/ci/eslint_canary",
+    rules: eslint_rules
   }
-]
+].freeze
 
 abort "enforcement_canaries: no canaries configured" if canaries.empty?
-missing = REQUIRED_CHECKS - canaries.map { |canary| canary[:check] }
+missing_checks = REQUIRED_CHECKS - canaries.map { |canary| canary[:check] }
+abort "enforcement_canaries: no canary for #{missing_checks.join(', ')}" if missing_checks.any?
+
+covered = canaries.flat_map { |canary| Array(canary[:rules]) }.uniq
+missing = (cop_names + depcruise_rules + eslint_rules).reject { |name| covered.include?(name) }
 abort "enforcement_canaries: no canary for #{missing.join(', ')}" if missing.any?
+
+wired = canaries.map { |canary| canary[:script] }.uniq
+missing_wiring = wired.reject { |script| config_ci.include?(script) }
+abort "enforcement_canaries: canary script not wired into config/ci.rb: #{missing_wiring.join(', ')}" if missing_wiring.any?
+
+warn "enforcement_canaries: checked #{cop_names.length} Rafelo cops: #{cop_names.join(', ')}"
+warn "enforcement_canaries: checked #{depcruise_rules.length} dependency-cruise rules: #{depcruise_rules.join(', ')}"
+warn "enforcement_canaries: checked #{eslint_rules.length} local ESLint rules: #{eslint_rules.join(', ')}"
+warn "enforcement_canaries: checked #{wired.length} canary scripts"
 
 def command(root, canary, args, fixture_root)
   expanded = args.map { |arg| arg.gsub("ROOT", fixture_root) }
@@ -259,13 +347,14 @@ end
 
 failures = 0
 canaries.each do |canary|
+  next if canary[:bad].nil?
   bad_root = File.join(root, canary[:bad])
   legal_root = File.join(root, canary[:legal])
   abort "enforcement_canaries: missing bad fixture #{bad_root}" unless Dir.exist?(bad_root)
   abort "enforcement_canaries: missing legal fixture #{legal_root}" unless Dir.exist?(legal_root)
 
   output, status = Open3.capture2e(*command(root, canary, canary[:bad_args], bad_root))
-  if status.success? || !output.include?(canary[:expected])
+  if status.exitstatus != 1 || !output.include?(canary[:expected])
     warn "canary #{canary[:name]}: expected failure containing #{canary[:expected].inspect}"
     warn output
     failures += 1

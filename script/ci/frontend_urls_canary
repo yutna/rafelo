@@ -4,12 +4,28 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
 mkdir -p "$tmp/app/frontend"
 echo 'const x = <div dangerouslySetInnerHTML={{ __html: "x" }} />;' > "$tmp/app/frontend/bad.tsx"
-
-if "$root/script/ci/frontend_urls" "$tmp" >/dev/null 2>&1; then
+if "$root/script/ci/frontend_urls" --root "$tmp" >/dev/null 2>&1; then
   echo "frontend_urls_canary: raw HTML passed" >&2
   exit 1
 fi
 
-echo "frontend_urls_canary: checked 1 case"
+empty="$(mktemp -d)"
+trap 'rm -rf "$tmp" "$empty"' EXIT
+if "$root/script/ci/frontend_urls" --root "$empty" >/dev/null 2>&1; then
+  echo "frontend_urls_canary: an empty root passed" >&2
+  exit 1
+fi
+
+legal="$(mktemp -d)"
+trap 'rm -rf "$tmp" "$empty" "$legal"' EXIT
+mkdir -p "$legal/app/frontend"
+echo 'export const value = 1;' > "$legal/app/frontend/legal.ts"
+if ! "$root/script/ci/frontend_urls" --root "$legal" >/dev/null 2>&1; then
+  echo "frontend_urls_canary: the legal root failed" >&2
+  exit 1
+fi
+
+echo "frontend_urls_canary: checked 3 cases"

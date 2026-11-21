@@ -145,7 +145,7 @@ set or a failing subprocess, so a wrong glob cannot pass by checking nothing
 | FE-17 | ESLint: `lucide-react` only in `@design_system/icon` · registry icon spec | enforced |
 | FE-18 | ESLint `react/no-danger` · every URL in props validated by `z.string().refine(isSafeUrl)` in its page schema · `isSafeUrl` and `appPathSchema` tests read one shared fixture of hostile inputs by path, `spec/fixtures/hostile_urls.json`, shipped with the kernel (`javascript:`, `data:`, `//host`, `/\host`, a tab, a control character, surrounding whitespace) · TypeScript never builds URLs (ARCH-10's ESLint rule); links are server-built props (CT-02), proven by `have_resolvable_hrefs` · Brakeman | enforced |
 | FE-19 | `allow_browser versions: :modern, block: :render_unsupported_browser, unless: :browser_check_exempt?` in the base controller · request spec with an old user agent: a page gets `406` from core's `unsupported_browser` template (`Cache-Control: no-store`, which `render_unsupported_browser` sets itself; the CSP header's `style-src` nonce equals the `<style>` element's, no `<script>`, no `style` attribute; under `/th`, Thai text and `lang="th"`), `/core/client_errors`, `/core/csp_reports`, and `/core/ready` answer normally | enforced |
-| FE-20 | ESLint: `Intl.DateTimeFormat`, `toLocaleString`, `toLocaleDateString`, and `toLocaleTimeString` only in `@design_system/formatters`; `getFullYear`, `getUTCFullYear`, `getMonth`, and `getDate` banned in presentation code (pages, screens, containers, components, hooks, layouts) and everywhere else outside the formatters, `domain/`, and `forms/` (their tests included), which may compute with dates but never format them (OOP-04); `@internationalized/date` only in design_system (FE-08) · `Rafelo/DateFormatterOnly`: `strftime`, `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` only in `Rafelo::Core::DateFormatter` (a cop has no types, so it flags the calls, not dates) · exports through `Rafelo::Core::Export`, whose spec feeds a `Date` and asserts a Buddhist Era year in `th` · tests, the real guard: a `th` chart shows 2569; a `th` date field typed 2569 submits 2026-…; typed 2026 is refused; a `th` export contains 2569 · `DateFormatter` spec matches ICU's +543 rule · year arithmetic that no banned API sees, and `.to_s`, `.year`, or plain interpolation of a date in flash code: review | enforced (formatting APIs) · tested in kernel (exports) · review (year arithmetic, flash interpolation) |
+| FE-20 | ESLint: `Intl.DateTimeFormat`, `toLocaleString`, `toLocaleDateString`, and `toLocaleTimeString` only in `@design_system/formatters`; `getFullYear`, `getUTCFullYear`, `getMonth`, and `getDate` banned in presentation code (pages, screens, containers, components, hooks, layouts) and everywhere else outside the formatters, `domain/`, and `forms/` (their tests included), which may compute with dates but never format them (OOP-04); `@internationalized/date` only in design_system (FE-08) · `Rafelo/DateFormatterOnly`: `strftime`, `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` across runtime Ruby (BE-08's set) only in `Rafelo::Core::DateFormatter`; machine formats use `iso86ize` or `format` · exports through `Rafelo::Core::Export`, whose spec feeds a `Date` and asserts a Buddhist Era year in `th` · tests, the real guard: a `th` chart shows 2569; a `th` date field typed 2569 submits 2026-…; typed 2026 is refused; a `th` export contains 2569 · `DateFormatter` spec matches ICU's +543 rule · year arithmetic that no banned API sees, and `.to_s`, `.year`, or plain interpolation of a date in flash code: review | enforced (formatting APIs) · tested in kernel (exports) · review (year arithmetic, flash interpolation) |
 | FE-21 | CI concatenates and sorts design_system's declaration output from `tsc -b`, leaving out `internal/**` and `**/*.test.d.ts`, into `engines/design_system/api.d.ts` and fails when it differs from the committed file · an unchanged file narrows the run to design_system's tests plus the Vitest component tests of the affected modules, skipping RSpec and Playwright; a changed file runs everything · visual regression on every design_system change (TS-11) · design_system export budget (ARCH-12) · a behaviour change behind an unchanged API: review (see `12_hardening.md`) | enforced (behaviour change behind an unchanged API: review) |
 
 ### Object-oriented domain
@@ -173,7 +173,7 @@ set or a failing subprocess, so a wrong glob cannot pass by checking nothing
 | TS-04 | ESLint `no-restricted-syntax` in the root and engine `e2e/` folders and in test files, by regex over member and bare calls: no Testing Library text query in any variant (`get`/`query`/`find`, `All`; `Text`, `LabelText`, `PlaceholderText`, `DisplayValue`, `Title`, `AltText`), no Playwright `getByText`/`getByLabel`/`getByPlaceholder`/`getByAltText`/`getByTitle`, no `locator` or `querySelector`; `*ByRole` only with a `name` from the i18n helper · canaries prove each selector at real test paths (TS-07) | enforced |
 | TS-05 | `Rafelo/SkipNeedsIssue` for RSpec and the same restriction in ESLint for Vitest and Playwright (the local rule `rafelo/skip-needs-issue` in `script/ci/eslint/rafelo.mjs`, registered in the test-file blocks: `no-restricted-syntax` cannot read the comment on the line): every skip form TS-05 lists carries `#<number>` or an issue URL on the same line · `prosopite: false` and `Prosopite.pause` outside `spec/enforcement/` are skip forms · one canary per form · skip count ratcheted · a guard spec fails without its guard, parsers of untrusted input have one row per refused class, absence assertions check each forbidden value alone over the whole output and log lines' keys against the OPS-01 allow-list: review | enforced (guard-spec quality: review) |
 | TS-06 | `script/ci/generator_smoke` on pull requests touching generator templates, core contract helpers, registry code, or routing · nightly | enforced |
-| TS-07 | `script/ci/enforcement_canaries`, which first lists rule names from their sources (dependency-cruiser, `Rafelo/*` cops, ESLint `--print-config` with the local `rafelo/*` rules, `script/ci/*`) and fails on a name without a fixture · a canary passes only on the tool's findings exit status (ESLint and RuboCop 1, never 2) and machine-readable output that names the expected rule; a crash, a configuration or parse error, an ignored file, and a run that inspected no file fail it (canaries for each) · canaries run the repository's own configuration at real paths (throwaway engines under `engines/`, removed in an `EXIT` trap), never a copied rule; every graph canary has a legal counterpart that must not be reported · every `script/ci/` check and generator or check script takes `--root DIR`, prints its count, and fails on an empty root (canary per check) | enforced |
+| TS-07 | `script/ci/enforcement_canaries` discovers names from their sources (Rafelo cops from the cops directory, dependency-cruiser rules from `.dependency-cruiser.cjs`, local ESLint rules and restrictions via `eslint --print-config` at real paths, `script/ci/*` steps from `config/ci.rb`) and requires a canary case per discovered name (the canary scripts are wired into `config/ci.rb`; `cops_canary` fails on a discovered cop without a canary, `eslint_canary` fails on a discovered rule without a case, and the graph canaries run depcruise on canary engines) · a canary passes only on the tool's findings exit status (ESLint and RuboCop 1, never 2) and machine-readable output that names the expected rule; a crash, a configuration or parse error, an ignored file, and a run that inspected no file fail it (canaries for each) · canaries run the repository's own configuration at real paths (throwaway engines under `engines/`, removed in an `EXIT` trap), never a copied rule; every graph canary has a legal counterpart that must not be reported · every `script/ci/` check and generator or check script takes `--root DIR`, prints its count, and fails on an empty root (canary per check) | enforced |
 | TS-08 | Playwright smoke with `@axe-core/playwright` | enforced |
 | TS-09 | `parallel_tests` with per-process databases (`TEST_ENV_NUMBER`) · `timeout-minutes` on every CI job that runs steps (`script/ci/workflow_policy`, WF-07) · `boot_seconds` budget measured by `bin/rails runner nil` · bootsnap on | enforced |
 | TS-10 | a CI lane runs `:concurrency` specs serially, non-transactional with truncation, without retries · tagging a new concurrency spec, and each spec forcing its race (a barrier, the first thread held inside the critical section by a latch): review | enforced (tagging, forced interleaving: review) |
@@ -227,11 +227,21 @@ cannot fool it the way they fool a text search. The cops live in
 `script/ci/cops/` (a guard file), each has a canary (TS-07), and each message
 names the rule ID and the fix.
 
+Cops match syntax, never text. Every `Rafelo/*` cop finds constants and
+receivers through node patterns from one shared module in
+`script/ci/cops/rafelo/` (a guard file): a constant matches with or without a
+leading `::` (`(const {nil? cbase} :NAME)`), a receiver chain matches through
+both `send` and `csend`, and `send`, `public_send`, and `__send__` with a
+literal method name count as the call itself. No cop compares `node.source`
+or any other source text. An exemption names one exact file
+(`engines/core/app/models/rafelo/core/scoped_cache.rb`), never a glob that a
+look-alike file could match.
+
 | Cop | Flags | Allowed only in | Rule |
 | --- | --- | --- | --- |
 | `Rafelo/FaradayOnlyInUpstreamClient` | `Faraday` | `Rafelo::Core::UpstreamClient` | ARCH-01, ARCH-02, BE-05, SEC-14 |
 | `Rafelo/NoTlsVerifyDisable` | `verify: false`, `VERIFY_NONE` | nowhere | BE-05, SEC-14 |
-| `Rafelo/EnvOnlyInConfig` | `ENV[...]`, `ENV.fetch`, `Rails.application.credentials` | `config/` | ARCH-01, BE-04, BE-08 |
+| `Rafelo/EnvOnlyInConfig` | the `ENV` constant (any method: `[]`, `fetch`, `key?`, `to_h`, `slice`, `values_at`, …), `Rails.application.credentials` in runtime Ruby (BE-08): `app/`, `db/`, `lib/` outside `lib/tasks/`, and `engines/*/` outside `engines/*/spec/` | the application's `config/` (not `engines/*/config/`); tooling is outside the cop: `bin/` (rubocop-rails excludes `bin/*` from every cop), `lib/tasks/`, `script/`, `spec/`, `engines/*/spec/` | ARCH-01, BE-04, BE-08 |
 | `Rafelo/CurrentAtTheEdge` | `Current.` | controllers, middleware, `Rafelo::Core::LogPayload` (OPS-01), the `Rails.error` subscriber (OPS-03), `Rafelo::Core::BaseJob` at enqueue (BE-11) | BE-04, BE-09 |
 | `Rafelo/CacheOnlyThroughScopedCache` | `Rails.cache` | `Rafelo::Core::ScopedCache` (`rate_limit` writes to the cache store itself, a deliberate exemption, BE-12); specs (`spec/`, `engines/*/spec/`), which clear the store and call `increment` (TS-01, BE-12) | BE-17 |
 | `Rafelo/ConcurrencyOnlyInExecutor` | `Concurrent::` | `Rafelo::Core::Executor`; specs (`spec/`, `engines/*/spec/`), which force races with a `Concurrent::CyclicBarrier` (TS-10) | BE-16 |
@@ -239,7 +249,7 @@ names the rule ID and the fix.
 | `Rafelo/PageContextThroughFactory` | `PageContext.new`, `PageContext[...]` | `engines/core` | BE-01 |
 | `Rafelo/NoPermissionLiterals` | a string literal passed to `allows?` or `capabilities` | nowhere; use the generated constants | BE-03 |
 | `Rafelo/OwnPermissionPrefixes` | a required key outside the module's declared `permission_prefixes` | nowhere | BE-03 |
-| `Rafelo/DateFormatterOnly` | `strftime`, `I18n.l` and `l(`, `to_fs`, `to_formatted_s`; a cop has no types, so it flags these calls wherever they appear, and exports format dates through `Rafelo::Core::Export` | `Rafelo::Core::DateFormatter` | FE-20 |
+| `Rafelo/DateFormatterOnly` | `strftime`, `I18n.l` and `l(`, `to_fs`, and `to_formatted_s` in runtime Ruby (BE-08's set); a cop has no types, so it flags these calls whether or not the value reaches a person, and machine formats use `iso86ize` or `format`, which it does not flag; exports format dates through `Rafelo::Core::Export` | `Rafelo::Core::DateFormatter` (`engines/core/app/models/rafelo/core/date_formatter.rb`, that exact file) | FE-20 |
 | `Rafelo/NoConstantize` | `constantize`, `safe_constantize`, `const_get`, a string `class_name:` | the core module registry | ARCH-10, ARCH-08, ARCH-09 |
 | `Rafelo/EngineTablePrefix` | a table created in `engines/<e>/db/migrate` without the `<e>_` prefix (core's tables are `core_*`); the engine is read from the file path | nowhere, except a prefix recorded as `metadata.legacy_table_prefix` in `package.yml` (GEN-06) | ARCH-03, ARCH-10 |
 | `Rafelo/ConfigXOnlyInCore` | reading or writing `config.x` | `engines/core` | ARCH-01, ARCH-10, BE-08 |
@@ -288,16 +298,19 @@ AllCops:
 
 Rafelo/NoConstantize:
   Include: ["engines/**/*.rb"]
-  Exclude: ["engines/core/**/modules.rb"] # the one allow-listed place
+  Exclude: ["engines/core/app/models/rafelo/core/modules.rb"] # the one allow-listed place
 
 Rafelo/CacheOnlyThroughScopedCache: # specs clear the cache store and call increment (TS-01, BE-12)
-  Exclude: ["engines/core/**/scoped_cache.rb", "spec/**/*", "engines/*/spec/**/*"]
+  Exclude: ["engines/core/app/models/rafelo/core/scoped_cache.rb"]
 
 Rafelo/ConcurrencyOnlyInExecutor: # specs force races with Concurrent:: primitives (TS-10)
-  Exclude: ["engines/core/**/executor.rb", "spec/**/*", "engines/*/spec/**/*"]
+  Exclude: ["engines/core/app/models/rafelo/core/executor.rb"]
 
-Rafelo/EnvOnlyInConfig:
-  Exclude: ["config/**/*"]
+Rafelo/DateFormatterOnly: # runtime Ruby, the same set as EnvOnlyInConfig (FE-20, BE-08)
+  Exclude: ["engines/core/app/models/rafelo/core/date_formatter.rb", "lib/tasks/**/*.rake", "script/**/*", "spec/**/*", "engines/*/spec/**/*"]
+
+Rafelo/EnvOnlyInConfig: # runtime Ruby only; tooling reads its own environment (BE-08); rubocop-rails excludes bin/*
+  Exclude: ["config/**/*", "lib/tasks/**/*.rake", "script/**/*", "spec/**/*", "engines/*/spec/**/*"]
 
 Rafelo/EngineTablePrefix:
   Include: ["engines/*/db/migrate/**/*.rb"] # the engine name comes from the file path (GEN-01)
@@ -1067,9 +1080,20 @@ overrides, `legacy_table_prefixes`, and `legacy_constants`. The root
 `config/ratchets.yml` holds the clone baseline, whose entries are pairs across
 two engines by nature, and the counts for core, design_system, and the app,
 including `legacy_lint_paths`: the legacy `app/` paths of a brownfield
-adoption, which `eslint.config.mjs` and `.rubocop.yml` list because the
-code-level rules do not yet apply to them in full (14_working_with_ai.md), so
-that list only shrinks. The kernel's counts sit at the root because code owners cover
+adoption, where the code-level rules do not yet apply in full
+(14_working_with_ai.md). Each such path is recorded by a marker comment on
+a line of its own in the configuration that exempts it: `# legacy-lint-path: app/models/billing` in
+`.rubocop.yml`, `// legacy-lint-path: app/frontend/pages/billing` in `eslint.config.mjs`. A marker names
+one existing file or directory under `app/`, with no glob, and the same file uses that path in an
+exemption (for example `app/models/billing/**/*` in a cop's `Exclude`). `legacy_lint_paths` is the
+number of distinct paths marked across the two files: a path marked in both counts once, and a Ruby-only
+or frontend-only path is marked only where it is exempted. `script/ci/ratchet` fails on a marker whose
+path is outside `app/`, contains a glob, does not exist, appears on no other line of its file, or is
+marked twice in one file. The two configurations are guard files, so an
+exemption added without a marker still needs an owner through
+`guard_approval`. The template marks nothing, so its count is 0. Canaries: a
+marker added (a rise), removed (a fall), and unchanged; one each of outside `app/`, a glob, a missing
+path, an unused path, and a duplicate; the same path in both files (counts once). The kernel's counts sit at the root because code owners cover
 `engines/core/` and `engines/design_system/`, and the ratchet files stay
 outside CODEOWNERS (below).
 
@@ -1080,7 +1104,7 @@ rubocop_disable: 0
 use_no_memo: 0             # FE-10
 skipped_tests: 0           # TS-05
 clone_baseline_entries: 0  # ARCH-05: every entry is a pair across two engines
-legacy_lint_paths: 0       # brownfield only: legacy app/ paths listed in eslint.config.mjs and .rubocop.yml
+legacy_lint_paths: 0       # brownfield only: distinct app/ paths marked "legacy-lint-path:" in .rubocop.yml and eslint.config.mjs
 ```
 
 ```yaml
@@ -1162,6 +1186,15 @@ The template repository also proves what an adopter relies on:
   `bin/ci`, proving they are removable (GEN-08); the kernel's own specs keep
   passing because they run against `engines/core/spec/dummy_engine`, not the
   example engines.
+
+These adoption runs are slow, so they run where they prove something. Adopting
+the commit under test runs on pull requests that change an adoption input (the
+application template, `lib/generators/`, `bin/kernel_update`, `engines/core/`,
+`engines/design_system/`, the guard configurations, `Gemfile`, `Gemfile.lock`,
+`package.json`, `package-lock.json`), on the release pull request, and nightly.
+Updating N-1 to N runs on the release pull request (the one that changes
+`VERSION`) and nightly, never on other pull requests. A nightly failure opens
+an issue like every scheduled job.
 
 ## Guard files
 
