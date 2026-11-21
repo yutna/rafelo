@@ -1,11 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 const root = process.cwd();
 const declarations = join(root, "tmp/tsc/design_system/app/frontend");
 
-execFileSync("npx", ["tsc", "-b", "engines/design_system/tsconfig.json"], {
+rmSync(join(root, "tmp/tsc/design_system"), { force: true, recursive: true });
+rmSync(join(root, "tmp/tsc/design_system.tsbuildinfo"), { force: true });
+execFileSync("npx", ["tsc", "-b", "engines/design_system/tsconfig.json", "--force"], {
   cwd: root,
   stdio: "inherit",
 });
