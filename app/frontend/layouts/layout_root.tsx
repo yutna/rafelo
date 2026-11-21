@@ -27,9 +27,7 @@ export function LayoutRoot({ children }: LayoutRootProps) {
         <SkipLink />
         <PageAnnouncer />
         <FlashStatus />
-        <main id="main-content" tabIndex={-1}>
-          {children}
-        </main>
+        {children}
       </div>
     </I18nProvider>
   );

@@ -5,6 +5,12 @@
     "description": "Rails serves the page, Inertia carries the props, and React renders it."
   },
   "skip": "Skip to content",
+  "nav": {
+    "label": "Main navigation"
+  },
+  "locale": {
+    "label": "Language"
+  },
   "errors": {
     "page_title": "Something went wrong.",
     "go_home": "Go home",
