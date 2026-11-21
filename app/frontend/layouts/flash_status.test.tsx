@@ -1,16 +1,43 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const inertia = vi.hoisted(() => ({
+  flash: {} as Record<string, unknown>,
+}));
 
 vi.mock("@inertiajs/react", () => ({
-  usePage: () => ({ url: "/en", flash: { notice: "Saved" } }),
+  usePage: () => ({ url: "/en", flash: inertia.flash }),
 }));
 
 import { FlashStatus } from "./flash_status";
 
 describe("FlashStatus", () => {
-  it("renders the page-level flash once as a status", () => {
+  beforeEach(() => {
+    inertia.flash = {};
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("renders a notice as a status", () => {
+    inertia.flash = { notice: "Saved" };
+
     render(<FlashStatus />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByTestId("page.flash.notice")).toBeInTheDocument();
+  });
+
+  it("renders a notice beside an alert", () => {
+    inertia.flash = { alert: "Failed", notice: "Saved" };
+
+    render(<FlashStatus />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Failed");
+    expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");
+  });
+
+  it("throws on a flash payload outside the schema", () => {
+    inertia.flash = { notice: 42 };
+
+    expect(() => render(<FlashStatus />)).toThrow();
   });
 });
