@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const inertia = vi.hoisted(() => ({
@@ -11,8 +11,12 @@ vi.mock("@inertiajs/react", () => ({
   useForm: () => ({
     data: { email: "", password: "" },
     setData: inertia.setData,
-    post: inertia.post,
+    post: (url: string, options?: { onError?: (errors: Record<string, string>) => void }) => {
+      inertia.post(url);
+      options?.onError?.({});
+    },
     processing: false,
+    errors: {},
   }),
 }));
 
@@ -53,6 +57,14 @@ describe("SignIn page", () => {
     fireEvent.submit(screen.getByTestId("signin.submit").closest("form") as HTMLFormElement);
 
     expect(inertia.post).toHaveBeenCalledWith("/en/sign_in");
+  });
+
+  it("focuses the error summary after a failed submit", async () => {
+    render(<SignIn {...props} data={{ error: "Wrong email or password" }} />);
+
+    fireEvent.submit(screen.getByTestId("signin.submit").closest("form") as HTMLFormElement);
+
+    await waitFor(() => expect(screen.getByTestId("signin.error")).toHaveFocus());
   });
 
   it("does not render a raw CSRF hidden field", () => {

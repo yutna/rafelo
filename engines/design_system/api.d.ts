@@ -8,6 +8,7 @@ declare module "@design_system/button" {
       className?: string;
       onPress?: () => void;
       isDisabled?: boolean;
+      isPending?: boolean;
       children: ReactNode;
   };
   export declare function Button({ testId, variant, className, children, ...props }: ButtonProps): import("react").JSX.Element;
