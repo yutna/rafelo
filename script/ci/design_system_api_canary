@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+file="$root/engines/design_system/app/frontend/button.tsx"
+backup="$(mktemp)"
+cp "$file" "$backup"
+restore() {
+  cp "$backup" "$file"
+  rm -f "$backup"
+}
+trap restore EXIT
+
+sed -i 's/testId: string;/testId: number;/' "$file"
+if (cd "$root" && npm run api:check >/dev/null 2>&1); then
+  echo "design_system_api_canary: a changed public prop type passed" >&2
+  exit 1
+fi
+
+restore
+trap - EXIT
+
+if ! (cd "$root" && npm run api:check >/dev/null 2>&1); then
+  echo "design_system_api_canary: the restored API check failed" >&2
+  exit 1
+fi
+
+echo "design_system_api_canary: checked 2 cases"
