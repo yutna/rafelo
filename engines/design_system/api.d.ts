@@ -16,4 +16,5 @@ export { Skeleton } from "@design_system/skeleton";
 export { TextField } from "@design_system/text_field";
 export { Toast } from "@design_system/toast";
 export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
+export { focusFirstError } from "@design_system/focus_first_error";
 export { isSafeUrl, isAppPath } from "@design_system/safe_url";

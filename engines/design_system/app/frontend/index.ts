@@ -16,3 +16,4 @@ export { Deferred } from "./deferred";
 export { Chart } from "./chart";
 export { DataTable } from "./data_table";
 export { ErrorBoundary } from "./error_boundary";
+export { focusFirstError } from "./focus_first_error";
