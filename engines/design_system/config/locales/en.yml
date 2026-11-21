@@ -2,3 +2,5 @@ en:
   design_system:
     nav:
       title: "Design system"
+    pagination:
+      page_of: "Page %{page} of %{pages}"

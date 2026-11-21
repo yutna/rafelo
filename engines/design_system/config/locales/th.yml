@@ -2,3 +2,5 @@ th:
   design_system:
     nav:
       title: "ระบบออกแบบ"
+    pagination:
+      page_of: "หน้า %{page} จาก %{pages}"
