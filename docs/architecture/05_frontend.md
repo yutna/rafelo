@@ -553,13 +553,10 @@ babel-plugin-react-compiler 1.0.0, @babel/core 7.29.13), a component's output
 imports `c` from `react/compiler-runtime`; without the Babel plugin it does
 not.
 
-`useReactTable` (@tanstack/react-table 8.21.3) is a library the compiler
-cannot memoize: eslint-plugin-react-hooks 7.1.1 warns
-`react-hooks/incompatible-library` and the compiler skips the component that
-calls it. Lint runs with `--max-warnings 0`, so the design_system data table,
-the only caller (FE-08), carries one `eslint-disable-next-line` with its
-reason, and the root `config/ratchets.yml` starts with that count for
-design_system.
+`useTable` (@tanstack/react-table 9.3.1) registers its behaviour through the
+stable `dataTableFeatures` object (`rowSortingFeature` only), so the
+design_system data table carries no `eslint-disable`, and the root
+`config/ratchets.yml` keeps `eslint_disable: 0` for design_system.
 
 Tests compile with the compiler too, or they test different code from what
 ships. `vite.config.mts`, the root `vitest.config.mts`, and each engine's

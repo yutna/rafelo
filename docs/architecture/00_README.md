@@ -118,7 +118,6 @@ generated from the Renovate rules by `npm run docs:generate`, and
 | `typescript` | 6.0.3 | `typescript-eslint` 8.72.1 supports TypeScript below 6.1 |
 | `eslint`, `@eslint/js` | 9.39.5 | `eslint-plugin-react` and `eslint-plugin-jsx-a11y` do not support ESLint 10 yet |
 | `eslint-plugin-unicorn` | 65.0.1 | Version 79 requires ESLint 10.4 or newer |
-| `@tanstack/react-table` | 8.21.3 | Version 9 is a new major; migrate in its own pull request |
 | `@babel/core` | 7.29.13 | Used only to run React Compiler through `@rolldown/plugin-babel`; Babel 8 support in the compiler plugin is unverified |
 <!-- generated:held-back:end -->
 
@@ -227,7 +226,7 @@ end
   "dependencies": {
     "@inertiajs/react": "3.11.0",
     "@internationalized/date": "3.12.4",
-    "@tanstack/react-table": "8.21.3",
+    "@tanstack/react-table": "9.3.1",
     "echarts": "6.1.0",
     "i18next": "27.0.1",
     "lucide-react": "1.70.0",
