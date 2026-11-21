@@ -1,4 +1,4 @@
-import { definePage } from "@core/contracts/page_props.schema";
+import { definePage, moneySchema } from "@core/contracts/page_props.schema";
 import { z } from "zod";
 
 export const pageSchema = definePage({
@@ -8,7 +8,7 @@ export const pageSchema = definePage({
       number: z.string(),
       customer: z.object({ id: z.string(), name: z.string(), tier: z.string() }),
       status: z.string(),
-      total: z.object({ minor: z.int(), currency: z.string().length(3), exponent: z.int() }),
+      total: moneySchema,
       issuedOn: z.string(),
       version: z.int(),
     }),
