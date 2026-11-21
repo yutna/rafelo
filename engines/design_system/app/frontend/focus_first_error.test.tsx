@@ -10,13 +10,27 @@ describe("focusFirstError", () => {
         <button type="button" data-testid="summary" data-error-summary tabIndex={-1}>
           Something failed
         </button>
-        <input data-testid="field" aria-invalid="true" />
       </div>,
     );
 
     focusFirstError(screen.getByTestId("scope"));
 
     expect(screen.getByTestId("summary")).toHaveFocus();
+  });
+
+  it("prefers the first invalid field when a base error and field errors exist", () => {
+    render(
+      <div data-testid="scope">
+        <button type="button" data-testid="summary" data-error-summary tabIndex={-1}>
+          Something failed
+        </button>
+        <input data-testid="field" aria-invalid="true" />
+      </div>,
+    );
+
+    focusFirstError(screen.getByTestId("scope"));
+
+    expect(screen.getByTestId("field")).toHaveFocus();
   });
 
   it("focuses the first invalid field in DOM order", () => {
