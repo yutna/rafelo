@@ -57,6 +57,20 @@ describe("Pagination", () => {
         label="Orders pages"
         previousLabel="Previous"
         nextLabel="Next"
+        page={3}
+        perPage={10}
+        total={50}
+        onPageChange={onPageChange}
+      />,
+    );
+    expect(screen.getByTestId("orders.pagination.status")).toHaveTextContent("Page 3 of 5");
+
+    rerender(
+      <Pagination
+        testId="orders.pagination"
+        label="Orders pages"
+        previousLabel="Previous"
+        nextLabel="Next"
         page={5}
         perPage={10}
         total={50}
@@ -73,7 +87,7 @@ describe("Pagination", () => {
 
   it("renders the cursor kind with its status and hrefs", async () => {
     const onNavigate = vi.fn();
-    render(
+    const { rerender } = render(
       <Pagination
         kind="cursor"
         testId="orders.pagination"
@@ -95,5 +109,20 @@ describe("Pagination", () => {
 
     await userEvent.click(screen.getByTestId("orders.pagination.next"));
     expect(onNavigate).toHaveBeenCalledWith("/en/orders?cursor=2");
+
+    rerender(
+      <Pagination
+        kind="cursor"
+        testId="orders.pagination"
+        label="Orders pages"
+        previousLabel="Previous"
+        nextLabel="Next"
+        previousHref="/en/orders"
+        nextHref="/en/orders?cursor=3"
+        onNavigate={onNavigate}
+        status="Previous page"
+      />,
+    );
+    expect(screen.getByTestId("orders.pagination.status")).toHaveTextContent("Previous page");
   });
 });
