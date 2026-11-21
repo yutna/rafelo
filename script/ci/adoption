@@ -101,8 +101,8 @@ adopt "$work/base-src" "$work/smoke_shop_prev" "$work/base-src/template/template
 # v0.26 is the first release with the ESLint-ready generated frontend.
 if [ "$(printf '%s\n' "0.26.0" "$base_version" | sort -V | head -1)" = "0.26.0" ]; then
   ( cd "$work/smoke_shop_prev" && bin/setup --skip-server >/dev/null && \
-      bin/rails generate rafelo:module legacy_check >/dev/null && \
-      bin/rails generate rafelo:page legacy_check widgets --actions=index,new,edit >/dev/null )
+      BUNDLE_FROZEN=false bin/rails generate rafelo:module legacy_check >/dev/null && \
+      BUNDLE_FROZEN=false bin/rails generate rafelo:page legacy_check widgets --actions=index,new,edit >/dev/null )
 fi
 if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
   cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
