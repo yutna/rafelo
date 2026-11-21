@@ -71,6 +71,15 @@ RSpec.describe Rafelo::Core::Modules do
     expect { described_class.validate! }.to raise_error(ArgumentError, /navigation order/)
   end
 
+  it "maps every module icon to a design-system icon name" do
+    icon_map = Rails.root.join("engines/design_system/app/frontend/icon.tsx").read.scan(/^  ([a-z_]+):/).flatten
+    module_icons = Dir[Rails.root.join("engines/*/config/module.rb")].flat_map do |path|
+      File.read(path).scan(/icon:\s*"([a-z_]+)"/).flatten
+    end
+
+    expect(module_icons - icon_map).to be_empty
+  end
+
   it "finds a module by its locale-prefixed first path segment" do
     entry = described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
 
