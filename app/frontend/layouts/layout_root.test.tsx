@@ -6,10 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const inertia = vi.hoisted(() => ({
   props: {} as Record<string, unknown>,
 }));
+const reporter = vi.hoisted(() => vi.fn());
 
 vi.mock("@inertiajs/react", () => ({
   usePage: () => ({ flash: {}, props: inertia.props, url: "/en" }),
 }));
+vi.mock("@/lib/report_client_error", () => ({ reportClientError: reporter }));
+
+import { RootBoundary } from "@/lib/root_boundary";
 
 import { LayoutRoot } from "./layout_root";
 
@@ -30,6 +34,10 @@ const shared = {
   nav: [],
   errors: {},
 };
+
+function BrokenShell(): never {
+  throw new Error("shell boom");
+}
 
 function LocaleProbe() {
   const { calendar, locale } = useLocale();
@@ -65,6 +73,24 @@ describe("LayoutRoot", () => {
     );
 
     expect(screen.getByTestId("locale.probe")).toHaveTextContent("th:th-TH-u-ca-buddhist");
+  });
+
+  it("renders the root error state when a shell throws", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    inertia.props = shared;
+
+    render(
+      <RootBoundary pageUrl="/en" trace={{ requestId: "request-1", traceId: "trace-1" }}>
+        <LayoutRoot>
+          <BrokenShell />
+        </LayoutRoot>
+      </RootBoundary>,
+    );
+
+    expect(screen.getByTestId("app.root_error")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("request-1");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(reporter).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the shared props do not parse", () => {
