@@ -68,8 +68,11 @@ $(cat "$state/STATE.md")"
 
   start_line="$(wc -l < "$log")"
   logline "run start"
+  # Pin the provider, model, and effort: the free model quota must never stop
+  # the loop and no fallback model may run this repository (#629).
   timeout --signal=TERM --kill-after=60s 10800 \
-    opencode run --auto --archived --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
+    opencode run --model "opencode-go/deepseek-v4.1-flash#max" --auto --archived \
+      --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
   rc=$?
   run_output="$(tail -n +"$((start_line + 1))" "$log")"
   if [ -n "$(printf '%s\n' "$run_output" | grep -o "OWNER DECISION NEEDED.*" | tail -1)" ]; then
