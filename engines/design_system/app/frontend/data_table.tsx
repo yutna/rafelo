@@ -1,6 +1,6 @@
-import type { ColumnDef } from "@tanstack/react-table";
-
 import { lazy, Suspense } from "react";
+
+import type { DataTableColumn } from "./data_table.types";
 
 import { Skeleton } from "./skeleton";
 
@@ -9,7 +9,7 @@ const DataTableImpl = lazy(() => import("./data_table_impl"));
 type DataTableProps = {
   testId: string;
   data: Record<string, unknown>[];
-  columns: ColumnDef<Record<string, unknown>>[];
+  columns: DataTableColumn[];
   emptyLabel: string;
 };
 
