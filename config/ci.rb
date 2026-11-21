@@ -44,6 +44,7 @@ CI.run do
   step "Pins: GitHub Actions", "script/ci/actions_pinned"
   step "Policy: workflows", "script/ci/workflow_policy"
   step "Policy: workflows canary", "script/ci/workflow_policy_canary"
+  step "Policy: adoption triggers canary", "script/ci/adoption_needed_canary"
   step "Policy: title canary", "script/ci/title_canary"
   step "Policy: ratchet canary", "script/ci/ratchet_canary"
   step "Policy: ratchets", "script/ci/ratchet_ci"
@@ -55,6 +56,7 @@ CI.run do
   step "Policy: production routes canary", "script/ci/production_routes_canary"
   step "Policy: gem patches", "script/ci/patches"
   step "Policy: gem patches canary", "script/ci/patches_canary"
+  step "Supervisor: canary", "script/ci/supervisor_canary"
 
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: npm audit", "script/ci/npm_audit"

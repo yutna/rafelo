@@ -1,0 +1,92 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+repo = File.expand_path("../..", __dir__)
+SUPERVISOR_SH = File.join(repo, "docs", "development", "supervisor", "supervisor.sh")
+
+failures = 0
+cases = 0
+
+def note(failures, message)
+  warn "supervisor_canary: #{message}"
+  failures + 1
+end
+
+# Writes the opencode, gh, and sleep stubs for one scenario and runs the
+# supervisor against them, returning [exitstatus, gh-calls path, state dir].
+def run_supervisor(scenario, opencode_body)
+  FileUtils.mkdir_p(File.join(scenario, "bin"))
+  FileUtils.mkdir_p(File.join(scenario, "state"))
+  calls = File.join(scenario, "gh-calls")
+  File.write(File.join(scenario, "bin", "opencode"), opencode_body)
+  File.chmod(0o755, File.join(scenario, "bin", "opencode"))
+  File.write(File.join(scenario, "bin", "sleep"), "#!/usr/bin/env bash\nexit 0\n")
+  File.chmod(0o755, File.join(scenario, "bin", "sleep"))
+  File.write(File.join(scenario, "bin", "gh"), <<~BASH)
+    #!/usr/bin/env bash
+    printf '%s\n' "$*" >> "$GH_CALLS"
+    if [ "$1" = "api" ] && [ "$2" = "repos/yutna/rafelo" ]; then
+      echo yutna
+    fi
+    exit 0
+  BASH
+  File.chmod(0o755, File.join(scenario, "bin", "gh"))
+  _, status = Open3.capture2e(
+    {
+      "SUPERVISOR_STATE" => File.join(scenario, "state"),
+      "GH_CALLS" => calls,
+      "PATH" => "#{scenario}/bin:#{ENV.fetch("PATH", "")}"
+    },
+    SUPERVISOR_SH
+  )
+  [ status.exitstatus, calls, File.join(scenario, "state") ]
+end
+
+if File.file?(SUPERVISOR_SH)
+  Dir.mktmpdir("rafelo-supervisor-canary-") do |root|
+    # A run that finds only blocked work prints the marker and pauses at once.
+    scenario = File.join(root, "marker")
+    exitstatus, calls, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho 'OWNER DECISION NEEDED #123 #456'\nexit 0\n")
+    cases += 1
+    failures = note(failures, "marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "NEEDS_OWNER is not the multi-issue marker: #{needs_owner.inspect}") unless needs_owner.include?("OWNER DECISION NEEDED #123 #456")
+
+    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    cases += 1
+    failures = note(failures, "the blocked outcome was not logged: #{log}") unless log.include?("outcome=blocked") && log.include?("paused for owner")
+
+    calls_list = File.file?(calls) ? File.read(calls).lines.map(&:strip) : []
+    [ 123, 456 ].each do |issue|
+      cases += 2
+      failures = note(failures, "issue ##{issue} was not assigned to the owner") unless calls_list.any? { |call| call == "issue edit #{issue} --add-assignee yutna" }
+      failures = note(failures, "issue ##{issue} was not mentioned") unless calls_list.any? { |call| call.start_with?("issue comment #{issue} ") }
+    end
+
+    # A run that fails without a marker logs the aborted outcome; three runs
+    # without progress pause with the no-progress marker.
+    scenario = File.join(root, "aborted")
+    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho failed\nexit 1\n")
+    cases += 1
+    failures = note(failures, "aborted run exited #{exitstatus}, expected 0") if exitstatus != 0
+
+    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    cases += 1
+    failures = note(failures, "the aborted outcome was not logged: #{log}") unless log.include?("outcome=aborted")
+
+    cases += 1
+    failures = note(failures, "the no-progress pause was not written: #{log}") unless File.file?(File.join(state, "NEEDS_OWNER")) && File.read(File.join(state, "NEEDS_OWNER")).include?("no progress")
+  end
+else
+  # Adopted apps do not ship the supervisor (docs/development/supervisor/ is
+  # repository tooling); there is nothing to canary there.
+end
+
+warn "supervisor_canary: checked #{cases} cases; failures=#{failures}"
+exit(failures.zero? ? 0 : 1)

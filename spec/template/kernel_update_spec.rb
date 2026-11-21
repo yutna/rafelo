@@ -148,6 +148,50 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "compares non-ASCII kernel files by bytes" do
+    base = { "script/ci/tool" => "#!/usr/bin/env ruby\nputs \"base — dash\"\n" }
+    target = { "script/ci/tool" => "#!/usr/bin/env ruby\nputs \"target — dash\"\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: target)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "script/ci/tool"))).to eq(target.fetch("script/ci/tool"))
+        end
+      end
+    end
+  end
+
+  it "writes conflict markers for a genuinely customized non-ASCII kernel file" do
+    base = { "script/ci/tool" => "#!/usr/bin/env ruby\nputs \"base — dash\"\n" }
+    target = { "script/ci/tool" => "#!/usr/bin/env ruby\nputs \"target — dash\"\n" }
+    local = { "script/ci/tool" => "#!/usr/bin/env ruby\nputs \"custom — dash\"\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status.exitstatus).to eq(1)
+          expect(err).not_to include("Encoding::CompatibilityError")
+          expect(File.read(File.join(app_root, "script/ci/tool"))).to include(
+            "<<<<<<<", "custom — dash", "=======", "target — dash", ">>>>>>>"
+          )
+        end
+      end
+    end
+  end
+
   it "updates the app-owned specs, tasks, packaging and container names that follow the app name" do
     base = {
       "config/database.yml" => "role: rafelo_runtime\n",

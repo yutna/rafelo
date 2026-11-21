@@ -7,8 +7,8 @@ module RuboCop
         MSG = "Rafelo/ConfigXOnlyInCore: read config.x only in engines/core; pass configuration through config/ or a typed setting (ARCH-01, ARCH-10, BE-08)."
 
         def on_send(node)
-          return unless node.method_name == :x
-          return unless node.receiver&.source.to_s.include?("config")
+          return unless Matching.method_name(node) == "x"
+          return unless Matching.receiver_names(node).include?("config")
           return if processed_source.file_path.include?("/engines/core/")
           return if processed_source.file_path.include?("/spec/") && !processed_source.file_path.include?("/spec/enforcement/fixtures/")
 

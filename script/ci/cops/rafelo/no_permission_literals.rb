@@ -8,7 +8,7 @@ module RuboCop
         MSG = "Rafelo/NoPermissionLiterals: pass a generated permission constant, not a string."
 
         def on_send(node)
-          return unless %i[allows? capabilities].include?(node.method_name)
+          return unless %i[allows? capabilities].include?(Matching.method_name(node)&.to_sym)
 
           node.arguments.each do |argument|
             add_offense(argument) if argument.str_type?

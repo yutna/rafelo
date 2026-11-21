@@ -1,0 +1,121 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Decides which template adoption proofs a workflow run needs (WF-02, GEN-07).
+#
+# current: adopt the commit under test and run its gate.
+# update:  adopt release N-1, update it to this release, and run its gate.
+#
+# The pull request events run current when the change set touches an adoption
+# input, and both when VERSION changes (the release pull request). The nightly
+# and manual runs always run both. A push to main is skipped because the pull
+# request or the nightly run already proved it.
+
+require "open3"
+require "optparse"
+
+root = Dir.pwd
+event = ENV["EVENT_NAME"].to_s
+base = ENV["BASE_SHA"].to_s
+changed_files = ENV["CHANGED_FILES"]
+output = ENV["GITHUB_OUTPUT"]
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/adoption_needed [--root DIR] [--event EVENT] [--base REV] [--changed-files FILE] [--output FILE]"
+  parser.on("--root DIR") { |value| root = value }
+  parser.on("--event EVENT") { |value| event = value }
+  parser.on("--base REV") { |value| base = value }
+  parser.on("--changed-files FILE") { |value| changed_files = value }
+  parser.on("--output FILE") { |value| output = value }
+end.parse!
+
+root = File.expand_path(root)
+abort "adoption_needed: root does not exist: #{root}" unless Dir.exist?(root)
+
+# Paths that change what a generated app receives or how its gate runs. Keep
+# this list next to the admission rule in docs/architecture/09_enforcement.md.
+ADOPTION_INPUTS = %w[
+  template/
+  lib/generators/
+  bin/
+  engines/core/
+  engines/design_system/
+  engines/example_customers/
+  engines/example_orders/
+  script/ci/
+  .devcontainer/
+  Dockerfile
+  mise.toml
+  .ruby-version
+  Gemfile
+  Gemfile.lock
+  package.json
+  package-lock.json
+  .rubocop.yml
+  .dependency-cruiser.cjs
+  eslint.config.mjs
+  packwerk.yml
+  config/budgets.yml
+  config/ci.rb
+  config/ratchets.yml
+].freeze
+
+def adoption_input?(path)
+  ADOPTION_INPUTS.any? do |entry|
+    entry.end_with?("/") ? path.start_with?(entry) : path == entry
+  end
+end
+
+def read_changes(root, base, changed_files)
+  if changed_files
+    return File.readlines(changed_files, chomp: true).reject(&:empty?)
+  end
+
+  base = "HEAD^1" if base.empty?
+  output, status = Open3.capture2(
+    "git", "-C", root, "diff", "--name-only", "--no-renames", "#{base}...HEAD",
+    err: File::NULL
+  )
+  status.success? ? output.lines.map(&:strip).reject(&:empty?) : nil
+end
+
+current = false
+update = false
+reason = ""
+
+case event
+when "schedule", "workflow_dispatch"
+  current = true
+  update = true
+  reason = "#{event}: both adoption proofs"
+when "pull_request", "merge_group"
+  changes = read_changes(root, base, changed_files)
+  if changes.nil?
+    current = true
+    update = true
+    reason = "#{event}: cannot read the change set; run both"
+  else
+    version_changed = changes.include?("VERSION")
+    update = version_changed
+    current = version_changed || changes.any? { |path| adoption_input?(path) }
+    reason = if version_changed
+      "#{event}: VERSION changed"
+    elsif current
+      "#{event}: adoption input changed"
+    else
+      "#{event}: no adoption input changed"
+    end
+  end
+else
+  reason = "#{event}: only the pull request, merge group, or schedule runs adoption"
+end
+
+if output
+  File.open(output, "a") do |file|
+    file.puts "current=#{current}"
+    file.puts "update=#{update}"
+    file.puts "reason=#{reason}"
+  end
+end
+
+puts "adoption_needed: current=#{current} update=#{update} (#{reason})"

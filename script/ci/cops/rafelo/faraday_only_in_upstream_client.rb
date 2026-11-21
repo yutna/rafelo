@@ -8,7 +8,7 @@ module RuboCop
         MSG = "Rafelo/FaradayOnlyInUpstreamClient: use Rafelo::Core::UpstreamClient; only it may reference Faraday (ARCH-01)."
 
         def on_const(node)
-          return unless node.const_name == "Faraday"
+          return unless Matching.const_name(node) == "Faraday"
           return if processed_source.file_path.end_with?("/engines/core/app/models/rafelo/core/upstream_client.rb")
 
           add_offense(node)

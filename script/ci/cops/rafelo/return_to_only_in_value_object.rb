@@ -10,7 +10,7 @@ module RuboCop
         RESTRICT_ON_SEND = %i[[] fetch dig].freeze
 
         def on_send(node)
-          return unless node.receiver&.source.to_s.end_with?("params")
+          return unless Matching.receiver_names(node).last == "params"
 
           keys = node.arguments.select { |argument| argument.str_type? || argument.sym_type? }
           return unless keys.any? { |key| KEYS.include?(key.value.to_s) }

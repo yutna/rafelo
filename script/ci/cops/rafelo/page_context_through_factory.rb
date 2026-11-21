@@ -8,8 +8,8 @@ module RuboCop
         MSG = "Rafelo/PageContextThroughFactory: build PageContext through PageContextFactory."
 
         def on_send(node)
-          receiver = node.receiver
-          return unless receiver&.const_type? && receiver.const_name.end_with?("PageContext")
+          names = Matching.receiver_names(node)
+          return unless names.first&.end_with?("PageContext")
           return unless node.method_name == :new || node.method_name == :[]
           return if processed_source.file_path.include?("/engines/core/")
 
