@@ -119,7 +119,15 @@ module Rafelo
         create_file "#{engine_dir}/config/errors.yml", "{}\n"
         create_file "#{engine_dir}/config/permissions.yml", "#{name}:\n  widget: [read]\n"
         create_file "#{engine_dir}/config/budgets.yml", "pages: {}\n"
-        create_file "#{engine_dir}/config/ratchets.yml", "eslint_disable: 0\nuse_no_memo: 0\n"
+        create_file "#{engine_dir}/config/ratchets.yml", <<~YAML
+          eslint_disable: 0
+          rubocop_disable: 0
+          use_no_memo: 0
+          skipped_tests: 0
+          page_budget_overrides: 0
+          legacy_table_prefixes: 0
+          legacy_constants: 0
+        YAML
         create_file "#{engine_dir}/config/contracts/.keep", ""
         create_file "#{engine_dir}/db/migrate/.keep", ""
         create_file "#{engine_dir}/app/public/#{app_ns_underscore}/#{name}/.keep", ""
