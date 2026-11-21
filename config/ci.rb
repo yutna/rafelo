@@ -72,6 +72,7 @@ CI.run do
   step "Release: canary", "script/ci/release_canary"
   step "Frontend: Build", "npm run build"
   step "Frontend: bundle budget", "script/ci/bundle_budget"
+  step "Frontend: bundle budget canary", "script/ci/bundle_budget_canary"
   step "Frontend: design-system API", "npm run api:check"
   step "Frontend: Test", "npm test"
   step "Tests: RSpec", "script/ci/rspec"
