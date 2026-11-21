@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { DateField } from "./date_field";
@@ -102,6 +103,122 @@ describe("DateField", () => {
 
     expect(screen.getByTestId("start.day")).toHaveTextContent("11");
     expect(screen.getByTestId("end.day")).toHaveTextContent("12");
+  });
+
+  async function typeDate(parts: { year: string; month: string; day: string }) {
+    await userEvent.click(screen.getByTestId("date.year"));
+    await userEvent.keyboard(parts.year);
+    await userEvent.click(screen.getByTestId("date.month"));
+    await userEvent.keyboard(parts.month);
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard(parts.day);
+  }
+
+  it("converts a typed Buddhist Era entry to ISO Gregorian", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="th" timeZone="Asia/Bangkok">
+        <DateField
+          testId="date"
+          label="Date"
+          value=""
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await typeDate({ year: "2569", month: "11", day: "12" });
+
+    await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("2026-11-12"));
+    expect(onChange).not.toHaveBeenCalledWith("1483-11-12");
+  });
+
+  it("refuses a Gregorian year typed under the Buddhist calendar", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="th" timeZone="Asia/Bangkok">
+        <DateField
+          testId="date"
+          label="Date"
+          value=""
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await typeDate({ year: "2026", month: "11", day: "11" });
+    await userEvent.click(document.body);
+    await new Promise((resolve) => setTimeout(resolve, 350));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("refuses an impossible typed date", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="th" timeZone="Asia/Bangkok">
+        <DateField
+          testId="date"
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("date.month"));
+    await userEvent.keyboard("02");
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard("31");
+    await userEvent.click(document.body);
+
+    await waitFor(() => expect(screen.getByTestId("date.day")).toHaveTextContent("11"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("does not submit a changed date when a segment is cleared", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          testId="date"
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard("{Backspace}");
+    await userEvent.tab();
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid min or max", () => {
+    expect(() =>
+      render(
+        <I18nProvider locale="en" timeZone="UTC">
+          <DateField
+            testId="date"
+            label="Date"
+            value="2026-11-11"
+            min="not-a-date"
+            max="2026-12-31"
+            onChange={() => {}}
+          />
+        </I18nProvider>,
+      ),
+    ).toThrow("valid ISO min and max");
   });
 
   it("rejects an impossible calendar date", () => {
