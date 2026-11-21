@@ -708,3 +708,25 @@ picomatch or a tree without it.
 **Spec feedback.** `WF-06` has no rule for an advisory with no patched version;
 the exception mechanism and its owner-only renewal belong in the spec. See the
 "spec: WF-06" Backlog issue. Related IDs: SEC-07, SEC-14, WF-06, OPS-06.
+
+## 2026-11-21 — v0.32.0 — issue #720 (design_system locale source on kernel update)
+
+**What happened.** The v0.32.0 release pull request's N-1 update proof failed
+at `Contracts: i18n`: `engines/design_system/app/frontend/locales/en.json is
+stale`. The fixture requested `design_system/app/frontend`, so the new
+generated locale JSON arrived, but the old `design_system/config/locales`
+source did not. v0.32.0 added the `pagination.page_of` key, so regenerating
+from the old source produced the old JSON.
+
+**What changed.** The adoption fixture requests both
+`design_system/app/frontend` and `design_system/config/locales` on both updater
+passes. `kernel_update` still updates design_system only per requested folder;
+the fixture now requests the source of the generated files it wants.
+
+**Reading.** GEN-07 says design_system is updated folder by folder on request.
+A generated folder and the catalog it is generated from stay consistent only
+when both are requested; the fixture follows that reading rather than widening
+`kernel_update`'s default paths.
+
+**Spec feedback.** GEN-07 could say that requesting a generated folder also
+requires its source catalog. Related IDs: GEN-07, CT-08.
