@@ -362,6 +362,7 @@ jobs:
           script/ci/guard_approval_canary
           script/ci/repo_rules_canary
           script/ci/release_canary
+          script/ci/adoption_needed_canary
 
       - name: Run the supervisor canary
         run: script/ci/supervisor_canary
