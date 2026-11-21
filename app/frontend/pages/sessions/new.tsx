@@ -2,7 +2,7 @@ import { Button } from "@design_system/button";
 import { focusFirstError } from "@design_system/focus_first_error";
 import { TextField } from "@design_system/text_field";
 import { Head, useForm } from "@inertiajs/react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import type { LayoutName } from "@/lib/layout_name";
 
@@ -17,23 +17,16 @@ export default function SignIn(props: Record<string, unknown>) {
   const formErrors: Record<string, string> = form.errors;
   const baseError = formErrors.base ?? page.data.error;
 
+  useEffect(() => {
+    if (baseError) focusFirstError(formRef.current ?? undefined);
+  }, [baseError]);
+
   return (
     <section className="mx-auto max-w-md px-6 py-24">
       <Head title={t("app:signin.title")} />
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
         {t("app:signin.title")}
       </h1>
-      {baseError ? (
-        <p
-          role="alert"
-          data-testid="signin.error"
-          data-error-summary
-          tabIndex={-1}
-          className="mt-4 text-red-700"
-        >
-          {baseError}
-        </p>
-      ) : null}
       <form
         ref={formRef}
         onSubmit={(event) => {
@@ -44,6 +37,17 @@ export default function SignIn(props: Record<string, unknown>) {
         }}
         className="mt-8 space-y-4"
       >
+        {baseError ? (
+          <p
+            role="alert"
+            data-testid="signin.error"
+            data-error-summary
+            tabIndex={-1}
+            className="text-red-700"
+          >
+            {baseError}
+          </p>
+        ) : null}
         <TextField
           testId="signin.email"
           label={t("app:signin.email")}
