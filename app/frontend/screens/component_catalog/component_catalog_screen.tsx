@@ -1,3 +1,5 @@
+import type { DataTableColumn, DataTableSort } from "@design_system/data_table.types";
+
 import { useUiState } from "@core/lib/use_ui_state";
 import { Button } from "@design_system/button";
 import { Chart } from "@design_system/chart";
@@ -11,10 +13,13 @@ import { Toast } from "@design_system/toast";
 
 import { t } from "@/lib/i18n";
 
+type CatalogRow = { id: string; name: string; total: string };
+
 export function ComponentCatalogScreen() {
   const [menu, setMenu] = useUiState({ open: false });
   const [pagination, setPagination] = useUiState({ page: 1 });
-  const columns = [
+  const [sort, setSort] = useUiState<{ sort: DataTableSort }>({ sort: null });
+  const columns: DataTableColumn<CatalogRow>[] = [
     { accessorKey: "name", header: t("app:catalog.name") },
     { accessorKey: "total", header: t("app:catalog.total") },
   ];
@@ -52,9 +57,11 @@ export function ComponentCatalogScreen() {
         <h2 className="text-xl font-semibold">{t("app:catalog.data")}</h2>
         <DataTable
           testId="catalog-table"
-          data={[{ name: "Ada", total: "1,200" }]}
+          data={[{ id: "ada", name: "Ada", total: "1,200" }]}
           columns={columns}
           emptyLabel={t("app:catalog.empty")}
+          sort={sort.sort}
+          onSortChange={(next) => setSort({ sort: next })}
         />
         <Chart
           testId="catalog-chart"

@@ -100,33 +100,38 @@ declare module "@design_system/chart.types" {
 }
 
 declare module "@design_system/data_table" {
-  import type { DataTableColumn } from "@design_system/data_table.types";
-  type DataTableProps = {
-      testId: string;
-      data: Record<string, unknown>[];
-      columns: DataTableColumn[];
-      emptyLabel: string;
-  };
-  export declare function DataTable(props: DataTableProps): import("react").JSX.Element;
-  export {};
+  import type { DataTableProps, DataTableRow } from "@design_system/data_table.types";
+  export declare function DataTable<T extends DataTableRow>(props: DataTableProps<T>): import("react").JSX.Element;
 }
 
 declare module "@design_system/data_table_impl" {
-  import type { DataTableColumn } from "@design_system/data_table.types";
-  type DataTableProps = {
-      testId: string;
-      data: Record<string, unknown>[];
-      columns: DataTableColumn[];
-      emptyLabel: string;
-  };
-  export default function DataTableImpl({ testId, data, columns, emptyLabel }: DataTableProps): import("react").JSX.Element;
-  export {};
+  import type { DataTableProps } from "@design_system/data_table.types";
+  export default function DataTableImpl<T extends {
+      id: string;
+  }>({ testId, data, columns, emptyLabel, sort, onSortChange, }: DataTableProps<T>): import("react").JSX.Element;
 }
 
 declare module "@design_system/data_table.types" {
   import type { ColumnDef } from "@tanstack/react-table";
-  export declare const dataTableFeatures: {};
-  export type DataTableColumn = ColumnDef<typeof dataTableFeatures, Record<string, unknown>>;
+  export declare const dataTableFeatures: {
+      rowSortingFeature: import("@tanstack/table-core").TableFeature;
+  };
+  export type DataTableRow = {
+      id: string;
+  };
+  export type DataTableColumn<T extends DataTableRow = DataTableRow> = ColumnDef<typeof dataTableFeatures, T>;
+  export type DataTableSort = {
+      columnId: string;
+      direction: "asc" | "desc";
+  } | null;
+  export type DataTableProps<T extends DataTableRow> = {
+      testId: string;
+      data: T[];
+      columns: DataTableColumn<T>[];
+      emptyLabel: string;
+      sort: DataTableSort;
+      onSortChange: (sort: DataTableSort) => void;
+  };
 }
 
 declare module "@design_system/date_field" {
