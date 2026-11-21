@@ -19,11 +19,16 @@ type PageComponent = ComponentType<Record<string, unknown>> & {
   layout?: (page: ReactNode) => ReactNode;
 };
 
-const appPageModules = import.meta.glob<PageModule>("../pages/**/*.tsx", {
-  eager: false,
-});
+const appPageModules = import.meta.glob<PageModule>(
+  ["../pages/**/*.tsx", "!../pages/**/*.test.tsx", "!../pages/**/*.spec.tsx"],
+  { eager: false },
+);
 const enginePageModules = import.meta.glob<PageModule>(
-  "../../../engines/*/app/frontend/pages/**/*.tsx",
+  [
+    "../../../engines/*/app/frontend/pages/**/*.tsx",
+    "!../../../engines/*/app/frontend/pages/**/*.test.tsx",
+    "!../../../engines/*/app/frontend/pages/**/*.spec.tsx",
+  ],
   { eager: false },
 );
 

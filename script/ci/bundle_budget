@@ -27,9 +27,9 @@ def kb(bytes) = (bytes / 1024.0).round(1)
 
 entry_key = "entrypoints/application.tsx"
 abort "bundle_budget: no application entry" unless manifest.key?(entry_key)
-page_keys = manifest.keys.select do |key|
-  key.start_with?("pages/") && !key.match?(/\.test\.[jt]sx?$/)
-end
+page_keys = manifest.keys.select { |key| key.start_with?("pages/") }
+test_keys = page_keys.select { |key| key.match?(/\.(?:test|spec)\.[jt]sx?$/) }
+abort "bundle_budget: page test files shipped as production chunks: #{test_keys.join(", ")}" if test_keys.any?
 abort "bundle_budget: no page chunks" if page_keys.empty?
 
 failures = []

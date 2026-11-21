@@ -19,7 +19,7 @@ YAML
 
 printf 'entry' > "$tmp/public/vite/entry.js"
 printf 'page' > "$tmp/public/vite/page.js"
-head -c 200000 /dev/urandom > "$tmp/public/vite/page-test.js"
+printf 'test' > "$tmp/public/vite/page-test.js"
 
 cat > "$tmp/public/vite/.vite/manifest.json" <<'JSON'
 {
@@ -29,8 +29,20 @@ cat > "$tmp/public/vite/.vite/manifest.json" <<'JSON'
 }
 JSON
 
+if "$root/script/ci/bundle_budget" "$tmp" >/dev/null 2>&1; then
+  echo "bundle_budget_canary: a page test file in the manifest passed" >&2
+  exit 1
+fi
+
+cat > "$tmp/public/vite/.vite/manifest.json" <<'JSON'
+{
+  "entrypoints/application.tsx": { "file": "entry.js", "imports": [] },
+  "pages/index.tsx": { "file": "page.js", "imports": [] }
+}
+JSON
+
 if ! "$root/script/ci/bundle_budget" "$tmp" >/dev/null 2>&1; then
-  echo "bundle_budget_canary: a page test file counted against the page budget" >&2
+  echo "bundle_budget_canary: an under-budget page failed" >&2
   exit 1
 fi
 
@@ -40,4 +52,4 @@ if "$root/script/ci/bundle_budget" "$tmp" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "bundle_budget_canary: checked 2 cases"
+echo "bundle_budget_canary: checked 3 cases"
