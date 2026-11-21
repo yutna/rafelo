@@ -11,9 +11,8 @@ vi.mock("@inertiajs/react", () => ({
   useForm: () => ({
     data: { email: "", password: "" },
     setData: inertia.setData,
-    post: (url: string, options?: { onError?: (errors: Record<string, string>) => void }) => {
+    post: (url: string) => {
       inertia.post(url);
-      options?.onError?.({});
     },
     processing: false,
     errors: {},
@@ -59,10 +58,11 @@ describe("SignIn page", () => {
     expect(inertia.post).toHaveBeenCalledWith("/en/sign_in");
   });
 
-  it("focuses the error summary after a failed submit", async () => {
-    render(<SignIn {...props} data={{ error: "Wrong email or password" }} />);
+  it("focuses the server error summary after a failed submit", async () => {
+    const { rerender } = render(<SignIn {...props} />);
 
     fireEvent.submit(screen.getByTestId("signin.submit").closest("form") as HTMLFormElement);
+    rerender(<SignIn {...props} data={{ error: "Wrong email or password" }} />);
 
     await waitFor(() => expect(screen.getByTestId("signin.error")).toHaveFocus());
   });
