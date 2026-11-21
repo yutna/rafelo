@@ -7,10 +7,12 @@ const CATALOG_VIEWPORT = { width: 1280, height: 1750 };
 test.use({ viewport: CATALOG_VIEWPORT });
 
 async function expectCatalogFits(page: import("@playwright/test").Page) {
-  const contentBottom = await page.getByTestId("app.main").evaluate((main) => {
-    return main.firstElementChild?.getBoundingClientRect().bottom ?? 0;
-  });
-  expect(contentBottom).toBeLessThanOrEqual(CATALOG_VIEWPORT.height);
+  const { bottom, width } = await page.getByTestId("app.main").evaluate((main) => ({
+    bottom: main.firstElementChild?.getBoundingClientRect().bottom ?? 0,
+    width: document.documentElement.scrollWidth,
+  }));
+  expect(bottom).toBeLessThanOrEqual(CATALOG_VIEWPORT.height);
+  expect(width).toBeLessThanOrEqual(CATALOG_VIEWPORT.width);
 }
 
 test("catalog has no serious axe violations", async ({ page }) => {
@@ -42,6 +44,7 @@ test("Thai catalog shows the Buddhist calendar", async ({ page }) => {
   await expect(chart).toBeVisible();
   await expect(chart).toHaveAttribute("role", "img");
   await expect(chart).toHaveAttribute("aria-label", "แผนภูมิตัวอย่าง");
+  await expect(chart).not.toHaveAttribute("aria-hidden");
   await expect(page.getByTestId("catalog-empty")).toBeVisible();
   await expectCatalogFits(page);
   await expect(page).toHaveScreenshot("catalog-th.png", {

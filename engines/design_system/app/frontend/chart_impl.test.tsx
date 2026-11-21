@@ -128,6 +128,18 @@ describe("ChartImpl", () => {
     );
   });
 
+  it("keeps the data table reachable when the chart fails", async () => {
+    echarts.init.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    renderChart();
+
+    expect(await screen.findByTestId("orders.chart.error")).toBeVisible();
+    await userEvent.click(screen.getByTestId("orders.chart.table.toggle"));
+
+    expect(screen.getByTestId("orders.chart.table")).toHaveTextContent("Open");
+  });
+
   it("offers the data as a table with formatted values", async () => {
     renderChart();
 
@@ -160,10 +172,14 @@ describe("ChartImpl", () => {
     expect(screen.getByTestId("orders.chart.tooltip")).toHaveTextContent("Open: 1,200");
   });
 
-  it("exposes the chart as one labelled image", () => {
+  it("passes the translated description into the aria option", () => {
     renderChart();
 
-    expect(screen.getByTestId("orders.chart")).toHaveAttribute("role", "img");
-    expect(screen.getByTestId("orders.chart")).toHaveAttribute("aria-label", "Orders by status");
+    expect(echarts.instance.setOption).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        aria: { enabled: true, label: { description: "Orders by status" } },
+      }),
+      { notMerge: true },
+    );
   });
 });

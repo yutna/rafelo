@@ -80,14 +80,7 @@ export default function ChartImpl({
 
   return (
     <div data-testid={`${testId}.container`}>
-      <div
-        ref={ref}
-        role="img"
-        aria-label={ariaLabel}
-        data-testid={testId}
-        hidden={empty || failed}
-        className="h-64 w-full"
-      />
+      <div ref={ref} data-testid={testId} hidden={empty || failed} className="h-64 w-full" />
       {hover ? (
         <p role="status" data-testid={`${testId}.tooltip`} className="text-sm text-slate-600">
           {hover}
@@ -103,7 +96,7 @@ export default function ChartImpl({
           {labels.error}
         </p>
       ) : null}
-      {empty || failed ? null : (
+      {empty ? null : (
         <>
           <button
             type="button"

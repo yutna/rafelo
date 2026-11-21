@@ -730,3 +730,19 @@ when both are requested; the fixture follows that reading rather than widening
 
 **Spec feedback.** GEN-07 could say that requesting a generated folder also
 requires its source catalog. Related IDs: GEN-07, CT-08.
+
+## 2026-11-21 — v0.33.0 — issue #642 (chart option ownership)
+
+**What happened.** The chart slice replaced the raw server option with a typed
+`{ series: [...] }` DTO and built the ECharts option in `@design_system/chart`.
+FE-08 says features pass an option object built by a pure function that lives
+next to the feature component.
+
+**Reading.** The issue #642 outcome allows "a typed chart prop (or a narrow
+server-side DTO)". The wrapper keeping ECharts details, theme, states, and
+formatters in one place is the tighter reading; a feature builder would repeat
+that logic and expose ECharts types outside design_system. The typed DTO stays.
+
+**Spec feedback.** Filed as "spec: FE-08 feature-side chart option builder"
+(#731) so the owner can choose between the feature-side builder and the
+wrapper-owned builder. Related IDs: FE-08, FE-11, FE-16, FE-20.
