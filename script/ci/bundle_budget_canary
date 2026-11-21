@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+tmp="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmp"
+}
+trap cleanup EXIT
+
+mkdir -p "$tmp/config" "$tmp/public/vite/.vite"
+cat > "$tmp/config/budgets.yml" <<'YAML'
+defaults:
+  js_entry_gzip_kb: 100
+  js_page_chunk_gzip_kb: 60
+  js_lazy_chunk_gzip_kb: 100
+  js_initial_gzip_kb: 200
+YAML
+
+printf 'entry' > "$tmp/public/vite/entry.js"
+printf 'page' > "$tmp/public/vite/page.js"
+head -c 200000 /dev/urandom > "$tmp/public/vite/page-test.js"
+
+cat > "$tmp/public/vite/.vite/manifest.json" <<'JSON'
+{
+  "entrypoints/application.tsx": { "file": "entry.js", "imports": [] },
+  "pages/index.tsx": { "file": "page.js", "imports": [] },
+  "pages/index.test.tsx": { "file": "page-test.js", "imports": [] }
+}
+JSON
+
+if ! "$root/script/ci/bundle_budget" "$tmp" >/dev/null 2>&1; then
+  echo "bundle_budget_canary: a page test file counted against the page budget" >&2
+  exit 1
+fi
+
+head -c 200000 /dev/urandom > "$tmp/public/vite/page.js"
+if "$root/script/ci/bundle_budget" "$tmp" >/dev/null 2>&1; then
+  echo "bundle_budget_canary: an over-budget page passed" >&2
+  exit 1
+fi
+
+echo "bundle_budget_canary: checked 2 cases"
