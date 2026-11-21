@@ -31,6 +31,7 @@ Dir.mktmpdir("rafelo-workflow-canary-") do |dir|
 
   # A job the aggregator does not need is a missing gate step.
   ci = File.join(workflows, "ci.yml")
+  FileUtils.cp(File.join(root, ".github", "workflows", "ci.yml"), ci)
   data = YAML.load_file(ci, aliases: true)
   data["jobs"]["stray"] = {
     "runs-on" => "ubuntu-latest",
@@ -44,6 +45,33 @@ Dir.mktmpdir("rafelo-workflow-canary-") do |dir|
   if status.success? || !output.include?("ci-ok needs is missing stray")
     failures += 1
     warn "workflow_policy_canary: job missing from ci-ok: #{output}"
+  end
+
+  # The adoption proofs must follow the decision job, not run everywhere.
+  ci = File.join(workflows, "ci.yml")
+  FileUtils.cp(File.join(root, ".github", "workflows", "ci.yml"), ci)
+  data = YAML.load_file(ci, aliases: true)
+  data["jobs"]["adoption"]["if"] = "true"
+  File.write(ci, YAML.dump(data))
+
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("adoption must run only when needs.adoption-needed.outputs.current == 'true'")
+    failures += 1
+    warn "workflow_policy_canary: adoption without its trigger: #{output}"
+  end
+
+  # The decision job must expose both outputs.
+  FileUtils.cp(File.join(root, ".github", "workflows", "ci.yml"), ci)
+  data = YAML.load_file(ci, aliases: true)
+  data["jobs"]["adoption-needed"]["outputs"].delete("update")
+  File.write(ci, YAML.dump(data))
+
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("adoption-needed must output current and update")
+    failures += 1
+    warn "workflow_policy_canary: adoption-needed outputs: #{output}"
   end
 end
 

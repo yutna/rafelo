@@ -124,6 +124,27 @@ files.each do |path|
     else
       errors << "#{relative}: no ci-ok aggregator"
     end
+
+    decision = jobs["adoption-needed"]
+    if decision.nil?
+      errors << "#{relative}: no adoption-needed job"
+    elsif !decision["outputs"].is_a?(Hash) || !decision["outputs"].key?("current") || !decision["outputs"].key?("update")
+      errors << "#{relative}: adoption-needed must output current and update"
+    end
+
+    {
+      "adoption" => "current",
+      "adoption-update" => "update"
+    }.each do |job_name, output|
+      job = jobs[job_name]
+      if job.nil?
+        errors << "#{relative}: no #{job_name} job"
+        next
+      end
+
+      expected = "needs.adoption-needed.outputs.#{output} == 'true'"
+      errors << "#{relative}: #{job_name} must run only when #{expected}" unless job["if"].to_s.include?(expected)
+    end
   end
 end
 
