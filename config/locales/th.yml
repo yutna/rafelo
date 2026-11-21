@@ -6,6 +6,10 @@ th:
       description: "Rails ให้บริการหน้าเว็บ Inertia ส่งข้อมูล และ React เรนเดอร์"
 
     skip: "ข้ามไปยังเนื้อหา"
+    nav:
+      label: "การนำทางหลัก"
+    locale:
+      label: "ภาษา"
     errors:
       page_title: "เกิดข้อผิดพลาด"
       go_home: "กลับหน้าแรก"

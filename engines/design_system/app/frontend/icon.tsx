@@ -9,6 +9,10 @@ const ICONS = {
   receipt: Receipt,
 } as const satisfies Record<IconName, unknown>;
 
+export function isIconName(value: string): value is IconName {
+  return Object.hasOwn(ICONS, value);
+}
+
 export function Icon({ name, size = 16 }: { name: IconName; size?: number }) {
   const Component = ICONS[name];
   return <Component size={size} aria-hidden="true" />;

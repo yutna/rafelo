@@ -248,6 +248,7 @@ declare module "@design_system/i18n_provider" {
 
 declare module "@design_system/icon" {
   import type { IconName } from "@design_system/icon.types";
+  export declare function isIconName(value: string): value is IconName;
   export declare function Icon({ name, size }: {
       name: IconName;
       size?: number;

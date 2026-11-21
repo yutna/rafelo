@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
 
 export function BareShell({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen">{children}</div>;
+  return (
+    <main id="main-content" tabIndex={-1} className="min-h-screen">
+      {children}
+    </main>
+  );
 }

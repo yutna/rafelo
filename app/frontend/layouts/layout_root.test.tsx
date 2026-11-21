@@ -8,13 +8,15 @@ const inertia = vi.hoisted(() => ({
 }));
 const reporter = vi.hoisted(() => vi.fn());
 
-vi.mock("@inertiajs/react", () => ({
+vi.mock("@inertiajs/react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@inertiajs/react")>()),
   usePage: () => ({ flash: {}, props: inertia.props, url: "/en" }),
 }));
 vi.mock("@/lib/report_client_error", () => ({ reportClientError: reporter }));
 
 import { RootBoundary } from "@/lib/root_boundary";
 
+import { AppShell } from "./app_shell";
 import { LayoutRoot } from "./layout_root";
 
 const shared = {
@@ -31,7 +33,22 @@ const shared = {
     signInHref: "/en/sign_in",
     timeZone: "Asia/Bangkok",
   },
-  nav: [],
+  nav: [
+    {
+      key: "orders",
+      label: "Orders",
+      path: "/en/example_orders/orders",
+      icon: "receipt",
+      current: true,
+    },
+    {
+      key: "customers",
+      label: "Customers",
+      path: "/en/example_customers",
+      icon: "folder",
+      current: false,
+    },
+  ],
   errors: {},
 };
 
@@ -61,6 +78,28 @@ describe("LayoutRoot", () => {
     expect(screen.getByTestId("app-root")).toHaveAttribute("lang", "en");
     expect(screen.getByTestId("app-root")).toHaveAttribute("data-time-zone", "Asia/Bangkok");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Orders");
+  });
+
+  it("renders the module nav and locale switcher with their current markers", () => {
+    inertia.props = shared;
+
+    render(
+      <LayoutRoot>
+        <AppShell>
+          <h1>Orders</h1>
+        </AppShell>
+      </LayoutRoot>,
+    );
+
+    const current = screen.getByTestId("app.nav.orders");
+    expect(current).toHaveAttribute("aria-current", "page");
+    expect(current.closest("a")).toHaveAttribute("href", "/en/example_orders/orders");
+    expect(current.closest("a")).toContainHTML("<svg");
+    expect(screen.getByTestId("app.nav.customers")).not.toHaveAttribute("aria-current");
+
+    expect(screen.getByTestId("app.locale.en")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("app.locale.th").closest("a")).toHaveAttribute("href", "/th");
+    expect(screen.getByTestId("app.locale.th")).not.toHaveAttribute("aria-current");
   });
 
   it("hands the Thai Buddhist calendar to shell widgets", () => {
