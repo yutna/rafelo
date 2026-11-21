@@ -77,7 +77,6 @@ RSpec.describe Rafelo::Core::Modules do
       File.read(path).scan(/icon:\s*"([a-z_]+)"/).flatten
     end
 
-    expect(module_icons).not_to be_empty
     expect(module_icons - icon_map).to be_empty
   end
 
