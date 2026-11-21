@@ -24,6 +24,7 @@ describe("chart colors", () => {
 
   it("keeps a color that is already hex", () => {
     expect(toSrgbHex("#4F39F6")).toBe("#4f39f6");
+    expect(toSrgbHex("#fff")).toBe("#ffffff");
   });
 
   it("resolves a token that points at another custom property", () => {

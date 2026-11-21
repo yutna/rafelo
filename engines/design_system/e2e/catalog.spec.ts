@@ -24,5 +24,9 @@ test("catalog screenshot matches its committed baseline", async ({ page }) => {
 test("Thai catalog shows the Buddhist calendar", async ({ page }) => {
   await page.goto("/th/component_catalog");
   await expect(page.getByTestId("app-root")).toHaveAttribute("lang", "th");
+  const chart = page.getByTestId("catalog-chart");
+  await expect(chart).toBeVisible();
+  await expect(chart).toHaveAttribute("role", "img");
+  await expect(chart).toHaveAttribute("aria-label", "แผนภูมิตัวอย่าง");
   await expect(page).toHaveScreenshot("catalog-th.png", { fullPage: true, animations: "disabled" });
 });

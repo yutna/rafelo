@@ -31,6 +31,9 @@ function hex(red: number, green: number, blue: number): string {
 
 export function toSrgbHex(input: string): string {
   const value = input.trim().toLowerCase();
+  const shortHex = value.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/);
+  if (shortHex)
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`;
   if (/^#[0-9a-f]{6}$/.test(value)) return value;
 
   const match = value.match(/^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*\)$/);
