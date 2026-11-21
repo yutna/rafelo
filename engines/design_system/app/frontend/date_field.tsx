@@ -8,7 +8,7 @@ import {
   parseDate,
   toCalendar,
 } from "@internationalized/date";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Button as AriaButton,
   Calendar,
@@ -87,16 +87,12 @@ function DateFieldMonitor({
   calendarId,
   min,
   max,
-  value,
-  onChange,
   isoRef,
   invalidRef,
 }: {
   calendarId: CalendarIdentifier;
   min: string;
   max: string;
-  value: string;
-  onChange: (isoDate: string) => void;
   isoRef: MutableRefObject<string | null>;
   invalidRef: MutableRefObject<boolean>;
 }) {
@@ -108,11 +104,7 @@ function DateFieldMonitor({
   useEffect(() => {
     if (complete && !valid) invalidRef.current = true;
     isoRef.current = valid ? iso : null;
-    if (!valid || iso === value) return;
-
-    const timer = setTimeout(() => onChange(iso), 250);
-    return () => clearTimeout(timer);
-  }, [complete, invalidRef, iso, isoRef, onChange, valid, value]);
+  }, [complete, invalidRef, iso, isoRef, valid]);
 
   return null;
 }
@@ -124,56 +116,82 @@ export function DateField({ testId, label, value, min, max, onChange, name }: Da
 
   const { locale } = useLocale();
   const calendarId = calendarIdFor(locale);
-  const [draft, setDraft] = useState<CalendarDate | null>(() => toCalendarDate(value));
-  const [resetKey, setResetKey] = useState(0);
+  const [draft, setDraft] = useState({ iso: value });
+  // The controlled picker resets its display when this value's identity changes;
+  // the ISO draft is the only state, so derive a fresh DateValue per draft change.
+  const draftDate = useMemo(() => toCalendarDate(draft.iso), [draft]);
   const isoRef = useRef<string | null>(null);
   const invalidRef = useRef(false);
-  const forceResetRef = useRef(false);
+  const focusedRef = useRef(false);
+  const openRef = useRef(false);
+  const suppressChangeRef = useRef(false);
   const lastValueRef = useRef(value);
 
   useEffect(() => {
     if (lastValueRef.current === value) return;
 
     lastValueRef.current = value;
-    setDraft(toCalendarDate(value));
+    setDraft({ iso: value });
   }, [value]);
 
-  function resetToValue() {
-    forceResetRef.current = true;
-    setDraft(toCalendarDate(value));
-    setResetKey((key) => key + 1);
+  function resetToValue(nextFocus: HTMLElement | null) {
+    suppressChangeRef.current = true;
+    setDraft({ iso: value });
+    if (nextFocus && document.contains(nextFocus)) setTimeout(() => nextFocus.focus(), 0);
+  }
+
+  function commit(): boolean {
+    if (invalidRef.current || isoRef.current === null) {
+      resetToValue(null);
+      return false;
+    }
+
+    const iso = isoRef.current;
+    setDraft({ iso });
+    if (iso !== value) onChange(iso);
+    invalidRef.current = false;
+    return true;
   }
 
   return (
     <DatePicker
-      key={resetKey}
       aria-label={label}
       name={name}
-      value={draft}
+      value={draftDate}
       minValue={toCalendarDate(min)}
       maxValue={toCalendarDate(max)}
       onChange={(date) => {
-        if (forceResetRef.current) {
-          forceResetRef.current = false;
-          return;
-        }
+        if (suppressChangeRef.current) return;
 
-        setDraft(date ? toCalendarDate(toIso(date)) : null);
+        const iso = date ? toIso(date) : "";
+        setDraft({ iso });
+        if ((openRef.current || !focusedRef.current) && iso !== "" && iso >= min && iso <= max) {
+          onChange(iso);
+        }
+      }}
+      onOpenChange={(open) => {
+        openRef.current = open;
       }}
       onFocus={() => {
+        focusedRef.current = true;
+        suppressChangeRef.current = false;
         invalidRef.current = false;
       }}
       onBlur={(event) => {
-        if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+        const next = event.relatedTarget as HTMLElement | null;
+        if (event.currentTarget.contains(next)) return;
 
+        focusedRef.current = false;
+        if (openRef.current) return;
         if (invalidRef.current || isoRef.current === null) {
-          resetToValue();
+          resetToValue(next);
           return;
         }
 
-        setDraft(toCalendarDate(isoRef.current));
-        if (isoRef.current !== value) onChange(isoRef.current);
-        invalidRef.current = false;
+        commit();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit();
       }}
       className="block text-sm font-medium text-slate-700"
     >
@@ -188,8 +206,6 @@ export function DateField({ testId, label, value, min, max, onChange, name }: Da
                   calendarId={calendarId}
                   min={min}
                   max={max}
-                  value={value}
-                  onChange={onChange}
                   isoRef={isoRef}
                   invalidRef={invalidRef}
                 />
@@ -197,7 +213,11 @@ export function DateField({ testId, label, value, min, max, onChange, name }: Da
             </>
           )}
         </DateInput>
-        <AriaButton className="ml-2 text-slate-600" aria-label={label}>
+        <AriaButton
+          className="ml-2 text-slate-600"
+          aria-label={label}
+          data-testid={`${testId}.calendar`}
+        >
           ▾
         </AriaButton>
       </Group>
@@ -209,7 +229,11 @@ export function DateField({ testId, label, value, min, max, onChange, name }: Da
               <Heading />
               <AriaButton slot="next">▶</AriaButton>
             </header>
-            <CalendarGrid>{(date) => <CalendarCell date={date} />}</CalendarGrid>
+            <CalendarGrid>
+              {(date) => (
+                <CalendarCell date={date} data-testid={`${testId}.calendar.${date.toString()}`} />
+              )}
+            </CalendarGrid>
           </Calendar>
         </Dialog>
       </Popover>

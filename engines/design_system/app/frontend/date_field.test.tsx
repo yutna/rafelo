@@ -130,6 +130,7 @@ describe("DateField", () => {
     );
 
     await typeDate({ year: "2569", month: "11", day: "12" });
+    await userEvent.click(document.body);
 
     await waitFor(() => expect(onChange).toHaveBeenLastCalledWith("2026-11-12"));
     expect(onChange).not.toHaveBeenCalledWith("1483-11-12");
@@ -152,7 +153,7 @@ describe("DateField", () => {
 
     await typeDate({ year: "2026", month: "11", day: "11" });
     await userEvent.click(document.body);
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -198,10 +199,59 @@ describe("DateField", () => {
     );
 
     await userEvent.click(screen.getByTestId("date.day"));
-    await userEvent.keyboard("{Backspace}");
-    await userEvent.tab();
+    await userEvent.keyboard("{Backspace}{Backspace}");
+    await userEvent.click(document.body);
 
     expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("date.day")).toHaveTextContent("11");
+  });
+
+  it("keeps keyboard focus on the next control after an invalid entry", async () => {
+    render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          testId="date"
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+        <button type="button" data-testid="after">
+          After
+        </button>
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard("{Backspace}{Backspace}");
+    await userEvent.click(screen.getByTestId("after"));
+
+    await waitFor(() => expect(screen.getByTestId("after")).toHaveFocus());
+  });
+
+  it("selects a calendar date after an empty-field reset", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="th" timeZone="Asia/Bangkok">
+        <DateField
+          testId="date"
+          label="Date"
+          value=""
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("date.year"));
+    await userEvent.keyboard("2026");
+    await userEvent.click(document.body);
+    await userEvent.click(screen.getByTestId("date.calendar"));
+    await userEvent.click(await screen.findByTestId("date.calendar.2026-11-12"));
+
+    expect(onChange).toHaveBeenLastCalledWith("2026-11-12");
   });
 
   it("rejects an invalid min or max", () => {
