@@ -4,5 +4,16 @@
   },
   "pagination": {
     "page_of": "Page {{page}} of {{pages}}"
+  },
+  "chart": {
+    "empty": "No data to chart",
+    "error": "The chart could not be displayed",
+    "show_table": "Show as table",
+    "hide_table": "Hide table",
+    "table_caption": "Chart data",
+    "series": "Series",
+    "label": "Label",
+    "date": "Date",
+    "value": "Value"
   }
 }

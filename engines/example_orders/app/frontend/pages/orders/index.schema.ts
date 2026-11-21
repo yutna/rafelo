@@ -1,4 +1,4 @@
-import { definePage, moneySchema } from "@core/contracts/page_props.schema";
+import { chartSchema, definePage, moneySchema } from "@core/contracts/page_props.schema";
 import { z } from "zod";
 
 const orderSchema = z.object({
@@ -19,7 +19,7 @@ export const pageSchema = definePage({
     filterHrefs: z.array(z.object({ label: z.string(), href: z.string(), current: z.boolean() })),
     previousHref: z.string().nullable(),
     nextHref: z.string().nullable(),
-    chart: z.object({ series: z.array(z.record(z.string(), z.unknown())) }).optional(),
+    chart: chartSchema.optional(),
   }),
   meta: z.object({ formToken: z.string() }),
   query: z.object({

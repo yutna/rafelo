@@ -16,23 +16,87 @@ declare module "@design_system/button" {
 }
 
 declare module "@design_system/chart" {
-  type ChartProps = {
-      testId: string;
-      option: Record<string, unknown>;
-      ariaLabel: string;
-  };
+  import type { ChartProps } from "@design_system/chart.types";
   export declare function Chart(props: ChartProps): import("react").JSX.Element;
+}
+
+declare module "@design_system/chart_color" {
+  import type { ChartTheme } from "@design_system/chart.types";
+  type StyleSource = Pick<CSSStyleDeclaration, "getPropertyValue">;
+  export declare function toSrgbHex(input: string): string;
+  export declare function chartTheme(styles: StyleSource): ChartTheme;
   export {};
 }
 
 declare module "@design_system/chart_impl" {
-  type ChartProps = {
-      testId: string;
-      option: Record<string, unknown>;
-      ariaLabel: string;
+  import type { ChartImplProps } from "@design_system/chart.types";
+  export default function ChartImpl({ testId, ariaLabel, description, series, locale, timeZone, labels, }: ChartImplProps): import("react").JSX.Element;
+}
+
+declare module "@design_system/chart_option" {
+  import type { ChartPoint, ChartSeries } from "@design_system/chart.types";
+  type FormatContext = {
+      locale: string;
+      timeZone: string;
+      description: string;
   };
-  export default function ChartImpl({ testId, option, ariaLabel }: ChartProps): import("react").JSX.Element;
-  export {};
+  export declare function buildChartOption(series: ChartSeries[], context: FormatContext): Record<string, unknown>;
+  export declare function chartHoverText(series: ChartSeries[], params: {
+      seriesName?: string;
+      name?: string;
+      value?: unknown;
+      dataIndex?: number;
+  }, context: Pick<FormatContext, "locale" | "timeZone">): string;
+  export declare function chartTableRows(series: ChartSeries[], context: Pick<FormatContext, "locale" | "timeZone">): {
+      series: string;
+      label: string;
+      date: string;
+      value: string;
+  }[];
+  export type { ChartPoint };
+}
+
+declare module "@design_system/chart.types" {
+  export type ChartSeriesType = "pie";
+  export type ChartPoint = {
+      label: string;
+      value: number;
+      date?: string;
+  };
+  export type ChartSeries = {
+      name: string;
+      type: ChartSeriesType;
+      data: ChartPoint[];
+  };
+  export type ChartProps = {
+      testId: string;
+      ariaLabel: string;
+      description?: string;
+      series: ChartSeries[];
+  };
+  export type ChartTheme = {
+      color: string[];
+      backgroundColor: string;
+      textStyle: {
+          color: string;
+      };
+  };
+  export type ChartLabels = {
+      empty: string;
+      error: string;
+      showTable: string;
+      hideTable: string;
+      tableCaption: string;
+      series: string;
+      label: string;
+      date: string;
+      value: string;
+  };
+  export type ChartImplProps = ChartProps & {
+      locale: string;
+      timeZone: string;
+      labels: ChartLabels;
+  };
 }
 
 declare module "@design_system/data_table" {

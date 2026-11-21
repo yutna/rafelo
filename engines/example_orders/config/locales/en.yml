@@ -4,6 +4,7 @@ en:
       title: "Example orders"
     orders:
       title: "Orders"
+      chart_summary: "Orders by status"
       subtitle: "A worked example of a product module"
       empty: "No orders match this filter."
       filter: "Filter by status"

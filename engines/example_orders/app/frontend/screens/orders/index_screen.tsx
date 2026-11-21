@@ -1,3 +1,6 @@
+import type { chartSchema } from "@core/contracts/page_props.schema";
+import type { z } from "zod";
+
 import {
   Button,
   Chart,
@@ -27,7 +30,7 @@ type Props = {
   filterHrefs: { label: string; href: string; current: boolean }[];
   previousHref: string | null;
   nextHref: string | null;
-  chart?: { series: Record<string, unknown>[] };
+  chart?: z.infer<typeof chartSchema>;
   can: Record<string, { allowed: boolean; reason: string | null }>;
   meta: { formToken: string };
 };
@@ -125,8 +128,9 @@ export function OrdersScreen({
           {chart ? (
             <Chart
               testId="example_orders.orders.index.chart"
-              option={chart}
+              series={chart.series}
               ariaLabel={t("orders.title")}
+              description={t("orders.chart_summary")}
             />
           ) : null}
         </Deferred>
