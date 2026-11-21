@@ -20,12 +20,12 @@ import { isValidIsoDate } from "./formatters";
 import { useLocale } from "./i18n_provider";
 
 type DateFieldProps = {
+  testId: string;
   label: string;
   value: string;
   min: string;
   max: string;
   onChange: (isoDate: string) => void;
-  locale?: string;
   name?: string;
 };
 
@@ -39,7 +39,7 @@ function toIso(date: DateValue): string {
     : date.toString();
 }
 
-export function DateField({ label, value, min, max, onChange, name }: DateFieldProps) {
+export function DateField({ testId, label, value, min, max, onChange, name }: DateFieldProps) {
   const { locale } = useLocale();
 
   return (
@@ -57,7 +57,7 @@ export function DateField({ label, value, min, max, onChange, name }: DateFieldP
       <Label>{label}</Label>
       <Group className="mt-1 flex items-center rounded border border-slate-300 px-3 py-2">
         <DateInput className="flex-1">
-          {(segment) => <DateSegment segment={segment} data-testid={`date.${segment.type}`} />}
+          {(segment) => <DateSegment segment={segment} data-testid={`${testId}.${segment.type}`} />}
         </DateInput>
         <AriaButton className="ml-2 text-slate-600" aria-label={label}>
           ▾

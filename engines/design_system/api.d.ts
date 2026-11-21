@@ -66,15 +66,15 @@ declare module "@design_system/data_table.types" {
 
 declare module "@design_system/date_field" {
   type DateFieldProps = {
+      testId: string;
       label: string;
       value: string;
       min: string;
       max: string;
       onChange: (isoDate: string) => void;
-      locale?: string;
       name?: string;
   };
-  export declare function DateField({ label, value, min, max, onChange, name }: DateFieldProps): import("react").JSX.Element;
+  export declare function DateField({ testId, label, value, min, max, onChange, name }: DateFieldProps): import("react").JSX.Element;
   export {};
 }
 
