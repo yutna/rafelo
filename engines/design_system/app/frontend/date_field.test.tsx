@@ -1,53 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { DateField } from "./date_field";
 import { I18nProvider } from "./i18n_provider";
 
 describe("DateField", () => {
-  it("converts a Thai Buddhist Era entry to ISO Gregorian", async () => {
-    const onChange = vi.fn();
-    render(
-      <DateField
-        label="Date"
-        value="2026-11-11"
-        min="2026-01-01"
-        max="2026-12-31"
-        onChange={onChange}
-        locale="th"
-      />,
-    );
-    const input = screen.getByRole("textbox");
-
-    expect((input as HTMLInputElement).value).toBe("11/11/2569");
-    await userEvent.clear(input);
-    await userEvent.type(input, "12/11/2569");
-
-    expect(onChange).toHaveBeenCalledWith("2026-11-12");
-  });
-
-  it("refuses an impossible calendar date", async () => {
-    const onChange = vi.fn();
-    render(
-      <DateField
-        label="Date"
-        value="2026-11-11"
-        min="2026-01-01"
-        max="2026-12-31"
-        onChange={onChange}
-        locale="th"
-      />,
-    );
-    const input = screen.getByRole("textbox");
-
-    await userEvent.clear(input);
-    await userEvent.type(input, "31/02/2569");
-
-    expect(onChange).not.toHaveBeenCalled();
-  });
-
-  it("reads the locale from the provider", () => {
+  it("renders the value in the locale calendar", () => {
     render(
       <I18nProvider locale="th" timeZone="Asia/Bangkok">
         <DateField
@@ -60,26 +18,77 @@ describe("DateField", () => {
       </I18nProvider>,
     );
 
-    expect((screen.getByRole("textbox") as HTMLInputElement).value).toBe("11/11/2569");
+    expect(screen.getByTestId("date.year")).toHaveTextContent("2569");
+    expect(screen.getByTestId("date.month")).toHaveTextContent("11");
+    expect(screen.getByTestId("date.day")).toHaveTextContent("11");
   });
 
-  it("refuses a Gregorian year typed in Thai", async () => {
+  it("keeps the displayed value in sync when the props change", () => {
+    const { rerender } = render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    rerender(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          label="Date"
+          value="2026-12-25"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId("date.year")).toHaveTextContent("2026");
+    expect(screen.getByTestId("date.month")).toHaveTextContent("12");
+    expect(screen.getByTestId("date.day")).toHaveTextContent("25");
+  });
+
+  it("submits Gregorian ISO even under the Buddhist calendar", () => {
     const onChange = vi.fn();
     render(
-      <DateField
-        label="Date"
-        value="2026-11-11"
-        min="2026-01-01"
-        max="2026-12-31"
-        onChange={onChange}
-        locale="th"
-      />,
+      <form data-testid="date-form">
+        <I18nProvider locale="th" timeZone="Asia/Bangkok">
+          <DateField
+            label="Date"
+            name="date"
+            value="2026-11-11"
+            min="2026-01-01"
+            max="2026-12-31"
+            onChange={onChange}
+          />
+        </I18nProvider>
+      </form>,
     );
-    const input = screen.getByRole("textbox");
 
-    await userEvent.clear(input);
-    await userEvent.type(input, "11/11/2026");
+    const form = screen.getByTestId("date-form") as HTMLFormElement;
+    expect((form.elements.namedItem("date") as HTMLInputElement).value).toBe("2026-11-11");
+  });
 
-    expect(onChange).not.toHaveBeenCalled();
+  it("rejects an impossible calendar date", () => {
+    render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          label="Date"
+          value="2026-02-31"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId("date.year")).toHaveTextContent("yyyy");
+    expect(screen.getByTestId("date.month")).toHaveTextContent("mm");
+    expect(screen.getByTestId("date.day")).toHaveTextContent("dd");
   });
 });

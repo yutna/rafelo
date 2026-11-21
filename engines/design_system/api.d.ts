@@ -72,8 +72,9 @@ declare module "@design_system/date_field" {
       max: string;
       onChange: (isoDate: string) => void;
       locale?: string;
+      name?: string;
   };
-  export declare function DateField({ label, value, min, max, onChange, locale }: DateFieldProps): import("react").JSX.Element;
+  export declare function DateField({ label, value, min, max, onChange, name }: DateFieldProps): import("react").JSX.Element;
   export {};
 }
 
@@ -133,6 +134,10 @@ declare module "@design_system/error_boundary" {
   export {};
 }
 
+declare module "@design_system/focus_first_error" {
+  export declare function focusFirstError(scope?: ParentNode): void;
+}
+
 declare module "@design_system/formatters" {
   export declare function calendarFor(locale: string): string;
   export declare function formatDate(value: string | Date, locale: string, timeZone?: string): string;
@@ -149,6 +154,10 @@ declare module "@design_system/hidden_field" {
   };
   export declare function HiddenField({ testId, name, value }: HiddenFieldProps): import("react").JSX.Element;
   export {};
+}
+
+declare module "@design_system/i18n" {
+  export declare function t(key: string, options?: Record<string, unknown>): string;
 }
 
 declare module "@design_system/i18n_provider" {
@@ -208,6 +217,7 @@ declare module "@design_system/index" {
   export { Chart } from "@design_system/chart";
   export { DataTable } from "@design_system/data_table";
   export { ErrorBoundary } from "@design_system/error_boundary";
+  export { focusFirstError } from "@design_system/focus_first_error";
 }
 
 declare module "@design_system/link" {
@@ -222,17 +232,28 @@ declare module "@design_system/link" {
 }
 
 declare module "@design_system/pagination" {
-  type PaginationProps = {
+  type CommonProps = {
       testId: string;
-      page: number;
-      perPage: number;
-      total: number;
-      onPageChange: (page: number) => void;
       label: string;
       previousLabel: string;
       nextLabel: string;
   };
-  export declare function Pagination({ testId, page, perPage, total, onPageChange, label, previousLabel, nextLabel, }: PaginationProps): import("react").JSX.Element;
+  type OffsetPaginationProps = CommonProps & {
+      kind?: "offset";
+      page: number;
+      perPage: number;
+      total: number;
+      onPageChange: (page: number) => void;
+  };
+  type CursorPaginationProps = CommonProps & {
+      kind: "cursor";
+      previousHref: string | null;
+      nextHref: string | null;
+      onNavigate: (href: string) => void;
+      status: string;
+  };
+  type PaginationProps = OffsetPaginationProps | CursorPaginationProps;
+  export declare function Pagination(props: PaginationProps): import("react").JSX.Element;
   export {};
 }
 
@@ -255,6 +276,7 @@ declare module "@design_system/public" {
   export { Chart } from "@design_system/chart";
   export { DataTable } from "@design_system/data_table";
   export { ErrorBoundary } from "@design_system/error_boundary";
+  export { focusFirstError } from "@design_system/focus_first_error";
 }
 
 declare module "@design_system/safe_url" {

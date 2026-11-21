@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { sharedPropsSchema } from "@core/contracts/page_props.schema";
 import { I18nProvider } from "@design_system/i18n_provider";
 import { usePage } from "@inertiajs/react";
 
@@ -13,15 +14,13 @@ type LayoutRootProps = {
 };
 
 export function LayoutRoot({ children }: LayoutRootProps) {
-  const page = usePage().props as { app?: { locale?: string; timeZone?: string } };
-  const locale = page.app?.locale ?? "en";
-  const timeZone = page.app?.timeZone ?? "UTC";
+  const { app } = sharedPropsSchema.parse(usePage().props);
 
   return (
-    <I18nProvider locale={locale} timeZone={timeZone}>
+    <I18nProvider locale={app.locale} timeZone={app.timeZone}>
       <div
-        lang={locale}
-        data-time-zone={timeZone}
+        lang={app.locale}
+        data-time-zone={app.timeZone}
         data-testid="app-root"
         className="min-h-screen bg-slate-50 text-slate-900"
       >
