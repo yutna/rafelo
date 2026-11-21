@@ -102,7 +102,7 @@ function DateFieldMonitor({
   const valid = iso !== null && iso >= min && iso <= max;
 
   useEffect(() => {
-    if (complete && !valid) invalidRef.current = true;
+    invalidRef.current = complete && !valid;
     isoRef.current = valid ? iso : null;
   }, [complete, invalidRef, iso, isoRef, valid]);
 

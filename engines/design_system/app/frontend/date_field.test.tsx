@@ -183,6 +183,32 @@ describe("DateField", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("commits a corrected value after an impossible entry", async () => {
+    const onChange = vi.fn();
+    render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          testId="date"
+          label="Date"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={onChange}
+        />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId("date.month"));
+    await userEvent.keyboard("02");
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard("31");
+    await userEvent.click(screen.getByTestId("date.day"));
+    await userEvent.keyboard("{Backspace}{Backspace}12");
+    await userEvent.click(document.body);
+
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith("2026-02-12"));
+  });
+
   it("does not submit a changed date when a segment is cleared", async () => {
     const onChange = vi.fn();
     render(
