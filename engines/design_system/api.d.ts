@@ -99,6 +99,39 @@ declare module "@design_system/chart.types" {
   };
 }
 
+declare module "@design_system/combobox" {
+  type ComboBoxItem = {
+      id: string;
+      label: string;
+  };
+  type ComboBoxProps = {
+      testId: string;
+      label: string;
+      items: ComboBoxItem[];
+      selectedKey?: string | null;
+      onSelectionChange?: (key: string) => void;
+      placeholder?: string;
+  };
+  export declare function ComboBox({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: ComboBoxProps): import("react").JSX.Element;
+  export {};
+}
+
+declare module "@design_system/confirm_dialog" {
+  type ConfirmDialogProps = {
+      testId: string;
+      title: string;
+      message: string;
+      confirmLabel: string;
+      cancelLabel: string;
+      open: boolean;
+      onConfirm: () => void;
+      onCancel: () => void;
+      destructive?: boolean;
+  };
+  export declare function ConfirmDialog({ testId, title, message, confirmLabel, cancelLabel, open, onConfirm, onCancel, destructive, }: ConfirmDialogProps): import("react").JSX.Element;
+  export {};
+}
+
 declare module "@design_system/data_table" {
   import type { DataTableProps, DataTableRow } from "@design_system/data_table.types";
   export declare function DataTable<T extends DataTableRow>(props: DataTableProps<T>): import("react").JSX.Element;
@@ -165,9 +198,22 @@ declare module "@design_system/dialog" {
       open: boolean;
       onClose: () => void;
       closeLabel: string;
+      showClose?: boolean;
       children: ReactNode;
   };
-  export declare function Dialog({ testId, title, open, onClose, closeLabel, children }: DialogProps): import("react").JSX.Element;
+  export declare function Dialog({ testId, title, open, onClose, closeLabel, showClose, children, }: DialogProps): import("react").JSX.Element;
+  export {};
+}
+
+declare module "@design_system/empty_state" {
+  import type { ReactNode } from "react";
+  type EmptyStateProps = {
+      testId: string;
+      title: string;
+      description?: string;
+      action?: ReactNode;
+  };
+  export declare function EmptyState({ testId, title, description, action }: EmptyStateProps): import("react").JSX.Element;
   export {};
 }
 
@@ -201,6 +247,20 @@ declare module "@design_system/error_boundary" {
       componentDidUpdate(previous: Props): void;
       render(): string | number | bigint | boolean | Iterable<ReactNode> | Promise<string | number | bigint | boolean | import("react").ReactPortal | import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | import("react").JSX.Element | null | undefined;
   }
+  export {};
+}
+
+declare module "@design_system/filter_bar" {
+  import type { ReactNode } from "react";
+  type FilterBarProps = {
+      testId: string;
+      label: string;
+      searchLabel: string;
+      searchValue: string;
+      onSearchChange: (value: string) => void;
+      children?: ReactNode;
+  };
+  export declare function FilterBar({ testId, label, searchLabel, searchValue, onSearchChange, children, }: FilterBarProps): import("react").JSX.Element;
   export {};
 }
 
@@ -271,11 +331,18 @@ declare module "@design_system/image" {
 
 declare module "@design_system/index" {
   export { Button } from "@design_system/button";
-  export { HiddenField } from "@design_system/hidden_field";
+  export { ComboBox } from "@design_system/combobox";
+  export { ConfirmDialog } from "@design_system/confirm_dialog";
   export { Dialog } from "@design_system/dialog";
+  export { EmptyState } from "@design_system/empty_state";
+  export { FilterBar } from "@design_system/filter_bar";
+  export { HiddenField } from "@design_system/hidden_field";
   export { Icon } from "@design_system/icon";
+  export { Menu } from "@design_system/menu";
   export { Pagination } from "@design_system/pagination";
+  export { Select } from "@design_system/select";
   export { Skeleton } from "@design_system/skeleton";
+  export { Tabs } from "@design_system/tabs";
   export { TextField } from "@design_system/text_field";
   export { Toast } from "@design_system/toast";
   export { I18nProvider, useLocale } from "@design_system/i18n_provider";
@@ -299,6 +366,21 @@ declare module "@design_system/link" {
       className?: string;
   };
   export declare function Link({ href, children, className }: LinkProps): import("react").JSX.Element;
+  export {};
+}
+
+declare module "@design_system/menu" {
+  type MenuItemDefinition = {
+      id: string;
+      label: string;
+  };
+  type MenuProps = {
+      testId: string;
+      label: string;
+      items: MenuItemDefinition[];
+      onAction: (id: string) => void;
+  };
+  export declare function Menu({ testId, label, items, onAction }: MenuProps): import("react").JSX.Element;
   export {};
 }
 
@@ -330,11 +412,18 @@ declare module "@design_system/pagination" {
 
 declare module "@design_system/public" {
   export { Button } from "@design_system/button";
+  export { ComboBox } from "@design_system/combobox";
+  export { ConfirmDialog } from "@design_system/confirm_dialog";
   export { HiddenField } from "@design_system/hidden_field";
   export { Dialog } from "@design_system/dialog";
+  export { EmptyState } from "@design_system/empty_state";
+  export { FilterBar } from "@design_system/filter_bar";
   export { Icon } from "@design_system/icon";
+  export { Menu } from "@design_system/menu";
   export { Pagination } from "@design_system/pagination";
+  export { Select } from "@design_system/select";
   export { Skeleton } from "@design_system/skeleton";
+  export { Tabs } from "@design_system/tabs";
   export { TextField } from "@design_system/text_field";
   export { Toast } from "@design_system/toast";
   export { I18nProvider, useLocale } from "@design_system/i18n_provider";
@@ -355,10 +444,45 @@ declare module "@design_system/safe_url" {
   export declare function isAppPath(value: unknown): value is string;
 }
 
+declare module "@design_system/select" {
+  type SelectItem = {
+      id: string;
+      label: string;
+  };
+  type SelectProps = {
+      testId: string;
+      label: string;
+      items: SelectItem[];
+      selectedKey?: string | null;
+      onSelectionChange?: (key: string) => void;
+      placeholder?: string;
+  };
+  export declare function Select({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: SelectProps): import("react").JSX.Element;
+  export {};
+}
+
 declare module "@design_system/skeleton" {
   export declare function Skeleton({ testId }: {
       testId: string;
   }): import("react").JSX.Element;
+}
+
+declare module "@design_system/tabs" {
+  import type { ReactNode } from "react";
+  type TabDefinition = {
+      id: string;
+      label: string;
+      content: ReactNode;
+  };
+  type TabsProps = {
+      testId: string;
+      label: string;
+      tabs: TabDefinition[];
+      selectedKey?: string | null;
+      onSelectionChange?: (key: string) => void;
+  };
+  export declare function Tabs({ testId, label, tabs, selectedKey, onSelectionChange }: TabsProps): import("react").JSX.Element;
+  export {};
 }
 
 declare module "@design_system/text_field" {

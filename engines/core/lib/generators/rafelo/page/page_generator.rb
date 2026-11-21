@@ -538,8 +538,17 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
+            import { EmptyState } from "@design_system/public";
+
             export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
-              if (items.length === 0) return <p className="mt-4">No #{resource_plural.humanize.downcase} yet.</p>;
+              if (items.length === 0) {
+                return (
+                  <EmptyState
+                    testId="#{mod}.#{resource_plural}.index.empty"
+                    title="No #{resource_plural.humanize.downcase} yet."
+                  />
+                );
+              }
               return (
                 <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
                   {items.map((item) => (

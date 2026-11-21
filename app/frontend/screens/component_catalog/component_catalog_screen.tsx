@@ -10,10 +10,17 @@ import { Pagination } from "@design_system/pagination";
 import { Skeleton } from "@design_system/skeleton";
 import { TextField } from "@design_system/text_field";
 import { Toast } from "@design_system/toast";
+import { lazy, Suspense } from "react";
 
 import { t } from "@/lib/i18n";
 
 type CatalogRow = { id: string; name: string; total: string };
+
+const ComponentCatalogPrimitives = lazy(() =>
+  import("@/components/component_catalog/primitives_section").then((module) => ({
+    default: module.ComponentCatalogPrimitives,
+  })),
+);
 
 export function ComponentCatalogScreen() {
   const [menu, setMenu] = useUiState({ open: false });
@@ -79,6 +86,9 @@ export function ComponentCatalogScreen() {
           ]}
         />
       </section>
+      <Suspense fallback={<Skeleton testId="catalog-primitives.loading" />}>
+        <ComponentCatalogPrimitives />
+      </Suspense>
       <Dialog
         testId="catalog-dialog"
         title={t("app:catalog.dialog")}
