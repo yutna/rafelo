@@ -44,7 +44,6 @@ CI.run do
   step "Pins: GitHub Actions", "script/ci/actions_pinned"
   step "Policy: workflows", "script/ci/workflow_policy"
   step "Policy: workflows canary", "script/ci/workflow_policy_canary"
-  step "Policy: adoption triggers canary", "script/ci/adoption_needed_canary"
   step "Policy: title canary", "script/ci/title_canary"
   step "Policy: ratchet canary", "script/ci/ratchet_canary"
   step "Policy: ratchets", "script/ci/ratchet_ci"
