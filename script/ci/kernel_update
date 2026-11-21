@@ -525,13 +525,13 @@ module KernelUpdate
       base = rendered(@base, relative)
       target = rendered(@target, relative)
 
-      return if base == target && local == base
-      if local == target
+      return if same_content?(base, target) && same_content?(local, base)
+      if same_content?(local, target)
         results << Result.new(relative: relative, status: "kept")
         return
       end
 
-      if local == base
+      if same_content?(local, base)
         if target.nil?
           FileUtils.rm_f(local_path)
           results << Result.new(relative: relative, status: "deleted")
@@ -542,7 +542,7 @@ module KernelUpdate
         return
       end
 
-      if base == target
+      if same_content?(base, target)
         results << Result.new(relative: relative, status: "kept")
         return
       end
@@ -612,12 +612,17 @@ module KernelUpdate
 
     def write_conflict(path, local, target)
       FileUtils.mkdir_p(File.dirname(path))
-      body = if local.nil?
-        "<<<<<<< local (deleted)\n=======\n#{target}\n>>>>>>> target\n"
+      body = +"".b
+      if local.nil?
+        body << "<<<<<<< local (deleted)\n=======\n".b
+        body << target.to_s.b << "\n>>>>>>> target\n".b
       elsif target.nil?
-        "<<<<<<< local\n#{local}\n=======\n>>>>>>> target (deleted)\n"
+        body << "<<<<<<< local\n".b
+        body << local.to_s.b << "\n=======\n>>>>>>> target (deleted)\n".b
       else
-        "<<<<<<< local\n#{local}\n=======\n#{target}\n>>>>>>> target\n"
+        body << "<<<<<<< local\n".b
+        body << local.to_s.b << "\n=======\n".b
+        body << target.to_s.b << "\n>>>>>>> target\n".b
       end
       File.binwrite(path, body)
     end
@@ -636,6 +641,12 @@ module KernelUpdate
 
         [ output, status.exitstatus == 1 ]
       end
+    end
+
+    def same_content?(left, right)
+      return left.nil? && right.nil? if left.nil? || right.nil?
+
+      left.b == right.b
     end
 
     def binary?(content)
