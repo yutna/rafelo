@@ -9,6 +9,7 @@ describe("DateField", () => {
     render(
       <I18nProvider locale="th" timeZone="Asia/Bangkok">
         <DateField
+          testId="appointment"
           label="Date"
           value="2026-11-11"
           min="2026-01-01"
@@ -18,15 +19,16 @@ describe("DateField", () => {
       </I18nProvider>,
     );
 
-    expect(screen.getByTestId("date.year")).toHaveTextContent("2569");
-    expect(screen.getByTestId("date.month")).toHaveTextContent("11");
-    expect(screen.getByTestId("date.day")).toHaveTextContent("11");
+    expect(screen.getByTestId("appointment.year")).toHaveTextContent("2569");
+    expect(screen.getByTestId("appointment.month")).toHaveTextContent("11");
+    expect(screen.getByTestId("appointment.day")).toHaveTextContent("11");
   });
 
   it("keeps the displayed value in sync when the props change", () => {
     const { rerender } = render(
       <I18nProvider locale="en" timeZone="UTC">
         <DateField
+          testId="date"
           label="Date"
           value="2026-11-11"
           min="2026-01-01"
@@ -39,6 +41,7 @@ describe("DateField", () => {
     rerender(
       <I18nProvider locale="en" timeZone="UTC">
         <DateField
+          testId="date"
           label="Date"
           value="2026-12-25"
           min="2026-01-01"
@@ -59,6 +62,7 @@ describe("DateField", () => {
       <form data-testid="date-form">
         <I18nProvider locale="th" timeZone="Asia/Bangkok">
           <DateField
+            testId="date"
             label="Date"
             name="date"
             value="2026-11-11"
@@ -74,10 +78,37 @@ describe("DateField", () => {
     expect((form.elements.namedItem("date") as HTMLInputElement).value).toBe("2026-11-11");
   });
 
+  it("keeps two fields on one page apart", () => {
+    render(
+      <I18nProvider locale="en" timeZone="UTC">
+        <DateField
+          testId="start"
+          label="Start"
+          value="2026-11-11"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+        <DateField
+          testId="end"
+          label="End"
+          value="2026-11-12"
+          min="2026-01-01"
+          max="2026-12-31"
+          onChange={() => {}}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByTestId("start.day")).toHaveTextContent("11");
+    expect(screen.getByTestId("end.day")).toHaveTextContent("12");
+  });
+
   it("rejects an impossible calendar date", () => {
     render(
       <I18nProvider locale="en" timeZone="UTC">
         <DateField
+          testId="date"
           label="Date"
           value="2026-02-31"
           min="2026-01-01"
