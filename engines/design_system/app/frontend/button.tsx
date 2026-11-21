@@ -23,6 +23,7 @@ type ButtonProps = {
   className?: string;
   onPress?: () => void;
   isDisabled?: boolean;
+  isPending?: boolean;
   children: ReactNode;
 };
 

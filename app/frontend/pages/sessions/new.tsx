@@ -1,6 +1,8 @@
 import { Button } from "@design_system/button";
+import { focusFirstError } from "@design_system/focus_first_error";
 import { TextField } from "@design_system/text_field";
 import { Head, useForm } from "@inertiajs/react";
+import { useRef } from "react";
 
 import type { LayoutName } from "@/lib/layout_name";
 
@@ -11,6 +13,9 @@ import { pageSchema } from "./new.schema";
 export default function SignIn(props: Record<string, unknown>) {
   const page = pageSchema.parse(props);
   const form = useForm({ email: "", password: "" });
+  const formRef = useRef<HTMLFormElement>(null);
+  const formErrors: Record<string, string> = form.errors;
+  const baseError = formErrors.base ?? page.data.error;
 
   return (
     <section className="mx-auto max-w-md px-6 py-24">
@@ -18,15 +23,24 @@ export default function SignIn(props: Record<string, unknown>) {
       <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
         {t("app:signin.title")}
       </h1>
-      {page.data.error ? (
-        <p role="alert" className="mt-4 text-red-700">
-          {page.data.error}
+      {baseError ? (
+        <p
+          role="alert"
+          data-testid="signin.error"
+          data-error-summary
+          tabIndex={-1}
+          className="mt-4 text-red-700"
+        >
+          {baseError}
         </p>
       ) : null}
       <form
+        ref={formRef}
         onSubmit={(event) => {
           event.preventDefault();
-          form.post(page.app.signInHref);
+          form.post(page.app.signInHref, {
+            onError: () => setTimeout(() => focusFirstError(formRef.current ?? undefined), 0),
+          });
         }}
         className="mt-8 space-y-4"
       >
@@ -37,6 +51,7 @@ export default function SignIn(props: Record<string, unknown>) {
           type="email"
           value={form.data.email}
           onChange={(value) => form.setData("email", value)}
+          error={formErrors.email}
           isRequired
           autoComplete="email"
         />
@@ -47,10 +62,11 @@ export default function SignIn(props: Record<string, unknown>) {
           type="password"
           value={form.data.password}
           onChange={(value) => form.setData("password", value)}
+          error={formErrors.password}
           isRequired
           autoComplete="current-password"
         />
-        <Button testId="signin.submit" type="submit" isDisabled={form.processing}>
+        <Button testId="signin.submit" type="submit" isPending={form.processing}>
           {t("app:signin.submit")}
         </Button>
       </form>
