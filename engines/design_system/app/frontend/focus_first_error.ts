@@ -2,11 +2,11 @@ const SUMMARY = "[data-error-summary]";
 const INVALID = '[aria-invalid="true"]';
 
 export function focusFirstError(scope: ParentNode = document): void {
-  const summary = scope.querySelector<HTMLElement>(SUMMARY);
-  if (summary) {
-    summary.focus();
+  const invalid = scope.querySelector<HTMLElement>(INVALID);
+  if (invalid) {
+    invalid.focus();
     return;
   }
 
-  scope.querySelector<HTMLElement>(INVALID)?.focus();
+  scope.querySelector<HTMLElement>(SUMMARY)?.focus();
 }
