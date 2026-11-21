@@ -31,9 +31,22 @@ end
 
 # Rafelo cops: discovered from the cops directory.
 cop_names = Dir[File.join(root, "script", "ci", "cops", "rafelo", "*.rb")]
+            .reject { |path| File.basename(path, ".rb") == "matching" }
             .map { |path| "Rafelo/#{File.basename(path, ".rb").split("_").map(&:capitalize).join}" }
             .sort
 abort "enforcement_canaries: no Rafelo cops in script/ci/cops/rafelo" if cop_names.empty?
+
+# Bypass fixtures (TS-07): every cop has one, next to its canary; the counts
+# are proven by `script/ci/cops_canary` (syntax-only matching, exact counts).
+def bypass_snake(cop)
+  cop.delete_prefix("Rafelo/").gsub(/[A-Z]/) { |letter| "_#{letter.downcase}" }.sub(/\A_/, "").downcase
+end
+
+cop_names.each do |cop|
+  unless Dir[File.join(root, "spec", "enforcement", "fixtures", "cops", "bypass", "**", "#{bypass_snake(cop)}.rb")].any?
+    abort "enforcement_canaries: no bypass fixture for #{cop}"
+  end
+end
 
 # dependency-cruiser rules: discovered from .dependency-cruiser.cjs.
 depcruise_rules = File.read(File.join(root, ".dependency-cruiser.cjs"))

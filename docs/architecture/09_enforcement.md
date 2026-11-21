@@ -227,11 +227,21 @@ cannot fool it the way they fool a text search. The cops live in
 `script/ci/cops/` (a guard file), each has a canary (TS-07), and each message
 names the rule ID and the fix.
 
+Cops match syntax, never text. Every `Rafelo/*` cop finds constants and
+receivers through node patterns from one shared module in
+`script/ci/cops/rafelo/` (a guard file): a constant matches with or without a
+leading `::` (`(const {nil? cbase} :NAME)`), a receiver chain matches through
+both `send` and `csend`, and `send`, `public_send`, and `__send__` with a
+literal method name count as the call itself. No cop compares `node.source`
+or any other source text. An exemption names one exact file
+(`engines/core/app/models/rafelo/core/scoped_cache.rb`), never a glob that a
+look-alike file could match.
+
 | Cop | Flags | Allowed only in | Rule |
 | --- | --- | --- | --- |
 | `Rafelo/FaradayOnlyInUpstreamClient` | `Faraday` | `Rafelo::Core::UpstreamClient` | ARCH-01, ARCH-02, BE-05, SEC-14 |
 | `Rafelo/NoTlsVerifyDisable` | `verify: false`, `VERIFY_NONE` | nowhere | BE-05, SEC-14 |
-| `Rafelo/EnvOnlyInConfig` | `ENV[...]`, `ENV.fetch`, `Rails.application.credentials` in runtime Ruby (BE-08): `app/`, `db/`, `lib/` outside `lib/tasks/`, and `engines/*/` outside `engines/*/spec/` | the application's `config/` (not `engines/*/config/`); tooling is outside the cop: `bin/` (rubocop-rails excludes `bin/*` from every cop), `lib/tasks/`, `script/`, `spec/`, `engines/*/spec/` | ARCH-01, BE-04, BE-08 |
+| `Rafelo/EnvOnlyInConfig` | the `ENV` constant (any method: `[]`, `fetch`, `key?`, `to_h`, `slice`, `values_at`, …), `Rails.application.credentials` in runtime Ruby (BE-08): `app/`, `db/`, `lib/` outside `lib/tasks/`, and `engines/*/` outside `engines/*/spec/` | the application's `config/` (not `engines/*/config/`); tooling is outside the cop: `bin/` (rubocop-rails excludes `bin/*` from every cop), `lib/tasks/`, `script/`, `spec/`, `engines/*/spec/` | ARCH-01, BE-04, BE-08 |
 | `Rafelo/CurrentAtTheEdge` | `Current.` | controllers, middleware, `Rafelo::Core::LogPayload` (OPS-01), the `Rails.error` subscriber (OPS-03), `Rafelo::Core::BaseJob` at enqueue (BE-11) | BE-04, BE-09 |
 | `Rafelo/CacheOnlyThroughScopedCache` | `Rails.cache` | `Rafelo::Core::ScopedCache` (`rate_limit` writes to the cache store itself, a deliberate exemption, BE-12); specs (`spec/`, `engines/*/spec/`), which clear the store and call `increment` (TS-01, BE-12) | BE-17 |
 | `Rafelo/ConcurrencyOnlyInExecutor` | `Concurrent::` | `Rafelo::Core::Executor`; specs (`spec/`, `engines/*/spec/`), which force races with a `Concurrent::CyclicBarrier` (TS-10) | BE-16 |
@@ -288,13 +298,13 @@ AllCops:
 
 Rafelo/NoConstantize:
   Include: ["engines/**/*.rb"]
-  Exclude: ["engines/core/**/modules.rb"] # the one allow-listed place
+  Exclude: ["engines/core/app/models/rafelo/core/modules.rb"] # the one allow-listed place
 
 Rafelo/CacheOnlyThroughScopedCache: # specs clear the cache store and call increment (TS-01, BE-12)
-  Exclude: ["engines/core/**/scoped_cache.rb", "spec/**/*", "engines/*/spec/**/*"]
+  Exclude: ["engines/core/app/models/rafelo/core/scoped_cache.rb"]
 
 Rafelo/ConcurrencyOnlyInExecutor: # specs force races with Concurrent:: primitives (TS-10)
-  Exclude: ["engines/core/**/executor.rb", "spec/**/*", "engines/*/spec/**/*"]
+  Exclude: ["engines/core/app/models/rafelo/core/executor.rb"]
 
 Rafelo/DateFormatterOnly: # runtime Ruby, the same set as EnvOnlyInConfig (FE-20, BE-08)
   Exclude: ["engines/core/app/models/rafelo/core/date_formatter.rb", "lib/tasks/**/*.rake", "script/**/*", "spec/**/*", "engines/*/spec/**/*"]

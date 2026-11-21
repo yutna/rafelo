@@ -361,6 +361,23 @@ exits 0 when every file is excluded ("No files found or given"). So a crash, a
 configuration error, a parse error, an ignored file, and a run that inspected
 no file all fail the canary.
 
+A canary also states how many offenses it expects. Each fixture declares the
+exact count, and the canary fails on any other number, so a rule that reports
+one of three forms, or reports its legal counterpart too, fails.
+
+Each custom cop and each local ESLint rule has a bypass fixture next to its
+canary. Reported: the forbidden name reached through a leading `::`, through
+safe navigation (`&.`), through `send`, `public_send`, or `__send__` with a
+literal method name (Ruby) or a computed member with a string literal and an
+aliased or namespace import (TypeScript), and a file at a look-alike path
+that an exemption must not cover (another engine's `scoped_cache.rb`,
+`my_upstream_client.rb`). Not reported: the name only in a string or a
+comment, and the exact exempt file. A form that a syntax rule cannot see (a
+constant reached through a variable, a method name computed at run time) is
+named in the rule's matrix row with the guard that covers it instead (a spec,
+or review). `script/ci/enforcement_canaries` fails when a rule it discovers
+from its sources has no bypass fixture.
+
 A fixture proves that a rule's selector fires, not that the real
 configuration applies it where the code lives. A path-scoped rule (an ESLint
 `files:` block, a cop's `Include`, a dependency-cruiser path) can match
@@ -466,7 +483,8 @@ dependency-cruiser `forbidden[].name`, every `Rafelo/*` cop, every local ESLint
 rule and restriction printed by `eslint --print-config` at real paths, and
 every `script/ci/*` check) and requires a canary case per discovered name —
 the canary scripts run bad fixtures and legal counterparts, or the tools fail
-when a discovered name has no case.
+when a discovered name has no case · every custom rule has a bypass fixture
+and each fixture states its exact offense count.
 
 ### TS-08 — Accessibility is checked automatically (MUST · ADR-24)
 

@@ -12,15 +12,15 @@ module RuboCop
         RESTRICT_ON_SEND = (SKIP_METHODS + EXAMPLE_METHODS + [ :pause ]).freeze
 
         def on_send(node)
-          if node.method_name == :pause
-            return unless node.receiver&.source == "Prosopite"
+          if Matching.method_name(node) == "pause"
+            return unless Matching.receiver_names(node) == [ "Prosopite" ]
             return if enforcement_path?
 
             add_offense(node.loc.selector) unless issue_marker?(node.loc.line)
             return
           end
 
-          if EXAMPLE_METHODS.include?(node.method_name)
+          if EXAMPLE_METHODS.include?(Matching.method_name(node)&.to_sym)
             node.arguments.each do |argument|
               next unless argument.sym_type? && argument.value == :skip
 

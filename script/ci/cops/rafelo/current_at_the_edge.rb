@@ -8,12 +8,9 @@ module RuboCop
         MSG = "Rafelo/CurrentAtTheEdge: keep Current at the edge; pass request data as arguments."
 
         def on_send(node)
-          receiver = node.receiver
-          return unless receiver
-          return unless %w[Current Rafelo::Core::Current].include?(receiver.const_name)
-          return if edge_file?
+          return unless %w[Current Rafelo::Core::Current].include?(Matching.receiver_names(node).first)
 
-          add_offense(node)
+          add_offense(node) unless edge_file?
         end
         alias on_csend on_send
 

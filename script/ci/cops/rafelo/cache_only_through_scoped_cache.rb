@@ -8,7 +8,8 @@ module RuboCop
         MSG = "Rafelo/CacheOnlyThroughScopedCache: use Rafelo::Core::ScopedCache; only it and specs may call Rails.cache (BE-17)."
 
         def on_send(node)
-          return unless node.source.match?(/\A(?:::)?Rails\.cache\b/)
+          names = Matching.receiver_names(node)
+          return unless names[0] == "Rails" && (names.length == 1 ? Matching.method_name(node) == "cache" : names[1] == "cache")
 
           path = processed_source.file_path
           return if path.end_with?("/engines/core/app/models/rafelo/core/scoped_cache.rb")
