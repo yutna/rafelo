@@ -1,0 +1,64 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Proves the adoption trigger decision (WF-02, GEN-07): an ordinary pull
+# request runs no adoption proof, an adoption input runs the commit-under-test
+# proof, and a VERSION change or the schedule runs both.
+
+require "open3"
+require "tempfile"
+require "tmpdir"
+
+SCRIPT = File.join(__dir__, "adoption_needed")
+$cases = 0
+$failures = 0
+
+def check(name, event, changes, expected_current, expected_update)
+  $cases += 1
+  Dir.mktmpdir("rafelo-adoption-needed-") do |root|
+    args = [ RbConfig.ruby, SCRIPT, "--root", root, "--event", event ]
+    if changes
+      changed = Tempfile.new([ "changed", ".txt" ])
+      File.write(changed.path, changes.join("\n") + "\n")
+      args += [ "--changed-files", changed.path ]
+    end
+
+    output = Tempfile.new([ "output", ".txt" ])
+    begin
+      args += [ "--output", output.path ]
+      _out, err, status = Open3.capture3(*args)
+      unless status.success?
+        warn "adoption_needed_canary: #{name}: exited #{status.exitstatus}: #{err}"
+        $failures += 1
+        return
+      end
+
+      values = File.readlines(output.path, chomp: true).to_h { |line| line.split("=", 2) }
+      current = values["current"] == "true"
+      update = values["update"] == "true"
+      return if current == expected_current && update == expected_update
+
+      warn "adoption_needed_canary: #{name}: expected current=#{expected_current} update=#{expected_update}, " \
+           "got current=#{current} update=#{update}"
+      $failures += 1
+    ensure
+      output.close!
+      changed&.close!
+    end
+  end
+end
+
+check("schedule runs both", "schedule", nil, true, true)
+check("manual run runs both", "workflow_dispatch", nil, true, true)
+check("ordinary pull request runs neither", "pull_request", [ "docs/readme.md" ], false, false)
+check("application template runs current", "pull_request", [ "template/template.rb" ], true, false)
+check("kernel engine runs current", "pull_request", [ "engines/core/app/models/thing.rb" ], true, false)
+check("guard configuration runs current", "pull_request", [ "script/ci/cops/rafelo/matching.rb" ], true, false)
+check("dependency lock runs current", "pull_request", [ "Gemfile.lock" ], true, false)
+check("VERSION runs both", "pull_request", [ "VERSION" ], true, true)
+check("merge group follows the same rule", "merge_group", [ "bin/kernel_update" ], true, false)
+check("push to main is left to the pull request", "push", [ "VERSION" ], false, false)
+check("an unreadable change set fails closed", "pull_request", nil, true, true)
+
+warn "adoption_needed_canary: checked #{$cases} cases; failures=#{$failures}"
+exit($failures.zero? ? 0 : 1)
