@@ -59,17 +59,17 @@ export function ComponentCatalogScreen() {
         <Chart
           testId="catalog-chart"
           ariaLabel={t("app:catalog.sample")}
-          option={{
-            series: [
-              {
-                type: "pie",
-                data: [
-                  { name: "A", value: 1 },
-                  { name: "B", value: 2 },
-                ],
-              },
-            ],
-          }}
+          description={t("app:catalog.sample")}
+          series={[
+            {
+              name: t("app:catalog.sample"),
+              type: "pie",
+              data: [
+                { label: "A", value: 1 },
+                { label: "B", value: 2 },
+              ],
+            },
+          ]}
         />
       </section>
       <Dialog

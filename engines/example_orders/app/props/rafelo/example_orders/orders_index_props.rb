@@ -80,7 +80,7 @@ module Rafelo
             {
               name: I18n.t("example_orders.orders.title"),
               type: "pie",
-              data: counts.map { |status, count| { name: I18n.t("example_orders.orders.statuses.#{status}"), value: count } }
+              data: counts.map { |status, count| { label: I18n.t("example_orders.orders.statuses.#{status}"), value: count } }
             }
           ]
         }

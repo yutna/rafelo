@@ -35,6 +35,20 @@ export const paginationSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+export const chartPointSchema = z.object({
+  label: z.string(),
+  value: z.number(),
+  date: z.string().optional(),
+});
+
+export const chartSeriesSchema = z.object({
+  name: z.string(),
+  type: z.enum(["pie"]),
+  data: z.array(chartPointSchema),
+});
+
+export const chartSchema = z.object({ series: z.array(chartSeriesSchema) });
+
 export const flashSchema = z.strictObject({
   notice: z.string().min(1).optional(),
   alert: z.string().min(1).optional(),
