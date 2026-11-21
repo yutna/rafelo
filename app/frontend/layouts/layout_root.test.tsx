@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { useLocale } from "@design_system/i18n_provider";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const inertia = vi.hoisted(() => ({
@@ -17,6 +18,8 @@ vi.mock("@/lib/report_client_error", () => ({ reportClientError: reporter }));
 import { RootBoundary } from "@/lib/root_boundary";
 
 import { AppShell } from "./app_shell";
+import { AuthShell } from "./auth_shell";
+import { BareShell } from "./bare_shell";
 import { LayoutRoot } from "./layout_root";
 
 const shared = {
@@ -100,6 +103,31 @@ describe("LayoutRoot", () => {
     expect(screen.getByTestId("app.locale.en")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("app.locale.th").closest("a")).toHaveAttribute("href", "/th");
     expect(screen.getByTestId("app.locale.th")).not.toHaveAttribute("aria-current");
+  });
+
+  it("keeps the main-content link first and the main landmark focusable in every shell", async () => {
+    inertia.props = shared;
+
+    for (const Shell of [AppShell, AuthShell, BareShell]) {
+      render(
+        <LayoutRoot>
+          <Shell>
+            <h1>Page</h1>
+          </Shell>
+        </LayoutRoot>,
+      );
+
+      await userEvent.tab();
+      expect(screen.getByTestId("app.main-link")).toHaveFocus();
+
+      const main = screen.getByRole("main");
+      expect(main).toHaveAttribute("id", "main-content");
+      expect(main).toHaveAttribute("tabindex", "-1");
+      main.focus();
+      expect(main).toHaveFocus();
+
+      cleanup();
+    }
   });
 
   it("hands the Thai Buddhist calendar to shell widgets", () => {
