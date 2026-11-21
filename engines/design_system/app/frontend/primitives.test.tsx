@@ -13,7 +13,7 @@ const items = [
 ];
 
 describe("design-system primitives", () => {
-  it("selects an option from the select", async () => {
+  it("selects an option from the select and shows its label when uncontrolled", async () => {
     const onSelectionChange = vi.fn();
     render(
       <Select testId="status" label="Status" items={items} onSelectionChange={onSelectionChange} />,
@@ -23,6 +23,13 @@ describe("design-system primitives", () => {
     await userEvent.click(await screen.findByTestId("status.option.paid"));
 
     expect(onSelectionChange).toHaveBeenCalledWith("paid");
+    expect(screen.getByTestId("status")).toHaveTextContent("Paid");
+  });
+
+  it("shows the controlled selection in the select", () => {
+    render(<Select testId="status" label="Status" items={items} selectedKey="open" />);
+
+    expect(screen.getByTestId("status")).toHaveTextContent("Open");
   });
 
   it("runs the chosen menu action", async () => {
@@ -35,7 +42,7 @@ describe("design-system primitives", () => {
     expect(onAction).toHaveBeenCalledWith("open");
   });
 
-  it("selects an option from the combobox", async () => {
+  it("selects an option from the combobox and shows its label when uncontrolled", async () => {
     const onSelectionChange = vi.fn();
     render(
       <ComboBox testId="owner" label="Owner" items={items} onSelectionChange={onSelectionChange} />,
@@ -45,6 +52,13 @@ describe("design-system primitives", () => {
     await userEvent.click(await screen.findByTestId("owner.option.open"));
 
     expect(onSelectionChange).toHaveBeenCalledWith("open");
+    expect(screen.getByTestId("owner")).toHaveValue("Open");
+  });
+
+  it("shows the controlled selection in the combobox", () => {
+    render(<ComboBox testId="owner" label="Owner" items={items} selectedKey="paid" />);
+
+    expect(screen.getByTestId("owner")).toHaveValue("Paid");
   });
 
   it("reports the selected tab and renders its panel", async () => {

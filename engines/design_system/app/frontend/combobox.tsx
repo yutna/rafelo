@@ -29,7 +29,7 @@ export function ComboBox({
 }: ComboBoxProps) {
   return (
     <AriaComboBox
-      selectedKey={selectedKey ?? null}
+      {...(selectedKey === undefined ? {} : { selectedKey })}
       onSelectionChange={(key) => {
         if (key != null) onSelectionChange?.(String(key));
       }}
