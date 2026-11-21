@@ -1,17 +1,18 @@
-import type { ColumnDef } from "@tanstack/react-table";
+import { flexRender, useTable } from "@tanstack/react-table";
 
-import { flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
+import type { DataTableColumn } from "./data_table.types";
+
+import { dataTableFeatures } from "./data_table.types";
 
 type DataTableProps = {
   testId: string;
   data: Record<string, unknown>[];
-  columns: ColumnDef<Record<string, unknown>>[];
+  columns: DataTableColumn[];
   emptyLabel: string;
 };
 
 export default function DataTableImpl({ testId, data, columns, emptyLabel }: DataTableProps) {
-  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable returns non-memoizable functions; the wrapper owns the table (FE-10).
-  const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
+  const table = useTable({ features: dataTableFeatures, data, columns });
 
   return (
     <table data-testid={testId} className="w-full text-left text-sm">
@@ -38,7 +39,7 @@ export default function DataTableImpl({ testId, data, columns, emptyLabel }: Dat
         ) : (
           table.getRowModel().rows.map((row) => (
             <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => (
+              {row.getAllCells().map((cell) => (
                 <td key={cell.id} className="border-b px-2 py-2">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </td>
