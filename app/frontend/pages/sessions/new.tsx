@@ -1,7 +1,6 @@
 import { Button } from "@design_system/button";
-import { HiddenField } from "@design_system/hidden_field";
 import { TextField } from "@design_system/text_field";
-import { Head } from "@inertiajs/react";
+import { Head, useForm } from "@inertiajs/react";
 
 import type { LayoutName } from "@/lib/layout_name";
 
@@ -11,6 +10,7 @@ import { pageSchema } from "./new.schema";
 
 export default function SignIn(props: Record<string, unknown>) {
   const page = pageSchema.parse(props);
+  const form = useForm({ email: "", password: "" });
 
   return (
     <section className="mx-auto max-w-md px-6 py-24">
@@ -23,13 +23,20 @@ export default function SignIn(props: Record<string, unknown>) {
           {page.data.error}
         </p>
       ) : null}
-      <form method="post" action={page.app.signInHref} className="mt-8 space-y-4">
-        <HiddenField testId="signin.csrf" name="authenticity_token" value={page.meta.csrfToken} />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          form.post(page.app.signInHref);
+        }}
+        className="mt-8 space-y-4"
+      >
         <TextField
           testId="signin.email"
           label={t("app:signin.email")}
           name="email"
           type="email"
+          value={form.data.email}
+          onChange={(value) => form.setData("email", value)}
           isRequired
           autoComplete="email"
         />
@@ -38,10 +45,12 @@ export default function SignIn(props: Record<string, unknown>) {
           label={t("app:signin.password")}
           name="password"
           type="password"
+          value={form.data.password}
+          onChange={(value) => form.setData("password", value)}
           isRequired
           autoComplete="current-password"
         />
-        <Button testId="signin.submit" type="submit">
+        <Button testId="signin.submit" type="submit" isDisabled={form.processing}>
           {t("app:signin.submit")}
         </Button>
       </form>
