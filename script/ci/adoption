@@ -59,8 +59,8 @@ check_no_placeholder() {
 
 gate() {
   local app="$1"
-  ( cd "$app" && bin/setup --skip-server )
-  ( cd "$app" && BASE_SHA="$(git rev-list --max-parents=0 HEAD)" bin/ci )
+  ( cd "$app" && BUNDLE_FROZEN=false bin/setup --skip-server )
+  ( cd "$app" && BUNDLE_FROZEN=false BASE_SHA="$(git rev-list --max-parents=0 HEAD)" bin/ci )
   check_no_placeholder "$app"
   test -z "$(clean_tree "$app")"
 }
