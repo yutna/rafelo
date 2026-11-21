@@ -117,6 +117,8 @@ export function DateField({ testId, label, value, min, max, onChange, name }: Da
   const { locale } = useLocale();
   const calendarId = calendarIdFor(locale);
   const [draft, setDraft] = useState({ iso: value });
+  // The controlled picker resets its display when this value's identity changes;
+  // the ISO draft is the only state, so derive a fresh DateValue per draft change.
   const draftDate = useMemo(() => toCalendarDate(draft.iso), [draft]);
   const isoRef = useRef<string | null>(null);
   const invalidRef = useRef(false);
