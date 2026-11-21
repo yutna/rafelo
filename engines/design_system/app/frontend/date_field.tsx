@@ -1,6 +1,6 @@
 import type { DateValue } from "@internationalized/date";
 
-import { CalendarDate, parseDate } from "@internationalized/date";
+import { CalendarDate, GregorianCalendar, parseDate, toCalendar } from "@internationalized/date";
 import {
   Button as AriaButton,
   Calendar,
@@ -34,7 +34,9 @@ function toCalendarDate(iso: string): CalendarDate | null {
 }
 
 function toIso(date: DateValue): string {
-  return date instanceof CalendarDate ? date.toCalendar("gregory").toString() : date.toString();
+  return date instanceof CalendarDate
+    ? toCalendar(date, new GregorianCalendar()).toString()
+    : date.toString();
 }
 
 export function DateField({ label, value, min, max, onChange, name }: DateFieldProps) {
