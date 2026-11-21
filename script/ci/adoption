@@ -103,6 +103,11 @@ if [ "$(printf '%s\n' "0.26.0" "$base_version" | sort -V | head -1)" = "0.26.0" 
   ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/setup --skip-server >/dev/null && \
       BUNDLE_FROZEN=false bin/rails generate rafelo:module legacy_check >/dev/null && \
       BUNDLE_FROZEN=false bin/rails generate rafelo:page legacy_check widgets --actions=index,new,edit >/dev/null )
+  # The released generator wrote older ratchet metadata. Refresh only that
+  # zero-ceiling file to the current schema so the update gate checks the
+  # generated pages, not a stale guard file.
+  cp "$current_src/engines/example_customers/config/ratchets.yml" \
+    "$work/smoke_shop_prev/engines/legacy_check/config/ratchets.yml"
 fi
 if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
   cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
