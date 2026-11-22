@@ -1,24 +1,37 @@
-import enCore from "@core/locales/en.json";
-import thCore from "@core/locales/th.json";
-import enDesignSystem from "@design_system/locales/en.json";
-import thDesignSystem from "@design_system/locales/th.json";
 import i18next from "i18next";
 
-import enApp from "@/locales/en.json";
-import thApp from "@/locales/th.json";
+type Catalog = { default: Record<string, unknown> };
+export type CatalogLoader = () => Promise<Catalog>;
 
-const initialized = i18next.init({
-  resources: {
-    en: { app: enApp, core: enCore, design_system: enDesignSystem },
-    th: { app: thApp, core: thCore, design_system: thDesignSystem },
-  },
-  lng: "en",
-  fallbackLng: "en",
-  interpolation: { escapeValue: false },
-});
+let initialized: Promise<unknown> | undefined;
 
-export async function setLocale(locale: string): Promise<void> {
-  await initialized;
+function initialize(): Promise<unknown> {
+  initialized ??= i18next.init({
+    lng: "en",
+    fallbackLng: "en",
+    interpolation: { escapeValue: false },
+  });
+  return initialized;
+}
+
+export async function loadNamespaces(
+  namespaces: readonly string[],
+  locale: string,
+  loaders: ReadonlyMap<string, CatalogLoader>,
+): Promise<void> {
+  await initialize();
+
+  await Promise.all(
+    namespaces.map(async (namespace) => {
+      if (i18next.hasResourceBundle(locale, namespace)) return;
+      const load = loaders.get(`${namespace}:${locale}`);
+      if (!load) throw new Error(`Missing ${namespace} catalog for ${locale}`);
+
+      const catalog = await load();
+      i18next.addResourceBundle(locale, namespace, catalog.default, true, true);
+    }),
+  );
+
   await i18next.changeLanguage(locale);
 }
 
