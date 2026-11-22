@@ -126,8 +126,46 @@ describe("LayoutRoot", () => {
       expect(main).toHaveAttribute("id", "main-content");
       expect(main).toHaveAttribute("tabindex", "-1");
 
+      const announcer = screen.getByTestId("page.announcer");
+      expect(announcer).toHaveAttribute("aria-live", "polite");
+      expect(announcer).toHaveAttribute("aria-atomic", "true");
+
       cleanup();
     }
+  });
+
+  it("keeps one announcer node across an app → auth → app shell change", () => {
+    inertia.props = shared;
+
+    const { rerender } = render(
+      <LayoutRoot>
+        <AppShell>
+          <h1>Orders</h1>
+        </AppShell>
+      </LayoutRoot>,
+    );
+    const announcer = screen.getByTestId("page.announcer");
+
+    rerender(
+      <LayoutRoot>
+        <AuthShell>
+          <h1>Sign in</h1>
+        </AuthShell>
+      </LayoutRoot>,
+    );
+    expect(screen.getByTestId("page.announcer")).toBe(announcer);
+    expect(screen.getByRole("main")).toBeVisible();
+    expect(screen.getByTestId("app.main-link")).toBeVisible();
+
+    rerender(
+      <LayoutRoot>
+        <AppShell>
+          <h1>Orders</h1>
+        </AppShell>
+      </LayoutRoot>,
+    );
+    expect(screen.getByTestId("page.announcer")).toBe(announcer);
+    expect(screen.getByRole("main")).toBeVisible();
   });
 
   it("hands the Thai Buddhist calendar to shell widgets", () => {
