@@ -26,6 +26,9 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
         "legacy_constants" => 0
       )
       expect(root.join("engines/billing_probe/app/frontend/domain/skeleton.test.ts")).to exist
+      expect(YAML.safe_load_file(root.join("engines/billing_probe/config/permissions.yml"))).to eq(
+        "billing_probe" => { "widgets" => [ "read" ] }
+      )
       expect(File.read(Rails.root.join("config/routes.rb"))).not_to include("billing_probe")
       expect(File.read(Rails.root.join("Gemfile"))).not_to include("billing_probe")
     end
@@ -44,7 +47,7 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
   it "restores the grant catalog when post-write fails after the sync" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
-      grants = root.join("engines/core/spec/fixtures/upstream/api/grants.json")
+      grants = root.join("config/grants.json")
       manifest = root.join("engines/existing/config/permissions.yml")
       FileUtils.mkdir_p(grants.dirname)
       FileUtils.mkdir_p(manifest.dirname)

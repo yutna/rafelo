@@ -61,7 +61,7 @@ class E2EUpstream
 
   def sign_in_payload
     payload = read_json(File.join(CORE_FIXTURES, "auth", "sign_in.json"))
-    grants = read_json(File.join(CORE_FIXTURES, "grants.json")).fetch("grants")
+    grants = read_json(File.join(ROOT, "config", "grants.json")).fetch("grants")
     payload.merge("grants" => grants)
   end
 

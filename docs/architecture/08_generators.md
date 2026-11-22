@@ -119,6 +119,11 @@ module Acme
 end
 ```
 
+Apps adopted before the app-owned grant catalog existed move
+`engines/core/spec/fixtures/upstream/api/grants.json` to `config/grants.json`
+before the next kernel update. The generator, the fake upstream and the drift
+spec read only the app-owned file, so a new module no longer edits the kernel.
+
 ### GEN-02 — `rafelo:page` creates a complete, passing slice (MUST · ADR-06, ADR-13)
 
 For `rafelo:page <module> <resource> [--actions=index,show,new,edit]` (default

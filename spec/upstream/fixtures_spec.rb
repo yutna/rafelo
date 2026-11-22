@@ -20,7 +20,7 @@ RSpec.describe "Upstream fixtures" do
   end
 
   it "has a synthetic grant catalog for drift checks" do
-    grants = JSON.parse(File.read(Rails.root.join("engines/core/spec/fixtures/upstream/api/grants.json"))).fetch("grants")
+    grants = JSON.parse(File.read(Rails.root.join("config/grants.json"))).fetch("grants")
 
     expect(grants).to include("billing:invoice:read")
   end

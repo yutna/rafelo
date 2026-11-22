@@ -3,7 +3,7 @@ require "yaml"
 
 RSpec.describe "Fixture drift" do
   it "offers every permission key declared by a module manifest" do
-    grants = JSON.parse(Rails.root.join("engines/core/spec/fixtures/upstream/api/grants.json").read).fetch("grants")
+    grants = JSON.parse(Rails.root.join("config/grants.json").read).fetch("grants")
     manifests = Dir[Rails.root.join("engines/*/config/permissions.yml")]
 
     manifests.each do |path|

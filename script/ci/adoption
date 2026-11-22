@@ -147,6 +147,13 @@ run_update() {
   fi
   adopt "$work/base-src" "$work/smoke_shop_prev" "$work/base-src/template/template.rb"
   assert_template_commit_clean "$work/smoke_shop_prev"
+  # v0.37 moved the synthetic grant catalog from the kernel fixture to the
+  # app-owned config/grants.json. An N-1 adopter follows the migration note.
+  if [ -f "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" ] && \
+     [ ! -f "$work/smoke_shop_prev/config/grants.json" ]; then
+    mv "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" \
+      "$work/smoke_shop_prev/config/grants.json"
+  fi
   if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
     cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
     cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
@@ -191,28 +198,6 @@ run_update() {
     'RafeloTemplate.render_examples!(source_root: ARGV[0], destination: ARGV[1], app_name: ARGV[2], version: ARGV[3])' \
     "$current_src" "$work/smoke_shop_prev" "smoke_shop_prev" "$version"
   ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
-  # The generated page slice is E6 / #661: the v0.26-v0.35 generators write
-  # pages that the v0.34 FE-01/FE-11 guards correctly reject. Keep the N-1
-  # app-update proof and restore this generated-page leg when #661 lands.
-  if [ "$(printf '%s\n' "0.36.0" "$base_version" | sort -V | head -1)" = "0.36.0" ]; then
-    ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/rails generate rafelo:module legacy_check >/dev/null && \
-        BUNDLE_FROZEN=false bin/rails generate rafelo:page legacy_check widgets --actions=index,new,edit >/dev/null )
-    "$ruby_bin" -rjson -ryaml -e '
-      root, module_name = ARGV
-      grants_path = File.join(root, "engines/core/spec/fixtures/upstream/api/grants.json")
-      manifest = YAML.load_file(File.join(root, "engines", module_name, "config/permissions.yml"))
-      grants = JSON.parse(File.read(grants_path)).fetch("grants")
-      manifest.each do |prefix, resources|
-        resources.each do |resource, actions|
-          actions.each { |action| grants << "#{prefix}:#{resource}:#{action}" }
-        end
-      end
-      File.write(grants_path, JSON.pretty_generate("grants" => grants.uniq.sort) + "\n")
-    ' "$work/smoke_shop_prev" legacy_check
-    # The new path gem changes the fixture's lockfile. Run setup unfrozen, as
-    # an adopter does, so the committed tree is the one the gate checks.
-    ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/setup --skip-server >/dev/null )
-  fi
   ( cd "$work/smoke_shop_prev" && git add -A && \
       git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
         commit -q -m "chore: update the kernel to v$version" )

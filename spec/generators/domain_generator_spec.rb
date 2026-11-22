@@ -20,7 +20,7 @@ RSpec.describe Rafelo::Generators::DomainGenerator do
   it "restores the grant catalog when post-write fails after the sync" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
-      grants = root.join("engines/core/spec/fixtures/upstream/api/grants.json")
+      grants = root.join("config/grants.json")
       manifest = root.join("engines/existing/config/permissions.yml")
       FileUtils.mkdir_p(grants.dirname)
       FileUtils.mkdir_p(manifest.dirname)

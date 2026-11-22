@@ -7,7 +7,7 @@ require Rails.root.join("engines/core/lib/generators/rafelo/base/grant_catalog")
 RSpec.describe Rafelo::Generators::GrantCatalog do
   it "adds every manifest key the fake upstream catalog is missing" do
     Dir.mktmpdir("rafelo-grant-catalog-") do |dir|
-      grants_path = File.join(dir, "engines/core/spec/fixtures/upstream/api/grants.json")
+      grants_path = File.join(dir, "config/grants.json")
       manifest_path = File.join(dir, "engines/billing/config/permissions.yml")
       FileUtils.mkdir_p(File.dirname(grants_path))
       FileUtils.mkdir_p(File.dirname(manifest_path))
@@ -28,7 +28,7 @@ RSpec.describe Rafelo::Generators::GrantCatalog do
 
   it "leaves the catalog alone when it already has every key" do
     Dir.mktmpdir("rafelo-grant-catalog-") do |dir|
-      grants_path = File.join(dir, "engines/core/spec/fixtures/upstream/api/grants.json")
+      grants_path = File.join(dir, "config/grants.json")
       manifest_path = File.join(dir, "engines/billing/config/permissions.yml")
       FileUtils.mkdir_p(File.dirname(grants_path))
       FileUtils.mkdir_p(File.dirname(manifest_path))
