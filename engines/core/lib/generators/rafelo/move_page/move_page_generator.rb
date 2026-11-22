@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 require "rails/generators"
-require "shellwords"
 require "yaml"
 require_relative "../base/grant_catalog"
+require_relative "../base/post_write"
 
 module Rafelo
   module Generators
     class MovePageGenerator < Rails::Generators::Base
+      include PostWrite
+
       argument :source_module, type: :string
       argument :target_module, type: :string
       argument :resource, type: :string
@@ -341,25 +343,16 @@ module Rafelo
 
       def post_write
         Rafelo::Generators::GrantCatalog.sync(root)
-        inside(root) do
-          %w[bundle\ install script/ci/engine_graph npm\ run\ aliases:generate npm\ run\ permissions:generate npm\ run\ errors:generate npm\ run\ i18n:generate npm\ run\ contracts:generate].each do |cmd|
-            raise Thor::Error, "post-write step failed: #{cmd}" unless run(cmd)
-          end
-          format_written_files
-        end
+        run_post_write(root: root, formatter_files: formatted_files)
       end
 
-      def format_written_files
+      def formatted_files
         files = Dir[root.join("engines", @target, "app/frontend/**/*.{ts,tsx,mts,json}")]
           .concat(Dir[root.join("engines", @source, "app/frontend/**/*.{ts,tsx,mts,json}")])
           .select { |p| File.file?(p) }
+          .map(&:to_s)
           .reject { |p| p.end_with?(".generated.ts") || p.end_with?(".generated.tsx") || p.include?("/app/frontend/locales/") }
-        files.uniq!
-        return if files.empty?
-
-        rel = files.map { |p| Pathname.new(p).relative_path_from(root).to_s }
-        quoted = rel.map { |p| Shellwords.escape(p) }.join(" ")
-        raise Thor::Error, "post-write step failed: npx prettier --write" unless run("npx prettier --write #{quoted}")
+        files.uniq
       end
 
       def snapshot

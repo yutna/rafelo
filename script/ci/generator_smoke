@@ -19,6 +19,9 @@ cleanup() {
 }
 trap cleanup EXIT # also after a failed step
 
+# GEN-09 canary: every post-write step failure restores the pre-run tree.
+bin/rails runner script/ci/generator_rollback
+
 verify() {
   # Each generator ran its own post-write steps (GEN-09); prove they left nothing stale.
   script/ci/engine_graph --check

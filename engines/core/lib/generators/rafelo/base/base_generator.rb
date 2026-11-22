@@ -4,10 +4,13 @@ require "rails/generators"
 require "json"
 require "yaml"
 require_relative "grant_catalog"
+require_relative "post_write"
 
 module Rafelo
   module Generators
     class BaseGenerator < Rails::Generators::NamedBase
+      include PostWrite
+
       RESERVED = %w[core design_system app engines].freeze unless const_defined?(:RESERVED)
 
       def validate_name!
@@ -40,51 +43,50 @@ module Rafelo
       private
 
       def with_rollback
-        engine = root_path.join("engines", name.to_s.underscore)
         before = generated_tree_state
         yield
       rescue StandardError => error
-        FileUtils.rm_rf(engine)
+        FileUtils.rm_rf(root_path.join(engine_dir))
         restore_tree(before)
         raise Thor::Error, "generator rolled back after: #{error.message}"
       end
 
       def generated_tree_state
-        files = %w[
-          .dependency-cruiser.engines.generated.json Gemfile.lock tsconfig.json tsconfig.base.json
-          tsconfig.tooling.json app/frontend/tsconfig.json config/frontend_aliases.mts
-          config/grants.json
-        ]
-        files.to_h { |path| [ path, File.file?(root_path.join(path)) ? File.binread(root_path.join(path)) : nil ] }
+        Dir[root_path.join("**/*")].select { |path| File.file?(path) }.to_h do |path|
+          [ path, File.binread(path) ]
+        end
       end
 
       def restore_tree(before)
+        after = Dir[root_path.join("**/*")].select { |path| File.file?(path) }
+        (after - before.keys).each { |path| FileUtils.rm_f(path) }
         before.each do |path, content|
-          target = root_path.join(path)
-          if content.nil?
-            FileUtils.rm_f(target)
-          else
-            FileUtils.mkdir_p(target.dirname)
-            File.binwrite(target, content)
-          end
+          next if File.file?(path) && File.binread(path) == content
+
+          FileUtils.mkdir_p(File.dirname(path))
+          File.binwrite(path, content)
         end
+        prune_empty_dirs
+      end
+
+      def prune_empty_dirs
+        Dir[root_path.join("**/*")].select { |path| File.directory?(path) }
+          .sort_by(&:length).reverse_each do |dir|
+            Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
+          rescue StandardError
+            nil
+          end
       end
 
       def post_write
         GrantCatalog.sync(root_path)
-        inside(root_path) do
-          run_step "bundle install"
-          run_step "script/ci/engine_graph"
-          run_step "npm run aliases:generate"
-          run_step "npm run i18n:generate"
-          run_step "npm run errors:generate"
-          run_step "npm run permissions:generate"
-          run_step "npm run contracts:generate"
-        end
+        run_post_write(root: root_path, formatter_files: written_files)
       end
 
-      def run_step(command)
-        raise Thor::Error, "generator step failed: #{command}" unless run(command)
+      def written_files
+        Dir[root_path.join(engine_dir, "**/*")].select do |path|
+          File.file?(path) && path.match?(/\.(?:json|md|mts|ts|tsx|ya?ml)\z/)
+        end
       end
 
       def npm_scopes

@@ -1,0 +1,35 @@
+# frozen_string_literal: true
+
+# Run by script/ci/generator_smoke inside a clean tree. A failure injected into
+# each GEN-09 post-write step must remove every file the generator wrote and
+# leave `git status` clean.
+require Rails.root.join("engines/core/lib/generators/rafelo/module_generator")
+
+steps = [ *Rafelo::Generators::PostWrite::STEPS, "npx prettier --write" ]
+steps.each do |failed_step|
+  generator = Rafelo::Generators::ModuleGenerator.new(
+    [ "rollback_probe" ], {}, destination_root: Rails.root.to_s
+  )
+  generator.define_singleton_method(:run_post_write_step) do |command|
+    failed = if failed_step.start_with?("npx prettier")
+      command.start_with?("npx prettier")
+    else
+      command == failed_step
+    end
+    !failed
+  end
+
+  begin
+    generator.create_module
+    abort "generator_rollback: #{failed_step} did not fail"
+  rescue Thor::Error => error
+    unless error.message.include?(failed_step)
+      abort "generator_rollback: #{failed_step} did not name its step: #{error.message}"
+    end
+  end
+
+  dirty = `git status --porcelain --untracked-files=all`
+  abort "generator_rollback: tree dirty after #{failed_step}:\n#{dirty}" unless dirty.empty?
+end
+
+puts "generator_rollback: rolled back #{steps.length} post-write failures"
