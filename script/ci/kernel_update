@@ -79,7 +79,7 @@ module KernelUpdate
 
   # App-owned paths a template update may refresh only with --app-owned; the
   # update leaves them alone by default (GEN-07).
-  APP_OWNED_PATHS = %w[app/frontend e2e engines/design_system/e2e AGENTS.md config/application.rb].freeze
+  APP_OWNED_PATHS = %w[app/frontend config/locales e2e engines/design_system/e2e AGENTS.md config/application.rb].freeze
 
   # The example engines are optional (GEN-08) and are never updated.
   UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
