@@ -19,7 +19,7 @@ patterns = %W[
   #{root}/engines/*/app/frontend/**/*.tsx
 ]
 files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
-abort "frontend_boundary: no frontend files found under #{root}" if files.empty?
+abort "frontend_boundary: checked 0 files; no frontend files found under #{root}" if files.empty?
 
 STATE = /\b(?:useState|useReducer|useActionState|useOptimistic|useForm|useRef)\b/
 VISIT = /\brouter\b/
