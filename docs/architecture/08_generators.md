@@ -216,11 +216,9 @@ verify() {
 
 verify_generated() {
   verify "$@"
-  # The created slice must be clean without an autocorrect. The moved and
-  # renamed slice's lint/request proof returns with rename_module (#666).
   for engine in "$@"; do
     bin/rubocop "engines/$engine"
-    if [ -d "engines/$engine/spec" ]; then bin/rubocop "engines/$engine/spec"; fi
+    if [ -d "spec/requests/$engine" ]; then bin/rubocop "spec/requests/$engine"; fi
   done
 }
 
@@ -236,7 +234,7 @@ RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb engines/smoke_check
 # Change: move the resource to the other module, then rename that module.
 bin/rails generate rafelo:move_page smoke_check smoke_other widgets
 bin/rails generate rafelo:rename_module smoke_other smoke_renamed
-verify smoke_check smoke_renamed
+verify_generated smoke_check smoke_renamed
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb
 ```
 
