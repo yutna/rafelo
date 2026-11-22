@@ -19,18 +19,69 @@ patterns = %W[
   #{root}/engines/*/app/frontend/**/*.tsx
 ]
 files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
-abort "frontend_boundary: no frontend files found under #{root}" if files.empty?
+abort "frontend_boundary: checked 0 files; no frontend files found under #{root}" if files.empty?
+
+STATE = /\b(?:useState|useReducer|useActionState|useOptimistic|useForm|useRef)\b/
+VISIT = /\brouter\b/
+LAYER = %r{\A(?:app/frontend|engines/([^/]+)/app/frontend)/(pages|screens|containers|components)/}
 
 findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  next if relative.include?("/layouts/") || relative == "app/frontend/lib/page_resolver.tsx" || relative == "app/frontend/entrypoints/application.tsx"
+  next if relative.match?(/\.(?:test|spec)\.[jt]sx?\z/)
+
+  match = LAYER.match(relative)
+  engine = match && match[1]
+  layer = match && match[2]
+  next if engine && %w[core design_system].include?(engine)
 
   File.readlines(path, chomp: true).each_with_index do |line, index|
-    next unless line.match?(/\busePage\b/)
+    location = "#{relative}:#{index + 1}"
 
-    puts "#{relative}:#{index + 1}: usePage is only allowed in layouts and the page resolver"
-    findings += 1
+    if !relative.include?("/layouts/") &&
+       relative != "app/frontend/lib/page_resolver.tsx" &&
+       relative != "app/frontend/entrypoints/application.tsx" &&
+       line.match?(/\busePage\b/)
+      puts "#{location}: usePage is only allowed in layouts and the page resolver"
+      findings += 1
+    end
+
+    next unless layer
+
+    if layer == "pages" && line.match?(STATE)
+      puts "#{location}: pages must not hold state (FE-01)"
+      findings += 1
+    end
+
+    if layer == "pages" && line.match?(VISIT)
+      puts "#{location}: pages must not visit (FE-01)"
+      findings += 1
+    end
+
+    if layer == "screens" && line.match?(STATE)
+      puts "#{location}: screens must not hold state (FE-01)"
+      findings += 1
+    end
+
+    if layer == "screens" && line.match?(VISIT)
+      puts "#{location}: screens must not visit (FE-01)"
+      findings += 1
+    end
+
+    if layer == "components" && line.match?(STATE)
+      puts "#{location}: components take props and return JSX (FE-01)"
+      findings += 1
+    end
+
+    if layer == "containers" && line.match?(%r{from\s+["'][^"']*(?:screens|pages)/})
+      puts "#{location}: containers must not import screens or pages (FE-01)"
+      findings += 1
+    end
+
+    if layer == "pages" && line.match?(/<Head\s+title="/)
+      puts "#{location}: page titles come from i18n (FE-11)"
+      findings += 1
+    end
   end
 end
 

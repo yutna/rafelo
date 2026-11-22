@@ -26,12 +26,15 @@ RSpec.describe "Home page", type: :request do
     expect(response).to have_http_status(:conflict)
   end
 
-  it "keeps the shared props inside their budget" do
-    get "/th", headers: auth_headers
-    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+  it "keeps the shared props inside their budget in every locale" do
     budget = YAML.load_file(Rails.root.join("config/budgets.yml")).dig("defaults", "shared_props_bytes")
 
-    expect(page.fetch("props").to_json.bytesize).to be <= budget
+    Rafelo::Core::Locales.available.each do |locale|
+      get "/#{locale}", headers: auth_headers(grants: [ "*" ])
+      page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+
+      expect(page.fetch("props").to_json.bytesize).to be <= budget, "shared props for #{locale}"
+    end
   end
 
   it "keeps trace on a partial reload that omits it" do

@@ -1,0 +1,76 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "fileutils"
+require "open3"
+require "tmpdir"
+
+root = File.expand_path("../..", __dir__)
+script = File.join(root, "script", "ci", "frontend_boundary")
+
+cases = [
+  [ "usePage outside layouts", "app/frontend/pages/bad.tsx",
+    "import { usePage } from \"@inertiajs/react\";\nexport const value = usePage().url;\n",
+    1, "only allowed in layouts" ],
+  [ "page holds state", "app/frontend/pages/bad.tsx",
+    "import { useState } from \"react\";\nexport const value = useState(0);\n",
+    1, "pages must not hold state" ],
+  [ "screen holds state", "app/frontend/screens/bad.tsx",
+    "import { useForm } from \"@inertiajs/react\";\nexport const value = useForm({});\n",
+    1, "screens must not hold state" ],
+  [ "screen visits", "app/frontend/screens/bad.tsx",
+    "import { router } from \"@inertiajs/react\";\nexport const visit = () => router.post(\"/\");\n",
+    1, "screens must not visit" ],
+  [ "component holds state", "app/frontend/components/bad.tsx",
+    "import { useRef } from \"react\";\nexport const value = useRef(null);\n",
+    1, "components take props and return JSX" ],
+  [ "container imports a screen", "app/frontend/containers/bad.tsx",
+    "import { Screen } from \"../screens/bad\";\nexport const value = Screen;\n",
+    1, "containers must not import screens or pages" ],
+  [ "hard-coded page title", "app/frontend/pages/bad.tsx",
+    "import { Head } from \"@inertiajs/react\";\nexport const value = <Head title=\"Bad\" />;\n",
+    1, "page titles come from i18n" ],
+  [ "legal layers", "app/frontend/screens/legal.tsx",
+    "import { useLocale } from \"@design_system/public\";\n" \
+    "export function Legal() {\n  const { locale } = useLocale();\n  return <p>{locale}</p>;\n}\n",
+    0, nil ]
+]
+
+failures = 0
+Dir.mktmpdir("rafelo-frontend-boundary-empty") do |tmp|
+  output, status = Open3.capture2e(script, "--root", tmp)
+  if status.exitstatus == 1 && output.include?("checked 0")
+    cases << [ "empty root", nil, nil, 1, "checked 0" ]
+  else
+    failures += 1
+    warn "frontend_boundary_canary: empty root exited #{status.exitstatus}, expected 1"
+    warn output
+  end
+end
+
+cases.each do |name, path, contents, expected, message|
+  next if path.nil?
+
+  Dir.mktmpdir("rafelo-frontend-boundary") do |tmp|
+    FileUtils.mkdir_p(File.dirname(File.join(tmp, path)))
+    File.write(File.join(tmp, path), contents)
+
+    output, status = Open3.capture2e(script, "--root", tmp)
+    checks = [
+      status.exitstatus == expected,
+      message.nil? || output.include?(message)
+    ]
+    next if checks.all?
+
+    failures += 1
+    warn "frontend_boundary_canary: #{name} exited #{status.exitstatus}, expected #{expected}"
+    warn output
+  end
+end
+
+if failures.positive?
+  warn "frontend_boundary_canary: checked #{cases.length} cases; failures=#{failures}"
+  exit 1
+end
+
+warn "frontend_boundary_canary: checked #{cases.length} cases; failures=0"
