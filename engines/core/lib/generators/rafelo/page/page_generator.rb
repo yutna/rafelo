@@ -2,13 +2,15 @@
 
 require "json"
 require "rails/generators"
-require "shellwords"
 require "yaml"
 require_relative "../base/base_generator"
+require_relative "../base/post_write"
 
 module Rafelo
   module Generators
     class PageGenerator < Rails::Generators::Base
+      include PostWrite
+
       argument :module_name_arg, type: :string
       argument :resource, type: :string
       class_option :actions, type: :string, default: "index"
@@ -1261,30 +1263,7 @@ module Rafelo
 
       def post_write
         Rafelo::Generators::GrantCatalog.sync(root)
-        inside(root) do
-          run_step "bundle install"
-          run_step "script/ci/engine_graph"
-          run_step "npm run aliases:generate"
-          run_step "npm run permissions:generate"
-          run_step "npm run errors:generate"
-          run_step "npm run i18n:generate"
-          run_step "npm run contracts:generate"
-          prettier_targets
-        end
-      end
-
-      def prettier_targets
-        files = @written.select { |p| p.end_with?(".ts", ".tsx", ".mts", ".json") && File.file?(p) }
-        return if files.empty?
-
-        rel = files.map { |p| Pathname.new(p).relative_path_from(root).to_s }
-        quoted = rel.map { |p| Shellwords.escape(p) }.join(" ")
-        run_step "npx prettier --write #{quoted}"
-      end
-
-      def run_step(command)
-        ok = run(command)
-        raise Thor::Error, "post-write step failed: #{command}" unless ok
+        run_post_write(root: root, formatter_files: @written)
       end
 
       def snapshot
