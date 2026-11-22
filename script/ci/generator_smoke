@@ -133,7 +133,7 @@ grep -q 'key: :smoke_renamed' engines/smoke_renamed/config/module.rb
 grep -q 'label_key: "smoke_renamed.nav.title"' engines/smoke_renamed/config/module.rb
 grep -q 'path: "/smoke_other"' engines/smoke_renamed/config/module.rb
 grep -q 'permission_prefixes:.*"smoke_other"' engines/smoke_renamed/config/module.rb
-grep -q '/en/smoke_other/widgets' engines/smoke_renamed/spec/requests/widgets_spec.rb
+grep -q 'smoke_other/widgets' engines/smoke_renamed/spec/requests/widgets_spec.rb
 if grep -R -q -E 'smoke_other/widgets|smoke_other\.' \
   engines/smoke_renamed/config \
   engines/smoke_renamed/app/frontend \
