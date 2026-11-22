@@ -404,7 +404,7 @@ module Rafelo
                   {
                     data: {
                       #{resource_singular}: { id: @id, name: @id },
-                      indexPath: context.urls.route(:#{mod}, :#{resource_plural})
+                      indexHref: context.urls.route(:#{mod}, :#{resource_plural})
                     },
                     meta: {},
                     query: {},
@@ -426,8 +426,8 @@ module Rafelo
                 def envelope
                   {
                     data: {
-                      createPath: context.urls.route(:#{mod}, :#{resource_plural}),
-                      indexPath: context.urls.route(:#{mod}, :#{resource_plural})
+                      createHref: context.urls.route(:#{mod}, :#{resource_plural}),
+                      indexHref: context.urls.route(:#{mod}, :#{resource_plural})
                     },
                     meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
@@ -455,8 +455,8 @@ module Rafelo
                   {
                     data: {
                       #{resource_singular}: { id: @id, name: @id },
-                      updatePath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
-                      showPath: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
+                      updateHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
+                      showHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
                     },
                     meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
@@ -491,13 +491,18 @@ module Rafelo
           # index
           can_keys = effective_actions.include?("new") ? "[\"#{capability_key(permission_create)}\"] as const" : "[] as const"
           data_props = if effective_actions.include?("new")
-            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: z.string().nullable() })"
+            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: hrefSchema.nullable() })"
           else
             "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
           end
+          index_schema_import = if effective_actions.include?("new")
+            "import { hrefSchema } from \"@design_system/safe_url\";\n"
+          else
+            ""
+          end
           create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
             import { definePage } from "@core/contracts/page_props.schema";
-            import { z } from "zod";
+            #{index_schema_import}import { z } from "zod";
 
             export const pageSchema = definePage({
               data: #{data_props},
@@ -528,7 +533,12 @@ module Rafelo
 
             #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
           TSX
-          screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: string | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
+          screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: Href | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
+          index_type_import = if effective_actions.include?("new")
+            "import type { Href } from \"@design_system/public\";\n\n"
+          else
+            ""
+          end
           new_link = effective_actions.include?("new") ? "\n          {can[\"#{capability_key(permission_create)}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
           create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
             import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
@@ -559,7 +569,7 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
-            import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
+            #{index_type_import}import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
 
             export function #{resource_plural.camelize}Screen(#{screen_props}) {
               return (
@@ -575,10 +585,11 @@ module Rafelo
         if effective_actions.include?("show")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
             import { definePage } from "@core/contracts/page_props.schema";
+            import { hrefSchema } from "@design_system/safe_url";
             import { z } from "zod";
 
             export const pageSchema = definePage({
-              data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexPath: z.string() }),
+              data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexHref: hrefSchema }),
               query: z.object({}),
               can: [] as const,
               paginated: false,
@@ -612,9 +623,11 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/show_screen.tsx"), <<~TSX
+            import type { Href } from "@design_system/public";
+
             import { Link } from "@design_system/public";
 
-            export function #{resource_singular.camelize}ShowScreen({ #{resource_singular}, indexPath, can }: { #{resource_singular}: { id: string; name: string }; indexPath: string; can: Record<string, { allowed: boolean; reason: string | null }> }) {
+            export function #{resource_singular.camelize}ShowScreen({ #{resource_singular}, indexHref, can }: { #{resource_singular}: { id: string; name: string }; indexHref: Href; can: Record<string, { allowed: boolean; reason: string | null }> }) {
               return (
                 <section className="mx-auto max-w-3xl px-6 py-16" data-testid="#{mod}.#{resource_plural}.show.page">
                   <h1 className="text-display font-semibold">#{resource_singular.humanize}</h1>
@@ -628,7 +641,7 @@ module Rafelo
                       <dd>{#{resource_singular}.name}</dd>
                     </div>
                   </dl>
-                  <p className="mt-6"><Link href={indexPath}>Back</Link></p>
+                  <p className="mt-6"><Link testId="#{mod}.#{resource_plural}.show.back" href={indexHref}>Back</Link></p>
                 </section>
               );
             }
@@ -638,10 +651,11 @@ module Rafelo
         if effective_actions.include?("new")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
             import { definePage } from "@core/contracts/page_props.schema";
+            import { hrefSchema } from "@design_system/safe_url";
             import { z } from "zod";
 
             export const pageSchema = definePage({
-              data: z.object({ createPath: z.string(), indexPath: z.string() }),
+              data: z.object({ createHref: hrefSchema, indexHref: hrefSchema }),
               meta: z.object({ formToken: z.string() }),
               query: z.object({}),
               can: [] as const,
@@ -701,11 +715,13 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
+            import type { Href } from "@design_system/public";
+
             import { Link } from "@design_system/public";
             import { useForm } from "@inertiajs/react";
             import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
 
-            export function #{resource_plural.camelize}NewScreen({ createPath, indexPath, meta, errors }: { createPath: string; indexPath: string; meta: { formToken: string }; errors: Record<string, string> }) {
+            export function #{resource_plural.camelize}NewScreen({ createHref, indexHref, meta, errors }: { createHref: Href; indexHref: Href; meta: { formToken: string }; errors: Record<string, string> }) {
               const form = useForm({ name: "", token: meta.formToken });
               return (
                 <section className="mx-auto max-w-3xl px-6 py-16">
@@ -714,7 +730,7 @@ module Rafelo
                     onSubmit={(event) => {
                       event.preventDefault();
                       form.transform((data) => ({ ...data, token: meta.formToken }));
-                      form.post(createPath);
+                      form.post(createHref);
                     }}
                     className="mt-6 space-y-4"
                   >
@@ -724,7 +740,7 @@ module Rafelo
                       onNameChange={(value) => form.setData("name", value)}
                     />
                     <div className="flex gap-3">
-                      <Link href={indexPath}>Back</Link>
+                      <Link testId="#{mod}.#{resource_plural}.new.back" href={indexHref}>Back</Link>
                     </div>
                   </form>
                 </section>
@@ -736,13 +752,14 @@ module Rafelo
         if effective_actions.include?("edit")
           create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
             import { definePage } from "@core/contracts/page_props.schema";
+            import { hrefSchema } from "@design_system/safe_url";
             import { z } from "zod";
 
             export const pageSchema = definePage({
               data: z.object({
                 #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
-                updatePath: z.string(),
-                showPath: z.string(),
+                updateHref: hrefSchema,
+                showHref: hrefSchema,
               }),
               meta: z.object({ formToken: z.string() }),
               query: z.object({}),
@@ -778,19 +795,21 @@ module Rafelo
             }
           TSX
           create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
+            import type { Href } from "@design_system/public";
+
             import { Button, Link, TextField } from "@design_system/public";
             import { useForm } from "@inertiajs/react";
 
             export function #{resource_plural.camelize}EditScreen({
               #{resource_singular},
-              updatePath,
-              showPath,
+              updateHref,
+              showHref,
               meta,
               errors,
             }: {
               #{resource_singular}: { id: string; name: string };
-              updatePath: string;
-              showPath: string;
+              updateHref: Href;
+              showHref: Href;
               meta: { formToken: string };
               errors: Record<string, string>;
             }) {
@@ -802,7 +821,7 @@ module Rafelo
                     onSubmit={(event) => {
                       event.preventDefault();
                       form.transform((data) => ({ ...data, token: meta.formToken }));
-                      form.patch(updatePath);
+                      form.patch(updateHref);
                     }}
                     className="mt-6 space-y-4"
                   >
@@ -816,7 +835,7 @@ module Rafelo
                     />
                     <div className="flex gap-3">
                       <Button testId="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</Button>
-                      <Link href={showPath}>Back</Link>
+                      <Link testId="#{mod}.#{resource_plural}.edit.back" href={showHref}>Back</Link>
                     </div>
                   </form>
                 </section>

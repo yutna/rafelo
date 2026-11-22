@@ -24,7 +24,7 @@ module Rafelo
               version: @order.version
             },
             editHref: context.urls.route(:example_orders, :edit_order, id: @order.id),
-            indexPath: context.urls.route(:example_orders, :orders)
+            indexHref: context.urls.route(:example_orders, :orders)
           },
           meta: {},
           query: {},

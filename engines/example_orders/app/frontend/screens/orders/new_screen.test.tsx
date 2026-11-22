@@ -31,8 +31,8 @@ function renderScreen(errors: Record<string, string>) {
   render(
     <I18nProvider locale="en" timeZone="UTC">
       <OrdersNewScreen
-        createPath="/en/orders"
-        indexPath="/en/orders"
+        createHref="/en/orders"
+        indexHref="/en/orders"
         meta={{ formToken: "token" }}
         errors={errors}
       />

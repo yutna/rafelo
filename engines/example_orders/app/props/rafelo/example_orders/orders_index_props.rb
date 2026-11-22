@@ -19,7 +19,7 @@ module Rafelo
           data: {
             items: @page.items.map { |order| row(order) },
             newHref: context.urls.route(:example_orders, :new_order),
-            exportPath: context.urls.route(:example_orders, :export_orders, status: @query.filters["status"]),
+            exportHref: context.urls.route(:example_orders, :export_orders, status: @query.filters["status"]),
             filterHrefs: filter_hrefs,
             previousHref: page_href([ @query.page - 1, 1 ].max),
             nextHref: @query.page < page_count ? page_href(@query.page + 1) : nil,

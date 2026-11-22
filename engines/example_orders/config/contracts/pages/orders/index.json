@@ -105,7 +105,7 @@
             "null"
           ]
         },
-        "exportPath": {
+        "exportHref": {
           "type": "string"
         },
         "filterHrefs": {
@@ -201,7 +201,7 @@
       "required": [
         "items",
         "newHref",
-        "exportPath",
+        "exportHref",
         "filterHrefs",
         "previousHref",
         "nextHref"

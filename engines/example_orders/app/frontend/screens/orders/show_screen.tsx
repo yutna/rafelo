@@ -1,3 +1,5 @@
+import type { Href } from "@design_system/public";
+
 import { Link, formatDate, formatMoney, useLocale } from "@design_system/public";
 import { CustomerBadge } from "@example_customers/public/customer_badge";
 import { useOrdersTranslation } from "@example_orders/i18n";
@@ -12,12 +14,12 @@ type Props = {
     issuedOn: string;
     version: number;
   };
-  editHref: string;
-  indexPath: string;
+  editHref: Href;
+  indexHref: Href;
   can: Record<string, { allowed: boolean; reason: string | null }>;
 };
 
-export function OrderShowScreen({ order, editHref, indexPath, can }: Props) {
+export function OrderShowScreen({ order, editHref, indexHref, can }: Props) {
   const { locale, timeZone } = useLocale();
   const t = useOrdersTranslation();
   return (
@@ -48,11 +50,11 @@ export function OrderShowScreen({ order, editHref, indexPath, can }: Props) {
       </dl>
       <div className="mt-8 flex gap-4">
         {can["order.update"]?.allowed ? (
-          <Link href={editHref}>
+          <Link testId="example_orders.orders.show.edit.link" href={editHref}>
             <span data-testid="example_orders.orders.show.edit">{t("orders.edit")}</span>
           </Link>
         ) : null}
-        <Link href={indexPath}>
+        <Link testId="example_orders.orders.show.back.link" href={indexHref}>
           <span data-testid="example_orders.orders.show.back">{t("orders.title")}</span>
         </Link>
       </div>

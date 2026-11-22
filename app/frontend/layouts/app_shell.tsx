@@ -19,6 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {nav.map((item) => (
               <Link
                 key={item.key}
+                testId={`app.nav.${item.key}.link`}
                 href={item.path}
                 className="inline-flex items-center gap-2 rounded-card px-1 py-1 outline-offset-2 hover:underline focus-visible:outline-2"
               >
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {app.localeHrefs.map((entry) => (
               <Link
                 key={entry.locale}
+                testId={`app.locale.${entry.locale}.link`}
                 href={entry.href}
                 className="rounded-card px-2 py-1 uppercase outline-offset-2 hover:underline focus-visible:outline-2"
               >

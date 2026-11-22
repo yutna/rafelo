@@ -347,7 +347,8 @@ declare module "@design_system/index" {
   export { Toast } from "@design_system/toast";
   export { I18nProvider, useLocale } from "@design_system/i18n_provider";
   export { DateField } from "@design_system/date_field";
-  export { isSafeUrl, isAppPath } from "@design_system/safe_url";
+  export { hrefSchema, isSafeUrl, isAppPath } from "@design_system/safe_url";
+  export type { Href } from "@design_system/safe_url";
   export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
   export { Link } from "@design_system/link";
   export { Image } from "@design_system/image";
@@ -360,12 +361,14 @@ declare module "@design_system/index" {
 
 declare module "@design_system/link" {
   import type { ReactNode } from "react";
+  import type { Href } from "@design_system/safe_url";
   type LinkProps = {
-      href: string;
+      testId: string;
+      href: Href;
       children: ReactNode;
       className?: string;
   };
-  export declare function Link({ href, children, className }: LinkProps): import("react").JSX.Element;
+  export declare function Link({ testId, href, children, className }: LinkProps): import("react").JSX.Element;
   export {};
 }
 
@@ -428,7 +431,8 @@ declare module "@design_system/public" {
   export { Toast } from "@design_system/toast";
   export { I18nProvider, useLocale } from "@design_system/i18n_provider";
   export { DateField } from "@design_system/date_field";
-  export { isSafeUrl, isAppPath } from "@design_system/safe_url";
+  export { hrefSchema, isSafeUrl, isAppPath } from "@design_system/safe_url";
+  export type { Href } from "@design_system/safe_url";
   export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
   export { Link } from "@design_system/link";
   export { Image } from "@design_system/image";
@@ -440,8 +444,11 @@ declare module "@design_system/public" {
 }
 
 declare module "@design_system/safe_url" {
+  import { z } from "zod";
   export declare function isSafeUrl(value: unknown): value is string;
   export declare function isAppPath(value: unknown): value is string;
+  export declare const hrefSchema: z.ZodString & z.ZodType<string, string, z.core.$ZodTypeInternals<string, string>>;
+  export type Href = z.infer<typeof hrefSchema>;
 }
 
 declare module "@design_system/select" {

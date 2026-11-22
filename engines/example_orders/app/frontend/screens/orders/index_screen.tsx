@@ -1,4 +1,5 @@
 import type { chartSchema } from "@core/contracts/page_props.schema";
+import type { Href } from "@design_system/public";
 import type { z } from "zod";
 
 import {
@@ -20,16 +21,16 @@ type Order = {
   status: string;
   total: { minor: number; currency: string; exponent: number };
   issuedOn: string;
-  href: string;
+  href: Href;
 };
 
 type Props = {
   items: Order[];
-  newHref: string | null;
-  exportPath: string;
-  filterHrefs: { label: string; href: string; current: boolean }[];
-  previousHref: string | null;
-  nextHref: string | null;
+  newHref: Href | null;
+  exportHref: Href;
+  filterHrefs: { label: string; href: Href; current: boolean }[];
+  previousHref: Href | null;
+  nextHref: Href | null;
   chart?: z.infer<typeof chartSchema>;
   can: Record<string, { allowed: boolean; reason: string | null }>;
   meta: { formToken: string };
@@ -38,7 +39,7 @@ type Props = {
 export function OrdersScreen({
   items,
   newHref,
-  exportPath,
+  exportHref,
   filterHrefs,
   previousHref,
   nextHref,
@@ -57,7 +58,11 @@ export function OrdersScreen({
         </div>
         <div className="flex gap-2">
           {can["order.create"]?.allowed && newHref ? (
-            <Link href={newHref} className="rounded-card bg-primary px-4 py-2 text-white">
+            <Link
+              testId="example_orders.orders.index.new.link"
+              href={newHref}
+              className="rounded-card bg-primary px-4 py-2 text-white"
+            >
               <span data-testid="example_orders.orders.index.new">{t("orders.new")}</span>
             </Link>
           ) : null}
@@ -65,7 +70,7 @@ export function OrdersScreen({
             <Button
               testId="example_orders.orders.index.export"
               variant="secondary"
-              onPress={() => router.post(exportPath, { token: meta.formToken })}
+              onPress={() => router.post(exportHref, { token: meta.formToken })}
             >
               {t("orders.export")}
             </Button>
@@ -77,6 +82,7 @@ export function OrdersScreen({
         {filterHrefs.map((filter) => (
           <Link
             key={filter.label}
+            testId={`example_orders.orders.index.filter.${filter.label}.link`}
             href={filter.href}
             className={filter.current ? "font-semibold underline" : "underline"}
           >
@@ -96,7 +102,11 @@ export function OrdersScreen({
         >
           {items.map((order) => (
             <li key={order.id} className="py-3">
-              <Link href={order.href} className="flex flex-wrap items-center justify-between gap-2">
+              <Link
+                testId={`example_orders.orders.index.row.${order.id}.link`}
+                href={order.href}
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
                 <span data-testid={`example_orders.orders.index.row.${order.id}`}>
                   {order.number} · {order.customer.name}
                 </span>
@@ -116,8 +126,16 @@ export function OrdersScreen({
       )}
 
       <nav aria-label={t("orders.pagination")} className="mt-6 flex gap-4">
-        {previousHref ? <Link href={previousHref}>{t("orders.previous")}</Link> : null}
-        {nextHref ? <Link href={nextHref}>{t("orders.next")}</Link> : null}
+        {previousHref ? (
+          <Link testId="example_orders.orders.index.previous.link" href={previousHref}>
+            {t("orders.previous")}
+          </Link>
+        ) : null}
+        {nextHref ? (
+          <Link testId="example_orders.orders.index.next.link" href={nextHref}>
+            {t("orders.next")}
+          </Link>
+        ) : null}
       </nav>
 
       <div className="mt-10">
