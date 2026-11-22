@@ -3,8 +3,12 @@ require "tmpdir"
 require Rails.root.join("engines/core/lib/generators/rafelo/page_generator")
 
 RSpec.describe Rafelo::Generators::PageGenerator do
-  before do
-    allow_any_instance_of(described_class).to receive(:post_write)
+  let(:generator_class) do
+    Class.new(described_class) do
+      private
+
+      def post_write; end
+    end
   end
 
   it "does not expose the post-write escape hatch" do
@@ -20,7 +24,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
 
       expect {
         begin
-          described_class.start([ "billing", "widgets" ], destination_root: dir)
+          generator_class.start([ "billing", "widgets" ], destination_root: dir)
         rescue SystemExit, Thor::Error
           nil
         end
@@ -40,7 +44,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
 
       expect {
         begin
-          described_class.start([ "billing", "widgets" ], destination_root: dir)
+          generator_class.start([ "billing", "widgets" ], destination_root: dir)
         rescue SystemExit, Thor::Error
           nil
         end
@@ -62,7 +66,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
 
       expect {
         begin
-          described_class.start([ "billing", "widgets" ], destination_root: dir)
+          generator_class.start([ "billing", "widgets" ], destination_root: dir)
         rescue SystemExit, Thor::Error
           nil
         end
@@ -83,12 +87,18 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      allow_any_instance_of(described_class).to receive(:write_tests).and_raise("boom")
+      failing = Class.new(generator_class) do
+        private
+
+        def write_tests
+          raise "boom"
+        end
+      end
       before = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort
 
       expect {
         begin
-          described_class.start([ "billing", "widgets" ], destination_root: dir)
+          failing.start([ "billing", "widgets" ], destination_root: dir)
         rescue SystemExit, Thor::Error
           nil
         end
@@ -109,7 +119,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      described_class.start([ "billing", "widgets" ], destination_root: dir)
+      generator_class.start([ "billing", "widgets" ], destination_root: dir)
 
       routes = File.read(root.join("engines/billing/config/routes.rb"))
       expect(routes).to include('root to: "widgets#index"')
@@ -126,7 +136,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      described_class.start([ "billing", "widgets", "--actions=show" ], destination_root: dir)
+      generator_class.start([ "billing", "widgets", "--actions=show" ], destination_root: dir)
 
       expect(root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read).to include("def show")
       expect(root.join("engines/billing/app/props/rafelo/billing/widgets_show_props.rb")).to exist
@@ -151,7 +161,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      described_class.start([ "billing", "widgets", "--actions=edit" ], destination_root: dir)
+      generator_class.start([ "billing", "widgets", "--actions=edit" ], destination_root: dir)
 
       controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
       expect(controller).to include("def edit")
@@ -178,6 +188,56 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "generates copy, design-system controls, layers, and allow-listed props" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      generator_class.start([ "billing", "widgets", "--actions=index,show,new,edit" ], destination_root: dir)
+
+      frontend = Dir[root.join("engines/billing/app/frontend/**/*.{ts,tsx}")].to_h { |path| [ path, File.read(path) ] }
+      frontend.each do |path, body|
+        expect(body).not_to match(/<(button|input|select|textarea|a)(\s|>)/), "#{path} renders a raw control (FE-07)"
+      end
+
+      page = root.join("engines/billing/app/frontend/pages/widgets/index.tsx").read
+      expect(page).to include("useBillingTranslation")
+      expect(page).to include('t("widgets.title")')
+      expect(page).not_to include("useForm")
+
+      screen = root.join("engines/billing/app/frontend/screens/widgets/index_screen.tsx").read
+      expect(screen).to include("WidgetsIndexContainer")
+
+      container = root.join("engines/billing/app/frontend/containers/widgets/index_container.tsx").read
+      expect(container).to include("useBillingTranslation")
+      expect(container).to include("Link")
+      expect(container).not_to include("useForm")
+
+      new_container = root.join("engines/billing/app/frontend/containers/widgets/new_container.tsx").read
+      expect(new_container).to include("useForm")
+      expect(new_container).to include('t("widgets.create")')
+
+      form_component = root.join("engines/billing/app/frontend/components/widgets/form.tsx").read
+      expect(form_component).to include("TextField")
+      expect(form_component).to include('t("widgets.name")')
+
+      props = root.join("engines/billing/app/props/rafelo/billing/widgets_index_props.rb").read
+      expect(props).to include('row["id"].to_s')
+      expect(props).not_to include("@items = items")
+
+      %w[en th].each do |locale|
+        copy = YAML.safe_load(root.join("engines/billing/config/locales/#{locale}.yml").read)
+        expect(copy.dig(locale, "billing", "widgets").keys).to include(
+          "title", "new", "edit", "empty", "id", "name", "create", "save", "back"
+        )
+      end
+    end
+  end
+
   it "generates the write gateway, form, 303 behavior and request-spec evidence" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
@@ -187,7 +247,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
       %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
 
-      described_class.start([ "billing", "widgets", "--actions=index,new,edit" ], destination_root: dir)
+      generator_class.start([ "billing", "widgets", "--actions=index,new,edit" ], destination_root: dir)
 
       gateway = root.join("engines/billing/app/gateways/rafelo/billing/widgets_gateway.rb").read
       expect(gateway).to include("def create(payload:, idempotency_key:)")
@@ -214,8 +274,8 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(index_props).to include("perPage: @query.per_page")
       fixture = JSON.parse(root.join("engines/billing/spec/fixtures/upstream/widgets/index.json").read)
       expect(fixture.fetch("items").length).to eq(Rafelo::Core::ListQuery.max_per_page)
-      index_screen = root.join("engines/billing/app/frontend/screens/widgets/index_screen.tsx").read
-      expect(index_screen).to include('can["widgets.create"]?.allowed')
+      index_container = root.join("engines/billing/app/frontend/containers/widgets/index_container.tsx").read
+      expect(index_container).to include('can["widgets.create"]?.allowed')
 
       request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
       expect(request_spec).to include("renders the index page contract at the maximum page size")

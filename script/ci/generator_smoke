@@ -42,6 +42,52 @@ bin/rails generate rafelo:domain smoke_party
 bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
 bin/rails generate rafelo:page smoke_check widgets --actions=index,new
+# The generated slice meets CT-08, FE-07, FE-01, and CT-10 (E6).
+for file in \
+  engines/smoke_check/app/frontend/pages/widgets/index.tsx \
+  engines/smoke_check/app/frontend/pages/widgets/new.tsx \
+  engines/smoke_check/app/frontend/containers/widgets/index_container.tsx \
+  engines/smoke_check/app/frontend/components/widgets/form.tsx; do
+  grep -q 'useSmokeCheckTranslation' "$file" || { echo "generated page misses its i18n hook (CT-08): $file" >&2; exit 1; }
+done
+for locale in $(bin/rails runner 'puts Rafelo::Core::Locales.available.map(&:to_s)'); do
+  for key in title new empty name create back; do
+    grep -q "^      $key:" "engines/smoke_check/config/locales/$locale.yml" || {
+      echo "generated copy misses $key in $locale (CT-08)" >&2
+      exit 1
+    }
+  done
+done
+if grep -R -n -E '<(button|input|select|textarea|a)([[:space:]>])' \
+  engines/smoke_check/app/frontend/pages/widgets \
+  engines/smoke_check/app/frontend/screens/widgets \
+  engines/smoke_check/app/frontend/containers/widgets \
+  engines/smoke_check/app/frontend/components/widgets; then
+  echo "generated page renders a raw control (FE-07)" >&2
+  exit 1
+fi
+if grep -R -n -E '(New Widget|No widgets yet|>Name<|>Back<|>Create<|>Save<)' \
+  engines/smoke_check/app/frontend/pages/widgets \
+  engines/smoke_check/app/frontend/screens/widgets \
+  engines/smoke_check/app/frontend/containers/widgets \
+  engines/smoke_check/app/frontend/components/widgets; then
+  echo "generated page hard-codes copy (CT-08)" >&2
+  exit 1
+fi
+grep -q 'WidgetsIndexScreen' engines/smoke_check/app/frontend/pages/widgets/index.tsx
+grep -q 'WidgetsIndexContainer' engines/smoke_check/app/frontend/screens/widgets/index_screen.tsx
+grep -q 'useForm' engines/smoke_check/app/frontend/containers/widgets/new_container.tsx
+if grep -q 'useForm' engines/smoke_check/app/frontend/pages/widgets/new.tsx; then
+  echo "generated page holds state instead of the container (FE-01)" >&2
+  exit 1
+fi
+props=$(find engines/smoke_check/app/props -name widgets_index_props.rb -print -quit)
+test -n "$props"
+grep -q 'row\["id"\].to_s' "$props"
+if grep -q '@items = items' "$props"; then
+  echo "generated props carry the raw upstream hash (CT-10)" >&2
+  exit 1
+fi
 verify_generated smoke_party smoke_check smoke_other
 RAILS_ENV=test bin/rails db:prepare
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb spec/requests/smoke_check

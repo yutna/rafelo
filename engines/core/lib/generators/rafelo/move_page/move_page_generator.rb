@@ -78,6 +78,7 @@ module Rafelo
 
         move_page_budgets
         move_copy
+        copy_i18n_hook
         rewrite_target_contents
         move_root_request_specs
         rewrite_routes
@@ -168,6 +169,19 @@ module Rafelo
         end
       end
 
+      def copy_i18n_hook
+        src_path = root.join("engines", @source, "app/frontend/i18n.ts")
+        tgt_path = root.join("engines", @target, "app/frontend/i18n.ts")
+        return unless File.file?(src_path)
+        return if File.exist?(tgt_path)
+
+        body = File.read(src_path)
+          .gsub("use#{@source.camelize}Translation", "use#{@target.camelize}Translation")
+          .gsub(%(ns: "#{@source}"), %(ns: "#{@target}"))
+        FileUtils.mkdir_p(tgt_path.dirname)
+        File.write(tgt_path, body)
+      end
+
       def move_table_metadata
         migrations = [ plural, singular ].uniq.flat_map do |name|
           Dir[root.join("engines", @source, "db/migrate/*#{name}*")]
@@ -202,6 +216,7 @@ module Rafelo
           changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
           changed = changed.gsub("@#{@source}/", "@#{@target}/")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
+          changed = changed.gsub("use#{@source.camelize}Translation", "use#{@target.camelize}Translation")
           changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
           changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           changed = changed.gsub(":#{@source},", ":#{@target},")

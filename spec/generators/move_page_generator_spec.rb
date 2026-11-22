@@ -99,7 +99,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         "app/policies/rafelo/billing/widget_policy.rb" => "module Rafelo\n  module Billing\n    class WidgetPolicy; end\n  end\nend\n",
         "app/props/rafelo/billing/widgets_index_props.rb" => "module Rafelo\n  module Billing\n    class WidgetsIndexProps; end\n  end\nend\n",
         "app/forms/rafelo/billing/widget_form.rb" => "module Rafelo\n  module Billing\n    class WidgetForm; end\n  end\nend\n",
-        "app/frontend/pages/widgets/index.tsx" => 'export default "billing/widgets";',
+        "app/frontend/pages/widgets/index.tsx" => "import { useBillingTranslation } from \"@billing/i18n\";\n\nexport default \"billing/widgets\";\n",
         "app/frontend/screens/widgets/index_screen.tsx" => 'export const screen = "@billing/screens/widgets";',
         "app/frontend/containers/widgets/index_container.tsx" => 'export const container = "@billing/containers/widgets";',
         "app/frontend/components/widgets/list.tsx" => 'export const list = "@billing/components/widgets";',
@@ -120,6 +120,13 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         end
       RUBY
       write_file(root, "e2e/billing/widgets.spec.ts", "test(\"/en/billing/widgets\", () => {});\n")
+      write_file(root, "engines/billing/app/frontend/i18n.ts", <<~TS)
+        import i18next from "i18next";
+
+        export function useBillingTranslation() {
+          return (key: string) => i18next.t(key, { ns: "billing" });
+        }
+      TS
 
       described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
 
@@ -134,6 +141,13 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       moved_spec = File.read(root.join("spec/requests/payments/widgets_spec.rb"))
       expect(moved_spec).to include("engines/payments/spec/fixtures/upstream/widgets/index.json")
       expect(moved_spec).to include('"payments/widgets/index"')
+      moved_page = File.read(root.join("engines/payments/app/frontend/pages/widgets/index.tsx"))
+      expect(moved_page).to include("@payments/i18n")
+      expect(moved_page).to include("usePaymentsTranslation")
+      hook = File.read(root.join("engines/payments/app/frontend/i18n.ts"))
+      expect(hook).to include("usePaymentsTranslation")
+      expect(hook).to include('ns: "payments"')
+      expect(root.join("engines/billing/app/frontend/i18n.ts")).to exist
       expect(File.read(root.join("e2e/payments/widgets.spec.ts"))).to include("/en/payments/widgets")
       expect(root.join("e2e/billing/widgets.spec.ts")).not_to exist
       expect(root.join("engines/billing/db/migrate/20260101000000_create_widgets.rb")).to exist
