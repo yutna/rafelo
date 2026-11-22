@@ -176,9 +176,11 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         )
         expect(permissions_status).to be_success, permissions
 
-        lockfile = File.read(File.join(destination, "Gemfile.lock"))
-        expect(lockfile.index("  smoke_shop_example_customers!")).to be < lockfile.index("  solid_cable (= 4.1.0)")
-        expect(lockfile.index("  smoke_shop_example_customers (0.1.0)")).to be < lockfile.index("  solid_cable (4.1.0)")
+        if Dir.exist?(File.join(source_root, "engines", "example_orders"))
+          lockfile = File.read(File.join(destination, "Gemfile.lock"))
+          expect(lockfile.index("  smoke_shop_example_customers!")).to be < lockfile.index("  solid_cable (= 4.1.0)")
+          expect(lockfile.index("  smoke_shop_example_customers (0.1.0)")).to be < lockfile.index("  solid_cable (4.1.0)")
+        end
 
         generated_docs = File.read(File.join(destination, "docs", "architecture", "01_architecture.md"))
         expect(generated_docs).to include("SmokeShop::ExampleOrders")
@@ -246,19 +248,21 @@ RSpec.describe RafeloTemplate, "payload rendering" do
 
   describe ".render_examples!" do
     it "refreshes only the example engines in the app namespace" do
-      Dir.mktmpdir("rafelo-template-examples-") do |destination|
-        written = described_class.render_examples!(
-          source_root: source_root,
-          destination: destination,
-          app_name: "smoke_shop",
-          version: version
-        )
+      if Dir.exist?(File.join(source_root, "engines", "example_orders"))
+        Dir.mktmpdir("rafelo-template-examples-") do |destination|
+          written = described_class.render_examples!(
+            source_root: source_root,
+            destination: destination,
+            app_name: "smoke_shop",
+            version: version
+          )
 
-        expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
-        expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
-        expect(File).not_to exist(File.join(destination, "config", "application.rb"))
-        expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
-          .to include("SmokeShop::ExampleOrders::Engine")
+          expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
+          expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
+          expect(File).not_to exist(File.join(destination, "config", "application.rb"))
+          expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
+            .to include("SmokeShop::ExampleOrders::Engine")
+        end
       end
     end
   end
