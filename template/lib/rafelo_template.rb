@@ -94,13 +94,15 @@ module RafeloTemplate
   # Copies every payload entry, renders the app namespace, and returns the
   # written paths. The payload source is `template/payload.yml`; the template
   # repository's own `.github/` and oss-kit callers are never listed there.
-  def render!(source_root:, destination:, app_name:, version:)
+  def render!(source_root:, destination:, app_name:, version:, only: nil)
     namespace = validate!(app_name)
     destination = File.expand_path(destination)
     FileUtils.mkdir_p(destination)
 
     written = []
-    payload(source_root).each do |entry|
+    entries = payload(source_root)
+    entries = entries.select { |entry| only.any? { |prefix| entry.fetch("source").start_with?(prefix) } } if only
+    entries.each do |entry|
       source = File.expand_path(entry.fetch("source"), source_root)
       target_root = File.expand_path(entry.fetch("destination", entry.fetch("source")), destination)
       next if entry["optional"] && !File.exist?(source)
@@ -112,7 +114,7 @@ module RafeloTemplate
       else
         payload_files(source, entry).each do |file|
           relative = file.delete_prefix("#{source}/")
-          target = File.join(target_root, relative)
+          target = File.join(target_root, render_path(relative, entry.fetch("mode", "copy"), app_name, namespace))
           write_file(file, target, entry.fetch("mode", "copy"), app_name, namespace)
           written << target.delete_prefix("#{destination}/")
         end
@@ -120,6 +122,19 @@ module RafeloTemplate
     end
 
     written.sort
+  end
+
+  # The template's own CI refreshes its example engines after an N-1 update
+  # with this narrower pass, so the fixture proves the same namespace rendering
+  # as a fresh adoption without rewriting the rest of the app.
+  def render_examples!(source_root:, destination:, app_name:, version:)
+    render!(
+      source_root: source_root,
+      destination: destination,
+      app_name: app_name,
+      version: version,
+      only: %w[engines/example_]
+    )
   end
 
   def write_kernel_version!(destination:, version:)
@@ -238,10 +253,18 @@ module RafeloTemplate
     else
       content
     end
+    output = normalize_lockfile(output) if File.basename(target) == "Gemfile.lock"
 
     FileUtils.mkdir_p(File.dirname(target))
     File.binwrite(target, output)
     FileUtils.chmod(File.stat(source).mode, target)
+  end
+
+  # An app-mode path carries the same app-owned Ruby names as its content, so
+  # a rendered example engine lands at lib/<app>/example_orders rather than
+  # the template's own lib/rafelo/example_orders.
+  def render_path(path, mode, app_name, namespace)
+    mode.to_s == "app" ? replace_app_paths(path, app_name) : path
   end
 
   def render_text(text, mode, app_name, namespace)
@@ -260,17 +283,14 @@ module RafeloTemplate
   end
 
   # The specification copies use `Acme` as the example app. The kernel names
-  # in those examples stay `Rafelo` in every adopter (GEN-07).
+  # in those examples stay `Rafelo` in every adopter (GEN-07); the example
+  # engines are app-owned and follow the app namespace instead.
   def restore_kernel_names(text)
     text
       .gsub("Acme::Core", "Rafelo::Core")
       .gsub("Acme::DesignSystem", "Rafelo::DesignSystem")
-      .gsub("Acme::ExampleOrders", "Rafelo::ExampleOrders")
-      .gsub("Acme::ExampleCustomers", "Rafelo::ExampleCustomers")
       .gsub("acme/core", "rafelo/core")
       .gsub("acme/design_system", "rafelo/design_system")
-      .gsub("acme/example_orders", "rafelo/example_orders")
-      .gsub("acme/example_customers", "rafelo/example_customers")
   end
 
   def replace_app_paths(text, app_name)
@@ -280,6 +300,8 @@ module RafeloTemplate
       .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{slug}/")
       .gsub(%r{(engines/[a-z0-9_]+/)rafelo_([a-z0-9_]+)}, "\\1#{slug}_\\2")
       .gsub(%r{\blib/rafelo_([a-z0-9_]+)\.rb}, "lib/#{slug}_\\1.rb")
+      .gsub(%r{\brafelo/(?=example_)}, "#{slug}/")
+      .gsub(/\brafelo_(?=example_)/, "#{slug}_")
   end
 
   def replace_placeholders(text, app_name, namespace)
@@ -287,5 +309,45 @@ module RafeloTemplate
     text.gsub("Acme", namespace)
       .gsub("ACME", slug.upcase)
       .gsub("acme", slug)
+  end
+
+  # Renaming a path gem changes its place in Bundler's two sorted lists. Sort
+  # them back so the rendered lockfile is already what `bundle install` writes;
+  # otherwise the adopted app starts with a dirty tree (GEN-04, GEN-07).
+  def normalize_lockfile(text)
+    lines = text.lines
+    sort_lock_section!(lines, "DEPENDENCIES")
+    sort_lock_section!(lines, "CHECKSUMS")
+    sort_gem_specs!(lines)
+    lines.join
+  end
+
+  def sort_lock_section!(lines, heading)
+    start = lines.index("#{heading}\n")
+    return unless start
+
+    finish = ((start + 1)...lines.length).find { |index| lines[index].strip.empty? } || lines.length
+    entries = lines[(start + 1)...finish]
+    lines[(start + 1)...finish] = entries.sort_by(&:strip)
+  end
+
+  def sort_gem_specs!(lines)
+    gem = lines.index("GEM\n")
+    return unless gem
+
+    specs = ((gem + 1)...lines.length).find { |index| lines[index] == "  specs:\n" }
+    return unless specs
+
+    finish = ((specs + 1)...lines.length).find { |index| lines[index].strip.empty? } || lines.length
+    groups = []
+    lines[(specs + 1)...finish].each do |line|
+      if line.start_with?("    ") && !line.start_with?("      ")
+        groups << [ line ]
+      elsif groups.any?
+        groups.last << line
+      end
+    end
+    groups.sort_by! { |group| group.first.strip }
+    lines[(specs + 1)...finish] = groups.flatten
   end
 end

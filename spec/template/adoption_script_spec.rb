@@ -21,4 +21,9 @@ RSpec.describe "script/ci/adoption" do
     expect(script).to include("#661")
     expect(script).not_to include("bin/rubocop -A engines/legacy_check")
   end
+
+  it "renders the refreshed examples with the app namespace" do
+    expect(script).to include("RafeloTemplate.render_examples!")
+    expect(script).not_to include('cp -R "$current_src/engines/$example"')
+  end
 end

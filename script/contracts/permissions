@@ -31,9 +31,9 @@ end
 
 Dir[File.join(root, "engines/*/config/permissions.yml")].sort.each do |path|
   engine = File.basename(File.dirname(File.dirname(path)))
-  # The example engines keep the kernel brand; generated modules use the
-  # adopter's namespace.
-  namespace = engine.start_with?("example_") ? "Rafelo" : app_namespace(root)
+  # The app, its product modules and domain engines, and the example engines
+  # all use the adopter's namespace (GEN-07, decision 1).
+  namespace = app_namespace(root)
   engine_camel = camelize(engine)
   manifest = YAML.safe_load(File.read(path), aliases: false) || {}
   ruby = +"# frozen_string_literal: true\n\nmodule #{namespace}\n  module #{engine_camel}\n    module Permissions\n"

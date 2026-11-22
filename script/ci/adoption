@@ -46,6 +46,8 @@ clean_tree() {
 check_no_placeholder() {
   local app="$1"
   local found
+  local brand="Rafelo"
+  local lower="rafelo"
   found="$(git -C "$app" ls-files | grep -i 'acme' || true)"
   if [ -n "$found" ]; then
     echo "adoption: placeholder path in $app: $found" >&2
@@ -54,6 +56,13 @@ check_no_placeholder() {
   if git -C "$app" grep -Iil 'acme' -- . >/dev/null 2>&1; then
     echo "adoption: placeholder text in $app" >&2
     git -C "$app" grep -Iil 'acme' -- . >&2
+    exit 1
+  fi
+  # The kernel brand stays, but an example engine never keeps a kernel Ruby
+  # namespace or path after adoption (GEN-07, decision 1).
+  if git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- . >/dev/null 2>&1; then
+    echo "adoption: example engine kept the kernel namespace in $app" >&2
+    git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- . >&2
     exit 1
   fi
 }
@@ -152,8 +161,10 @@ run_update() {
   # wants that component, and the refreshed examples use its test ids.
   for example in example_customers example_orders; do
     rm -rf "$work/smoke_shop_prev/engines/$example"
-    cp -R "$current_src/engines/$example" "$work/smoke_shop_prev/engines/$example"
   done
+  "$ruby_bin" -r"$current_src/template/lib/rafelo_template.rb" -e \
+    'RafeloTemplate.render_examples!(source_root: ARGV[0], destination: ARGV[1], app_name: ARGV[2], version: ARGV[3])' \
+    "$current_src" "$work/smoke_shop_prev" "smoke_shop_prev" "$version"
   ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
   # The generated page slice is E6 / #661: the v0.26-v0.35 generators write
   # pages that the v0.34 FE-01/FE-11 guards correctly reject. Keep the N-1

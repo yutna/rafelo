@@ -223,8 +223,8 @@ unless permission_bad_status.exitstatus == 1 && permission_bad.include?("Rafelo/
   exit 1
 end
 permission_legal, permission_legal_status = stdin_run(
-  "Rafelo/NoPermissionLiterals", "engines/example_orders/app/policies/rafelo/example_orders/order_policy.rb",
-  "permissions.allows?(Rafelo::ExampleOrders::Permissions::ORDER_READ)\n"
+  "Rafelo/NoPermissionLiterals", "engines/example_orders/app/policies/example/example_orders/order_policy.rb",
+  "permissions.allows?(Example::Permissions::ORDER_READ)\n"
 )
 unless permission_legal_status.exitstatus.zero?
   warn "cops_canary: NoPermissionLiterals flagged the generated constant"
@@ -233,7 +233,7 @@ unless permission_legal_status.exitstatus.zero?
 end
 
 env_engine_bad, env_engine_bad_status = stdin_run(
-  "Rafelo/EnvOnlyInConfig", "engines/example_orders/lib/rafelo/example_orders/config.rb",
+  "Rafelo/EnvOnlyInConfig", "engines/example_orders/lib/example/example_orders/config.rb",
   "ENV.fetch(\"SECRET_KEY\")\n"
 )
 unless env_engine_bad_status.exitstatus == 1 && env_engine_bad.include?("Rafelo/EnvOnlyInConfig")
@@ -282,7 +282,7 @@ end
 
 # Widened (FE-20, BE-08): the cop covers all runtime Ruby.
 date_lib, date_lib_status = stdin_run(
-  "Rafelo/DateFormatterOnly", "engines/example_orders/lib/rafelo/example_orders/date_canary.rb",
+  "Rafelo/DateFormatterOnly", "engines/example_orders/lib/example/example_orders/date_canary.rb",
   "date.strftime(\"%Y\")\n"
 )
 unless date_lib_status.exitstatus == 1 && date_lib.include?("Rafelo/DateFormatterOnly")
