@@ -79,7 +79,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       write_engine(root, "payments",
         path: "/payments",
         routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
-        permissions: { "payments" => {} })
+        permissions: { "payments" => { "widgets" => [ "read" ] } })
       write_file(root, "engines/billing/config/locales/en.yml", YAML.dump("en" => { "billing" => { "widgets" => { "title" => "Widgets" } } }))
       write_file(root, "engines/billing/config/locales/th.yml", YAML.dump("th" => { "billing" => { "widgets" => { "title" => "วิดเจ็ต" } } }))
       write_file(root, "engines/payments/config/locales/en.yml", YAML.dump("en" => { "payments" => { "nav" => { "title" => "Payments" } } }))
@@ -158,6 +158,9 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       budgets = YAML.safe_load(File.read(root.join("engines/payments/config/budgets.yml")))
       expect(budgets.dig("pages", "payments/widgets/index", "sql_queries_per_request")).to eq(2)
       expect(YAML.safe_load(File.read(root.join("engines/billing/config/budgets.yml"))).dig("pages", "billing/widgets/index")).to be_nil
+      permissions = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
+      expect(permissions.dig("billing", "widgets")).to eq([ "read" ])
+      expect(permissions.dig("payments", "widgets")).to be_nil
       package = YAML.safe_load(File.read(root.join("engines/payments/package.yml")))
       expect(package.dig("metadata", "legacy_table_prefix")).to eq("billing")
       expect(YAML.safe_load(File.read(root.join("engines/payments/config/ratchets.yml")))["legacy_table_prefixes"]).to eq(1)
