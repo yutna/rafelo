@@ -32,8 +32,6 @@ verify() {
 
 verify_generated() {
   verify "$@"
-  # The created slice must be clean without an autocorrect. The moved and
-  # renamed slice's lint/request proof returns with rename_module (#666).
   for engine in "$@"; do
     bin/rubocop "engines/$engine"
     if [ -d "spec/requests/$engine" ]; then bin/rubocop "spec/requests/$engine"; fi
@@ -121,5 +119,24 @@ test -f engines/smoke_other/spec/requests/widgets_spec.rb
 test ! -f engines/smoke_check/spec/requests/widgets_spec.rb
 RAILS_ENV=test bundle exec rspec engines/smoke_other/spec/requests
 bin/rails generate rafelo:rename_module smoke_other smoke_renamed
-verify smoke_check smoke_renamed
+# The rename follows generated references but keeps URLs and permission keys (GEN-06).
+grep -q 'useSmokeRenamedTranslation' engines/smoke_renamed/app/frontend/pages/widgets/index.tsx
+grep -q 'name: "smoke_renamed"' engines/smoke_renamed/vitest.config.mts
+grep -q 'name: "smoke_renamed:node"' engines/smoke_renamed/vitest.config.mts
+grep -q 'MODULE_NAME = "smoke_renamed"' engines/smoke_renamed/app/frontend/public/index.ts
+grep -q 'smoke_renamed/widgets/index' engines/smoke_renamed/config/budgets.yml
+grep -q 'key: :smoke_renamed' engines/smoke_renamed/config/module.rb
+grep -q 'label_key: "smoke_renamed.nav.title"' engines/smoke_renamed/config/module.rb
+grep -q 'path: "/smoke_other"' engines/smoke_renamed/config/module.rb
+grep -q 'permission_prefixes: \[ "smoke_other" \]' engines/smoke_renamed/config/module.rb
+grep -q '/en/smoke_other/widgets' engines/smoke_renamed/spec/requests/widgets_spec.rb
+if grep -R -q -E 'smoke_other/widgets|smoke_other\.' \
+  engines/smoke_renamed/config \
+  engines/smoke_renamed/app/frontend \
+  engines/smoke_renamed/app/controllers \
+  engines/smoke_renamed/app/props; then
+  echo "renamed engine still carries the old page keys or test ids (#666)" >&2
+  exit 1
+fi
+verify_generated smoke_check smoke_renamed
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb
