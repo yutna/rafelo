@@ -9,6 +9,13 @@ vi.mock("@inertiajs/react", () => ({
     <a href={href}>{children}</a>
   ),
   router: { post: vi.fn() },
+  useForm: () => ({
+    data: { email: "", password: "" },
+    errors: {},
+    post: vi.fn(),
+    processing: false,
+    setData: vi.fn(),
+  }),
 }));
 vi.mock("@/layouts/page_boundary", () => ({
   PageBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -41,25 +48,15 @@ const page = {
   },
 };
 
-function ordersProps(locale: "en" | "th") {
+function signInProps(locale: "en" | "th") {
   return {
     ...shared,
     app: { ...shared.app, locale },
-    data: {
-      items: [],
-      newHref: null,
-      exportHref: "/en/example_orders/orders/export",
-      filterHrefs: [],
-      previousHref: null,
-      nextHref: null,
-    },
-    meta: { formToken: "token" },
-    query: { page: 1, perPage: 10, sort: null, direction: "asc", filters: {}, cursor: null },
-    pagination: { kind: "offset", page: 1, perPage: 10, total: 0, pageCount: 0 },
-    can: {
-      "order.create": { allowed: false, reason: null },
-      "order.export": { allowed: false, reason: null },
-    },
+    data: { error: null },
+    meta: { csrfToken: "token" },
+    query: {},
+    pagination: null,
+    can: {},
   };
 }
 
@@ -81,18 +78,18 @@ describe("resolvePage", () => {
     expect(typeof appPage.layout).toBe("function");
   });
 
-  it("renders a module page in English and then in Thai after a visit", async () => {
-    const EnglishPage = await resolvePage("example_orders/orders/index", {
+  it("renders a page in English and then in Thai after a visit", async () => {
+    const EnglishPage = await resolvePage("sessions/new", {
       props: { app: { locale: "en" } },
     });
-    const { rerender } = render(<EnglishPage {...ordersProps("en")} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Orders");
+    const { rerender } = render(<EnglishPage {...signInProps("en")} />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sign in");
 
-    const ThaiPage = await resolvePage("example_orders/orders/index", {
+    const ThaiPage = await resolvePage("sessions/new", {
       props: { app: { locale: "th" } },
     });
-    rerender(<ThaiPage {...ordersProps("th")} />);
+    rerender(<ThaiPage key="th" {...signInProps("th")} />);
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("คำสั่งซื้อ");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("เข้าสู่ระบบ");
   });
 });

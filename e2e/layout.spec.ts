@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function expectMainContentLinkMovesFocus(page: Page) {
   await page.bringToFront();
+  await expect(page.getByTestId("app.main")).toBeVisible();
   await page.evaluate(() => {
     (document.activeElement as HTMLElement | null)?.blur();
   });
