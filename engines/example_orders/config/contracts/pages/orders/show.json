@@ -101,14 +101,14 @@
         "editHref": {
           "type": "string"
         },
-        "indexPath": {
+        "indexHref": {
           "type": "string"
         }
       },
       "required": [
         "order",
         "editHref",
-        "indexPath"
+        "indexHref"
       ],
       "additionalProperties": false
     },

@@ -274,8 +274,8 @@ RSpec.describe "bin/kernel_update" do
           def envelope
             {
               data: {
-                createPath: context.urls.route(:legacy, :widgets),
-                indexPath: context.urls.route(:legacy, :widgets)
+                createHref: context.urls.route(:legacy, :widgets),
+                indexHref: context.urls.route(:legacy, :widgets)
               },
               meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
               query: {},
@@ -300,8 +300,8 @@ RSpec.describe "bin/kernel_update" do
             {
               data: {
                 widget: { id: @id, name: @id },
-                updatePath: context.urls.route(:legacy, :widget, id: @id),
-                showPath: context.urls.route(:legacy, :widget, id: @id)
+                updateHref: context.urls.route(:legacy, :widget, id: @id),
+                showHref: context.urls.route(:legacy, :widget, id: @id)
               },
               meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
               query: {},
@@ -368,7 +368,7 @@ RSpec.describe "bin/kernel_update" do
       .gsub("SmokeShop::Legacy", "SmokeShop::Custom")
       .gsub("WidgetsNewProps", "ThingsNewProps")
       .gsub(":legacy, :widgets", ":custom, :things")
-      .sub("createPath: context.urls.route(:custom, :things)", "createPath: context.urls.route(:custom, :other)")
+      .sub("createHref: context.urls.route(:custom, :things)", "createHref: context.urls.route(:custom, :other)")
     custom_edit_props = generated_edit_props
       .gsub("SmokeShop::Legacy", "SmokeShop::Custom")
       .gsub("WidgetsEditProps", "ThingsEditProps")

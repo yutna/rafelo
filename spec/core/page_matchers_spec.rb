@@ -45,6 +45,15 @@ RSpec.describe "Page matchers", type: :request do
       expect(fake_response(page, { "rafelo.urls_built" => [ "/en" ] })).not_to have_resolvable_hrefs("home/index")
     end
 
+    it "checks every *Href field, not only href and path" do
+      page["props"]["data"]["newHref"] = "/not-built"
+
+      expect(fake_response(page, { "rafelo.urls_built" => [ "/en" ] })).not_to have_resolvable_hrefs("home/index")
+
+      page["props"]["data"]["newHref"] = "/en"
+      expect(fake_response(page, { "rafelo.urls_built" => [ "/en" ] })).to have_resolvable_hrefs("home/index")
+    end
+
     it "fails without a built-URL capture" do
       expect(fake_response(page)).not_to have_resolvable_hrefs("home/index")
     end

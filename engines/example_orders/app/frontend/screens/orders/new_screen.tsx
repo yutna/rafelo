@@ -1,3 +1,5 @@
+import type { Href } from "@design_system/public";
+
 import { Button, Link, focusFirstError } from "@design_system/public";
 import { OrderFormFields } from "@example_orders/components/orders/form";
 import { useOrdersTranslation } from "@example_orders/i18n";
@@ -5,13 +7,13 @@ import { useForm } from "@inertiajs/react";
 import { useRef } from "react";
 
 type Props = {
-  createPath: string;
-  indexPath: string;
+  createHref: Href;
+  indexHref: Href;
   meta: { formToken: string };
   errors: Record<string, string>;
 };
 
-export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) {
+export function OrdersNewScreen({ createHref, indexHref, meta, errors }: Props) {
   const t = useOrdersTranslation();
   const form = useForm({ customerName: "", status: "open" });
   const formRef = useRef<HTMLFormElement>(null);
@@ -25,7 +27,7 @@ export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) 
         onSubmit={(event) => {
           event.preventDefault();
           form.transform((data) => ({ ...data, token: meta.formToken }));
-          form.post(createPath, {
+          form.post(createHref, {
             onError: () => setTimeout(() => focusFirstError(formRef.current ?? undefined), 0),
           });
         }}
@@ -47,7 +49,7 @@ export function OrdersNewScreen({ createPath, indexPath, meta, errors }: Props) 
           >
             {t("orders.save")}
           </Button>
-          <Link href={indexPath}>
+          <Link testId="example_orders.orders.new.back.link" href={indexHref}>
             <span data-testid="example_orders.orders.new.back">{t("orders.title")}</span>
           </Link>
         </div>

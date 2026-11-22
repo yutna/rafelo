@@ -1,3 +1,5 @@
+import type { Href } from "@design_system/public";
+
 import { Button, Link, focusFirstError } from "@design_system/public";
 import { OrderFormFields } from "@example_orders/components/orders/form";
 import { useOrdersTranslation } from "@example_orders/i18n";
@@ -6,13 +8,13 @@ import { useRef } from "react";
 
 type Props = {
   order: { id: string; number: string; customerName: string; status: string; version: number };
-  updatePath: string;
-  showPath: string;
+  updateHref: Href;
+  showHref: Href;
   meta: { formToken: string };
   errors: Record<string, string>;
 };
 
-export function OrdersEditScreen({ order, updatePath, showPath, meta, errors }: Props) {
+export function OrdersEditScreen({ order, updateHref, showHref, meta, errors }: Props) {
   const t = useOrdersTranslation();
   const form = useForm({ customerName: order.customerName, status: order.status });
   const formRef = useRef<HTMLFormElement>(null);
@@ -26,7 +28,7 @@ export function OrdersEditScreen({ order, updatePath, showPath, meta, errors }: 
         onSubmit={(event) => {
           event.preventDefault();
           form.transform((data) => ({ ...data, token: meta.formToken, version: order.version }));
-          form.patch(updatePath, {
+          form.patch(updateHref, {
             onError: () => setTimeout(() => focusFirstError(formRef.current ?? undefined), 0),
           });
         }}
@@ -48,7 +50,7 @@ export function OrdersEditScreen({ order, updatePath, showPath, meta, errors }: 
           >
             {t("orders.save")}
           </Button>
-          <Link href={showPath}>
+          <Link testId="example_orders.orders.edit.back.link" href={showHref}>
             <span data-testid="example_orders.orders.edit.back">{t("orders.title")}</span>
           </Link>
         </div>

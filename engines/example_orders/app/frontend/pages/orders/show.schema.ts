@@ -1,4 +1,5 @@
 import { definePage, moneySchema } from "@core/contracts/page_props.schema";
+import { hrefSchema } from "@design_system/safe_url";
 import { z } from "zod";
 
 export const pageSchema = definePage({
@@ -12,8 +13,8 @@ export const pageSchema = definePage({
       issuedOn: z.string(),
       version: z.int(),
     }),
-    editHref: z.string(),
-    indexPath: z.string(),
+    editHref: hrefSchema,
+    indexHref: hrefSchema,
   }),
   query: z.object({}),
   can: ["order.update"] as const,

@@ -430,8 +430,8 @@ module KernelUpdate
             def envelope
               {
                 data: {
-                  createPath: context.urls.route(:#{mod}, :#{plural}),
-                  indexPath: context.urls.route(:#{mod}, :#{plural})
+                  createHref: context.urls.route(:#{mod}, :#{plural}),
+                  indexHref: context.urls.route(:#{mod}, :#{plural})
                 },
                 meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
                 query: {},
@@ -459,8 +459,8 @@ module KernelUpdate
               {
                 data: {
                   #{singular}: { id: @id, name: @id },
-                  updatePath: context.urls.route(:#{mod}, :#{singular}, id: @id),
-                  showPath: context.urls.route(:#{mod}, :#{singular}, id: @id)
+                  updateHref: context.urls.route(:#{mod}, :#{singular}, id: @id),
+                  showHref: context.urls.route(:#{mod}, :#{singular}, id: @id)
                 },
                 meta: { formToken: Rafelo::Core::FormToken.issue(session_id: Rafelo::Core::Current.session&.id) },
                 query: {},

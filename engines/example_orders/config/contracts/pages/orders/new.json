@@ -20,16 +20,16 @@
     "data": {
       "type": "object",
       "properties": {
-        "createPath": {
+        "createHref": {
           "type": "string"
         },
-        "indexPath": {
+        "indexHref": {
           "type": "string"
         }
       },
       "required": [
-        "createPath",
-        "indexPath"
+        "createHref",
+        "indexHref"
       ],
       "additionalProperties": false
     },

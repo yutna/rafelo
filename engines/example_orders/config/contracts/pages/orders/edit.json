@@ -50,17 +50,17 @@
           ],
           "additionalProperties": false
         },
-        "updatePath": {
+        "updateHref": {
           "type": "string"
         },
-        "showPath": {
+        "showHref": {
           "type": "string"
         }
       },
       "required": [
         "order",
-        "updatePath",
-        "showPath"
+        "updateHref",
+        "showHref"
       ],
       "additionalProperties": false
     },

@@ -1,4 +1,5 @@
 import { chartSchema, definePage, moneySchema } from "@core/contracts/page_props.schema";
+import { hrefSchema } from "@design_system/safe_url";
 import { z } from "zod";
 
 const orderSchema = z.object({
@@ -8,17 +9,17 @@ const orderSchema = z.object({
   status: z.string(),
   total: moneySchema,
   issuedOn: z.string(),
-  href: z.string(),
+  href: hrefSchema,
 });
 
 export const pageSchema = definePage({
   data: z.object({
     items: z.array(orderSchema),
-    newHref: z.string().nullable(),
-    exportPath: z.string(),
-    filterHrefs: z.array(z.object({ label: z.string(), href: z.string(), current: z.boolean() })),
-    previousHref: z.string().nullable(),
-    nextHref: z.string().nullable(),
+    newHref: hrefSchema.nullable(),
+    exportHref: hrefSchema,
+    filterHrefs: z.array(z.object({ label: z.string(), href: hrefSchema, current: z.boolean() })),
+    previousHref: hrefSchema.nullable(),
+    nextHref: hrefSchema.nullable(),
     chart: chartSchema.optional(),
   }),
   meta: z.object({ formToken: z.string() }),

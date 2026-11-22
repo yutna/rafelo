@@ -6,8 +6,8 @@ module Rafelo
       def envelope
         {
           data: {
-            createPath: context.urls.route(:example_orders, :orders),
-            indexPath: context.urls.route(:example_orders, :orders)
+            createHref: context.urls.route(:example_orders, :orders),
+            indexHref: context.urls.route(:example_orders, :orders)
           },
           meta: { formToken: Rafelo::Core::FormToken.issue(session_id: @context.session_id) },
           query: {},
