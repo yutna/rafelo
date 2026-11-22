@@ -45,9 +45,12 @@ clean_tree() {
 
 check_no_placeholder() {
   local app="$1"
+  local scope="${2:-all}"
   local found
   local brand="Rafelo"
   local lower="rafelo"
+  local paths=(.)
+  if [ "$scope" = "examples" ]; then paths=(engines/example_* config Gemfile.lock); fi
   found="$(git -C "$app" ls-files | grep -i 'acme' || true)"
   if [ -n "$found" ]; then
     echo "adoption: placeholder path in $app: $found" >&2
@@ -59,19 +62,22 @@ check_no_placeholder() {
     exit 1
   fi
   # The kernel brand stays, but an example engine never keeps a kernel Ruby
-  # namespace or path after adoption (GEN-07, decision 1).
-  if git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- . >/dev/null 2>&1; then
+  # namespace or path after adoption (GEN-07, decision 1). A kernel update
+  # refreshes only changed paths, so the N-1 proof checks the example slice it
+  # actually renders instead of unrelated app-owned docs and specs.
+  if git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- "${paths[@]}" >/dev/null 2>&1; then
     echo "adoption: example engine kept the kernel namespace in $app" >&2
-    git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- . >&2
+    git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- "${paths[@]}" >&2
     exit 1
   fi
 }
 
 gate() {
   local app="$1"
+  local scope="${2:-all}"
   ( cd "$app" && BUNDLE_FROZEN=false bin/setup --skip-server )
   ( cd "$app" && BUNDLE_FROZEN=false BASE_SHA="$(git rev-list --max-parents=0 HEAD)" bin/ci )
-  check_no_placeholder "$app"
+  check_no_placeholder "$app" "$scope"
   test -z "$(clean_tree "$app")"
 }
 
@@ -191,7 +197,7 @@ run_update() {
   ( cd "$work/smoke_shop_prev" && git add -A && \
       git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
         commit -q -m "chore: update the kernel to v$version" )
-  gate "$work/smoke_shop_prev"
+  gate "$work/smoke_shop_prev" examples
   echo "adoption: $base_tag updated to $version and passed"
 }
 

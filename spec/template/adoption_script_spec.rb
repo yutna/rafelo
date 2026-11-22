@@ -26,4 +26,9 @@ RSpec.describe "script/ci/adoption" do
     expect(script).to include("RafeloTemplate.render_examples!")
     expect(script).not_to include('cp -R "$current_src/engines/$example"')
   end
+
+  it "scopes the namespace check to the example slice in the N-1 proof" do
+    expect(script).to include('gate "$work/smoke_shop_prev" examples')
+    expect(script).to include("paths=(engines/example_* config Gemfile.lock)")
+  end
 end
