@@ -228,7 +228,7 @@ verify_generated() {
 bin/rails generate rafelo:domain smoke_party
 bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
-bin/rails generate rafelo:page smoke_check widgets --actions=index,new
+bin/rails generate rafelo:page smoke_check widgets --actions=index,new,edit
 verify_generated smoke_party smoke_check smoke_other
 RAILS_ENV=test bin/rails db:prepare
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb engines/smoke_check/spec

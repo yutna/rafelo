@@ -41,7 +41,7 @@ verify_generated() {
 bin/rails generate rafelo:domain smoke_party
 bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
-bin/rails generate rafelo:page smoke_check widgets --actions=index,new
+bin/rails generate rafelo:page smoke_check widgets --actions=index,new,edit
 # The generated slice meets CT-08, FE-07, FE-01, and CT-10 (E6).
 for file in \
   engines/smoke_check/app/frontend/pages/widgets/index.tsx \
