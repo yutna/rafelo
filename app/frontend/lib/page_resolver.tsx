@@ -1,17 +1,15 @@
-import { ErrorBoundary } from "@design_system/error_boundary";
-import { usePage } from "@inertiajs/react";
 import { createElement, type ComponentType, type ReactNode } from "react";
 
 import { AppShell } from "@/layouts/app_shell";
 import { AuthShell } from "@/layouts/auth_shell";
 import { BareShell } from "@/layouts/bare_shell";
 import { LayoutRoot } from "@/layouts/layout_root";
+import { PageBoundary } from "@/layouts/page_boundary";
 
 import type { LayoutName } from "./layout_name";
 
-import { t } from "./i18n";
 import { setLocale } from "./i18n";
-import { reportClientError, setPageContext } from "./report_client_error";
+import { setPageContext } from "./report_client_error";
 
 type PageModule = { default: PageComponent };
 type PageComponent = ComponentType<Record<string, unknown>> & {
@@ -79,25 +77,9 @@ function withLayout(component: PageComponent, name: string): PageComponent {
   if (cached) return cached;
 
   const layoutName = component.layoutName ?? "app";
-  const Wrapper: PageComponent = (props) => {
-    const { url } = usePage();
-    const trace = props.trace as { requestId?: string; traceId?: string } | undefined;
-    return (
-      <ErrorBoundary
-        testId="page.error"
-        title={t("app:errors.page_title")}
-        homeLabel={t("app:errors.go_home")}
-        retryLabel={t("app:errors.retry")}
-        homeHref="/"
-        resetKey={url}
-        requestId={trace?.requestId}
-        traceId={trace?.traceId}
-        reporter={reportClientError}
-      >
-        {createElement(component, props)}
-      </ErrorBoundary>
-    );
-  };
+  const Wrapper: PageComponent = (props) => (
+    <PageBoundary trace={props.trace}>{createElement(component, props)}</PageBoundary>
+  );
   Wrapper.layout = LAYOUTS[layoutName] ?? LAYOUTS.app;
   compiled.set(name, Wrapper);
   return Wrapper;
