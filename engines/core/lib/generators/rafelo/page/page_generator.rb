@@ -235,7 +235,8 @@ module Rafelo
               authorize :#{resource_singular}, :update?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
               form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token, :version))
               back = page_context.urls.route(:#{mod}, :edit_#{resource_singular}, id: params[:id])
-              if form.invalid?
+              form.errors.add(:version, :blank) if form.version.blank?
+              if form.errors.any? || form.invalid?
                 return redirect_after_write(back, errors: form.error_messages)
               end
 
@@ -493,7 +494,6 @@ module Rafelo
               attribute :version, :string
 
               validates :name, presence: true
-              validates :version, presence: true
             end
           end
         RUBY

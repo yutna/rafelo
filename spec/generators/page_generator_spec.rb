@@ -296,7 +296,6 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(form).to include("< Rafelo::Core::Form")
       expect(form).to include("validates :name, presence: true")
       expect(form).to include("attribute :version, :string")
-      expect(form).to include("validates :version, presence: true")
 
       controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
       expect(controller).to include("IdempotencyClaim.call")
