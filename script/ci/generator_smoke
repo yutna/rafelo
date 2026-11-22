@@ -124,7 +124,11 @@ grep -q 'useSmokeRenamedTranslation' engines/smoke_renamed/app/frontend/pages/wi
 grep -q 'name: "smoke_renamed"' engines/smoke_renamed/vitest.config.mts
 grep -q 'name: "smoke_renamed:node"' engines/smoke_renamed/vitest.config.mts
 grep -q 'MODULE_NAME = "smoke_renamed"' engines/smoke_renamed/app/frontend/public/index.ts
-grep -q 'smoke_renamed/widgets/index' engines/smoke_renamed/config/budgets.yml
+grep -q '^pages:' engines/smoke_renamed/config/budgets.yml
+if grep -q 'smoke_other/' engines/smoke_renamed/config/budgets.yml; then
+  echo "renamed engine still carries old budget keys (#666)" >&2
+  exit 1
+fi
 grep -q 'key: :smoke_renamed' engines/smoke_renamed/config/module.rb
 grep -q 'label_key: "smoke_renamed.nav.title"' engines/smoke_renamed/config/module.rb
 grep -q 'path: "/smoke_other"' engines/smoke_renamed/config/module.rb
