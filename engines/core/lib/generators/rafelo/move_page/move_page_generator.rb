@@ -282,6 +282,10 @@ module Rafelo
           tgt_source_prefix[plural] = src_prefix.delete(plural)
         end
         src[@source] = src_prefix
+        # The target's seed entry for the same resource is a placeholder, not a
+        # route: keeping it would generate a duplicate constant for the key the
+        # move just brought under the source prefix.
+        tgt[@target]&.delete(plural)
         tgt[@source] = tgt_source_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))

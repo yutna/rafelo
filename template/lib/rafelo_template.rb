@@ -58,21 +58,39 @@ module RafeloTemplate
     end.join
   end
 
-  def reserved?(app_name)
+  def reserved?(app_name, source_root: default_source_root)
     name = namespace(app_name)
-    RESERVED.include?(name) || Object.const_defined?(name)
+    RESERVED.include?(name) || template_gem_names(source_root).include?(name) || Object.const_defined?(name)
   end
 
-  def validate!(app_name)
+  def validate!(app_name, source_root: default_source_root)
     name = namespace(app_name)
     if RESERVED.include?(name)
       raise ArgumentError, "template: #{app_name.inspect} collides with the reserved namespace #{name}"
+    end
+    if template_gem_names(source_root).include?(name)
+      raise ArgumentError, "template: #{app_name.inspect} collides with a template gem constant (#{name})"
     end
     if Object.const_defined?(name)
       raise ArgumentError, "template: #{app_name.inspect} is already a constant (#{name})"
     end
 
     name
+  end
+
+  def default_source_root
+    File.expand_path("../..", __dir__)
+  end
+
+  # Every gem the template locks would be loaded before the app's code runs, so
+  # an app named after one collides with its constant. Gemfile.lock lists the
+  # full set; the Rails generator process has not required most of them yet.
+  def template_gem_names(source_root = default_source_root)
+    lock = File.join(source_root, "Gemfile.lock")
+    return [] unless File.file?(lock)
+
+    File.readlines(lock).filter_map { |line| line[/^\s{4}([A-Za-z0-9_.-]+) \(/, 1] }
+      .map { |gem_name| namespace(gem_name) }.uniq
   end
 
   # The template asserts the `rails new` flag set and stops before writing
@@ -97,7 +115,7 @@ module RafeloTemplate
   # written paths. The payload source is `template/payload.yml`; the template
   # repository's own `.github/` and oss-kit callers are never listed there.
   def render!(source_root:, destination:, app_name:, version:, only: nil)
-    namespace = validate!(app_name)
+    namespace = validate!(app_name, source_root: source_root)
     destination = File.expand_path(destination)
     FileUtils.mkdir_p(destination)
 

@@ -23,6 +23,12 @@ RSpec.describe RafeloTemplate do
       end
     end
 
+    it "refuses a name that collides with a template gem" do
+      %w[puma kamal faraday].each do |name|
+        expect { described_class.validate!(name) }.to raise_error(ArgumentError, /template gem constant/)
+      end
+    end
+
     it "refuses a name that is already a constant" do
       expect { described_class.validate!("string") }.to raise_error(ArgumentError, /already a constant/)
     end

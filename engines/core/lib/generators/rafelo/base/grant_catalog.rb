@@ -15,7 +15,7 @@ module Rafelo
 
       def sync(root)
         root = Pathname(root)
-        path = root.join("engines/core/spec/fixtures/upstream/api/grants.json")
+        path = root.join("config/grants.json")
         return unless path.file?
 
         grants = JSON.parse(path.read).fetch("grants")

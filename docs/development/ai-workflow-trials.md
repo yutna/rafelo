@@ -176,8 +176,7 @@ people who are allowed to delete invoices."
   - The first push (the permission commit alone) failed
     `spec/upstream/drift_spec.rb`: the synthetic upstream grant catalog did not
     offer `billing:invoice:delete`. The trial added the key to
-    `engines/core/spec/fixtures/upstream/api/grants.json`, the fake upstream's
-    catalog, and reran.
+    the app-owned `config/grants.json` catalog and reran.
   - `npm run arch:check` failed `pages-render-screens`: the page imported the
     container directly. The trial moved the container behind
     `screens/invoices/index_screen.tsx`, restoring page → screen → container

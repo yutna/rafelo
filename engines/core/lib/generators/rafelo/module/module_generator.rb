@@ -116,7 +116,7 @@ module Rafelo
           create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
         end
         create_file "#{engine_dir}/config/errors.yml", "{}\n"
-        create_file "#{engine_dir}/config/permissions.yml", "#{name}:\n  widget: [read]\n"
+        create_file "#{engine_dir}/config/permissions.yml", "#{name}:\n  widgets: [read]\n"
         create_file "#{engine_dir}/config/budgets.yml", "pages: {}\n"
         create_file "#{engine_dir}/config/ratchets.yml", <<~YAML
           eslint_disable: 0
