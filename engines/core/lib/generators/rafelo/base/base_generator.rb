@@ -53,6 +53,7 @@ module Rafelo
         files = %w[
           .dependency-cruiser.engines.generated.json Gemfile.lock tsconfig.json tsconfig.base.json
           tsconfig.tooling.json app/frontend/tsconfig.json config/frontend_aliases.mts
+          engines/core/spec/fixtures/upstream/api/grants.json
         ]
         files.to_h { |path| [ path, File.file?(root_path.join(path)) ? File.binread(root_path.join(path)) : nil ] }
       end
