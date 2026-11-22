@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function expectMainContentLinkMovesFocus(page: Page) {
+  await page.bringToFront();
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
   await page.keyboard.press("Tab");
   const link = page.getByTestId("app.main-link");
   await expect(link).toBeFocused();
