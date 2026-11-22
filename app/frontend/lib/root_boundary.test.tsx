@@ -26,8 +26,28 @@ describe("RootBoundary", () => {
       </RootBoundary>,
     );
 
-    const alert = screen.getByRole("alert");
+    const alert = screen.getByTestId("app.root_error");
     expect(alert).toHaveTextContent("request-1");
     expect(reporter).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets the boundary when the page URL changes", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { rerender } = render(
+      <RootBoundary pageUrl="/en">
+        <Broken />
+      </RootBoundary>,
+    );
+    expect(screen.getByTestId("app.root_error")).toBeVisible();
+
+    rerender(
+      <RootBoundary pageUrl="/en/orders">
+        <p data-testid="recovered">Recovered</p>
+      </RootBoundary>,
+    );
+
+    expect(screen.getByTestId("recovered")).toBeVisible();
+    expect(screen.queryByTestId("app.root_error")).not.toBeInTheDocument();
   });
 });

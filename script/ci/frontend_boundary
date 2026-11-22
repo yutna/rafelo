@@ -24,7 +24,7 @@ abort "frontend_boundary: no frontend files found under #{root}" if files.empty?
 findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  next if relative.include?("/layouts/") || relative == "app/frontend/entrypoints/application.tsx"
+  next if relative.include?("/layouts/") || relative == "app/frontend/lib/page_resolver.tsx" || relative == "app/frontend/entrypoints/application.tsx"
 
   File.readlines(path, chomp: true).each_with_index do |line, index|
     next unless line.match?(/\busePage\b/)

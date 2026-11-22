@@ -35,6 +35,19 @@ describe("FlashStatus", () => {
     expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");
   });
 
+  it("clears the notice on the next page and keeps it clear on Back", () => {
+    inertia.flash = { notice: "Saved" };
+    const { rerender } = render(<FlashStatus />);
+    expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");
+
+    inertia.flash = {};
+    rerender(<FlashStatus />);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+
+    rerender(<FlashStatus />);
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+
   it("throws on a flash payload outside the schema", () => {
     inertia.flash = { notice: 42 };
 
