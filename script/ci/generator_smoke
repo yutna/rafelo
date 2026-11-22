@@ -99,8 +99,8 @@ if grep -q -E '(/en/|localhost)' engines/smoke_check/spec/requests/widgets_spec.
   exit 1
 fi
 grep -q 'version: 1' engines/smoke_check/spec/requests/widgets_spec.rb
-verify_generated smoke_party smoke_check smoke_other
 RAILS_ENV=test bin/rails db:prepare
+verify_generated smoke_party smoke_check smoke_other
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb engines/smoke_check/spec
 
 # Change: move the resource to the other module, then rename that module.
