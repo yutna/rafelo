@@ -26,6 +26,8 @@
     "previous": "Previous",
     "next": "Next",
     "version": "Version",
+    "show_title": "Order {{number}}",
+    "edit_title": "Edit order {{number}}",
     "export": "Export",
     "created": "Order {{number}} created.",
     "updated": "Order {{number}} updated.",

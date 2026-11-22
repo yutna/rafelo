@@ -14,8 +14,6 @@ vi.mock("@/lib/report_client_error", async (importOriginal) => {
   return { ...actual, reportClientError: reporter };
 });
 
-import { t } from "@/lib/i18n";
-
 import { PageBoundary } from "./page_boundary";
 
 function Broken(): never {
@@ -42,7 +40,10 @@ describe("PageBoundary", () => {
       </PageBoundary>,
     );
 
-    expect(screen.getByTestId("page.error")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("request-1");
+    expect(screen.getByTestId("page.error.retry")).toBeVisible();
+    expect(screen.getByTestId("page.error.home")).toHaveAttribute("href", "/");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
     expect(reporter).toHaveBeenCalledTimes(1);
     expect(reporter).toHaveBeenCalledWith(expect.any(Error), expect.anything(), {
       requestId: "request-1",
@@ -77,7 +78,7 @@ describe("PageBoundary", () => {
     );
     expect(screen.getByTestId("page.error")).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: t("app:errors.retry") }));
+    await userEvent.click(screen.getByTestId("page.error.retry"));
 
     expect(screen.queryByTestId("page.error")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Invoice 2");

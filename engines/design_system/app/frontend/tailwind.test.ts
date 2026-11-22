@@ -1,12 +1,24 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { themeTokens, twMerge } from "./internal/tailwind";
+
+const css = readFileSync(new URL("./theme.css", import.meta.url), "utf8");
+const cssTokens = { text: [] as string[], shadow: [] as string[], radius: [] as string[] };
+
+for (const [, group, token] of css.matchAll(/--(text|shadow|radius)-([a-z0-9-]+):/g)) {
+  cssTokens[group as keyof typeof cssTokens].push(token);
+}
 
 describe("tailwind merge", () => {
   const groups = [
     { group: "text", classPrefix: "text", semantic: "text-primary" },
     { group: "shadow", classPrefix: "shadow", semantic: "shadow-danger" },
   ] as const;
+
+  it("registers every custom theme token from the CSS entry", () => {
+    expect(themeTokens).toEqual(cssTokens);
+  });
 
   it("keeps every custom token beside a semantic color of the same prefix", () => {
     for (const { group, classPrefix, semantic } of groups) {

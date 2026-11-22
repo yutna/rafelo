@@ -49,7 +49,7 @@ module PageMatchers
     when Hash
       value.each do |key, item|
         if %w[href path].include?(key.to_s) || key.to_s.end_with?("Href")
-          out << item if item.is_a?(String) && item.start_with?("/")
+          out << item if item.is_a?(String)
         else
           hrefs(item, out)
         end
@@ -73,7 +73,7 @@ module PageMatchers
   end
 
   def path_part(href)
-    href.split("?", 2).first.split("#", 2).first
+    href.to_s.split("?", 2).first.to_s.split("#", 2).first.to_s
   end
 
   def component_error(page, page_key)

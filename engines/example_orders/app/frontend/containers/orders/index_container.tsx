@@ -28,7 +28,7 @@ type Props = {
   items: Order[];
   newHref: Href | null;
   exportHref: Href;
-  filterHrefs: { label: string; href: Href; current: boolean }[];
+  filterHrefs: { key: string; label: string; href: Href; current: boolean }[];
   previousHref: Href | null;
   nextHref: Href | null;
   chart?: z.infer<typeof chartSchema>;
@@ -54,7 +54,12 @@ export function OrdersIndexContainer({
     <section className="mx-auto max-w-5xl px-6 py-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-display font-semibold">{t("orders.title")}</h1>
+          <h1
+            className="text-display font-semibold"
+            data-testid="example_orders.orders.index.title"
+          >
+            {t("orders.title")}
+          </h1>
           <p className="mt-1 text-slate-600">{t("orders.subtitle")}</p>
         </div>
         <div className="flex gap-2">
@@ -82,12 +87,12 @@ export function OrdersIndexContainer({
       <nav aria-label={t("orders.filter")} className="mt-6 flex flex-wrap gap-2">
         {filterHrefs.map((filter) => (
           <Link
-            key={filter.label}
-            testId={`example_orders.orders.index.filter.${filter.label}.link`}
+            key={filter.key}
+            testId={`example_orders.orders.index.filter.${filter.key}.link`}
             href={filter.href}
             className={filter.current ? "font-semibold underline" : "underline"}
           >
-            <span data-testid={`example_orders.orders.index.filter.${filter.label}`}>
+            <span data-testid={`example_orders.orders.index.filter.${filter.key}`}>
               {filter.label}
             </span>
           </Link>

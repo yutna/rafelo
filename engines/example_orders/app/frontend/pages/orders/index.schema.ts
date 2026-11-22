@@ -17,7 +17,9 @@ export const pageSchema = definePage({
     items: z.array(orderSchema),
     newHref: hrefSchema.nullable(),
     exportHref: hrefSchema,
-    filterHrefs: z.array(z.object({ label: z.string(), href: hrefSchema, current: z.boolean() })),
+    filterHrefs: z.array(
+      z.object({ key: z.string(), label: z.string(), href: hrefSchema, current: z.boolean() }),
+    ),
     previousHref: hrefSchema.nullable(),
     nextHref: hrefSchema.nullable(),
     chart: chartSchema.optional(),

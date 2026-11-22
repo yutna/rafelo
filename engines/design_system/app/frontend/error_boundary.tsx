@@ -67,12 +67,17 @@ export class ErrorBoundary extends Component<Props, State> {
           ) : null}
           <button
             type="button"
+            data-testid={`${this.props.testId}.retry`}
             onClick={() => this.setState({ failed: false })}
             className="mt-4 rounded-card bg-muted px-4 py-2"
           >
             {this.props.retryLabel}
           </button>
-          <a href={this.props.homeHref} className="mt-4 ml-4 inline-block underline">
+          <a
+            href={this.props.homeHref}
+            data-testid={`${this.props.testId}.home`}
+            className="mt-4 ml-4 inline-block underline"
+          >
             {this.props.homeLabel}
           </a>
         </section>

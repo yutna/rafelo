@@ -78,7 +78,7 @@ describe("resolvePage", () => {
     expect(typeof appPage.layout).toBe("function");
   });
 
-  it("renders a page in English and then in Thai after a visit", async () => {
+  it("renders a page in English and then in Thai after a fresh Inertia mount", async () => {
     const EnglishPage = await resolvePage("sessions/new", {
       props: { app: { locale: "en" } },
     });
@@ -91,5 +91,11 @@ describe("resolvePage", () => {
     rerender(<ThaiPage key="th" {...signInProps("th")} />);
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("เข้าสู่ระบบ");
+  });
+
+  it("fails when the page's locale has no catalog", async () => {
+    await expect(resolvePage("sessions/new", { props: { app: { locale: "fr" } } })).rejects.toThrow(
+      "Missing app catalog for fr",
+    );
   });
 });

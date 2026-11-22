@@ -21,8 +21,9 @@ patterns = %W[
 files = patterns.flat_map { |pattern| Dir[pattern] }.uniq.select { |path| File.file?(path) }
 abort "frontend_boundary: checked 0 files; no frontend files found under #{root}" if files.empty?
 
-STATE = /\b(?:useState|useReducer|useActionState|useOptimistic|useForm|useRef)\b/
+STATE = /\b(?:useState|useReducer|useActionState|useOptimistic|useForm|useRef|useUiState|useDomainReducer)\b/
 VISIT = /\brouter\b/
+SCREEN_IMPORT = %r{from\s+["'][^"']*screens/}
 LAYER = %r{\A(?:app/frontend|engines/([^/]+)/app/frontend)/(pages|screens|containers|components)/}
 
 findings = 0
@@ -34,6 +35,9 @@ files.each do |path|
   engine = match && match[1]
   layer = match && match[2]
   next if engine && %w[core design_system].include?(engine)
+
+  page_component = layer == "pages" && relative.end_with?(".tsx")
+  page_screen = false
 
   File.readlines(path, chomp: true).each_with_index do |line, index|
     location = "#{relative}:#{index + 1}"
@@ -73,6 +77,11 @@ files.each do |path|
       findings += 1
     end
 
+    if layer == "components" && line.match?(VISIT)
+      puts "#{location}: components must not visit (FE-01)"
+      findings += 1
+    end
+
     if layer == "containers" && line.match?(%r{from\s+["'][^"']*(?:screens|pages)/})
       puts "#{location}: containers must not import screens or pages (FE-01)"
       findings += 1
@@ -82,6 +91,13 @@ files.each do |path|
       puts "#{location}: page titles come from i18n (FE-11)"
       findings += 1
     end
+
+    page_screen = true if page_component && line.match?(SCREEN_IMPORT)
+  end
+
+  if page_component && !page_screen
+    puts "#{relative}: pages render one screen (FE-01)"
+    findings += 1
   end
 end
 
