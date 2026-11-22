@@ -46,7 +46,6 @@ bin/rails generate rafelo:page smoke_check widgets --actions=index,new
 for file in \
   engines/smoke_check/app/frontend/pages/widgets/index.tsx \
   engines/smoke_check/app/frontend/pages/widgets/new.tsx \
-  engines/smoke_check/app/frontend/screens/widgets/index_screen.tsx \
   engines/smoke_check/app/frontend/containers/widgets/index_container.tsx \
   engines/smoke_check/app/frontend/components/widgets/form.tsx; do
   grep -q 'useSmokeCheckTranslation' "$file" || { echo "generated page misses its i18n hook (CT-08): $file" >&2; exit 1; }
