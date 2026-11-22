@@ -137,7 +137,7 @@ For `rafelo:page <module> <resource> [--actions=index,show,new,edit]` (default
 | Frontend | `pages/<resource>/<action>.tsx` with `.schema.ts` built by `definePage` with the page's `can` keys (CT-01, CT-03), screen, container, components, and types files; links and form actions use the URLs in props, never URLs built in TypeScript; `new`/`edit` pages use `useForm` and add the form token and the edit version from the current props at submit time (BE-15); test ids follow FE-09 |
 | Copy | titles, empty states, and field labels in the module's locale file for every configured locale |
 | Contracts | the page's JSON Schema in `engines/<module>/config/contracts/`, written by the post-write steps (GEN-09) |
-| Tests | request specs under the default locale prefix asserting schema and budgets at the maximum page size, with a fixture that supplies that many items, `have_resolvable_hrefs`, and `match_policy_capabilities` for the page's `can` keys (TS-02, TS-03, ARCH-10); redirect and error paths for writes; component tests |
+| Tests | request specs in the module's `engines/<module>/spec/requests/` under the default locale prefix asserting schema and budgets at the maximum page size, with a fixture that supplies that many items, `have_resolvable_hrefs`, and `match_policy_capabilities` for the page's `can` keys (TS-02, TS-03, ARCH-10); redirect and error paths for writes; component tests |
 | Routes | resourceful routes in the module's `config/routes.rb` |
 
 When `config/upstreams.yml` names more than one upstream, `--upstream=<name>`
@@ -220,7 +220,7 @@ verify_generated() {
   # renamed slice's lint/request proof returns with rename_module (#666).
   for engine in "$@"; do
     bin/rubocop "engines/$engine"
-    if [ -d "spec/requests/$engine" ]; then bin/rubocop "spec/requests/$engine"; fi
+    if [ -d "engines/$engine/spec" ]; then bin/rubocop "engines/$engine/spec"; fi
   done
 }
 
@@ -228,10 +228,10 @@ verify_generated() {
 bin/rails generate rafelo:domain smoke_party
 bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
-bin/rails generate rafelo:page smoke_check widgets --actions=index,new
-verify_generated smoke_party smoke_check smoke_other
+bin/rails generate rafelo:page smoke_check widgets --actions=index,new,edit
 RAILS_ENV=test bin/rails db:prepare
-RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb spec/requests/smoke_check
+verify_generated smoke_party smoke_check smoke_other
+RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb engines/smoke_check/spec
 
 # Change: move the resource to the other module, then rename that module.
 bin/rails generate rafelo:move_page smoke_check smoke_other widgets

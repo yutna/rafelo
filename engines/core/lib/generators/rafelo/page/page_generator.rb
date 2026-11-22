@@ -12,6 +12,7 @@ module Rafelo
       argument :module_name_arg, type: :string
       argument :resource, type: :string
       class_option :actions, type: :string, default: "index"
+      class_option :upstream, type: :string
 
       def create_page
         @mod = module_name_arg.to_s.underscore
@@ -55,6 +56,9 @@ module Rafelo
         end
         unless Dir.exist?(root.join("engines", mod))
           raise Thor::Error, "module engine not found: #{mod}"
+        end
+        if options[:upstream].present? && upstream_names.any? && !upstream_names.include?(options[:upstream].to_s)
+          raise Thor::Error, "unknown upstream: #{options[:upstream]} (known: #{upstream_names.join(", ")})"
         end
 
         checks = [
@@ -124,6 +128,16 @@ module Rafelo
 
       def default_locale
         Rafelo::Core::Locales.default.to_s
+      end
+
+      def upstream_names
+        Rails.application.config.x.upstreams.keys.map(&:to_s)
+      rescue StandardError
+        []
+      end
+
+      def selected_upstream
+        (options[:upstream].presence || upstream_names.first || "api").to_sym
       end
 
       def write_routes
@@ -219,22 +233,24 @@ module Rafelo
           methods << <<~RUBY
             def update
               authorize :#{resource_singular}, :update?, policy_class: #{module_class}::#{resource_singular.camelize}Policy
-              form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token))
+              form = #{module_class}::#{resource_singular.camelize}Form.new(params.permit(:name, :token, :version))
               back = page_context.urls.route(:#{mod}, :edit_#{resource_singular}, id: params[:id])
-              if form.invalid?
+              form.errors.add(:version, :blank) if form.version.blank?
+              if form.errors.any? || form.invalid?
                 return redirect_after_write(back, errors: form.error_messages)
               end
 
               Rafelo::Core::IdempotencyClaim.call(
                 self,
                 token: form.token,
-                payload: form.payload.merge(id: params[:id].to_s),
+                payload: form.payload.merge(id: params[:id].to_s).except(:version),
                 back: back,
                 session_id: Rafelo::Core::Current.session&.id,
                 viewer_id: Rafelo::Core::Current.viewer&.id
               ) do |idempotency_key|
                 updated = gateway(#{module_class}::#{resource_plural.camelize}Gateway).update(
-                  id: params[:id].to_s, payload: form.payload, idempotency_key: idempotency_key
+                  id: params[:id].to_s, payload: form.payload.except(:version),
+                  idempotency_key: idempotency_key, if_match: form.version
                 )
                 request.env["rafelo.audit.upstream_id"] = updated.id.to_s if updated.respond_to?(:id)
                 redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_singular}, id: params[:id]), notice: "Updated.")
@@ -294,13 +310,7 @@ module Rafelo
       end
 
       def write_gateway
-        upstream = begin
-          config = Rails.application.config.x.upstreams
-          config.respond_to?(:keys) ? Array(config.keys).first : nil
-        rescue StandardError
-          nil
-        end
-        upstream ||= :api
+        upstream = selected_upstream
         methods = []
         if effective_actions.include?("index")
           methods << <<~RUBY
@@ -323,10 +333,11 @@ module Rafelo
         end
         if effective_actions.include?("update")
           methods << <<~RUBY
-            def update(id:, payload:, idempotency_key:)
+            def update(id:, payload:, idempotency_key:, if_match:)
               client.patch("#{resource_plural}/\#{id}", body: payload.to_json,
                            headers: { "Content-Type" => "application/json" },
-                           idempotency_key: idempotency_key)
+                           idempotency_key: idempotency_key,
+                           if_match: if_match)
             end
           RUBY
         end
@@ -455,7 +466,7 @@ module Rafelo
                 def envelope
                   {
                     data: {
-                      #{resource_singular}: { id: @id, name: @id },
+                      #{resource_singular}: { id: @id, name: @id, version: 1 },
                       updateHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
                       showHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
                     },
@@ -480,6 +491,7 @@ module Rafelo
           module #{module_class}
             class #{resource_singular.camelize}Form < Rafelo::Core::Form
               attribute :name, :string
+              attribute :version, :string
 
               validates :name, presence: true
             end
@@ -646,6 +658,27 @@ module Rafelo
             );
           }
         TSX
+        create_managed engine_file("app/frontend/components/#{resource_plural}/list.test.tsx"), <<~TSX
+          import "@testing-library/jest-dom/vitest";
+          import { render, screen } from "@testing-library/react";
+          import { describe, expect, it } from "vitest";
+
+          import { #{resource_plural.camelize}List } from "./list";
+
+          describe("#{resource_plural.camelize}List", () => {
+            it("renders a row with its test id", () => {
+              render(<#{resource_plural.camelize}List items={[{ id: "1", label: "Widget" }]} emptyLabel="No widgets" />);
+
+              expect(screen.getByTestId("#{mod}.#{resource_plural}.index.row.1")).toHaveTextContent("Widget");
+            });
+
+            it("renders the empty state with the translated label", () => {
+              render(<#{resource_plural.camelize}List items={[]} emptyLabel="No widgets" />);
+
+              expect(screen.getByTestId("#{mod}.#{resource_plural}.index.empty")).toHaveTextContent("No widgets");
+            });
+          });
+        TSX
       end
 
       def write_show_frontend
@@ -753,6 +786,30 @@ module Rafelo
             );
           }
         TSX
+        create_managed engine_file("app/frontend/components/#{resource_plural}/form.test.tsx"), <<~TSX
+          import "@testing-library/jest-dom/vitest";
+          import { render, screen } from "@testing-library/react";
+          import { describe, expect, it } from "vitest";
+
+          import { #{resource_singular.camelize}FormFields } from "./form";
+
+          describe("#{resource_singular.camelize}FormFields", () => {
+            it("renders the design-system field and its error", () => {
+              render(
+                <#{resource_singular.camelize}FormFields
+                  name="Widget"
+                  errors={{ name: "can't be blank" }}
+                  onNameChange={() => undefined}
+                />,
+              );
+
+              expect(screen.getByTestId("#{mod}.#{resource_plural}.form.name")).toHaveValue("Widget");
+              expect(screen.getByTestId("#{mod}.#{resource_plural}.form.name.error")).toHaveTextContent(
+                "can't be blank",
+              );
+            });
+          });
+        TSX
       end
 
       def write_new_frontend
@@ -855,7 +912,7 @@ module Rafelo
 
           export const pageSchema = definePage({
             data: z.object({
-              #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
+              #{resource_singular}: z.object({ id: z.string(), name: z.string(), version: z.number().int() }),
               updateHref: hrefSchema,
               showHref: hrefSchema,
             }),
@@ -903,7 +960,7 @@ module Rafelo
           )}
 
           type Props = {
-            #{resource_singular}: { id: string; name: string };
+            #{resource_singular}: { id: string; name: string; version: number };
             updateHref: Href;
             showHref: Href;
             meta: { formToken: string };
@@ -927,7 +984,11 @@ module Rafelo
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
-                    form.transform((data) => ({ ...data, token: meta.formToken }));
+                    form.transform((data) => ({
+                      ...data,
+                      token: meta.formToken,
+                      version: #{resource_singular}.version,
+                    }));
                     form.patch(updateHref);
                   }}
                   className="mt-6 space-y-4"
@@ -1021,6 +1082,9 @@ module Rafelo
           require "rails_helper"
 
           RSpec.describe "#{mod}/#{resource_plural}", type: :request do
+            let(:locale) { I18n.default_locale }
+            let(:upstream_base_url) { Rails.application.config.x.upstreams.fetch(:#{selected_upstream}).base_url }
+
             def sign_in_with(grants)
               viewer = Struct.new(:id, :name).new(7, "Ada")
               _, token = Rafelo::Core::Session.start(
@@ -1045,12 +1109,12 @@ module Rafelo
               items = JSON.parse(
                 Rails.root.join("engines/#{mod}/spec/fixtures/upstream/#{resource_plural}/index.json").read
               ).fetch("items")
-              stub_request(:get, "http://localhost:4000/#{resource_plural}")
+              stub_request(:get, "\#{upstream_base_url}/#{resource_plural}")
                 .with(query: { page: "1", per_page: Rafelo::Core::ListQuery.max_per_page.to_s })
                 .to_return(status: 200, body: { items: items }.to_json,
                            headers: { "Content-Type" => "application/json" })
 
-              expect { get "/en/#{mod}/#{resource_plural}?per_page=\#{Rafelo::Core::ListQuery.max_per_page}", headers: headers }.to within_budgets("#{page_key_base}/index")
+              expect { get "/\#{locale}/#{mod}/#{resource_plural}?per_page=\#{Rafelo::Core::ListQuery.max_per_page}", headers: headers }.to within_budgets("#{page_key_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/index")
               expect(response).to be_within_props_budget("#{page_key_base}/index")
@@ -1064,7 +1128,7 @@ module Rafelo
 
             it "renders the show page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/en/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
+              expect { get "/\#{locale}/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/show")
               expect(response).to be_within_props_budget("#{page_key_base}/show")
@@ -1078,7 +1142,7 @@ module Rafelo
 
             it "renders the new page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/en/#{mod}/#{resource_plural}/new", headers: headers }.to within_budgets("#{page_key_base}/new")
+              expect { get "/\#{locale}/#{mod}/#{resource_plural}/new", headers: headers }.to within_budgets("#{page_key_base}/new")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/new")
               expect(response).to be_within_props_budget("#{page_key_base}/new")
@@ -1092,7 +1156,7 @@ module Rafelo
 
             it "renders the edit page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/en/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
+              expect { get "/\#{locale}/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/edit")
               expect(response).to be_within_props_budget("#{page_key_base}/edit")
@@ -1106,47 +1170,47 @@ module Rafelo
 
             it "creates through the gateway, redirects with 303, and replays without a second call" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
-              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 201, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}")
 
-              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(a_request(:post, "http://localhost:4000/#{resource_plural}")).to have_been_made.once
+              expect(a_request(:post, "\#{upstream_base_url}/#{resource_plural}")).to have_been_made.once
             end
 
             it "redirects back with errors when create params are invalid" do
               headers = sign_in_with([ #{grants_literal} ])
-              post "/en/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
+              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
             end
 
             it "redirects back with translated errors when the upstream rejects the create" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
-              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 422, body: '{"errors":{"name":["taken"]}}',
                            headers: { "Content-Type" => "application/json" })
 
-              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
             end
 
             it "redirects back with a conflict when the upstream answers 409" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
-              stub_request(:post, "http://localhost:4000/#{resource_plural}")
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              post "/en/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
             end
           RUBY
         end
@@ -1155,36 +1219,44 @@ module Rafelo
 
             it "updates through the gateway and redirects with 303" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
-              stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              stub_request(:patch, "\#{upstream_base_url}/#{resource_plural}/1")
                 .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1")
             end
 
             it "redirects back with errors when update params are invalid" do
               headers = sign_in_with([ #{grants_literal} ])
-              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token" }, headers: headers
+              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token", version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+            end
+
+            it "redirects back when the edit version is missing" do
+              headers = sign_in_with([ #{grants_literal} ])
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              expect(response).to have_http_status(:see_other)
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
             end
 
             it "redirects back with a conflict when the upstream rejects the update" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
-              stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
+              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              stub_request(:patch, "\#{upstream_base_url}/#{resource_plural}/1")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              patch "/en/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
+              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
             end
           RUBY
         end
         spec << "  end\n"
-        create_managed "spec/requests/#{mod}/#{resource_plural}_spec.rb", spec
+        create_managed engine_file("spec/requests/#{resource_plural}_spec.rb"), spec
       end
 
       def post_write

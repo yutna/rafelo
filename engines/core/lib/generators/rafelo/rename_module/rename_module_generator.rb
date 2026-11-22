@@ -72,6 +72,10 @@ module Rafelo
           body = body.gsub("#{app_ns_underscore}_#{@source_name}", "#{app_ns_underscore}_#{@destination_name}")
           body = body.gsub("#{app_ns_underscore}/#{@source_name}", "#{app_ns_underscore}/#{@destination_name}")
           body = body.gsub("@#{@source_name}/", "@#{@destination_name}/")
+          body = body.gsub("engines/#{@source_name}/", "engines/#{@destination_name}/")
+          body = body.gsub(/:#{Regexp.escape(@source_name)}\b/, ":#{@destination_name}")
+          body = body.gsub("\"#{@source_name}/", "\"#{@destination_name}/")
+          body = body.gsub("'#{@source_name}/", "'#{@destination_name}/")
           body = body.gsub(/^(\s*)key:\s*:#{Regexp.escape(@source_name)}\b/, "\\1key: :#{@destination_name}")
           # keep URL/path and permission prefixes stable per GEN-06
           if path.to_s.end_with?("config/module.rb")

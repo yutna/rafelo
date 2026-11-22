@@ -26,6 +26,14 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       dependent = root.join("engines/shipper")
       FileUtils.mkdir_p(dependent)
       File.write(dependent.join("package.yml"), YAML.dump("dependencies" => [ "engines/core", "engines/billing" ]))
+      engine_spec = src.join("spec/requests/widgets_spec.rb")
+      FileUtils.mkdir_p(engine_spec.dirname)
+      File.write(engine_spec, <<~RUBY)
+        RSpec.describe "billing/widgets" do
+          let(:fixture) { Rails.root.join("engines/billing/spec/fixtures/upstream/widgets/index.json") }
+          it { get "/en/billing/widgets"; page_context.urls.route(:billing, :widgets) }
+        end
+      RUBY
 
       described_class.start([ "billing", "invoicing", "--skip-post-write" ], destination_root: dir)
 
@@ -50,6 +58,12 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
 
       dependent_package = YAML.safe_load(File.read(dependent.join("package.yml")))
       expect(dependent_package["dependencies"]).to eq([ "engines/core", "engines/invoicing" ])
+
+      spec = File.read(root.join("engines/invoicing/spec/requests/widgets_spec.rb"))
+      expect(spec).to include('"invoicing/widgets"')
+      expect(spec).to include("engines/invoicing/spec/fixtures/upstream/widgets/index.json")
+      expect(spec).to include("route(:invoicing")
+      expect(spec).to include('get "/en/billing/widgets"')
     end
   end
 
