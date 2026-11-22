@@ -55,5 +55,16 @@ test.describe("example_orders", () => {
     await page.getByTestId("example_orders.orders.edit.submit").click();
     await expect(page.getByTestId("example_orders.orders.show.page")).toBeVisible();
     await expect(page.getByTestId("example_orders.orders.show.status")).toHaveText("paid");
+
+    await expect(page.getByTestId("page.flash.notice")).toContainText(/updated/i);
+    await page.getByTestId("example_orders.orders.show.back").click();
+    await expect(page.getByTestId("example_orders.orders.index.list")).toBeVisible();
+    await expect(page.getByTestId("page.flash.notice")).toHaveCount(0);
+    await page.goBack();
+    await expect(page.getByTestId("example_orders.orders.show.page")).toBeVisible();
+    await expect(page.getByTestId("page.flash.notice")).toHaveCount(0);
+
+    await page.goto("/th/example_orders/orders");
+    await expect(page.getByTestId("example_orders.orders.index.title")).toHaveText("คำสั่งซื้อ");
   });
 });

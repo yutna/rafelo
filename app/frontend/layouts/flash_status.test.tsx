@@ -35,7 +35,7 @@ describe("FlashStatus", () => {
     expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");
   });
 
-  it("clears the notice on the next page and keeps it clear on Back", () => {
+  it("clears the notice on later renders", () => {
     inertia.flash = { notice: "Saved" };
     const { rerender } = render(<FlashStatus />);
     expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");

@@ -32,8 +32,9 @@ RSpec.describe "Home page", type: :request do
     Rafelo::Core::Locales.available.each do |locale|
       get "/#{locale}", headers: auth_headers(grants: [ "*" ])
       page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+      shared = page.fetch("props").slice("auth", "trace", "app", "nav", "errors")
 
-      expect(page.fetch("props").to_json.bytesize).to be <= budget, "shared props for #{locale}"
+      expect(shared.to_json.bytesize).to be <= budget, "shared props for #{locale}"
     end
   end
 

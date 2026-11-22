@@ -58,6 +58,7 @@ module Rafelo
       def filter_hrefs
         [ nil, "open", "paid", "cancelled" ].map do |status|
           {
+            key: status || "all",
             label: status ? I18n.t("example_orders.orders.statuses.#{status}") : I18n.t("example_orders.orders.all"),
             href: context.urls.route(:example_orders, :orders, status: status, per_page: @query.per_page, sort: @query.sort, direction: @query.direction),
             current: @query.filters["status"] == status

@@ -34,9 +34,12 @@ describe("PageAnnouncer", () => {
     window.history.replaceState({}, "", "/");
   });
 
-  it("stays silent on the initial page", () => {
+  it("stays silent on the initial page", async () => {
     loadPage("/en/invoices/1", "Invoice 1");
     render(<PageAnnouncer />);
+
+    navigate("/en/invoices/1", "initial");
+    await flushAnimationFrame();
 
     expect(screen.getByTestId("page.announcer")).toHaveClass("sr-only");
     expect(screen.getByTestId("page.announcer")).toHaveTextContent("");

@@ -15,8 +15,14 @@ cases = [
   [ "page holds state", "app/frontend/pages/bad.tsx",
     "import { useState } from \"react\";\nexport const value = useState(0);\n",
     1, "pages must not hold state" ],
+  [ "page visits", "app/frontend/pages/bad.tsx",
+    "import { router } from \"@inertiajs/react\";\nexport const visit = () => router.post(\"/\");\n",
+    1, "pages must not visit" ],
   [ "screen holds state", "app/frontend/screens/bad.tsx",
     "import { useForm } from \"@inertiajs/react\";\nexport const value = useForm({});\n",
+    1, "screens must not hold state" ],
+  [ "screen holds wrapper state", "app/frontend/screens/bad.tsx",
+    "import { useUiState } from \"@core/lib/use_ui_state\";\nexport const value = useUiState({});\n",
     1, "screens must not hold state" ],
   [ "screen visits", "app/frontend/screens/bad.tsx",
     "import { router } from \"@inertiajs/react\";\nexport const visit = () => router.post(\"/\");\n",
@@ -24,15 +30,26 @@ cases = [
   [ "component holds state", "app/frontend/components/bad.tsx",
     "import { useRef } from \"react\";\nexport const value = useRef(null);\n",
     1, "components take props and return JSX" ],
+  [ "component visits", "app/frontend/components/bad.tsx",
+    "import { router } from \"@inertiajs/react\";\nexport const visit = () => router.post(\"/\");\n",
+    1, "components must not visit" ],
   [ "container imports a screen", "app/frontend/containers/bad.tsx",
     "import { Screen } from \"../screens/bad\";\nexport const value = Screen;\n",
     1, "containers must not import screens or pages" ],
+  [ "page without a screen", "app/frontend/pages/bad.tsx",
+    "export default function Bad() {\n  return <p>Bad</p>;\n}\n",
+    1, "pages render one screen" ],
   [ "hard-coded page title", "app/frontend/pages/bad.tsx",
     "import { Head } from \"@inertiajs/react\";\nexport const value = <Head title=\"Bad\" />;\n",
     1, "page titles come from i18n" ],
   [ "legal layers", "app/frontend/screens/legal.tsx",
     "import { useLocale } from \"@design_system/public\";\n" \
     "export function Legal() {\n  const { locale } = useLocale();\n  return <p>{locale}</p>;\n}\n",
+    0, nil ],
+  [ "legal page with a screen and an i18n title", "app/frontend/pages/legal.tsx",
+    "import { Head } from \"@inertiajs/react\";\nimport { Legal } from \"@/screens/legal\";\n" \
+    "import { t } from \"@/lib/i18n\";\nconst title = t(\"app:home.message\");\n" \
+    "export default function LegalPage() {\n  return <><Head title={title} /><Legal /></>;\n}\n",
     0, nil ]
 ]
 

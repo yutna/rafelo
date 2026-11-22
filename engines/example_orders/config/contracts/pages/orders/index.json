@@ -113,6 +113,9 @@
           "items": {
             "type": "object",
             "properties": {
+              "key": {
+                "type": "string"
+              },
               "label": {
                 "type": "string"
               },
@@ -124,6 +127,7 @@
               }
             },
             "required": [
+              "key",
               "label",
               "href",
               "current"

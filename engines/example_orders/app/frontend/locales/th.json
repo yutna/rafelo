@@ -26,6 +26,8 @@
     "previous": "ก่อนหน้า",
     "next": "ถัดไป",
     "version": "เวอร์ชัน",
+    "show_title": "คำสั่งซื้อ {{number}}",
+    "edit_title": "แก้ไขคำสั่งซื้อ {{number}}",
     "export": "ส่งออก",
     "created": "สร้างคำสั่งซื้อ {{number}} แล้ว",
     "updated": "แก้ไขคำสั่งซื้อ {{number}} แล้ว",
