@@ -78,22 +78,24 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
       engine = root.join("engines/billing")
-      write_file(root, "engines/billing/rafelo_billing.gemspec", <<~RUBY)
-        require_relative "lib/rafelo/billing/version"
+      app_ns = Rails.application.class.module_parent_name
+      app_ns_underscore = app_ns.underscore
+      write_file(root, "engines/billing/#{app_ns_underscore}_billing.gemspec", <<~RUBY)
+        require_relative "lib/#{app_ns_underscore}/billing/version"
 
         Gem::Specification.new do |spec|
-          spec.name = "rafelo_billing"
-          spec.summary = "Rafelo billing module"
-          spec.description = "The billing product module of the Rafelo BFF template."
+          spec.name = "#{app_ns_underscore}_billing"
+          spec.summary = "#{app_ns} billing module"
+          spec.description = "The billing product module of the #{app_ns} BFF template."
         end
       RUBY
-      write_file(root, "engines/billing/lib/rafelo_billing.rb", "require \"rafelo/billing/engine\"\n")
-      write_file(root, "engines/billing/lib/rafelo/billing/version.rb", "module Rafelo\n  module Billing\n    VERSION = \"0.1.0\"\n  end\nend\n")
-      write_file(root, "engines/billing/lib/rafelo/billing/engine.rb", <<~RUBY)
-        module Rafelo
+      write_file(root, "engines/billing/lib/#{app_ns_underscore}_billing.rb", "require \"#{app_ns_underscore}/billing/engine\"\n")
+      write_file(root, "engines/billing/lib/#{app_ns_underscore}/billing/version.rb", "module #{app_ns}\n  module Billing\n    VERSION = \"0.1.0\"\n  end\nend\n")
+      write_file(root, "engines/billing/lib/#{app_ns_underscore}/billing/engine.rb", <<~RUBY)
+        module #{app_ns}
           module Billing
             class Engine < Rails::Engine
-              isolate_namespace Rafelo::Billing
+              isolate_namespace #{app_ns}::Billing
             end
           end
         end
@@ -103,13 +105,13 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       write_file(root, "engines/billing/config/module.rb", <<~RUBY)
         Rafelo::Core::Modules.register(
           key: :billing,
-          engine: Rafelo::Billing::Engine,
+          engine: #{app_ns}::Billing::Engine,
           path: "/billing",
           permission_prefixes: [ "billing", "shared" ],
           nav: { order: 10, label_key: "billing.nav.title", icon: "folder" }
         )
       RUBY
-      write_file(root, "engines/billing/config/routes.rb", "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n")
+      write_file(root, "engines/billing/config/routes.rb", "#{app_ns}::Billing::Engine.routes.draw do\n  resources :widgets\nend\n")
       write_file(root, "engines/billing/config/permissions.yml", YAML.dump("billing" => { "widgets" => [ "read" ] }))
       write_file(root, "engines/billing/config/budgets.yml", YAML.dump("pages" => { "billing/widgets/index" => { "sql_queries_per_request" => 2 } }))
       write_file(root, "engines/billing/config/errors.yml", <<~YAML)
@@ -137,8 +139,8 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
           return <ul data-testid="billing.widgets.index.list">{t("widgets.title")}</ul>;
         }
       TSX
-      write_file(root, "engines/billing/app/public/rafelo/billing/permissions.rb", <<~RUBY)
-        module Rafelo
+      write_file(root, "engines/billing/app/public/#{app_ns_underscore}/billing/permissions.rb", <<~RUBY)
+        module #{app_ns}
           module Billing
             module Permissions
               WIDGETS_READ = "billing:widgets:read"
@@ -146,8 +148,8 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
           end
         end
       RUBY
-      write_file(root, "engines/billing/app/controllers/rafelo/billing/widgets_controller.rb", <<~RUBY)
-        module Rafelo
+      write_file(root, "engines/billing/app/controllers/#{app_ns_underscore}/billing/widgets_controller.rb", <<~RUBY)
+        module #{app_ns}
           module Billing
             class WidgetsController < Rafelo::Core::BaseController
               throttle to: 30, within: 1.minute, name: "billing/write"
@@ -162,8 +164,8 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
           end
         end
       RUBY
-      write_file(root, "engines/billing/app/props/rafelo/billing/widgets_index_props.rb", <<~RUBY)
-        module Rafelo
+      write_file(root, "engines/billing/app/props/#{app_ns_underscore}/billing/widgets_index_props.rb", <<~RUBY)
+        module #{app_ns}
           module Billing
             class WidgetsIndexProps < Rafelo::Core::PageProps
               def title = I18n.t("billing.widgets.title")
@@ -176,7 +178,7 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       TS
       write_file(root, "engines/billing/tsconfig.json", "{\"compilerOptions\":{\"outDir\":\"../../tmp/tsc/billing\"}}\n")
       write_file(root, "engines/billing/README.md", "# billing\n\nThe billing module.\n")
-      write_file(root, "engines/billing/AGENTS.md", "# Rafelo::Billing\n\nThe billing module.\n")
+      write_file(root, "engines/billing/AGENTS.md", "# #{app_ns}::Billing\n\nThe billing module.\n")
       write_file(root, "engines/billing/e2e/widgets.spec.ts", <<~TS)
         test.describe("billing", () => {
           test("lists", async ({ page }) => {
@@ -208,7 +210,7 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
         import { Widget } from "@billing/public";
         export const ShippingWidget = Widget;
       TS
-      write_file(root, "engines/shipper/app/models/rafelo/shipper/shipment.rb", "module Rafelo\n  module Shipper\n    Shipment = Rafelo::Billing::Widget\n  end\nend\n")
+      write_file(root, "engines/shipper/app/models/#{app_ns_underscore}/shipper/shipment.rb", "module #{app_ns}\n  module Shipper\n    Shipment = #{app_ns}::Billing::Widget\n  end\nend\n")
       write_file(root, "config/frontend_aliases.mts", <<~TS)
         export const engineAliases = [
           { find: "@billing", replacement: `${root}/engines/billing/app/frontend` },
@@ -221,8 +223,8 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       target = root.join("engines/invoicing")
       expect(target).to exist
       expect(root.join("engines/billing")).not_to exist
-      expect(target.join("rafelo_invoicing.gemspec")).to exist
-      expect(File.read(target.join("rafelo_invoicing.gemspec"))).not_to include("billing")
+      expect(target.join("#{app_ns_underscore}_invoicing.gemspec")).to exist
+      expect(File.read(target.join("#{app_ns_underscore}_invoicing.gemspec"))).not_to include("billing")
       expect(File.read(target.join("vitest.config.mts"))).to include('name: "invoicing"').and include('name: "invoicing:node"')
       expect(File.read(target.join("app/frontend/public/index.ts"))).to include('MODULE_NAME = "invoicing"')
       expect(File.read(target.join("app/frontend/i18n.ts"))).to include("useInvoicingTranslation").and include('ns: "invoicing"')
@@ -234,11 +236,11 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       expect(File.read(target.join("config/locales/en.yml"))).to include("invoicing:").and include('title: Invoicing')
       expect(File.read(target.join("config/module.rb"))).to include("key: :invoicing").and include('label_key: "invoicing.nav.title"')
       expect(File.read(target.join("config/module.rb"))).to include('path: "/billing"').and include('permission_prefixes: [ "billing", "shared" ]')
-      expect(File.read(target.join("app/controllers/rafelo/invoicing/widgets_controller.rb"))).to include('render_page "invoicing/widgets/index"').and include('t("invoicing.widgets.title")').and include("route(:invoicing").and include('name: "invoicing/write"')
-      expect(File.read(target.join("app/props/rafelo/invoicing/widgets_index_props.rb"))).to include('I18n.t("invoicing.widgets.title")')
-      expect(File.read(target.join("app/public/rafelo/invoicing/permissions.rb"))).to include("module Invoicing").and include('"billing:widgets:read"')
+      expect(File.read(target.join("app/controllers/#{app_ns_underscore}/invoicing/widgets_controller.rb"))).to include('render_page "invoicing/widgets/index"').and include('t("invoicing.widgets.title")').and include("route(:invoicing").and include('name: "invoicing/write"')
+      expect(File.read(target.join("app/props/#{app_ns_underscore}/invoicing/widgets_index_props.rb"))).to include('I18n.t("invoicing.widgets.title")')
+      expect(File.read(target.join("app/public/#{app_ns_underscore}/invoicing/permissions.rb"))).to include("module Invoicing").and include('"billing:widgets:read"')
       expect(File.read(target.join("README.md"))).to eq("# invoicing\n\nThe invoicing module.\n")
-      expect(File.read(target.join("AGENTS.md"))).to eq("# Rafelo::Invoicing\n\nThe invoicing module.\n")
+      expect(File.read(target.join("AGENTS.md"))).to eq("# #{app_ns}::Invoicing\n\nThe invoicing module.\n")
       expect(File.read(target.join("tsconfig.json"))).to include("tmp/tsc/invoicing")
       expect(File.read(target.join("e2e/widgets.spec.ts"))).to include('test.describe("invoicing"').and include('getByTestId("invoicing.widgets.index.list")').and include('"/en/billing/widgets"')
 
@@ -252,9 +254,9 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
       dependent_frontend = File.read(root.join("engines/shipper/app/frontend/public/index.ts"))
       expect(dependent_frontend).to include("@invoicing/public")
       expect(dependent_frontend).not_to include("@billing")
-      dependent_model = File.read(root.join("engines/shipper/app/models/rafelo/shipper/shipment.rb"))
-      expect(dependent_model).to include("Rafelo::Invoicing::Widget")
-      expect(dependent_model).not_to include("Rafelo::Billing")
+      dependent_model = File.read(root.join("engines/shipper/app/models/#{app_ns_underscore}/shipper/shipment.rb"))
+      expect(dependent_model).to include("#{app_ns}::Invoicing::Widget")
+      expect(dependent_model).not_to include("#{app_ns}::Billing")
       aliases = File.read(root.join("config/frontend_aliases.mts"))
       expect(aliases).to include('find: "@invoicing"').and include("engines/invoicing/app/frontend")
       expect(aliases).not_to include("@billing")
@@ -268,7 +270,7 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
           true
         when "engines/invoicing/package.yml"
           line.include?("legacy_table_prefix")
-        when "engines/invoicing/app/public/rafelo/invoicing/permissions.rb", "engines/invoicing/app/frontend/permissions.generated.ts"
+        when "engines/invoicing/app/public/#{app_ns_underscore}/invoicing/permissions.rb", "engines/invoicing/app/frontend/permissions.generated.ts"
           line.include?("billing:widgets:read")
         when "spec/requests/invoicing/widgets_spec.rb"
           line.include?("/en/billing/widgets") || line.include?("billing:widgets:read")
