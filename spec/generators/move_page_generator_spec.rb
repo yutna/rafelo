@@ -125,8 +125,9 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
 
       leftovers = engine_slice.keys.select { |relative| File.exist?(root.join("engines/billing", relative)) }
       expect(leftovers).to be_empty
+      app_ns = Rails.application.class.module_parent_name.underscore
       engine_slice.each_key do |relative|
-        target = relative.sub("/rafelo/billing/", "/rafelo/payments/")
+        target = relative.sub("/#{app_ns}/billing/", "/#{app_ns}/payments/")
         expect(root.join("engines/payments", target)).to exist
       end
       expect(root.join("spec/requests/billing/widgets_spec.rb")).not_to exist
