@@ -48,6 +48,18 @@ RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb spec/requests/smoke
 
 # Change: move the resource to the other module, then rename that module.
 bin/rails generate rafelo:move_page smoke_check smoke_other widgets
+# The move takes the whole slice with it (E5).
+test -d engines/smoke_other/app/frontend/pages/widgets
+test ! -d engines/smoke_check/app/frontend/pages/widgets
+test -d engines/smoke_other/config/contracts/pages/widgets
+test ! -d engines/smoke_check/config/contracts/pages/widgets
+test -d engines/smoke_other/spec/fixtures/upstream/widgets
+test ! -d engines/smoke_check/spec/fixtures/upstream/widgets
+test -n "$(find engines/smoke_other/app/gateways -name widgets_gateway.rb -print -quit)"
+test -z "$(find engines/smoke_check/app/gateways -name widgets_gateway.rb -print -quit)"
+test -f spec/requests/smoke_other/widgets_spec.rb
+test ! -f spec/requests/smoke_check/widgets_spec.rb
+RAILS_ENV=test bundle exec rspec spec/requests/smoke_other
 bin/rails generate rafelo:rename_module smoke_other smoke_renamed
 verify smoke_check smoke_renamed
 RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb
