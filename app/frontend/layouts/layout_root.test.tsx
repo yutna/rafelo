@@ -105,7 +105,7 @@ describe("LayoutRoot", () => {
     expect(screen.getByTestId("app.locale.th")).not.toHaveAttribute("aria-current");
   });
 
-  it("keeps the main-content link first and the main landmark focusable in every shell", async () => {
+  it("keeps the main-content link first and points it at a focusable main landmark in every shell", async () => {
     inertia.props = shared;
 
     for (const Shell of [AppShell, AuthShell, BareShell]) {
@@ -118,13 +118,13 @@ describe("LayoutRoot", () => {
       );
 
       await userEvent.tab();
-      expect(screen.getByTestId("app.main-link")).toHaveFocus();
+      const link = screen.getByTestId("app.main-link");
+      expect(link).toHaveFocus();
+      expect(link).toHaveAttribute("href", "#main-content");
 
       const main = screen.getByRole("main");
       expect(main).toHaveAttribute("id", "main-content");
       expect(main).toHaveAttribute("tabindex", "-1");
-      main.focus();
-      expect(main).toHaveFocus();
 
       cleanup();
     }
