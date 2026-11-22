@@ -30,6 +30,7 @@ describe("PageAnnouncer", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
+    document.title = "";
     window.history.replaceState({}, "", "/");
   });
 
@@ -37,6 +38,7 @@ describe("PageAnnouncer", () => {
     loadPage("/en/invoices/1", "Invoice 1");
     render(<PageAnnouncer />);
 
+    expect(screen.getByTestId("page.announcer")).toHaveClass("sr-only");
     expect(screen.getByTestId("page.announcer")).toHaveTextContent("");
     const heading = screen.getByRole("heading", { level: 1 });
     expect(heading).not.toHaveFocus();
@@ -44,6 +46,7 @@ describe("PageAnnouncer", () => {
 
   it("announces the new record and focuses its heading", async () => {
     loadPage("/en/invoices/1", "Invoice 1");
+    document.title = "Invoice 1";
     render(<PageAnnouncer />);
 
     setHeading("Invoice 2");
@@ -54,6 +57,7 @@ describe("PageAnnouncer", () => {
       expect(screen.getByTestId("page.announcer")).toHaveTextContent("Invoice 2"),
     );
     expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(document.title).toBe("Invoice 1");
   });
 
   it("announces a Back navigation", async () => {
