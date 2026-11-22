@@ -1,10 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { twMerge } from "./internal/tailwind";
+import { themeTokens, twMerge } from "./internal/tailwind";
 
 describe("tailwind merge", () => {
-  it("keeps a custom token and a semantic color of the same prefix", () => {
-    expect(twMerge("text-primary text-display")).toBe("text-primary text-display");
-    expect(twMerge("shadow-danger shadow-card")).toBe("shadow-danger shadow-card");
+  const groups = [
+    { group: "text", classPrefix: "text", semantic: "text-primary" },
+    { group: "shadow", classPrefix: "shadow", semantic: "shadow-danger" },
+  ] as const;
+
+  it("keeps every custom token beside a semantic color of the same prefix", () => {
+    for (const { group, classPrefix, semantic } of groups) {
+      for (const token of themeTokens[group]) {
+        expect(twMerge(`${semantic} ${classPrefix}-${token}`)).toBe(
+          `${semantic} ${classPrefix}-${token}`,
+        );
+      }
+    }
+  });
+
+  it("lets a custom radius replace a semantic radius", () => {
+    for (const token of themeTokens.radius) {
+      expect(twMerge(`rounded-lg rounded-${token}`)).toBe(`rounded-${token}`);
+    }
   });
 });

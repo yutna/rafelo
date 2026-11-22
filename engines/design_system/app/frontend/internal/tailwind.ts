@@ -1,13 +1,15 @@
 import { extendTailwindMerge } from "tailwind-merge";
 import { createTV } from "tailwind-variants/lite";
 
+export const themeTokens: Record<"text" | "shadow" | "radius", string[]> = {
+  text: ["display"],
+  shadow: ["card"],
+  radius: ["card"],
+};
+
 export const twMerge = extendTailwindMerge({
   extend: {
-    theme: {
-      text: ["display"],
-      shadow: ["card"],
-      radius: ["card"],
-    },
+    theme: themeTokens,
   },
 });
 

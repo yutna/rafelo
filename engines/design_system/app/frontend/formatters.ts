@@ -1,15 +1,26 @@
 const THAI_CALENDAR = "th-TH-u-ca-buddhist";
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function calendarFor(locale: string): string {
   return locale === "th" ? THAI_CALENDAR : `${locale}-u-ca-gregory`;
 }
 
 export function formatDate(value: string | Date, locale: string, timeZone = "UTC"): string {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const calendarDate = typeof value === "string" && ISO_DATE.test(value);
+  const date = calendarDate ? new Date(`${value}T00:00:00Z`) : new Date(value);
+
   return new Intl.DateTimeFormat(calendarFor(locale), {
     dateStyle: "medium",
-    timeZone,
+    timeZone: calendarDate ? "UTC" : timeZone,
   }).format(date);
+}
+
+export function formatDateTime(value: string | Date, locale: string, timeZone = "UTC"): string {
+  return new Intl.DateTimeFormat(calendarFor(locale), {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone,
+  }).format(new Date(value));
 }
 
 export function formatNumber(value: number, locale: string): string {
