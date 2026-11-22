@@ -512,6 +512,11 @@ module Rafelo
 
       def translation_hook = "use#{mod.camelize}Translation"
 
+      def import_lines(*lines)
+        indent = " " * 10
+        lines.compact.sort_by { |line| line[/["']([^"']+)["']/, 1].to_s }.join("\n#{indent}")
+      end
+
       def write_index_frontend
         can_keys = effective_actions.include?("new") ? "[\"#{capability_key(permission_create)}\"] as const" : "[] as const"
         data_props = if effective_actions.include?("new")
@@ -538,13 +543,13 @@ module Rafelo
           export type #{resource_singular.camelize}Item = { id: string; label: string };
         TS
         create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
-          import type { LayoutName } from "@core/contracts/layout.types";
-
-          import { Head } from "@inertiajs/react";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { #{resource_plural.camelize}IndexScreen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
-
-          import { pageSchema } from "./index.schema";
+          #{import_lines(
+            'import type { LayoutName } from "@core/contracts/layout.types";',
+            'import { Head } from "@inertiajs/react";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            "import { #{resource_plural.camelize}IndexScreen } from \"#{engine_alias}/screens/#{resource_plural}/index_screen\";",
+            'import { pageSchema } from "./index.schema";'
+          )}
 
           export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
             const t = #{translation_hook}();
@@ -572,11 +577,11 @@ module Rafelo
           "  items: { id: string; label: string }[];\n  can: Record<string, { allowed: boolean; reason: string | null }>;"
         end
         container_args = effective_actions.include?("new") ? "items, newHref, can" : "items, can"
-        container_imports = if effective_actions.include?("new")
-          "import type { Href } from \"@design_system/public\";\nimport { Link } from \"@design_system/public\";\n"
-        else
-          ""
-        end
+        container_imports = import_lines(
+          effective_actions.include?("new") ? 'import { Link, type Href } from "@design_system/public";' : nil,
+          "import { #{resource_plural.camelize}List } from \"#{engine_alias}/components/#{resource_plural}/list\";",
+          "import { #{translation_hook} } from \"#{engine_alias}/i18n\";"
+        )
         new_link = if effective_actions.include?("new")
           <<~TSX.chomp
                     {can["#{capability_key(permission_create)}"]?.allowed && newHref ? (
@@ -589,8 +594,7 @@ module Rafelo
           ""
         end
         create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
-          #{container_imports}import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          #{container_imports}
 
           type Props = {
           #{container_props}
@@ -651,13 +655,13 @@ module Rafelo
           });
         TS
         create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
-          import type { LayoutName } from "@core/contracts/layout.types";
-
-          import { Head } from "@inertiajs/react";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
-
-          import { pageSchema } from "./show.schema";
+          #{import_lines(
+            'import type { LayoutName } from "@core/contracts/layout.types";',
+            'import { Head } from "@inertiajs/react";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            "import { #{resource_singular.camelize}ShowScreen } from \"#{engine_alias}/screens/#{resource_plural}/show_screen\";",
+            'import { pageSchema } from "./show.schema";'
+          )}
 
           export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
             const t = #{translation_hook}();
@@ -680,10 +684,10 @@ module Rafelo
           }
         TSX
         create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
-          import type { Href } from "@design_system/public";
-
-          import { Link } from "@design_system/public";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          #{import_lines(
+            'import { Link, type Href } from "@design_system/public";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";"
+          )}
 
           type Props = {
             #{resource_singular}: { id: string; name: string };
@@ -717,8 +721,10 @@ module Rafelo
 
       def write_form_component
         create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
-          import { TextField } from "@design_system/public";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          #{import_lines(
+            'import { TextField } from "@design_system/public";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";"
+          )}
 
           type Props = {
             name: string;
@@ -757,13 +763,13 @@ module Rafelo
           });
         TS
         create_managed engine_file("app/frontend/pages/#{resource_plural}/new.tsx"), <<~TSX
-          import type { LayoutName } from "@core/contracts/layout.types";
-
-          import { Head } from "@inertiajs/react";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
-
-          import { pageSchema } from "./new.schema";
+          #{import_lines(
+            'import type { LayoutName } from "@core/contracts/layout.types";',
+            'import { Head } from "@inertiajs/react";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            "import { #{resource_plural.camelize}NewScreen } from \"#{engine_alias}/screens/#{resource_plural}/new_screen\";",
+            'import { pageSchema } from "./new.schema";'
+          )}
 
           export default function #{resource_plural.camelize}New(props: Record<string, unknown>) {
             const t = #{translation_hook}();
@@ -786,12 +792,12 @@ module Rafelo
           }
         TSX
         create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
-          import type { Href } from "@design_system/public";
-
-          import { Button, Link } from "@design_system/public";
-          import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { useForm } from "@inertiajs/react";
+          #{import_lines(
+            'import { Button, Link, type Href } from "@design_system/public";',
+            "import { #{resource_singular.camelize}FormFields } from \"#{engine_alias}/components/#{resource_plural}/form\";",
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            'import { useForm } from "@inertiajs/react";'
+          )}
 
           type Props = {
             createHref: Href;
@@ -853,13 +859,13 @@ module Rafelo
           });
         TS
         create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
-          import type { LayoutName } from "@core/contracts/layout.types";
-
-          import { Head } from "@inertiajs/react";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
-
-          import { pageSchema } from "./edit.schema";
+          #{import_lines(
+            'import type { LayoutName } from "@core/contracts/layout.types";',
+            'import { Head } from "@inertiajs/react";',
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            "import { #{resource_plural.camelize}EditScreen } from \"#{engine_alias}/screens/#{resource_plural}/edit_screen\";",
+            'import { pageSchema } from "./edit.schema";'
+          )}
 
           export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
             const t = #{translation_hook}();
@@ -882,12 +888,12 @@ module Rafelo
           }
         TSX
         create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
-          import type { Href } from "@design_system/public";
-
-          import { Button, Link } from "@design_system/public";
-          import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
-          import { #{translation_hook} } from "#{engine_alias}/i18n";
-          import { useForm } from "@inertiajs/react";
+          #{import_lines(
+            'import { Button, Link, type Href } from "@design_system/public";',
+            "import { #{resource_singular.camelize}FormFields } from \"#{engine_alias}/components/#{resource_plural}/form\";",
+            "import { #{translation_hook} } from \"#{engine_alias}/i18n\";",
+            'import { useForm } from "@inertiajs/react";'
+          )}
 
           type Props = {
             #{resource_singular}: { id: string; name: string };
