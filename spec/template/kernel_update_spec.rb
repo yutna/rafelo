@@ -19,9 +19,37 @@ RSpec.describe "bin/kernel_update" do
 
   it "keeps app-owned paths behind the --app-owned option" do
     expect(KernelUpdate::APP_OWNED_PATHS).to include(
-      "app/frontend", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb"
+      "app/frontend", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb"
     )
     expect(KernelUpdate::DEFAULT_PATHS).not_to include(*KernelUpdate::APP_OWNED_PATHS)
+  end
+
+  it "updates an unchanged app-owned locale source only with --app-owned" do
+    base = { "config/locales/en.yml" => "en:\n  app:\n    title: Base\n" }
+    target = { "config/locales/en.yml" => "en:\n  app:\n    title: Target\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root
+          )
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "config/locales/en.yml"))).to eq(base.fetch("config/locales/en.yml"))
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "config/locales/en.yml"))).to eq(target.fetch("config/locales/en.yml"))
+        end
+      end
+    end
   end
 
   let(:script) { File.expand_path("../../script/ci/kernel_update", __dir__) }
