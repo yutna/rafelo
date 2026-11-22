@@ -39,14 +39,38 @@ module Rafelo
             end
           RUBY
           create_file "#{engine_dir}/package.yml", "enforce_dependencies: strict\nenforce_privacy: strict\npublic_path: app/public/\ndependencies:\n  - engines/core\n  - engines/design_system\n"
-          create_file "#{engine_dir}/AGENTS.md", "# #{module_name} domain\n\nFramework-free domain objects and services. No React or Rails imports; design-system formatters may be used by hooks, not by domain code.\n"
+          create_file "#{engine_dir}/AGENTS.md", <<~MD
+            # #{module_name} domain
+
+            Read the root AGENTS.md first. A domain engine holds one business
+            concept several products share. Keep `domain/` and `forms/`
+            framework-free (no React, Inertia, i18next, or design_system); use a
+            hook to bridge them into presentational components. `app/public/` and
+            `app/frontend/public/` are the only files other engines may import
+            (ARCH-09). It has no routes, pages, navigation, registry entry,
+            budgets, or permission prefix (GEN-05).
+          MD
           create_file "#{engine_dir}/app/public/#{app_ns_underscore}/#{name}/.keep", ""
           create_file "#{engine_dir}/app/frontend/public/index.ts", "export const DOMAIN_NAME = \"#{name}\";\n"
           create_file "#{engine_dir}/app/frontend/domain/.keep", ""
+          create_file "#{engine_dir}/app/frontend/forms/.keep", ""
+          create_file "#{engine_dir}/app/frontend/hooks/.keep", ""
           create_file "#{engine_dir}/app/frontend/components/.keep", ""
           create_file "#{engine_dir}/app/frontend/domain/skeleton.test.ts", "import { describe, expect, it } from \"vitest\";\n\ndescribe(\"#{name} domain\", () => {\n  it(\"runs without a DOM\", () => expect(true).toBe(true));\n});\n"
           create_file "#{engine_dir}/app/frontend/components/skeleton.test.tsx", "import \"@testing-library/jest-dom/vitest\";\nimport { render, screen } from \"@testing-library/react\";\nimport { describe, expect, it } from \"vitest\";\n\ndescribe(\"#{name} component\", () => {\n  it(\"renders\", () => {\n    render(<div data-testid=\"#{name}.skeleton\" />);\n    expect(screen.getByTestId(\"#{name}.skeleton\")).toBeInTheDocument();\n  });\n});\n"
           create_file "#{engine_dir}/config/contracts/.keep", ""
+          create_file "#{engine_dir}/config/errors.yml", "{}\n"
+          create_file "#{engine_dir}/config/ratchets.yml", <<~YAML
+            eslint_disable: 0
+            rubocop_disable: 0
+            use_no_memo: 0
+            skipped_tests: 0
+            page_budget_overrides: 0
+            legacy_table_prefixes: 0
+            legacy_constants: 0
+          YAML
+          create_file "#{engine_dir}/db/migrate/.keep", ""
+          create_file "#{engine_dir}/spec/rails_helper.rb", "require_relative \"../../../spec/rails_helper\"\n"
           create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
           create_file "#{engine_dir}/e2e/.keep", ""
           Rafelo::Core::Locales.available.map(&:to_s).each do |locale|

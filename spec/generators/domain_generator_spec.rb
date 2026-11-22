@@ -12,8 +12,24 @@ RSpec.describe Rafelo::Generators::DomainGenerator do
       root = Pathname(dir)
       expect(root.join("engines/customers_probe/rafelo_customers_probe.gemspec")).to exist
       expect(root.join("engines/customers_probe/app/frontend/domain/skeleton.test.ts")).to exist
+      expect(root.join("engines/customers_probe/app/frontend/forms")).to exist
+      expect(root.join("engines/customers_probe/app/frontend/hooks")).to exist
+      expect(root.join("engines/customers_probe/config/errors.yml")).to exist
+      expect(YAML.safe_load_file(root.join("engines/customers_probe/config/ratchets.yml"))).to eq(
+        "eslint_disable" => 0,
+        "rubocop_disable" => 0,
+        "use_no_memo" => 0,
+        "skipped_tests" => 0,
+        "page_budget_overrides" => 0,
+        "legacy_table_prefixes" => 0,
+        "legacy_constants" => 0
+      )
+      expect(root.join("engines/customers_probe/db/migrate/.keep")).to exist
+      expect(File.read(root.join("engines/customers_probe/spec/rails_helper.rb"))).to eq("require_relative \"../../../spec/rails_helper\"\n")
       expect(root.join("engines/customers_probe/config/routes.rb")).not_to exist
       expect(root.join("engines/customers_probe/lib/rafelo/customers_probe/engine.rb").read).not_to include("Modules.register")
+      guide = File.read(root.join("engines/customers_probe/AGENTS.md"))
+      expect(guide).to include("framework-free", "no routes", "app/public/", "app/frontend/public/", "ARCH-09", "GEN-05")
     end
   end
 

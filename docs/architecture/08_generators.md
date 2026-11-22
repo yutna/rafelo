@@ -262,6 +262,10 @@ with these differences:
 - `app/public/acme/<name>/` and `app/frontend/public/` are what consumers use;
   everything else is private (ARCH-09);
 - its own i18n namespace for its presentational components;
+- it keeps the GEN-01 `config/errors.yml`, `config/ratchets.yml`,
+  `config/contracts/`, `db/migrate/`, `spec/`, and `e2e/` skeleton, plus the
+  `domain/`, `forms/`, `hooks/`, and `components/` folders a hook uses to bridge
+  framework-free code to its presentational surface.
 - `package.yml` declares `engines/core` and `engines/design_system`, with
   strict dependency and privacy enforcement.
 

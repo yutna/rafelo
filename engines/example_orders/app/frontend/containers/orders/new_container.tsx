@@ -1,10 +1,9 @@
 import type { Href } from "@design_system/public";
 
-import { Button, Link, focusFirstError } from "@design_system/public";
+import { Button, Link } from "@design_system/public";
 import { OrderFormFields } from "@example_orders/components/orders/form";
+import { useOrderForm } from "@example_orders/hooks/orders/use_order_form";
 import { useOrdersTranslation } from "@example_orders/i18n";
-import { useForm } from "@inertiajs/react";
-import { useRef } from "react";
 
 type Props = {
   createHref: Href;
@@ -15,9 +14,12 @@ type Props = {
 
 export function OrdersNewContainer({ createHref, indexHref, meta, errors }: Props) {
   const t = useOrdersTranslation();
-  const form = useForm({ customerName: "", status: "open" });
-  const formRef = useRef<HTMLFormElement>(null);
-  const formErrors: Record<string, string> = { ...errors, ...form.errors };
+  const { form, formRef, formErrors, submit } = useOrderForm({
+    mode: "create",
+    action: createHref,
+    meta,
+    errors,
+  });
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
@@ -26,10 +28,7 @@ export function OrdersNewContainer({ createHref, indexHref, meta, errors }: Prop
         ref={formRef}
         onSubmit={(event) => {
           event.preventDefault();
-          form.transform((data) => ({ ...data, token: meta.formToken }));
-          form.post(createHref, {
-            onError: () => setTimeout(() => focusFirstError(formRef.current ?? undefined), 0),
-          });
+          submit();
         }}
         className="mt-6 space-y-4"
       >

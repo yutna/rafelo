@@ -1,10 +1,9 @@
 import type { Href } from "@design_system/public";
 
-import { Button, Link, focusFirstError } from "@design_system/public";
+import { Button, Link } from "@design_system/public";
 import { OrderFormFields } from "@example_orders/components/orders/form";
+import { useOrderForm } from "@example_orders/hooks/orders/use_order_form";
 import { useOrdersTranslation } from "@example_orders/i18n";
-import { useForm } from "@inertiajs/react";
-import { useRef } from "react";
 
 type Props = {
   order: { id: string; number: string; customerName: string; status: string; version: number };
@@ -16,9 +15,14 @@ type Props = {
 
 export function OrdersEditContainer({ order, updateHref, showHref, meta, errors }: Props) {
   const t = useOrdersTranslation();
-  const form = useForm({ customerName: order.customerName, status: order.status });
-  const formRef = useRef<HTMLFormElement>(null);
-  const formErrors: Record<string, string> = { ...errors, ...form.errors };
+  const { form, formRef, formErrors, submit } = useOrderForm({
+    mode: "edit",
+    action: updateHref,
+    meta,
+    errors,
+    initial: order,
+    version: order.version,
+  });
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-16">
@@ -27,10 +31,7 @@ export function OrdersEditContainer({ order, updateHref, showHref, meta, errors 
         ref={formRef}
         onSubmit={(event) => {
           event.preventDefault();
-          form.transform((data) => ({ ...data, token: meta.formToken, version: order.version }));
-          form.patch(updateHref, {
-            onError: () => setTimeout(() => focusFirstError(formRef.current ?? undefined), 0),
-          });
+          submit();
         }}
         className="mt-6 space-y-4"
       >
