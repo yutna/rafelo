@@ -1,4 +1,3 @@
-import { useUiState } from "@core/lib/use_ui_state";
 import { Button } from "@design_system/button";
 import { ComboBox } from "@design_system/combobox";
 import { ConfirmDialog } from "@design_system/confirm_dialog";
@@ -10,14 +9,21 @@ import { Tabs } from "@design_system/tabs";
 
 import { t } from "@/lib/i18n";
 
-export function ComponentCatalogPrimitives() {
-  const [primitives, setPrimitives] = useUiState({
-    status: "open",
-    owner: "ada",
-    tab: "details",
-    search: "",
-    confirmOpen: false,
-  });
+type Primitives = {
+  status: string;
+  owner: string;
+  tab: string;
+  search: string;
+  confirmOpen: boolean;
+};
+
+export function ComponentCatalogPrimitives({
+  primitives,
+  onChange,
+}: {
+  primitives: Primitives;
+  onChange: (patch: Partial<Primitives>) => void;
+}) {
   const statusItems = [
     { id: "open", label: t("app:catalog.open") },
     { id: "paid", label: t("app:catalog.paid") },
@@ -36,14 +42,14 @@ export function ComponentCatalogPrimitives() {
           label={t("app:catalog.status")}
           items={statusItems}
           selectedKey={primitives.status}
-          onSelectionChange={(key) => setPrimitives({ status: key })}
+          onSelectionChange={(key) => onChange({ status: key })}
         />
         <ComboBox
           testId="catalog-combobox"
           label={t("app:catalog.owner")}
           items={people}
           selectedKey={primitives.owner}
-          onSelectionChange={(key) => setPrimitives({ owner: key })}
+          onSelectionChange={(key) => onChange({ owner: key })}
         />
         <Menu
           testId="catalog-menu"
@@ -53,7 +59,7 @@ export function ComponentCatalogPrimitives() {
             { id: "delete", label: t("app:catalog.delete") },
           ]}
           onAction={(id) => {
-            if (id === "delete") setPrimitives({ confirmOpen: true });
+            if (id === "delete") onChange({ confirmOpen: true });
           }}
         />
         <div>
@@ -73,7 +79,7 @@ export function ComponentCatalogPrimitives() {
               },
             ]}
             selectedKey={primitives.tab}
-            onSelectionChange={(key) => setPrimitives({ tab: key })}
+            onSelectionChange={(key) => onChange({ tab: key })}
           />
         </div>
       </div>
@@ -82,20 +88,20 @@ export function ComponentCatalogPrimitives() {
         label={t("app:catalog.filters")}
         searchLabel={t("app:catalog.search")}
         searchValue={primitives.search}
-        onSearchChange={(value) => setPrimitives({ search: value })}
+        onSearchChange={(value) => onChange({ search: value })}
       >
         <Select
           testId="catalog-filter-status"
           label={t("app:catalog.status")}
           items={statusItems}
           selectedKey={primitives.status}
-          onSelectionChange={(key) => setPrimitives({ status: key })}
+          onSelectionChange={(key) => onChange({ status: key })}
         />
       </FilterBar>
       <Button
         testId="catalog-confirm-open"
         variant="danger"
-        onPress={() => setPrimitives({ confirmOpen: true })}
+        onPress={() => onChange({ confirmOpen: true })}
       >
         {t("app:catalog.delete")}
       </Button>
@@ -112,8 +118,8 @@ export function ComponentCatalogPrimitives() {
         confirmLabel={t("app:catalog.delete")}
         cancelLabel={t("app:catalog.cancel")}
         open={primitives.confirmOpen}
-        onConfirm={() => setPrimitives({ confirmOpen: false })}
-        onCancel={() => setPrimitives({ confirmOpen: false })}
+        onConfirm={() => onChange({ confirmOpen: false })}
+        onCancel={() => onChange({ confirmOpen: false })}
         destructive
       />
     </section>

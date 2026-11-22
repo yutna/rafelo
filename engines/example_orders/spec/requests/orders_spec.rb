@@ -36,6 +36,8 @@ RSpec.describe "Example orders", type: :request do
     expect(response).to be_within_props_budget("example_orders/orders/index")
     expect(response).to have_resolvable_hrefs("example_orders/orders/index")
     expect(response).to match_policy_capabilities("example_orders/orders/index")
+    expect(page_body.dig("props", "nav").select { |entry| entry["current"] }.map { |entry| entry["key"] })
+      .to eq([ "example_orders" ])
   end
 
   it "renders the show page" do

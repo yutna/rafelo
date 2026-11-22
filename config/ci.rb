@@ -27,6 +27,7 @@ CI.run do
   step "Frontend: Typecheck", "npm run typecheck"
   step "Frontend: Architecture", "npm run arch:check"
   step "Frontend: boundary", "script/ci/frontend_boundary"
+  step "Frontend: boundary canary", "script/ci/frontend_boundary_canary"
   step "Frontend: page props", "script/ci/page_props"
   step "Frontend: state wrappers", "script/ci/frontend_state"
   step "Frontend: state canary", "script/ci/frontend_state_canary"

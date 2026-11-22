@@ -134,6 +134,39 @@ describe("LayoutRoot", () => {
     }
   });
 
+  it("uses the server's current flag instead of a path prefix", () => {
+    inertia.props = {
+      ...shared,
+      nav: [
+        {
+          key: "orders",
+          label: "Orders",
+          path: "/en/orders",
+          icon: "receipt",
+          current: false,
+        },
+        {
+          key: "archive",
+          label: "Archive",
+          path: "/en/orders/archive",
+          icon: "folder",
+          current: true,
+        },
+      ],
+    };
+
+    render(
+      <LayoutRoot>
+        <AppShell>
+          <h1>Archive</h1>
+        </AppShell>
+      </LayoutRoot>,
+    );
+
+    expect(screen.getByTestId("app.nav.orders")).not.toHaveAttribute("aria-current");
+    expect(screen.getByTestId("app.nav.archive")).toHaveAttribute("aria-current", "page");
+  });
+
   it("keeps one announcer node across an app → auth → app shell change", () => {
     inertia.props = shared;
 
