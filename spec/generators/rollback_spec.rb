@@ -141,25 +141,32 @@ RSpec.describe "GEN-09 generator post-write order and rollback" do
     it "rolls the move generator back when #{step} fails" do
       fixture = lambda do |root|
         write_grants(root)
-        {
-          billing: { routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n", permissions: { "billing" => { "widgets" => [ "read" ] } } },
-          payments: { routes: "Rafelo::Payments::Engine.routes.draw do\nend\n", permissions: { "payments" => {} } }
-        }.each do |name, data|
-          engine = root.join("engines", name.to_s)
-          FileUtils.mkdir_p(engine.join("config"))
-          File.write(engine.join("config/routes.rb"), data.fetch(:routes))
-          File.write(engine.join("config/permissions.yml"), YAML.dump(data.fetch(:permissions)))
-          File.write(engine.join("config/module.rb"), <<~RUBY)
-            Rafelo::Core::Modules.register(
-              key: :#{name},
-              engine: Object,
-              path: "/#{name}",
-              permission_prefixes: ["#{name}"],
-              nav: { order: 10 }
-            )
-          RUBY
-        end
-        page = root.join("engines/billing/app/frontend/pages/widgets")
+        source = root.join("engines/billing")
+        target = root.join("engines/payments")
+        [ source, target ].each { |engine| FileUtils.mkdir_p(engine.join("config")) }
+        File.write(source.join("config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n")
+        File.write(source.join("config/permissions.yml"), YAML.dump("billing" => { "widgets" => [ "read" ] }))
+        File.write(source.join("config/module.rb"), <<~RUBY)
+          Rafelo::Core::Modules.register(
+            key: :billing,
+            engine: Object,
+            path: "/billing",
+            permission_prefixes: ["billing"],
+            nav: { order: 10 }
+          )
+        RUBY
+        File.write(target.join("config/routes.rb"), "Rafelo::Payments::Engine.routes.draw do\nend\n")
+        File.write(target.join("config/permissions.yml"), YAML.dump("payments" => {}))
+        File.write(target.join("config/module.rb"), <<~RUBY)
+          Rafelo::Core::Modules.register(
+            key: :payments,
+            engine: Object,
+            path: "/payments",
+            permission_prefixes: ["payments"],
+            nav: { order: 20 }
+          )
+        RUBY
+        page = source.join("app/frontend/pages/widgets")
         FileUtils.mkdir_p(page)
         File.write(page.join("index.tsx"), 'export default "billing/widgets";')
       end
