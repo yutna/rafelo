@@ -4,6 +4,12 @@ require "yaml"
 require Rails.root.join("engines/core/lib/generators/rafelo/move_page_generator")
 
 RSpec.describe Rafelo::Generators::MovePageGenerator do
+  def write_file(root, relative, body)
+    path = root.join(relative)
+    FileUtils.mkdir_p(path.dirname)
+    File.write(path, body)
+  end
+
   def write_engine(root, name, path:, routes:, permissions:, module_rb_extra: "")
     dir = root.join("engines", name)
     FileUtils.mkdir_p(dir.join("config"))
@@ -60,6 +66,79 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       expect(redirect_spec).to exist
       expect(File.read(redirect_spec)).to include('get "/en/billing/widgets"')
       expect(File.read(redirect_spec)).to include('redirect_to("/en/payments/widgets")')
+    end
+  end
+
+  it "moves the whole slice and leaves no slice file behind" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\n  root to: \"widgets#index\"\nend\n",
+        permissions: { "billing" => { "widgets" => [ "read" ] } })
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      write_file(root, "engines/billing/config/locales/en.yml", YAML.dump("en" => { "billing" => { "widgets" => { "title" => "Widgets" } } }))
+      write_file(root, "engines/billing/config/locales/th.yml", YAML.dump("th" => { "billing" => { "widgets" => { "title" => "วิดเจ็ต" } } }))
+      write_file(root, "engines/payments/config/locales/en.yml", YAML.dump("en" => { "payments" => { "nav" => { "title" => "Payments" } } }))
+      write_file(root, "engines/payments/config/locales/th.yml", YAML.dump("th" => { "payments" => { "nav" => { "title" => "การชำระเงิน" } } }))
+      write_file(root, "engines/billing/config/budgets.yml", YAML.dump("pages" => { "billing/widgets/index" => { "sql_queries_per_request" => 2 } }))
+      write_file(root, "engines/payments/config/budgets.yml", YAML.dump("pages" => {}))
+      write_file(root, "engines/billing/package.yml", YAML.dump("dependencies" => []))
+      write_file(root, "engines/payments/package.yml", YAML.dump("dependencies" => []))
+      write_file(root, "engines/payments/config/ratchets.yml", YAML.dump("legacy_table_prefixes" => 0))
+      write_file(root, "engines/billing/db/migrate/20260101000000_create_widgets.rb", "# frozen_string_literal: true\n")
+
+      engine_slice = {
+        "app/gateways/rafelo/billing/widgets_gateway.rb" => "module Rafelo\n  module Billing\n    class WidgetsGateway; end\n  end\nend\n",
+        "app/models/rafelo/billing/widget.rb" => "module Rafelo\n  module Billing\n    Widget = Data.define(:id)\n  end\nend\n",
+        "app/jobs/rafelo/billing/widget_export_job.rb" => "module Rafelo\n  module Billing\n    class WidgetExportJob; end\n  end\nend\n",
+        "app/controllers/rafelo/billing/widgets_controller.rb" => "module Rafelo\n  module Billing\n    class WidgetsController; end\n  end\nend\n",
+        "app/policies/rafelo/billing/widget_policy.rb" => "module Rafelo\n  module Billing\n    class WidgetPolicy; end\n  end\nend\n",
+        "app/props/rafelo/billing/widgets_index_props.rb" => "module Rafelo\n  module Billing\n    class WidgetsIndexProps; end\n  end\nend\n",
+        "app/forms/rafelo/billing/widget_form.rb" => "module Rafelo\n  module Billing\n    class WidgetForm; end\n  end\nend\n",
+        "app/frontend/pages/widgets/index.tsx" => 'export default "billing/widgets";',
+        "app/frontend/screens/widgets/index_screen.tsx" => 'export const screen = "@billing/screens/widgets";',
+        "app/frontend/containers/widgets/index_container.tsx" => 'export const container = "@billing/containers/widgets";',
+        "app/frontend/components/widgets/list.tsx" => 'export const list = "@billing/components/widgets";',
+        "app/frontend/hooks/widgets/use_widgets.ts" => 'export const hook = "@billing/hooks/widgets";',
+        "app/frontend/domain/widget/widget.ts" => "export type Widget = { id: string };",
+        "app/frontend/forms/widget/widget_form.ts" => "export type WidgetForm = { name: string };",
+        "config/contracts/pages/widgets/index.json" => "{}\n",
+        "spec/fixtures/upstream/widgets/index.json" => '{"items":[]}',
+        "spec/widget_spec.rb" => "RSpec.describe Rafelo::Billing::Widget do\nend\n",
+        "spec/requests/widgets_spec.rb" => "RSpec.describe \"billing/widgets\" do\nend\n",
+        "e2e/widgets.spec.ts" => 'test("widgets", () => {});'
+      }
+      engine_slice.each { |relative, body| write_file(root, "engines/billing/#{relative}", body) }
+      write_file(root, "spec/requests/billing/widgets_spec.rb", "RSpec.describe \"billing/widgets\" do\nend\n")
+      write_file(root, "e2e/billing/widgets.spec.ts", "test(\"/en/billing/widgets\", () => {});\n")
+
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      leftovers = engine_slice.keys.select { |relative| File.exist?(root.join("engines/billing", relative)) }
+      expect(leftovers).to be_empty
+      engine_slice.each_key do |relative|
+        target = relative.sub("/rafelo/billing/", "/rafelo/payments/")
+        expect(root.join("engines/payments", target)).to exist
+      end
+      expect(root.join("spec/requests/billing/widgets_spec.rb")).not_to exist
+      expect(root.join("spec/requests/payments/widgets_spec.rb")).to exist
+      expect(File.read(root.join("e2e/payments/widgets.spec.ts"))).to include("/en/payments/widgets")
+      expect(root.join("e2e/billing/widgets.spec.ts")).not_to exist
+      expect(root.join("engines/billing/db/migrate/20260101000000_create_widgets.rb")).to exist
+
+      en = YAML.safe_load(File.read(root.join("engines/payments/config/locales/en.yml")))
+      expect(en.dig("en", "payments", "widgets", "title")).to eq("Widgets")
+      expect(YAML.safe_load(File.read(root.join("engines/billing/config/locales/en.yml"))).dig("en", "billing", "widgets")).to be_nil
+      budgets = YAML.safe_load(File.read(root.join("engines/payments/config/budgets.yml")))
+      expect(budgets.dig("pages", "payments/widgets/index", "sql_queries_per_request")).to eq(2)
+      expect(YAML.safe_load(File.read(root.join("engines/billing/config/budgets.yml"))).dig("pages", "billing/widgets/index")).to be_nil
+      package = YAML.safe_load(File.read(root.join("engines/payments/package.yml")))
+      expect(package.dig("metadata", "legacy_table_prefix")).to eq("billing")
+      expect(YAML.safe_load(File.read(root.join("engines/payments/config/ratchets.yml")))["legacy_table_prefixes"]).to eq(1)
     end
   end
 
@@ -123,11 +202,17 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
       before = Dir[root.join("**/*")].select { |p| File.file?(p) }.sort.map { |p| [ p, File.binread(p) ] }
 
-      allow_any_instance_of(described_class).to receive(:add_legacy_path).and_raise("boom")
+      failing = Class.new(described_class) do
+        private
+
+        def add_legacy_path
+          raise "boom"
+        end
+      end
 
       expect {
         begin
-          described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+          failing.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
         rescue SystemExit, Thor::Error
           nil
         end
