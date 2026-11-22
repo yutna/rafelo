@@ -514,7 +514,14 @@ module Rafelo
 
       def import_lines(*lines)
         indent = " " * 10
-        lines.compact.sort_by { |line| line[/["']([^"']+)["']/, 1].to_s }.join("\n#{indent}")
+        types, values = lines.compact.partition { |line| line.start_with?("import type ") }
+        groups = [ types, values ].reject(&:empty?).map do |group|
+          group.sort_by do |line|
+            source = line[/["']([^"']+)["']/, 1].to_s
+            [ source.start_with?(".") ? 1 : 0, source ]
+          end.join("\n#{indent}")
+        end
+        groups.join("\n\n#{indent}")
       end
 
       def write_index_frontend
