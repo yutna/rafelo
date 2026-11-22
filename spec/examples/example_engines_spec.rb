@@ -1,6 +1,11 @@
 require "rails_helper"
 
 RSpec.describe "Example engines" do
+  before do
+    examples = [ Rails.root.join("engines/example_orders"), Rails.root.join("engines/example_customers") ]
+    skip "example engines are removed" unless examples.all? { |path| Dir.exist?(path) }
+  end
+
   let(:root) { Rails.root }
   let(:orders) { root.join("engines/example_orders/app/frontend") }
   let(:customers) { root.join("engines/example_customers") }
