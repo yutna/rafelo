@@ -202,9 +202,8 @@ module Rafelo
           changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
           changed = changed.gsub("@#{@source}/", "@#{@target}/")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
-          changed = changed.gsub("\"#{@source}/#{plural}\"", "\"#{@target}/#{plural}\"")
-          changed = changed.gsub("'#{@source}/#{plural}'", "'#{@target}/#{plural}'")
-          changed = changed.gsub("/#{@source}/#{plural}", "/#{@target}/#{plural}")
+          changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
+          changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           changed = changed.gsub(":#{@source},", ":#{@target},")
           File.binwrite(path, changed) if changed != body
         end
@@ -214,9 +213,8 @@ module Rafelo
         move_app_files("spec/requests/#{@source}", "spec/requests/#{@target}").each do |path|
           moved_path = root.join("spec/requests", @target, File.basename(path))
           body = File.read(moved_path)
-          body = body.gsub("/en/#{@source}/#{plural}", "/en/#{@target}/#{plural}")
-          body = body.gsub("/#{@source}/#{plural}", "/#{@target}/#{plural}")
-          body = body.gsub("\"#{@source}/#{plural}", "\"#{@target}/#{plural}")
+          body = body.gsub("engines/#{@source}/", "engines/#{@target}/")
+          body = body.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           File.write(moved_path, body)
         end
       end

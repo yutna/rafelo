@@ -113,7 +113,12 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         "e2e/widgets.spec.ts" => 'test("widgets", () => {});'
       }
       engine_slice.each { |relative, body| write_file(root, "engines/billing/#{relative}", body) }
-      write_file(root, "spec/requests/billing/widgets_spec.rb", "RSpec.describe \"billing/widgets\" do\nend\n")
+      write_file(root, "spec/requests/billing/widgets_spec.rb", <<~RUBY)
+        RSpec.describe "billing/widgets" do
+          let(:fixture) { Rails.root.join("engines/billing/spec/fixtures/upstream/widgets/index.json") }
+          let(:page_key) { "billing/widgets/index" }
+        end
+      RUBY
       write_file(root, "e2e/billing/widgets.spec.ts", "test(\"/en/billing/widgets\", () => {});\n")
 
       described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
@@ -125,7 +130,9 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         expect(root.join("engines/payments", target)).to exist
       end
       expect(root.join("spec/requests/billing/widgets_spec.rb")).not_to exist
-      expect(root.join("spec/requests/payments/widgets_spec.rb")).to exist
+      moved_spec = File.read(root.join("spec/requests/payments/widgets_spec.rb"))
+      expect(moved_spec).to include("engines/payments/spec/fixtures/upstream/widgets/index.json")
+      expect(moved_spec).to include('"payments/widgets/index"')
       expect(File.read(root.join("e2e/payments/widgets.spec.ts"))).to include("/en/payments/widgets")
       expect(root.join("e2e/billing/widgets.spec.ts")).not_to exist
       expect(root.join("engines/billing/db/migrate/20260101000000_create_widgets.rb")).to exist
