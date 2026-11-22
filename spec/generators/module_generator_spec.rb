@@ -29,6 +29,16 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
     end
   end
 
+  it "writes the navigation order as a literal computed at generation time" do
+    Dir.mktmpdir do |dir|
+      Rails::Generators.invoke("rafelo:module", [ "billing_probe", "--skip-post-write" ], destination_root: dir)
+
+      config = File.read(File.join(dir, "engines/billing_probe/config/module.rb"))
+      expect(config).to match(/nav: \{ order: \d+,/)
+      expect(config).not_to include("Modules.all")
+    end
+  end
+
   it "refuses a reserved name without writing files" do
     Dir.mktmpdir do |dir|
       Rails::Generators.invoke("rafelo:module", [ "core" ], destination_root: dir)
