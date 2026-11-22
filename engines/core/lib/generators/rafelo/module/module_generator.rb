@@ -130,6 +130,7 @@ module Rafelo
         create_file "#{engine_dir}/config/contracts/.keep", ""
         create_file "#{engine_dir}/db/migrate/.keep", ""
         create_file "#{engine_dir}/app/public/#{app_ns_underscore}/#{name}/.keep", ""
+        create_file "#{engine_dir}/spec/rails_helper.rb", "require_relative \"../../../spec/rails_helper\"\n"
         create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
         create_file "#{engine_dir}/e2e/.keep", ""
       end

@@ -145,7 +145,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(root.join("engines/billing/app/frontend/pages/widgets/show.schema.ts")).to exist
       expect(root.join("engines/billing/app/frontend/screens/widgets/show_screen.tsx")).to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/index.tsx")).not_to exist
-      request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
+      request_spec = root.join("engines/billing/spec/requests/widgets_spec.rb").read
       expect(request_spec).to include('renders the show page contract')
       expect(request_spec).to include('match_page_schema("billing/widgets/show")')
       expect(request_spec).not_to include('renders the index page contract')
@@ -173,7 +173,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(root.join("engines/billing/app/frontend/pages/widgets/edit.schema.ts")).to exist
       expect(root.join("engines/billing/app/frontend/screens/widgets/edit_screen.tsx")).to exist
       expect(root.join("engines/billing/app/frontend/pages/widgets/index.tsx")).not_to exist
-      request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
+      request_spec = root.join("engines/billing/spec/requests/widgets_spec.rb").read
       expect(request_spec).to include('renders the edit page contract')
       expect(request_spec).to include('match_page_schema("billing/widgets/edit")')
       expect(request_spec).to include('redirects back with errors when update params are invalid')
@@ -185,6 +185,42 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(en_locale.dig("en", "billing", "widgets", "edit")).to eq("Edit Widget")
       expect(th_locale.dig("th", "billing", "widgets", "title")).to eq("[th] Widgets")
       expect(th_locale.dig("th", "billing", "widgets", "edit")).to eq("[th] Edit Widget")
+    end
+  end
+
+  it "selects the requested upstream and refuses an unknown one" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+      allow(Rails.application.config.x).to receive(:upstreams).and_return({ api: Object.new, crm: Object.new })
+
+      generator_class.start([ "billing", "widgets", "--actions=index", "--upstream=crm" ], destination_root: dir)
+
+      gateway = root.join("engines/billing/app/gateways/rafelo/billing/widgets_gateway.rb").read
+      expect(gateway).to include("upstream :crm")
+      expect(root.join("engines/billing/spec/requests/widgets_spec.rb").read).to include("fetch(:crm)")
+    end
+  end
+
+  it "refuses an upstream the app does not configure" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      allow(Rails.application.config.x).to receive(:upstreams).and_return({ api: Object.new })
+
+      expect {
+        begin
+          generator_class.start([ "billing", "widgets", "--upstream=crm" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+      expect(root.join("engines/billing/app/gateways")).not_to exist
     end
   end
 
@@ -251,13 +287,16 @@ RSpec.describe Rafelo::Generators::PageGenerator do
 
       gateway = root.join("engines/billing/app/gateways/rafelo/billing/widgets_gateway.rb").read
       expect(gateway).to include("def create(payload:, idempotency_key:)")
-      expect(gateway).to include("def update(id:, payload:, idempotency_key:)")
+      expect(gateway).to include("def update(id:, payload:, idempotency_key:, if_match:)")
       expect(gateway).to include('client.post("widgets"')
       expect(gateway).to include('client.patch("widgets/#{id}"')
+      expect(gateway).to include("if_match: if_match")
 
       form = root.join("engines/billing/app/forms/rafelo/billing/widget_form.rb").read
       expect(form).to include("< Rafelo::Core::Form")
       expect(form).to include("validates :name, presence: true")
+      expect(form).to include("attribute :version, :string")
+      expect(form).to include("validates :version, presence: true")
 
       controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
       expect(controller).to include("IdempotencyClaim.call")
@@ -277,8 +316,14 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       index_container = root.join("engines/billing/app/frontend/containers/widgets/index_container.tsx").read
       expect(index_container).to include('can["widgets.create"]?.allowed')
 
-      request_spec = root.join("spec/requests/billing/widgets_spec.rb").read
+      request_spec = root.join("engines/billing/spec/requests/widgets_spec.rb").read
       expect(request_spec).to include("renders the index page contract at the maximum page size")
+      expect(request_spec).to include("Rails.application.config.x.upstreams.fetch(:api).base_url")
+      expect(request_spec).not_to include("/en/")
+      expect(request_spec).not_to include("localhost:4000")
+      expect(request_spec).to include("version: 1")
+      expect(root.join("engines/billing/app/frontend/components/widgets/list.test.tsx")).to exist
+      expect(root.join("engines/billing/app/frontend/components/widgets/form.test.tsx")).to exist
       expect(request_spec).to include("creates through the gateway, redirects with 303, and replays without a second call")
       expect(request_spec).to include("upstream rejects the create")
       expect(request_spec).to include("updates through the gateway and redirects with 303")
