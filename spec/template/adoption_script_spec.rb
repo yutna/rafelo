@@ -15,4 +15,10 @@ RSpec.describe "script/ci/adoption" do
     expect(script).to include('rev-parse -q --verify "refs/tags/$base_tag"')
     expect(script.index("rev-parse -q --verify")).to be < script.index("predates the template payload")
   end
+
+  it "parks the generated-page leg until the generator passes the guards" do
+    expect(script).to include('"0.36.0" "$base_version"')
+    expect(script).to include("#661")
+    expect(script).not_to include("bin/rubocop -A engines/legacy_check")
+  end
 end
