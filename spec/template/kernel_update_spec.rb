@@ -13,7 +13,8 @@ RSpec.describe "bin/kernel_update" do
     expect(KernelUpdate::DEFAULT_PATHS).to include(
       "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
       ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
-      "script/contracts", "script/docs", "playwright.config.ts", "config/frontend_react.mts"
+      "script/contracts", "script/docs", "playwright.config.ts", "config/frontend_react.mts",
+      "spec/core"
     )
   end
 
@@ -47,6 +48,28 @@ RSpec.describe "bin/kernel_update" do
           )
           expect(status).to be_success, err
           expect(File.read(File.join(app_root, "config/locales/en.yml"))).to eq(target.fetch("config/locales/en.yml"))
+        end
+      end
+    end
+  end
+
+  it "updates a kernel-owned spec change from the base release" do
+    base = { "spec/core/audit_spec.rb" => "resource = \"rafelo/example_orders/orders\"\n" }
+    target = { "spec/core/audit_spec.rb" => "resource = \"admin/orders\"\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root
+          )
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "spec/core/audit_spec.rb"))).to eq(target.fetch("spec/core/audit_spec.rb"))
         end
       end
     end

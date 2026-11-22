@@ -58,7 +58,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
       path: "/en/orders",
       env: { "rafelo.page" => "orders/new", "rafelo.audit.upstream_id" => "order-9" }
     )
-    controller = double("controller", request: request, controller_path: "rafelo/example_orders/orders", action_name: "create")
+    controller = double("controller", request: request, controller_path: "admin/orders", action_name: "create")
 
     described_class.record(
       controller: controller,
@@ -69,7 +69,7 @@ RSpec.describe Rafelo::Core::AuditRecorder do
     )
 
     event = Rafelo::Core::AuditEvent.where(request_id: request_id).last
-    expect(event.resource).to eq("rafelo/example_orders/orders")
+    expect(event.resource).to eq("admin/orders")
     expect(event.action).to eq("create")
     expect(event.page).to eq("orders/new")
     expect(event.upstream_id).to eq("order-9")
