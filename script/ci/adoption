@@ -63,7 +63,11 @@ check_no_placeholder() {
   local brand="Rafelo"
   local lower="rafelo"
   local paths=(.)
-  if [ "$scope" = "examples" ]; then paths=(engines/example_* config Gemfile.lock); fi
+  if [ "$scope" = "examples" ]; then
+    # Kernel-owned specs stay in scope; docs/architecture is app-owned and the
+    # updater does not carry it, so only that family is outside this slice.
+    paths=(spec/core engines/example_* config Gemfile.lock)
+  fi
   found="$(git -C "$app" ls-files | grep -i 'acme' || true)"
   if [ -n "$found" ]; then
     echo "adoption: placeholder path in $app: $found" >&2
