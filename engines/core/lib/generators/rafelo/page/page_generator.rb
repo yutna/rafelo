@@ -109,6 +109,7 @@ module Rafelo
       def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
       def module_class = "#{app_namespace}::#{mod.camelize}"
       def resource_plural = resource_name.pluralize
+      def plural = resource_plural
       def resource_singular = resource_name.singularize
       def controller_class = "#{resource_plural.camelize}Controller"
       def page_key_base = "#{mod}/#{resource_plural}"
@@ -365,7 +366,7 @@ module Rafelo
               class #{resource_plural.camelize}IndexProps < Rafelo::Core::PageProps
             #{policy_decl}      def initialize(context:, items:, query:)
                   super(context: context)
-                  @items = items
+                  @items = Array(items).map { |row| { "id" => row["id"].to_s, "label" => row["label"].to_s } }
                   @query = query
                 end
 
@@ -487,362 +488,453 @@ module Rafelo
       end
 
       def write_frontend
-        if effective_actions.include?("index")
-          # index
-          can_keys = effective_actions.include?("new") ? "[\"#{capability_key(permission_create)}\"] as const" : "[] as const"
-          data_props = if effective_actions.include?("new")
-            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: hrefSchema.nullable() })"
-          else
-            "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
-          end
-          index_schema_import = if effective_actions.include?("new")
-            "import { hrefSchema } from \"@design_system/safe_url\";\n"
-          else
-            ""
-          end
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
-            import { definePage } from "@core/contracts/page_props.schema";
-            #{index_schema_import}import { z } from "zod";
+        write_i18n_hook
+        write_index_frontend if effective_actions.include?("index")
+        write_show_frontend if effective_actions.include?("show")
+        write_form_component if write_actions?
+        write_new_frontend if effective_actions.include?("new")
+        write_edit_frontend if effective_actions.include?("edit")
+      end
 
-            export const pageSchema = definePage({
-              data: #{data_props},
-              query: z.object({}),
-              can: #{can_keys},
-            });
-          TS
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
-            export type #{resource_singular.camelize}Item = { id: string; label: string };
-          TS
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
-            import type { LayoutName } from "@core/contracts/layout.types";
+      def write_i18n_hook
+        path = root.join(engine_file("app/frontend/i18n.ts"))
+        return if File.exist?(path)
 
-            import { Head } from "@inertiajs/react";
-            import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
+        write_managed(path, <<~TS)
+          import i18next from "i18next";
 
-            import { pageSchema } from "./index.schema";
+          export function #{translation_hook}() {
+            return (key: string, options?: Record<string, unknown>): string =>
+              i18next.t(key, { ns: "#{mod}", ...options });
+          }
+        TS
+      end
 
-            export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
-              const page = pageSchema.parse(props);
-              return (
-                <>
-                  <Head title="#{resource_plural.humanize}" />
-                  <#{resource_plural.camelize}Screen {...page.data} can={page.can} />
-                </>
-              );
-            }
+      def translation_hook = "use#{mod.camelize}Translation"
 
-            #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
+      def write_index_frontend
+        can_keys = effective_actions.include?("new") ? "[\"#{capability_key(permission_create)}\"] as const" : "[] as const"
+        data_props = if effective_actions.include?("new")
+          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })), newHref: hrefSchema.nullable() })"
+        else
+          "z.object({ items: z.array(z.object({ id: z.string(), label: z.string() })) })"
+        end
+        index_schema_import = if effective_actions.include?("new")
+          "import { hrefSchema } from \"@design_system/safe_url\";\n"
+        else
+          ""
+        end
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.schema.ts"), <<~TS
+          import { definePage } from "@core/contracts/page_props.schema";
+          #{index_schema_import}import { z } from "zod";
+
+          export const pageSchema = definePage({
+            data: #{data_props},
+            query: z.object({}),
+            can: #{can_keys},
+          });
+        TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/types.ts"), <<~TS
+          export type #{resource_singular.camelize}Item = { id: string; label: string };
+        TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/index.tsx"), <<~TSX
+          import type { LayoutName } from "@core/contracts/layout.types";
+
+          import { Head } from "@inertiajs/react";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { #{resource_plural.camelize}IndexScreen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
+
+          import { pageSchema } from "./index.schema";
+
+          export default function #{resource_plural.camelize}Index(props: Record<string, unknown>) {
+            const t = #{translation_hook}();
+            const page = pageSchema.parse(props);
+            return (
+              <>
+                <Head title={t("#{plural}.title")} />
+                <#{resource_plural.camelize}IndexScreen {...page.data} can={page.can} />
+              </>
+            );
+          }
+
+          #{resource_plural.camelize}Index.layoutName = "app" satisfies LayoutName;
+        TSX
+        create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
+          import { #{resource_plural.camelize}IndexContainer } from "#{engine_alias}/containers/#{resource_plural}/index_container";
+
+          export function #{resource_plural.camelize}IndexScreen(props: Parameters<typeof #{resource_plural.camelize}IndexContainer>[0]) {
+            return <#{resource_plural.camelize}IndexContainer {...props} />;
+          }
+        TSX
+        container_props = if effective_actions.include?("new")
+          "  items: { id: string; label: string }[];\n  newHref: Href | null;\n  can: Record<string, { allowed: boolean; reason: string | null }>;"
+        else
+          "  items: { id: string; label: string }[];\n  can: Record<string, { allowed: boolean; reason: string | null }>;"
+        end
+        container_args = effective_actions.include?("new") ? "items, newHref, can" : "items, can"
+        container_imports = if effective_actions.include?("new")
+          "import type { Href } from \"@design_system/public\";\nimport { Link } from \"@design_system/public\";\n"
+        else
+          ""
+        end
+        new_link = if effective_actions.include?("new")
+          <<~TSX.chomp
+                    {can["#{capability_key(permission_create)}"]?.allowed && newHref ? (
+                      <Link testId="#{mod}.#{resource_plural}.index.new.link" href={newHref}>
+                        <span data-testid="#{mod}.#{resource_plural}.index.new">{t("#{plural}.new")}</span>
+                      </Link>
+                    ) : null}
           TSX
-          screen_props = effective_actions.include?("new") ? "{ items, newHref, can }: { items: { id: string; label: string }[]; newHref: Href | null; can: Record<string, { allowed: boolean; reason: string | null }> }" : "{ items, can }: { items: { id: string; label: string }[]; can: Record<string, { allowed: boolean; reason: string | null }> }"
-          index_type_import = if effective_actions.include?("new")
-            "import type { Href } from \"@design_system/public\";\n\n"
-          else
-            ""
-          end
-          new_link = effective_actions.include?("new") ? "\n          {can[\"#{capability_key(permission_create)}\"]?.allowed && newHref ? <a href={newHref} data-testid=\"#{mod}.#{resource_plural}.index.new\">New</a> : null}" : ""
-          create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}Screen } from "#{engine_alias}/screens/#{resource_plural}/index_screen";
+        else
+          ""
+        end
+        create_managed engine_file("app/frontend/containers/#{resource_plural}/index_container.tsx"), <<~TSX
+          #{container_imports}import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
 
-            export function #{resource_plural.camelize}IndexContainer(props: Parameters<typeof #{resource_plural.camelize}Screen>[0]) {
-              return <#{resource_plural.camelize}Screen {...props} />;
+          type Props = {
+          #{container_props}
+          };
+
+          export function #{resource_plural.camelize}IndexContainer({ #{container_args} }: Props) {
+            const t = #{translation_hook}();
+            return (
+              <section className="mx-auto max-w-3xl px-6 py-16">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                  <h1 className="text-display font-semibold" data-testid="#{mod}.#{resource_plural}.index.title">
+                    {t("#{plural}.title")}
+                  </h1>
+          #{new_link}
+                </div>
+                <#{resource_plural.camelize}List items={items} emptyLabel={t("#{plural}.empty")} />
+              </section>
+            );
+          }
+        TSX
+        create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
+          import { EmptyState } from "@design_system/public";
+
+          export function #{resource_plural.camelize}List({
+            items,
+            emptyLabel,
+          }: {
+            items: { id: string; label: string }[];
+            emptyLabel: string;
+          }) {
+            if (items.length === 0) {
+              return <EmptyState testId="#{mod}.#{resource_plural}.index.empty" title={emptyLabel} />;
             }
-          TSX
-          create_managed engine_file("app/frontend/components/#{resource_plural}/list.tsx"), <<~TSX
-            import { EmptyState } from "@design_system/public";
+            return (
+              <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
+                {items.map((item) => (
+                  <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>
+                    {item.label}
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+        TSX
+      end
 
-            export function #{resource_plural.camelize}List({ items }: { items: { id: string; label: string }[] }) {
-              if (items.length === 0) {
-                return (
-                  <EmptyState
-                    testId="#{mod}.#{resource_plural}.index.empty"
-                    title="No #{resource_plural.humanize.downcase} yet."
+      def write_show_frontend
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
+          import { definePage } from "@core/contracts/page_props.schema";
+          import { hrefSchema } from "@design_system/safe_url";
+          import { z } from "zod";
+
+          export const pageSchema = definePage({
+            data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexHref: hrefSchema }),
+            query: z.object({}),
+            can: [] as const,
+            paginated: false,
+          });
+        TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
+          import type { LayoutName } from "@core/contracts/layout.types";
+
+          import { Head } from "@inertiajs/react";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
+
+          import { pageSchema } from "./show.schema";
+
+          export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
+            const t = #{translation_hook}();
+            const page = pageSchema.parse(props);
+            return (
+              <>
+                <Head title={t("#{plural}.title")} />
+                <#{resource_singular.camelize}ShowScreen {...page.data} can={page.can} />
+              </>
+            );
+          }
+
+          #{resource_singular.camelize}Show.layoutName = "app" satisfies LayoutName;
+        TSX
+        create_managed engine_file("app/frontend/screens/#{resource_plural}/show_screen.tsx"), <<~TSX
+          import { #{resource_singular.camelize}ShowContainer } from "#{engine_alias}/containers/#{resource_plural}/show_container";
+
+          export function #{resource_singular.camelize}ShowScreen(props: Parameters<typeof #{resource_singular.camelize}ShowContainer>[0]) {
+            return <#{resource_singular.camelize}ShowContainer {...props} />;
+          }
+        TSX
+        create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
+          import type { Href } from "@design_system/public";
+
+          import { Link } from "@design_system/public";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+
+          type Props = {
+            #{resource_singular}: { id: string; name: string };
+            indexHref: Href;
+            can: Record<string, { allowed: boolean; reason: string | null }>;
+          };
+
+          export function #{resource_singular.camelize}ShowContainer({ #{resource_singular}, indexHref, can }: Props) {
+            const t = #{translation_hook}();
+            return (
+              <section className="mx-auto max-w-3xl px-6 py-16" data-testid="#{mod}.#{resource_plural}.show.page">
+                <h1 className="text-display font-semibold">{t("#{plural}.title")}</h1>
+                <dl className="mt-4 space-y-2">
+                  <div>
+                    <dt className="font-medium">{t("#{plural}.id")}</dt>
+                    <dd data-testid="#{mod}.#{resource_plural}.show.id">{#{resource_singular}.id}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">{t("#{plural}.name")}</dt>
+                    <dd>{#{resource_singular}.name}</dd>
+                  </div>
+                </dl>
+                <p className="mt-6">
+                  <Link testId="#{mod}.#{resource_plural}.show.back" href={indexHref}>{t("#{plural}.back")}</Link>
+                </p>
+              </section>
+            );
+          }
+        TSX
+      end
+
+      def write_form_component
+        create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
+          import { TextField } from "@design_system/public";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+
+          type Props = {
+            name: string;
+            errors: Record<string, string>;
+            onNameChange: (value: string) => void;
+          };
+
+          export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange }: Props) {
+            const t = #{translation_hook}();
+            return (
+              <TextField
+                testId="#{mod}.#{resource_plural}.form.name"
+                label={t("#{plural}.name")}
+                name="name"
+                value={name}
+                error={errors.name}
+                onChange={onNameChange}
+              />
+            );
+          }
+        TSX
+      end
+
+      def write_new_frontend
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
+          import { definePage } from "@core/contracts/page_props.schema";
+          import { hrefSchema } from "@design_system/safe_url";
+          import { z } from "zod";
+
+          export const pageSchema = definePage({
+            data: z.object({ createHref: hrefSchema, indexHref: hrefSchema }),
+            meta: z.object({ formToken: z.string() }),
+            query: z.object({}),
+            can: [] as const,
+            paginated: false,
+          });
+        TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/new.tsx"), <<~TSX
+          import type { LayoutName } from "@core/contracts/layout.types";
+
+          import { Head } from "@inertiajs/react";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
+
+          import { pageSchema } from "./new.schema";
+
+          export default function #{resource_plural.camelize}New(props: Record<string, unknown>) {
+            const t = #{translation_hook}();
+            const page = pageSchema.parse(props);
+            return (
+              <>
+                <Head title={t("#{plural}.new")} />
+                <#{resource_plural.camelize}NewScreen {...page.data} meta={page.meta} errors={page.errors} />
+              </>
+            );
+          }
+
+          #{resource_plural.camelize}New.layoutName = "app" satisfies LayoutName;
+        TSX
+        create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
+          import { #{resource_plural.camelize}NewContainer } from "#{engine_alias}/containers/#{resource_plural}/new_container";
+
+          export function #{resource_plural.camelize}NewScreen(props: Parameters<typeof #{resource_plural.camelize}NewContainer>[0]) {
+            return <#{resource_plural.camelize}NewContainer {...props} />;
+          }
+        TSX
+        create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
+          import type { Href } from "@design_system/public";
+
+          import { Button, Link } from "@design_system/public";
+          import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { useForm } from "@inertiajs/react";
+
+          type Props = {
+            createHref: Href;
+            indexHref: Href;
+            meta: { formToken: string };
+            errors: Record<string, string>;
+          };
+
+          export function #{resource_plural.camelize}NewContainer({ createHref, indexHref, meta, errors }: Props) {
+            const t = #{translation_hook}();
+            const form = useForm({ name: "" });
+            const formErrors: Record<string, string> = { ...errors, ...form.errors };
+
+            return (
+              <section className="mx-auto max-w-3xl px-6 py-16">
+                <h1 className="text-display font-semibold">{t("#{plural}.new")}</h1>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    form.transform((data) => ({ ...data, token: meta.formToken }));
+                    form.post(createHref);
+                  }}
+                  className="mt-6 space-y-4"
+                >
+                  <#{resource_singular.camelize}FormFields
+                    name={form.data.name}
+                    errors={formErrors}
+                    onNameChange={(value) => form.setData("name", value)}
                   />
-                );
-              }
-              return (
-                <ul className="mt-4 space-y-2" data-testid="#{mod}.#{resource_plural}.index.list">
-                  {items.map((item) => (
-                    <li key={item.id} data-testid={`#{mod}.#{resource_plural}.index.row.${item.id}`}>{item.label}</li>
-                  ))}
-                </ul>
-              );
-            }
-          TSX
-          create_managed engine_file("app/frontend/screens/#{resource_plural}/index_screen.tsx"), <<~TSX
-            #{index_type_import}import { #{resource_plural.camelize}List } from "#{engine_alias}/components/#{resource_plural}/list";
+                  <div className="flex items-center gap-3">
+                    <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit" isPending={form.processing}>
+                      {t("#{plural}.create")}
+                    </Button>
+                    <Link testId="#{mod}.#{resource_plural}.new.back" href={indexHref}>{t("#{plural}.back")}</Link>
+                  </div>
+                </form>
+              </section>
+            );
+          }
+        TSX
+      end
 
-            export function #{resource_plural.camelize}Screen(#{screen_props}) {
-              return (
-                <section className="mx-auto max-w-3xl px-6 py-16">
-                  <h1 className="text-display font-semibold">#{resource_plural.humanize}</h1>#{new_link}
-                  <#{resource_plural.camelize}List items={items} />
-                </section>
-              );
-            }
-          TSX
-        end
+      def write_edit_frontend
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
+          import { definePage } from "@core/contracts/page_props.schema";
+          import { hrefSchema } from "@design_system/safe_url";
+          import { z } from "zod";
 
-        if effective_actions.include?("show")
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.schema.ts"), <<~TS
-            import { definePage } from "@core/contracts/page_props.schema";
-            import { hrefSchema } from "@design_system/safe_url";
-            import { z } from "zod";
+          export const pageSchema = definePage({
+            data: z.object({
+              #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
+              updateHref: hrefSchema,
+              showHref: hrefSchema,
+            }),
+            meta: z.object({ formToken: z.string() }),
+            query: z.object({}),
+            can: [] as const,
+            paginated: false,
+          });
+        TS
+        create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
+          import type { LayoutName } from "@core/contracts/layout.types";
 
-            export const pageSchema = definePage({
-              data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexHref: hrefSchema }),
-              query: z.object({}),
-              can: [] as const,
-              paginated: false,
-            });
-          TS
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/show.tsx"), <<~TSX
-            import type { LayoutName } from "@core/contracts/layout.types";
+          import { Head } from "@inertiajs/react";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
 
-            import { Head } from "@inertiajs/react";
-            import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
+          import { pageSchema } from "./edit.schema";
 
-            import { pageSchema } from "./show.schema";
+          export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
+            const t = #{translation_hook}();
+            const page = pageSchema.parse(props);
+            return (
+              <>
+                <Head title={t("#{plural}.edit")} />
+                <#{resource_plural.camelize}EditScreen {...page.data} meta={page.meta} errors={page.errors} />
+              </>
+            );
+          }
 
-            export default function #{resource_singular.camelize}Show(props: Record<string, unknown>) {
-              const page = pageSchema.parse(props);
-              return (
-                <>
-                  <Head title="#{resource_singular.humanize}" />
-                  <#{resource_singular.camelize}ShowScreen {...page.data} can={page.can} />
-                </>
-              );
-            }
+          #{resource_singular.camelize}Edit.layoutName = "app" satisfies LayoutName;
+        TSX
+        create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
+          import { #{resource_plural.camelize}EditContainer } from "#{engine_alias}/containers/#{resource_plural}/edit_container";
 
-            #{resource_singular.camelize}Show.layoutName = "app" satisfies LayoutName;
-          TSX
-          create_managed engine_file("app/frontend/containers/#{resource_plural}/show_container.tsx"), <<~TSX
-            import { #{resource_singular.camelize}ShowScreen } from "#{engine_alias}/screens/#{resource_plural}/show_screen";
+          export function #{resource_plural.camelize}EditScreen(props: Parameters<typeof #{resource_plural.camelize}EditContainer>[0]) {
+            return <#{resource_plural.camelize}EditContainer {...props} />;
+          }
+        TSX
+        create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
+          import type { Href } from "@design_system/public";
 
-            export function #{resource_singular.camelize}ShowContainer(props: Parameters<typeof #{resource_singular.camelize}ShowScreen>[0]) {
-              return <#{resource_singular.camelize}ShowScreen {...props} />;
-            }
-          TSX
-          create_managed engine_file("app/frontend/screens/#{resource_plural}/show_screen.tsx"), <<~TSX
-            import type { Href } from "@design_system/public";
+          import { Button, Link } from "@design_system/public";
+          import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
+          import { #{translation_hook} } from "#{engine_alias}/i18n";
+          import { useForm } from "@inertiajs/react";
 
-            import { Link } from "@design_system/public";
+          type Props = {
+            #{resource_singular}: { id: string; name: string };
+            updateHref: Href;
+            showHref: Href;
+            meta: { formToken: string };
+            errors: Record<string, string>;
+          };
 
-            export function #{resource_singular.camelize}ShowScreen({ #{resource_singular}, indexHref, can }: { #{resource_singular}: { id: string; name: string }; indexHref: Href; can: Record<string, { allowed: boolean; reason: string | null }> }) {
-              return (
-                <section className="mx-auto max-w-3xl px-6 py-16" data-testid="#{mod}.#{resource_plural}.show.page">
-                  <h1 className="text-display font-semibold">#{resource_singular.humanize}</h1>
-                  <dl className="mt-4 space-y-2">
-                    <div>
-                      <dt className="font-medium">ID</dt>
-                      <dd data-testid="#{mod}.#{resource_plural}.show.id">{#{resource_singular}.id}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Name</dt>
-                      <dd>{#{resource_singular}.name}</dd>
-                    </div>
-                  </dl>
-                  <p className="mt-6"><Link testId="#{mod}.#{resource_plural}.show.back" href={indexHref}>Back</Link></p>
-                </section>
-              );
-            }
-          TSX
-        end
+          export function #{resource_plural.camelize}EditContainer({
+            #{resource_singular},
+            updateHref,
+            showHref,
+            meta,
+            errors,
+          }: Props) {
+            const t = #{translation_hook}();
+            const form = useForm({ name: #{resource_singular}.name ?? "" });
+            const formErrors: Record<string, string> = { ...errors, ...form.errors };
 
-        if effective_actions.include?("new")
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/new.schema.ts"), <<~TS
-            import { definePage } from "@core/contracts/page_props.schema";
-            import { hrefSchema } from "@design_system/safe_url";
-            import { z } from "zod";
-
-            export const pageSchema = definePage({
-              data: z.object({ createHref: hrefSchema, indexHref: hrefSchema }),
-              meta: z.object({ formToken: z.string() }),
-              query: z.object({}),
-              can: [] as const,
-              paginated: false,
-            });
-          TS
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/new.tsx"), <<~TSX
-            import type { LayoutName } from "@core/contracts/layout.types";
-
-            import { Head } from "@inertiajs/react";
-            import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
-
-            import { pageSchema } from "./new.schema";
-
-            export default function #{resource_plural.camelize}New(props: Record<string, unknown>) {
-              const page = pageSchema.parse(props);
-              return (
-                <>
-                  <Head title="New #{resource_singular.humanize}" />
-                  <#{resource_plural.camelize}NewScreen {...page.data} meta={page.meta} errors={page.errors} />
-                </>
-              );
-            }
-
-            #{resource_plural.camelize}New.layoutName = "app" satisfies LayoutName;
-          TSX
-          create_managed engine_file("app/frontend/containers/#{resource_plural}/new_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}NewScreen } from "#{engine_alias}/screens/#{resource_plural}/new_screen";
-
-            export function #{resource_plural.camelize}NewContainer(props: Parameters<typeof #{resource_plural.camelize}NewScreen>[0]) {
-              return <#{resource_plural.camelize}NewScreen {...props} />;
-            }
-          TSX
-          create_managed engine_file("app/frontend/components/#{resource_plural}/form.tsx"), <<~TSX
-            import { Button, TextField } from "@design_system/public";
-
-            type Props = {
-              name: string;
-              errors: Record<string, string>;
-              onNameChange: (value: string) => void;
-            };
-
-            export function #{resource_singular.camelize}FormFields({ name, errors, onNameChange }: Props) {
-              return (
-                <>
-                  <TextField
-                    testId="#{mod}.#{resource_plural}.new.name"
-                    label="Name"
-                    name="name"
-                    value={name}
-                    error={errors.name}
-                    onChange={onNameChange}
+            return (
+              <section className="mx-auto max-w-3xl px-6 py-16">
+                <h1 className="text-display font-semibold">{t("#{plural}.edit")}</h1>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    form.transform((data) => ({ ...data, token: meta.formToken }));
+                    form.patch(updateHref);
+                  }}
+                  className="mt-6 space-y-4"
+                >
+                  <#{resource_singular.camelize}FormFields
+                    name={form.data.name}
+                    errors={formErrors}
+                    onNameChange={(value) => form.setData("name", value)}
                   />
-                  <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit">Create</Button>
-                </>
-              );
-            }
-          TSX
-          create_managed engine_file("app/frontend/screens/#{resource_plural}/new_screen.tsx"), <<~TSX
-            import type { Href } from "@design_system/public";
-
-            import { Link } from "@design_system/public";
-            import { useForm } from "@inertiajs/react";
-            import { #{resource_singular.camelize}FormFields } from "#{engine_alias}/components/#{resource_plural}/form";
-
-            export function #{resource_plural.camelize}NewScreen({ createHref, indexHref, meta, errors }: { createHref: Href; indexHref: Href; meta: { formToken: string }; errors: Record<string, string> }) {
-              const form = useForm({ name: "", token: meta.formToken });
-              return (
-                <section className="mx-auto max-w-3xl px-6 py-16">
-                  <h1 className="text-display font-semibold">New #{resource_singular.humanize}</h1>
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      form.transform((data) => ({ ...data, token: meta.formToken }));
-                      form.post(createHref);
-                    }}
-                    className="mt-6 space-y-4"
-                  >
-                    <#{resource_singular.camelize}FormFields
-                      name={form.data.name}
-                      errors={errors}
-                      onNameChange={(value) => form.setData("name", value)}
-                    />
-                    <div className="flex gap-3">
-                      <Link testId="#{mod}.#{resource_plural}.new.back" href={indexHref}>Back</Link>
-                    </div>
-                  </form>
-                </section>
-              );
-            }
-          TSX
-        end
-
-        if effective_actions.include?("edit")
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.schema.ts"), <<~TS
-            import { definePage } from "@core/contracts/page_props.schema";
-            import { hrefSchema } from "@design_system/safe_url";
-            import { z } from "zod";
-
-            export const pageSchema = definePage({
-              data: z.object({
-                #{resource_singular}: z.object({ id: z.string(), name: z.string() }),
-                updateHref: hrefSchema,
-                showHref: hrefSchema,
-              }),
-              meta: z.object({ formToken: z.string() }),
-              query: z.object({}),
-              can: [] as const,
-              paginated: false,
-            });
-          TS
-          create_managed engine_file("app/frontend/pages/#{resource_plural}/edit.tsx"), <<~TSX
-            import type { LayoutName } from "@core/contracts/layout.types";
-
-            import { Head } from "@inertiajs/react";
-            import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
-
-            import { pageSchema } from "./edit.schema";
-
-            export default function #{resource_singular.camelize}Edit(props: Record<string, unknown>) {
-              const page = pageSchema.parse(props);
-              return (
-                <>
-                  <Head title="Edit #{resource_singular.humanize}" />
-                  <#{resource_plural.camelize}EditScreen {...page.data} meta={page.meta} errors={page.errors} />
-                </>
-              );
-            }
-
-            #{resource_singular.camelize}Edit.layoutName = "app" satisfies LayoutName;
-          TSX
-          create_managed engine_file("app/frontend/containers/#{resource_plural}/edit_container.tsx"), <<~TSX
-            import { #{resource_plural.camelize}EditScreen } from "#{engine_alias}/screens/#{resource_plural}/edit_screen";
-
-            export function #{resource_plural.camelize}EditContainer(props: Parameters<typeof #{resource_plural.camelize}EditScreen>[0]) {
-              return <#{resource_plural.camelize}EditScreen {...props} />;
-            }
-          TSX
-          create_managed engine_file("app/frontend/screens/#{resource_plural}/edit_screen.tsx"), <<~TSX
-            import type { Href } from "@design_system/public";
-
-            import { Button, Link, TextField } from "@design_system/public";
-            import { useForm } from "@inertiajs/react";
-
-            export function #{resource_plural.camelize}EditScreen({
-              #{resource_singular},
-              updateHref,
-              showHref,
-              meta,
-              errors,
-            }: {
-              #{resource_singular}: { id: string; name: string };
-              updateHref: Href;
-              showHref: Href;
-              meta: { formToken: string };
-              errors: Record<string, string>;
-            }) {
-              const form = useForm({ name: #{resource_singular}.name ?? "", token: meta.formToken });
-              return (
-                <section className="mx-auto max-w-3xl px-6 py-16">
-                  <h1 className="text-display font-semibold">Edit #{resource_singular.humanize}</h1>
-                  <form
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      form.transform((data) => ({ ...data, token: meta.formToken }));
-                      form.patch(updateHref);
-                    }}
-                    className="mt-6 space-y-4"
-                  >
-                    <TextField
-                      testId="#{mod}.#{resource_plural}.edit.name"
-                      label="Name"
-                      name="name"
-                      value={form.data.name}
-                      error={errors.name}
-                      onChange={(value) => form.setData("name", value)}
-                    />
-                    <div className="flex gap-3">
-                      <Button testId="#{mod}.#{resource_plural}.edit.submit" type="submit">Save</Button>
-                      <Link testId="#{mod}.#{resource_plural}.edit.back" href={showHref}>Back</Link>
-                    </div>
-                  </form>
-                </section>
-              );
-            }
-          TSX
-        end
+                  <div className="flex items-center gap-3">
+                    <Button testId="#{mod}.#{resource_plural}.edit.submit" type="submit" isPending={form.processing}>
+                      {t("#{plural}.save")}
+                    </Button>
+                    <Link testId="#{mod}.#{resource_plural}.edit.back" href={showHref}>{t("#{plural}.back")}</Link>
+                  </div>
+                </form>
+              </section>
+            );
+          }
+        TSX
       end
 
       def write_contracts
@@ -855,9 +947,8 @@ module Rafelo
           path = root.join(engine_file("config/locales/#{locale}.yml"))
           next unless File.file?(path)
           content = read_file(path).rstrip
-          block = [ "    #{resource_plural}:", "      title: #{localized_copy(locale, resource_plural.humanize)}" ]
-          block << "      new: #{localized_copy(locale, "New #{resource_singular.humanize}")}" if effective_actions.include?("new")
-          block << "      edit: #{localized_copy(locale, "Edit #{resource_singular.humanize}")}" if effective_actions.include?("edit")
+          block = [ "    #{resource_plural}:" ]
+          copy_entries.each { |key, text| block << "      #{key}: #{localized_copy(locale, text)}" }
           next if content.include?("\n    #{resource_plural}:\n")
 
           if content.match?(/^\s{2}#{Regexp.escape(mod)}:\s*\{\}\s*$/)
@@ -865,6 +956,19 @@ module Rafelo
           end
           write_managed(path, content + "\n" + block.join("\n") + "\n")
         end
+      end
+
+      def copy_entries
+        entries = { "title" => resource_plural.humanize }
+        entries["new"] = "New #{resource_singular.humanize}" if effective_actions.include?("new")
+        entries["edit"] = "Edit #{resource_singular.humanize}" if effective_actions.include?("edit")
+        entries["empty"] = "No #{resource_plural.humanize.downcase} yet." if effective_actions.include?("index")
+        entries["id"] = "ID" if effective_actions.include?("show")
+        entries["name"] = "Name" if effective_actions.include?("show") || write_actions?
+        entries["create"] = "Create" if effective_actions.include?("create")
+        entries["save"] = "Save" if effective_actions.include?("update")
+        entries["back"] = "Back" if (effective_actions & %w[show new edit]).any?
+        entries
       end
 
       def localized_copy(locale, text)
