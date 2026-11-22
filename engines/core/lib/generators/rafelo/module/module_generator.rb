@@ -95,7 +95,7 @@ module Rafelo
             engine: #{namespace}::#{module_name}::Engine,
             path: "/#{name}",
             permission_prefixes: [ "#{name}" ],
-            nav: { order: Rafelo::Core::Modules.all.map { |entry| entry.nav[:order] }.compact.max.to_i + 10, label_key: "#{name}.nav.title", icon: "#{options[:icon]}" }
+            nav: { order: #{next_nav_order}, label_key: "#{name}.nav.title", icon: "#{options[:icon]}" }
           )
         RUBY
       end
@@ -207,6 +207,12 @@ module Rafelo
 
       def app_ns_underscore
         namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
+      end
+
+      # The registry entry is plain data; compute the next order once, at
+      # generation time, and write it as a literal (ARCH-06).
+      def next_nav_order
+        Rafelo::Core::Modules.all.filter_map { |entry| entry.nav[:order] }.max.to_i + 10
       end
 
       def icon_names
