@@ -1,31 +1,15 @@
 import type { chartSchema } from "@core/contracts/page_props.schema";
 import type { Href } from "@design_system/public";
+import type { OrderListRow } from "@example_orders/components/orders/list.types";
 import type { z } from "zod";
 
-import {
-  Button,
-  Chart,
-  Deferred,
-  Link,
-  Skeleton,
-  formatMoney,
-  useLocale,
-} from "@design_system/public";
+import { Button, Chart, Deferred, Link, Skeleton } from "@design_system/public";
+import { OrdersList } from "@example_orders/components/orders/list";
 import { useOrderExport } from "@example_orders/hooks/orders/use_order_export";
 import { useOrdersTranslation } from "@example_orders/i18n";
 
-type Order = {
-  id: string;
-  number: string;
-  customer: { id: string; name: string; tier: string };
-  status: string;
-  total: { minor: number; currency: string; exponent: number };
-  issuedOn: string;
-  href: Href;
-};
-
 type Props = {
-  items: Order[];
+  items: OrderListRow[];
   newHref: Href | null;
   exportHref: Href;
   filterHrefs: { key: string; label: string; href: Href; current: boolean }[];
@@ -47,7 +31,6 @@ export function OrdersIndexContainer({
   can,
   meta,
 }: Props) {
-  const { locale } = useLocale();
   const t = useOrdersTranslation();
   const exportOrders = useOrderExport();
   return (
@@ -99,37 +82,7 @@ export function OrdersIndexContainer({
         ))}
       </nav>
 
-      {items.length === 0 ? (
-        <p className="mt-6">{t("orders.empty")}</p>
-      ) : (
-        <ul
-          className="mt-6 divide-y divide-slate-200"
-          data-testid="example_orders.orders.index.list"
-        >
-          {items.map((order) => (
-            <li key={order.id} className="py-3">
-              <Link
-                testId={`example_orders.orders.index.row.${order.id}.link`}
-                href={order.href}
-                className="flex flex-wrap items-center justify-between gap-2"
-              >
-                <span data-testid={`example_orders.orders.index.row.${order.id}`}>
-                  {order.number} · {order.customer.name}
-                </span>
-                <span>
-                  {order.status} ·{" "}
-                  {formatMoney(
-                    order.total.minor,
-                    order.total.currency,
-                    order.total.exponent,
-                    locale,
-                  )}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <OrdersList items={items} emptyLabel={t("orders.empty")} />
 
       <nav aria-label={t("orders.pagination")} className="mt-6 flex gap-4">
         {previousHref ? (
