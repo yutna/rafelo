@@ -1,20 +1,13 @@
 import inertia from "@inertiajs/vite";
 import tailwindcss from "@tailwindcss/vite";
-import babel from "@rolldown/plugin-babel";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import ruby from "vite-plugin-ruby";
 
 import { engineAliases, engineFsAllow } from "./config/frontend_aliases.mts";
+import { reactPlugins } from "./config/frontend_react.mts";
 
 export default defineConfig({
-  plugins: [
-    ruby(),
-    inertia({ ssr: false }),
-    tailwindcss(),
-    react(),
-    babel({ presets: [reactCompilerPreset()] }),
-  ],
+  plugins: [ruby(), inertia({ ssr: false }), tailwindcss(), ...reactPlugins()],
   build: {
     assetsInlineLimit: 0,
   },

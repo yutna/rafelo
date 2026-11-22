@@ -25,6 +25,7 @@ module KernelUpdate
     playwright.config.ts
     vite.config.mts
     vitest.config.mts
+    config/frontend_react.mts
     bin/check
     bin/docker-entrypoint
     bin/kernel_update

@@ -1,13 +1,13 @@
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { engineAliases } from "../../config/frontend_aliases.mts";
+import { reactPlugins } from "../../config/frontend_react.mts";
 
 const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
 
 export default defineConfig({
   root: fileURLToPath(new URL(".", import.meta.url)),
-  plugins: [react()],
+  plugins: reactPlugins(),
   resolve: { alias: engineAliases },
   test: {
     projects: [

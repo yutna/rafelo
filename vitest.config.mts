@@ -1,14 +1,14 @@
-import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 import { engineAliases } from "./config/frontend_aliases.mts";
+import { reactPlugins } from "./config/frontend_react.mts";
 
 export default defineConfig({
   resolve: { alias: engineAliases },
   test: {
     projects: [
       {
-        plugins: [react()],
+        plugins: reactPlugins(),
         test: {
           name: "app",
           environment: "jsdom",
@@ -17,7 +17,7 @@ export default defineConfig({
         },
       },
       {
-        plugins: [react()],
+        plugins: reactPlugins(),
         test: {
           name: "engines",
           environment: "jsdom",

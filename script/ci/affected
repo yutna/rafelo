@@ -20,7 +20,7 @@ abort "affected: root does not exist: #{ROOT}" unless Dir.exist?(ROOT)
 GLOBAL_INPUTS = %w[
   Gemfile Gemfile.lock package.json package-lock.json .npmrc mise.toml
   .ruby-version package.yml eslint.config.mjs packwerk.yml .rubocop.yml
-  .dependency-cruiser.cjs vite.config.mts vitest.config.mts playwright.config.ts
+  .dependency-cruiser.cjs vite.config.mts vitest.config.mts config/frontend_react.mts playwright.config.ts
   Dockerfile .dockerignore renovate.json5 VERSION KERNEL_VERSION .gitattributes .gitignore
   config/application.rb config/credentials/ config/environments/ config/initializers/
   config/routes.rb config/database.yml config/puma.rb config/queue.yml config/deploy.yml

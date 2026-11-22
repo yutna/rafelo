@@ -53,15 +53,15 @@ module Rafelo
             create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
           end
           create_file "#{engine_dir}/vitest.config.mts", <<~TS
-            import react from "@vitejs/plugin-react";
             import { defineConfig } from "vitest/config";
             import { fileURLToPath } from "node:url";
             import { engineAliases } from "../../config/frontend_aliases.mts";
+            import { reactPlugins } from "../../config/frontend_react.mts";
 
             const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
 
             export default defineConfig({
-              plugins: [react()],
+              plugins: reactPlugins(),
               resolve: { alias: engineAliases },
               test: {
                 projects: [
