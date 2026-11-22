@@ -271,6 +271,7 @@ declare module "@design_system/focus_first_error" {
 declare module "@design_system/formatters" {
   export declare function calendarFor(locale: string): string;
   export declare function formatDate(value: string | Date, locale: string, timeZone?: string): string;
+  export declare function formatDateTime(value: string | Date, locale: string, timeZone?: string): string;
   export declare function formatNumber(value: number, locale: string): string;
   export declare function isValidIsoDate(value: string): boolean;
   export declare function formatMoney(minor: number, currency: string, exponent: number, locale: string): string;
@@ -349,7 +350,7 @@ declare module "@design_system/index" {
   export { DateField } from "@design_system/date_field";
   export { hrefSchema, isSafeUrl, isAppPath } from "@design_system/safe_url";
   export type { Href } from "@design_system/safe_url";
-  export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
+  export { calendarFor, formatDate, formatDateTime, formatMoney, formatNumber, isValidIsoDate, } from "@design_system/formatters";
   export { Link } from "@design_system/link";
   export { Image } from "@design_system/image";
   export { Deferred } from "@design_system/deferred";
@@ -433,7 +434,7 @@ declare module "@design_system/public" {
   export { DateField } from "@design_system/date_field";
   export { hrefSchema, isSafeUrl, isAppPath } from "@design_system/safe_url";
   export type { Href } from "@design_system/safe_url";
-  export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
+  export { calendarFor, formatDate, formatDateTime, formatMoney, formatNumber, isValidIsoDate, } from "@design_system/formatters";
   export { Link } from "@design_system/link";
   export { Image } from "@design_system/image";
   export { Deferred } from "@design_system/deferred";

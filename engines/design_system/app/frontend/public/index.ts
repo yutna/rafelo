@@ -17,7 +17,14 @@ export { I18nProvider, useLocale } from "@design_system/i18n_provider";
 export { DateField } from "@design_system/date_field";
 export { hrefSchema, isSafeUrl, isAppPath } from "@design_system/safe_url";
 export type { Href } from "@design_system/safe_url";
-export { calendarFor, formatDate, formatMoney, formatNumber, isValidIsoDate } from "@design_system/formatters";
+export {
+  calendarFor,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatNumber,
+  isValidIsoDate,
+} from "@design_system/formatters";
 export { Link } from "@design_system/link";
 export { Image } from "@design_system/image";
 export { Deferred } from "@design_system/deferred";
