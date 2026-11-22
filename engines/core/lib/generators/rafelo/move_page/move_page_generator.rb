@@ -59,22 +59,40 @@ module Rafelo
       def singular = @res.singularize
 
       def perform_move
-        move_tree("app/frontend/pages/#{plural}", "app/frontend/pages/#{plural}")
-        move_tree("app/frontend/screens/#{plural}", "app/frontend/screens/#{plural}")
-        move_tree("app/frontend/containers/#{plural}", "app/frontend/containers/#{plural}")
-        move_tree("app/frontend/components/#{plural}", "app/frontend/components/#{plural}")
-        move_glob("app/controllers/#{app_ns_underscore}/#{@source}", "app/controllers/#{app_ns_underscore}/#{@target}", "*#{plural}*")
-        move_glob("app/policies/#{app_ns_underscore}/#{@source}", "app/policies/#{app_ns_underscore}/#{@target}", "*#{singular}*")
-        move_glob("app/props/#{app_ns_underscore}/#{@source}", "app/props/#{app_ns_underscore}/#{@target}", "*#{plural}*")
-        move_glob("app/forms/#{app_ns_underscore}/#{@source}", "app/forms/#{app_ns_underscore}/#{@target}", "*#{singular}*")
+        move_frontend_trees
+        move_engine_files("app/controllers/#{app_ns_underscore}/#{@source}", "app/controllers/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/policies/#{app_ns_underscore}/#{@source}", "app/policies/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/props/#{app_ns_underscore}/#{@source}", "app/props/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/forms/#{app_ns_underscore}/#{@source}", "app/forms/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/gateways/#{app_ns_underscore}/#{@source}", "app/gateways/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/models/#{app_ns_underscore}/#{@source}", "app/models/#{app_ns_underscore}/#{@target}")
+        move_engine_files("app/jobs/#{app_ns_underscore}/#{@source}", "app/jobs/#{app_ns_underscore}/#{@target}")
+        move_engine_files("spec", "spec")
+        move_engine_files("spec/requests", "spec/requests")
+        move_engine_files("e2e", "e2e")
+        move_root_e2e
         move_tree("config/contracts/pages/#{plural}", "config/contracts/pages/#{plural}")
+        move_tree("config/contracts/pages/#{singular}", "config/contracts/pages/#{singular}")
+        move_tree("spec/fixtures/upstream/#{plural}", "spec/fixtures/upstream/#{plural}")
+        move_tree("spec/fixtures/upstream/#{singular}", "spec/fixtures/upstream/#{singular}")
 
+        move_page_budgets
+        move_copy
         rewrite_target_contents
         move_root_request_specs
         rewrite_routes
         move_permissions
         add_legacy_path
         add_legacy_redirect_spec
+        move_table_metadata
+      end
+
+      def move_frontend_trees
+        %w[pages screens containers components hooks domain forms].each do |kind|
+          [ plural, singular ].uniq.each do |name|
+            move_tree("app/frontend/#{kind}/#{name}", "app/frontend/#{kind}/#{name}")
+          end
+        end
       end
 
       def move_tree(from_rel, to_rel)
@@ -86,13 +104,93 @@ module Rafelo
         FileUtils.mv(from, to)
       end
 
-      def move_glob(from_dir_rel, to_dir_rel, pattern)
-        from_dir = root.join("engines", @source, from_dir_rel)
-        to_dir = root.join("engines", @target, to_dir_rel)
-        return unless Dir.exist?(from_dir)
+      def move_engine_files(from_dir_rel, to_dir_rel)
+        move_files_between(
+          root.join("engines", @source, from_dir_rel),
+          root.join("engines", @target, to_dir_rel)
+        )
+      end
+
+      def move_app_files(from_dir_rel, to_dir_rel)
+        move_files_between(root.join(from_dir_rel), root.join(to_dir_rel))
+      end
+
+      # A slice file carries the resource's singular or plural name. Moving both
+      # patterns catches widgets_gateway.rb (plural) and widget_export_job.rb
+      # (singular) without touching the engine's other resources.
+      def move_files_between(from_dir, to_dir)
+        return [] unless Dir.exist?(from_dir)
+
+        files = [ plural, singular ].uniq.flat_map { |name| Dir[from_dir.join("*#{name}*")] }
+          .select { |path| File.file?(path) }.uniq
+        return [] if files.empty?
 
         FileUtils.mkdir_p(to_dir)
-        Dir[from_dir.join(pattern)].each { |path| FileUtils.mv(path, to_dir.join(File.basename(path))) }
+        files.each { |path| FileUtils.mv(path, to_dir.join(File.basename(path))) }
+        files
+      end
+
+      def move_page_budgets
+        src_path = root.join("engines", @source, "config/budgets.yml")
+        tgt_path = root.join("engines", @target, "config/budgets.yml")
+        return unless File.file?(src_path) && File.file?(tgt_path)
+
+        src = YAML.safe_load(File.read(src_path), aliases: false) || {}
+        tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
+        src_pages = src["pages"] || {}
+        tgt_pages = tgt["pages"] || {}
+        prefix = "#{@source}/#{plural}/"
+        moved = src_pages.keys.select { |key| key.start_with?(prefix) }
+        return if moved.empty?
+
+        moved.each { |key| tgt_pages[key.sub(prefix, "#{@target}/#{plural}/")] = src_pages.delete(key) }
+        src["pages"] = src_pages
+        tgt["pages"] = tgt_pages
+        File.write(src_path, YAML.dump(src))
+        File.write(tgt_path, YAML.dump(tgt))
+      end
+
+      def move_copy
+        Dir[root.join("engines", @source, "config/locales/*.yml")].sort.each do |src_path|
+          locale = File.basename(src_path, ".yml")
+          src = YAML.safe_load(File.read(src_path), aliases: false) || {}
+          copy = src.dig(locale, @source, plural)
+          next unless copy
+
+          src[locale][@source].delete(plural)
+          tgt_path = root.join("engines", @target, "config/locales/#{locale}.yml")
+          tgt = File.file?(tgt_path) ? YAML.safe_load(File.read(tgt_path), aliases: false) || {} : { locale => {} }
+          tgt[locale] ||= {}
+          tgt[locale][@target] ||= {}
+          tgt[locale][@target][plural] = copy
+          File.write(src_path, YAML.dump(src))
+          File.write(tgt_path, YAML.dump(tgt))
+        end
+      end
+
+      def move_table_metadata
+        migrations = [ plural, singular ].uniq.flat_map do |name|
+          Dir[root.join("engines", @source, "db/migrate/*#{name}*")]
+        end
+        return if migrations.empty?
+
+        package_path = root.join("engines", @target, "package.yml")
+        return unless File.file?(package_path)
+
+        package = YAML.safe_load(File.read(package_path), aliases: false) || {}
+        metadata = package["metadata"] || {}
+        return if metadata.key?("legacy_table_prefix")
+
+        metadata["legacy_table_prefix"] = @source
+        package["metadata"] = metadata
+        File.write(package_path, YAML.dump(package))
+
+        ratchet_path = root.join("engines", @target, "config/ratchets.yml")
+        return unless File.file?(ratchet_path)
+
+        ratchets = YAML.safe_load(File.read(ratchet_path), aliases: false) || {}
+        ratchets["legacy_table_prefixes"] = ratchets.fetch("legacy_table_prefixes", 0).to_i + 1
+        File.write(ratchet_path, YAML.dump(ratchets))
       end
 
       def rewrite_target_contents
@@ -104,29 +202,31 @@ module Rafelo
           changed = changed.gsub("#{app_namespace}::#{@source.camelize}", "#{app_namespace}::#{@target.camelize}")
           changed = changed.gsub("@#{@source}/", "@#{@target}/")
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
-          changed = changed.gsub("\"#{@source}/#{plural}\"", "\"#{@target}/#{plural}\"")
-          changed = changed.gsub("'#{@source}/#{plural}'", "'#{@target}/#{plural}'")
-          changed = changed.gsub("/#{@source}/#{plural}", "/#{@target}/#{plural}")
+          changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
+          changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           changed = changed.gsub(":#{@source},", ":#{@target},")
           File.binwrite(path, changed) if changed != body
         end
       end
 
       def move_root_request_specs
-        src = root.join("spec/requests", @source)
-        dst = root.join("spec/requests", @target)
-        return unless Dir.exist?(src)
-
-        FileUtils.mkdir_p(dst)
-        Dir[src.join("*#{plural}*")].each do |path|
-          FileUtils.mv(path, dst.join(File.basename(path)))
+        move_app_files("spec/requests/#{@source}", "spec/requests/#{@target}").each do |path|
+          moved_path = root.join("spec/requests", @target, File.basename(path))
+          body = File.read(moved_path)
+          body = body.gsub("engines/#{@source}/", "engines/#{@target}/")
+          body = body.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
+          File.write(moved_path, body)
         end
-        Dir[dst.join("*#{plural}*")].select { |p| File.file?(p) }.each do |path|
-          body = File.read(path)
-          body = body.gsub("/en/#{@source}/#{plural}", "/en/#{@target}/#{plural}")
-          body = body.gsub("\"#{@source}/#{plural}", "\"#{@target}/#{plural}")
-          body = body.gsub("#{@source}:#{plural}", "#{@source}:#{plural}") # keep permission keys stable
-          File.write(path, body)
+      end
+
+      def move_root_e2e
+        move_app_files("e2e/#{@source}", "e2e/#{@target}").each do |path|
+          moved_path = root.join("e2e", @target, File.basename(path))
+          body = File.read(moved_path)
+          body = body.gsub("/#{@source}/#{plural}", "/#{@target}/#{plural}")
+          body = body.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
+          body = body.gsub("@#{@source}/", "@#{@target}/")
+          File.write(moved_path, body)
         end
       end
 
