@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
 
 import { ErrorBoundary } from "@design_system/error_boundary";
+import { usePage } from "@inertiajs/react";
 
 import { AppShell } from "@/layouts/app_shell";
 import { AuthShell } from "@/layouts/auth_shell";
@@ -79,8 +80,9 @@ function withLayout(component: PageComponent, name: string): PageComponent {
   if (cached) return cached;
 
   const layoutName = component.layoutName ?? "app";
-  const wrapper: PageComponent = (props) => {
+  const Wrapper: PageComponent = (props) => {
     const Page = component;
+    const { url } = usePage();
     const trace = props.trace as { requestId?: string; traceId?: string } | undefined;
     return (
       <ErrorBoundary
@@ -89,7 +91,7 @@ function withLayout(component: PageComponent, name: string): PageComponent {
         homeLabel={t("app:errors.go_home")}
         retryLabel={t("app:errors.retry")}
         homeHref="/"
-        resetKey={window.location.href}
+        resetKey={url}
         requestId={trace?.requestId}
         traceId={trace?.traceId}
         reporter={reportClientError}
@@ -98,9 +100,9 @@ function withLayout(component: PageComponent, name: string): PageComponent {
       </ErrorBoundary>
     );
   };
-  wrapper.layout = LAYOUTS[layoutName] ?? LAYOUTS.app;
-  compiled.set(name, wrapper);
-  return wrapper;
+  Wrapper.layout = LAYOUTS[layoutName] ?? LAYOUTS.app;
+  compiled.set(name, Wrapper);
+  return Wrapper;
 }
 
 export async function resolvePage(
