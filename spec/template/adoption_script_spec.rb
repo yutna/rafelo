@@ -22,6 +22,14 @@ RSpec.describe "script/ci/adoption" do
     expect(script).not_to include("bin/rubocop -A engines/legacy_check")
   end
 
+  it "runs the documented rails new command and checks the template commit" do
+    expect(script).to include("--skip-kamal")
+    expect(script).to include("--skip-solid")
+    expect(script).not_to include("--skip-bundle -m")
+    expect(script).not_to include('BUNDLE_GEMFILE="$repo/Gemfile"')
+    expect(script).to include("assert_template_commit_clean")
+  end
+
   it "renders the refreshed examples with the app namespace" do
     expect(script).to include("RafeloTemplate.render_examples!")
     expect(script).not_to include('cp -R "$current_src/engines/$example"')
