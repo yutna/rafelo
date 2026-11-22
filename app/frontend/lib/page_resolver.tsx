@@ -1,7 +1,6 @@
-import type { ComponentType, ReactNode } from "react";
-
 import { ErrorBoundary } from "@design_system/error_boundary";
 import { usePage } from "@inertiajs/react";
+import { createElement, type ComponentType, type ReactNode } from "react";
 
 import { AppShell } from "@/layouts/app_shell";
 import { AuthShell } from "@/layouts/auth_shell";
@@ -81,7 +80,6 @@ function withLayout(component: PageComponent, name: string): PageComponent {
 
   const layoutName = component.layoutName ?? "app";
   const Wrapper: PageComponent = (props) => {
-    const Page = component;
     const { url } = usePage();
     const trace = props.trace as { requestId?: string; traceId?: string } | undefined;
     return (
@@ -96,7 +94,7 @@ function withLayout(component: PageComponent, name: string): PageComponent {
         traceId={trace?.traceId}
         reporter={reportClientError}
       >
-        <Page {...props} />
+        {createElement(component, props)}
       </ErrorBoundary>
     );
   };
