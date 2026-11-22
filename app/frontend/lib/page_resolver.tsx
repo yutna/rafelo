@@ -8,7 +8,7 @@ import { PageBoundary } from "@/layouts/page_boundary";
 
 import type { LayoutName } from "./layout_name";
 
-import { setLocale } from "./i18n";
+import { loadNamespaces, type CatalogLoader } from "./i18n";
 import { setPageContext } from "./report_client_error";
 
 type PageModule = { default: PageComponent };
@@ -27,6 +27,13 @@ const enginePageModules = import.meta.glob<PageModule>(
     "!../../../engines/*/app/frontend/pages/**/*.test.tsx",
     "!../../../engines/*/app/frontend/pages/**/*.spec.tsx",
   ],
+  { eager: false },
+);
+const appCatalogModules = import.meta.glob<CatalogModule>("../locales/*.json", {
+  eager: false,
+});
+const engineCatalogModules = import.meta.glob<CatalogModule>(
+  "../../../engines/*/app/frontend/locales/*.json",
   { eager: false },
 );
 
@@ -49,7 +56,11 @@ const LAYOUTS: Record<LayoutName, (page: ReactNode) => ReactNode> = {
 };
 
 const pages = new Map<string, () => Promise<PageModule>>();
+const pageNamespaces = new Map<string, string>();
+const catalogs = new Map<string, CatalogLoader>();
 const compiled = new Map<string, PageComponent>();
+
+type CatalogModule = { default: Record<string, unknown> };
 
 function pageName(path: string): string {
   return (
@@ -60,8 +71,18 @@ function pageName(path: string): string {
   );
 }
 
+function localeName(path: string): string {
+  return (
+    path
+      .split("/")
+      .at(-1)
+      ?.replace(/\.json$/, "") ?? ""
+  );
+}
+
 for (const [path, load] of Object.entries(appPageModules)) {
   pages.set(pageName(path), load);
+  pageNamespaces.set(pageName(path), "app");
 }
 
 for (const [path, load] of Object.entries(enginePageModules)) {
@@ -70,6 +91,17 @@ for (const [path, load] of Object.entries(enginePageModules)) {
   const resource = pageName(path);
   if (!engine || !resource) continue;
   pages.set(`${engine}/${resource}`, load);
+  pageNamespaces.set(`${engine}/${resource}`, engine);
+}
+
+for (const [path, load] of Object.entries(appCatalogModules)) {
+  catalogs.set(`app:${localeName(path)}`, load);
+}
+
+for (const [path, load] of Object.entries(engineCatalogModules)) {
+  const engine = path.split("/engines/")[1]?.split("/")[0];
+  if (!engine) continue;
+  catalogs.set(`${engine}:${localeName(path)}`, load);
 }
 
 function withLayout(component: PageComponent, name: string): PageComponent {
@@ -95,9 +127,13 @@ export async function resolvePage(
     release: page?.version ?? undefined,
     trace: page?.props?.trace as { requestId?: string; traceId?: string } | undefined,
   });
-  await setLocale(app?.locale ?? "en");
   const load = pages.get(name);
   if (!load) throw new Error(`Page not found: ${name}`);
+
+  const namespace = pageNamespaces.get(name) ?? "app";
+  const namespaces = ["app", "core", "design_system"];
+  if (!namespaces.includes(namespace)) namespaces.push(namespace);
+  await loadNamespaces(namespaces, app?.locale ?? "en", catalogs);
 
   const module = await load();
   return withLayout(module.default, name);
