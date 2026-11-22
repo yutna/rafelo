@@ -11,6 +11,9 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
       expect(root.join("engines/billing_probe/rafelo_billing_probe.gemspec")).to exist
       expect(root.join("engines/billing_probe/config/module.rb").read).to include("Rafelo::Core::Modules.register")
       expect(root.join("engines/billing_probe/config/locales/en.yml")).to exist
+      engine_source = File.read(root.join("engines/billing_probe/lib/rafelo/billing_probe/engine.rb"))
+      blank_before_end = engine_source.lines.each_cons(2).any? { |line, next_line| line.strip.empty? && next_line.strip == "end" }
+      expect(blank_before_end).to be(false)
       expect(YAML.safe_load_file(root.join("engines/billing_probe/config/ratchets.yml"))).to eq(
         "eslint_disable" => 0,
         "rubocop_disable" => 0,

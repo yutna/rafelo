@@ -64,6 +64,8 @@ BE-03; BE-10; CT-08; WF-06.
 - `bin/packwerk check`
 - `script/ci/engine_graph --check`
 - `npm run aliases:check`
+- `script/ci/generator_smoke` after every change to a generator or its
+  templates, never only `bin/check`
 - `bin/ci`
 
 ## Design skills
