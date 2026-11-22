@@ -2,7 +2,7 @@
 
 # The Rails application template (GEN-07). It runs inside `rails new <app>`
 # with `-d postgresql --devcontainer --skip-javascript --skip-hotwire
-# --skip-jbuilder --skip-test -m template/template.rb`.
+# --skip-jbuilder --skip-kamal --skip-solid --skip-test -m template/template.rb`.
 require_relative "lib/rafelo_template"
 
 RafeloTemplate.assert_flags!(ARGV)

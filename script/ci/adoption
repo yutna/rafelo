@@ -31,11 +31,24 @@ archive() {
 
 adopt() {
   local source="$1" destination="$2" template="$3"
-  ( cd "$work" && BUNDLE_GEMFILE="$repo/Gemfile" RUBYOPT=-rbundler/setup \
-      "$ruby_bin" "$rails_bin" new "$destination" \
-      -d postgresql --devcontainer \
-      --skip-javascript --skip-hotwire --skip-jbuilder --skip-test \
-      --skip-bundle -m "$template" )
+  # The documented command, in the same order: no --skip-bundle, and the
+  # template already owns what the kamal and solid installs would rewrite.
+  ( cd "$work" \
+      && "$ruby_bin" "$rails_bin" new "$destination" \
+        -d postgresql --devcontainer \
+        --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal \
+        --skip-solid --skip-test -m "$template" )
+}
+
+assert_template_commit_clean() {
+  local app="$1"
+  local dirty
+  dirty="$(clean_tree "$app")"
+  if [ -z "$dirty" ]; then return; fi
+
+  echo "adoption: rails new changed the template's initial commit in $app:" >&2
+  printf '%s\n' "$dirty" >&2
+  exit 1
 }
 
 clean_tree() {
@@ -105,6 +118,7 @@ fi
 run_current() {
   echo "adoption: adopting the commit under test"
   adopt "$current_src" "$work/smoke_shop" "$current_src/template/template.rb"
+  assert_template_commit_clean "$work/smoke_shop"
   gate "$work/smoke_shop"
   echo "adoption: the commit under test adopted and passed"
 }
@@ -128,6 +142,7 @@ run_update() {
     cp -a "$current_src/template" "$work/base-src/template"
   fi
   adopt "$work/base-src" "$work/smoke_shop_prev" "$work/base-src/template/template.rb"
+  assert_template_commit_clean "$work/smoke_shop_prev"
   if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
     cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
     cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"

@@ -28,6 +28,8 @@ module RafeloTemplate
     --skip-javascript
     --skip-hotwire
     --skip-jbuilder
+    --skip-kamal
+    --skip-solid
     --skip-test
   ].freeze
 

@@ -355,7 +355,7 @@ the rule it serves.
    # on the host: the only command that runs outside the Dev Container
    docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp \
      -v "$PWD":/work -w /work ruby:<pinned> \
-     sh -c 'gem install rails -v <pinned> && rails new <app> -d postgresql --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-test -m <template>'
+     sh -c 'gem install rails -v <pinned> && rails new <app> -d postgresql --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal --skip-solid --skip-test -m <template>'
    ```
 
    The template asserts these options. Verify when adopting that Rails 8.1

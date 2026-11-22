@@ -325,7 +325,7 @@ A new project starts from the Rails application template:
 ```sh
 # runs in a throwaway container, so nothing is installed on the host
 docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/work -w /work ruby:<pinned> \
-  sh -c 'gem install rails -v <pinned> && rails new <app> -d postgresql --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-test -m <template>'
+  sh -c 'gem install rails -v <pinned> && rails new <app> -d postgresql --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal --skip-solid --skip-test -m <template>'
 ```
 
 `<pinned>` is the Ruby image tag and the Rails version of the template
@@ -334,8 +334,10 @@ and `HOME=/tmp` gives that user a writable home. `-d postgresql` and
 `--devcontainer` set up PostgreSQL and the Dev Container (OPS-09); the skip
 flags leave out what the template replaces (the default JavaScript setup and
 Hotwire by Vite, React, and Inertia; Jbuilder by props objects; Minitest by
-RSpec). The template asserts these options and stops when one is missing.
-Verify the Rails 8.1 flag set, and that the image has git, when adopting.
+RSpec; the kamal and solid installers by the template's own deploy and
+database configuration). The template asserts these options and stops when
+one is missing. Verify the Rails 8.1 flag set, and that the image has git,
+when adopting.
 
 - The template derives the namespace from the app name (`acme` → `Acme`),
   copies in the kernel (`engines/core`, `engines/design_system`, the
