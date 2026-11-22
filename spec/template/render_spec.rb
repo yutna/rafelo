@@ -148,10 +148,47 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         expect(kernel_initializer).to include("engines/core/app/models/rafelo/core/modules")
 
         if Dir.exist?(File.join(source_root, "engines", "example_orders"))
-          example = File.read(File.join(destination, "engines", "example_orders", "lib", "rafelo", "example_orders", "engine.rb"))
-          expect(example).to include("module Rafelo")
-          expect(example).to include("ExampleOrders")
+          example = File.read(File.join(destination, "engines", "example_orders", "lib", "smoke_shop", "example_orders", "engine.rb"))
+          expect(example).to include("module SmokeShop")
+          expect(example).to include("module ExampleOrders")
+          expect(example).to include("isolate_namespace SmokeShop::ExampleOrders")
+          expect(example).not_to include("module Rafelo")
+          expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
+          expect(File).not_to exist(File.join(destination, "engines", "example_orders", "lib", "rafelo", "example_orders", "engine.rb"))
+
+          gemspec = File.read(File.join(destination, "engines", "example_orders", "smoke_shop_example_orders.gemspec"))
+          expect(gemspec).to include('spec.name = "smoke_shop_example_orders"')
+          expect(gemspec).to include('require_relative "lib/smoke_shop/example_orders/version"')
+          expect(gemspec).to include("SmokeShop::ExampleOrders::VERSION")
+          expect(File.read(File.join(destination, "Gemfile.lock"))).to include("smoke_shop_example_orders")
+
+          module_config = File.read(File.join(destination, "engines", "example_orders", "config", "module.rb"))
+          expect(module_config).to include("engine: SmokeShop::ExampleOrders::Engine")
+          policy = File.read(File.join(destination, "engines", "example_orders", "app", "policies", "smoke_shop", "example_orders", "order_policy.rb"))
+          expect(policy).to include("SmokeShop::ExampleOrders::Permissions")
         end
+
+        permissions, permissions_status = Open3.capture2e(
+          RbConfig.ruby,
+          File.join(destination, "script", "contracts", "permissions"),
+          "--root", destination,
+          "--check"
+        )
+        expect(permissions_status).to be_success, permissions
+
+        lockfile = File.join(destination, "Gemfile.lock")
+        lock_before = File.read(lockfile)
+        bundle_output, bundle_status = Open3.capture2e(
+          { "BUNDLE_FROZEN" => "false", "BUNDLE_GEMFILE" => File.join(destination, "Gemfile") },
+          "bundle", "install", "--quiet",
+          chdir: destination
+        )
+        expect(bundle_status).to be_success, bundle_output
+        expect(File.read(lockfile)).to eq(lock_before)
+
+        generated_docs = File.read(File.join(destination, "docs", "architecture", "01_architecture.md"))
+        expect(generated_docs).to include("SmokeShop::ExampleOrders")
+        expect(generated_docs).not_to include("Rafelo::ExampleOrders")
 
         expect(File).to exist(File.join(destination, ".github", "workflows", "ci.yml"))
         expect(File).not_to exist(File.join(destination, ".github", "workflows", "pr-check.yml"))
@@ -183,6 +220,54 @@ RSpec.describe RafeloTemplate, "payload rendering" do
     end
   end
 
+
+  describe ".normalize_lockfile" do
+    it "sorts the dependency, gem, and checksum lists by gem name" do
+      text = <<~LOCK
+        DEPENDENCIES
+          zeta!
+          smoke_shop_example_customers!
+          alpha!
+
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            zeta (1.0)
+            smoke_shop_example_customers (0.1.0)
+            alpha (2.0)
+
+        CHECKSUMS
+          zeta (1.0) sha256=aaa
+          smoke_shop_example_customers (0.1.0)
+          alpha (2.0) sha256=bbb
+      LOCK
+
+      normalized = described_class.normalize_lockfile(text)
+
+      expect(normalized.index("  alpha!")).to be < normalized.index("  smoke_shop_example_customers!")
+      expect(normalized.index("    alpha (2.0)")).to be < normalized.index("    smoke_shop_example_customers (0.1.0)")
+      expect(normalized.index("  alpha (2.0)")).to be < normalized.index("  smoke_shop_example_customers (0.1.0)")
+    end
+  end
+
+  describe ".render_examples!" do
+    it "refreshes only the example engines in the app namespace" do
+      Dir.mktmpdir("rafelo-template-examples-") do |destination|
+        written = described_class.render_examples!(
+          source_root: source_root,
+          destination: destination,
+          app_name: "smoke_shop",
+          version: version
+        )
+
+        expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
+        expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
+        expect(File).not_to exist(File.join(destination, "config", "application.rb"))
+        expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
+          .to include("SmokeShop::ExampleOrders::Engine")
+      end
+    end
+  end
 
   describe "the documented acme app name" do
     it "is accepted without treating the app's own name as a placeholder" do

@@ -8,7 +8,7 @@ rendered.
 `template/` also owns the adopter-only files: `.github/` (the template
 repository's own oss-kit callers are never copied) and the starter
 `adopter/README.md`. The renderer replaces the app namespace in app-level
-files while keeping the kernel brand `Rafelo`.
+files, including the example engines, while keeping the kernel brand `Rafelo`.
 
 The template derives the app namespace from the app name, refuses the
 reserved names and any existing constant before writing, asserts the

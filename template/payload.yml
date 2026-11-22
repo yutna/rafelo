@@ -3,7 +3,7 @@
 # Paths are relative to the template repository root. `mode` decides how a
 # text file is rendered:
 #
-#   copy        byte-for-byte, for the kernel and the example engines
+#   copy        byte-for-byte, for the kernel
 #   app         the template app's own namespace (`Rafelo` -> `SmokeShop`)
 #   placeholder the documentation's example app name (`Acme` -> `SmokeShop`)
 #   github      an adopter `.github/` file (placeholders only; the kernel
@@ -33,6 +33,7 @@ paths:
     mode: app
   - source: Gemfile
   - source: Gemfile.lock
+    mode: app
   - source: LICENSE
   - source: Rakefile
   - source: THIRD_PARTY_NOTICES.md
@@ -82,8 +83,10 @@ paths:
   # them, and the template repository's examples-removable job proves the
   # kernel still passes without them.
   - source: engines/example_customers
+    mode: app
     optional: true
   - source: engines/example_orders
+    mode: app
     optional: true
   - source: lib
     mode: app
