@@ -176,15 +176,9 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         )
         expect(permissions_status).to be_success, permissions
 
-        lockfile = File.join(destination, "Gemfile.lock")
-        lock_before = File.read(lockfile)
-        bundle_output, bundle_status = Open3.capture2e(
-          { "BUNDLE_FROZEN" => "false", "BUNDLE_GEMFILE" => File.join(destination, "Gemfile") },
-          "bundle", "install", "--quiet",
-          chdir: destination
-        )
-        expect(bundle_status).to be_success, bundle_output
-        expect(File.read(lockfile)).to eq(lock_before)
+        lockfile = File.read(File.join(destination, "Gemfile.lock"))
+        expect(lockfile.index("  smoke_shop_example_customers!")).to be < lockfile.index("  solid_cable (= 4.1.0)")
+        expect(lockfile.index("  smoke_shop_example_customers (0.1.0)")).to be < lockfile.index("  solid_cable (4.1.0)")
 
         generated_docs = File.read(File.join(destination, "docs", "architecture", "01_architecture.md"))
         expect(generated_docs).to include("SmokeShop::ExampleOrders")

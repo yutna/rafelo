@@ -11,12 +11,12 @@ PATH
 PATH
   remote: engines/example_customers
   specs:
-    smoke_shop_example_customers (0.1.0)
+    rafelo_example_customers (0.1.0)
 
 PATH
   remote: engines/example_orders
   specs:
-    smoke_shop_example_orders (0.1.0)
+    rafelo_example_orders (0.1.0)
 
 GEM
   remote: https://rubygems.org/
@@ -244,6 +244,7 @@ GEM
     mini_magick (5.4.0)
       logger
     mini_mime (1.1.5)
+    mini_portile2 (2.8.9)
     minitest (6.1.0)
       drb (~> 2.0)
       prism (>= 1.5, < 3)
@@ -270,6 +271,9 @@ GEM
     net-ssh (7.3.10)
       logger
     nio4r (2.7.5)
+    nokogiri (1.19.7)
+      mini_portile2 (~> 2.8.2)
+      racc (~> 1.4)
     nokogiri (1.19.7-aarch64-linux-gnu)
       racc (~> 1.4)
     nokogiri (1.19.7-aarch64-linux-musl)
@@ -540,11 +544,11 @@ DEPENDENCIES
   pundit (= 2.5.2)
   rafelo_core!
   rafelo_design_system!
+  rafelo_example_customers!
+  rafelo_example_orders!
   rails (= 8.1.4.1)
   rspec-rails (= 8.1.0)
   rubocop-rails-omakase (= 1.1.0)
-  smoke_shop_example_customers!
-  smoke_shop_example_orders!
   solid_cable (= 4.1.0)
   solid_cache (= 1.0.10)
   solid_queue (= 1.7.2)
@@ -637,6 +641,7 @@ CHECKSUMS
   marcel (1.2.1) sha256=1678e9360e32f9eafa917c80029e2f6d10b2715c66a4b87b6d0da9b9cd1f859f
   mini_magick (5.4.0) sha256=f120af581d9ed4ec52c57f35a67a605d112bb1d8f582d1415b147fda42d11d78
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
+  mini_portile2 (2.8.9) sha256=0cd7c7f824e010c072e33f68bc02d85a00aeb6fce05bb4819c03dfd3c140c289
   minitest (6.1.0) sha256=ff373595aa8888631e8a5463986a76b3845346ae6d7fa46e139c1633d418076e
   msgpack (1.8.7) sha256=dfefec761b5f9047e6e8d95d2c7f8af4b3725d984a01942adc533aa819a2df33
   mutex_m (0.3.0) sha256=cfcb04ac16b69c4813777022fdceda24e9f798e48092a2b817eb4c0a782b0751
@@ -650,6 +655,7 @@ CHECKSUMS
   net-smtp (0.5.2) sha256=35103cc04d6b2d94632f9928ede07483c24b70b9c0db1f231fea43909b678f3c
   net-ssh (7.3.10) sha256=8b54591acc8f9dbb63cd906add66a816c302f950cf92137b14155e809abea472
   nio4r (2.7.5) sha256=6c90168e48fb5f8e768419c93abb94ba2b892a1d0602cb06eef16d8b7df1dca1
+  nokogiri (1.19.7) sha256=abe94507c54cb18f872777b16bdca4aad32b1abdc4c52fe843f1c80fbdf992b8
   nokogiri (1.19.7-aarch64-linux-gnu) sha256=8f5e15d299602456406e1f03a9f3456cceb33a0722811e818d2ee2214eb4c84a
   nokogiri (1.19.7-aarch64-linux-musl) sha256=efe0c3602e6e54521bc21c681930ce5568e2d11203de17400710b2b3ca2e4cb4
   nokogiri (1.19.7-arm-linux-gnu) sha256=7fd1907125691aa89e838cc91161761c758b4e17bb32f0dd9b5515a82cc759af
@@ -690,6 +696,8 @@ CHECKSUMS
   rackup (2.3.1) sha256=6c79c26753778e90983761d677a48937ee3192b3ffef6bc963c0950f94688868
   rafelo_core (0.1.0)
   rafelo_design_system (0.1.0)
+  rafelo_example_customers (0.1.0)
+  rafelo_example_orders (0.1.0)
   rails (8.1.4.1) sha256=365c3a0ad2713bd6e60628e5e826622d4ca8dee60b5a7e560e9b20844e9650bc
   rails-dom-testing (2.3.0) sha256=8acc7953a7b911ca44588bf08737bc16719f431a1cc3091a292bca7317925c1d
   rails-html-sanitizer (1.7.2) sha256=a21ef45b7a6639fc8e2282473c547514cb86ae271616162a946bf89148fa2424
@@ -718,8 +726,6 @@ CHECKSUMS
   sexp_processor (4.17.6) sha256=3c5d0e9db06377abde06db51dbacb14ce239ed0bd038ae515bc42c81602c6c1f
   simpleidn (0.3.0) sha256=12ca730bed2f3db04d11e9bfd1bca3e11fb37f55b21eb2e9793fb5814bf54d03
   smart_properties (1.17.0) sha256=f9323f8122e932341756ddec8e0ac9ec6e238408a7661508be99439ca6d6384b
-  smoke_shop_example_customers (0.1.0)
-  smoke_shop_example_orders (0.1.0)
   solid_cable (4.1.0) sha256=828e3d509207b82b4f05f4e9c85f696994710679b52d511aa7f97ebd212d3226
   solid_cache (1.0.10) sha256=bc05a2fb3ac78a6f43cbb5946679cf9db67dd30d22939ededc385cb93e120d41
   solid_queue (1.7.2) sha256=a22685e1d2ee14ce7b4e5d4592c9d8e837951884c51555609dee58679ed03325
