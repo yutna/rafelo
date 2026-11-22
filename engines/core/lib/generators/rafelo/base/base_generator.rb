@@ -3,6 +3,7 @@
 require "rails/generators"
 require "json"
 require "yaml"
+require_relative "grant_catalog"
 
 module Rafelo
   module Generators
@@ -69,6 +70,7 @@ module Rafelo
       end
 
       def post_write
+        GrantCatalog.sync(root_path)
         inside(root_path) do
           run_step "bundle install"
           run_step "script/ci/engine_graph"

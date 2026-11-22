@@ -65,7 +65,6 @@ module Rafelo
                 initializer "#{app_ns_underscore}_#{name}.migration_paths" do |app|
                   config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
                 end
-
               end
             end
           end

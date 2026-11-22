@@ -924,7 +924,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "renders the index page contract at the maximum page size" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               items = JSON.parse(
                 Rails.root.join("engines/#{mod}/spec/fixtures/upstream/#{resource_plural}/index.json").read
               ).fetch("items")
@@ -946,7 +946,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "renders the show page contract" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               expect { get "/en/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/show")
@@ -960,7 +960,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "renders the new page contract" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               expect { get "/en/#{mod}/#{resource_plural}/new", headers: headers }.to within_budgets("#{page_key_base}/new")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/new")
@@ -974,7 +974,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "renders the edit page contract" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               expect { get "/en/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/edit")
@@ -988,7 +988,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "creates through the gateway, redirects with 303, and replays without a second call" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
               stub_request(:post, "http://localhost:4000/#{resource_plural}")
                 .to_return(status: 201, body: "{}", headers: { "Content-Type" => "application/json" })
@@ -1003,14 +1003,14 @@ module Rafelo
             end
 
             it "redirects back with errors when create params are invalid" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               post "/en/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
               expect(response).to have_http_status(:see_other)
               expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/new")
             end
 
             it "redirects back with translated errors when the upstream rejects the create" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
               stub_request(:post, "http://localhost:4000/#{resource_plural}")
                 .to_return(status: 422, body: '{"errors":{"name":["taken"]}}',
@@ -1022,7 +1022,7 @@ module Rafelo
             end
 
             it "redirects back with a conflict when the upstream answers 409" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               token = form_token(headers, "/en/#{mod}/#{resource_plural}/new")
               stub_request(:post, "http://localhost:4000/#{resource_plural}")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
@@ -1037,7 +1037,7 @@ module Rafelo
           spec << <<~RUBY
 
             it "updates through the gateway and redirects with 303" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
               stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
                 .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
@@ -1048,14 +1048,14 @@ module Rafelo
             end
 
             it "redirects back with errors when update params are invalid" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               patch "/en/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token" }, headers: headers
               expect(response).to have_http_status(:see_other)
               expect(response).to redirect_to("/en/#{mod}/#{resource_plural}/1/edit")
             end
 
             it "redirects back with a conflict when the upstream rejects the update" do
-              headers = sign_in_with([#{grants_literal}])
+              headers = sign_in_with([ #{grants_literal} ])
               token = form_token(headers, "/en/#{mod}/#{resource_plural}/1/edit")
               stub_request(:patch, "http://localhost:4000/#{resource_plural}/1")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
@@ -1071,6 +1071,7 @@ module Rafelo
       end
 
       def post_write
+        Rafelo::Generators::GrantCatalog.sync(root)
         inside(root) do
           run_step "bundle install"
           run_step "script/ci/engine_graph"

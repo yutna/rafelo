@@ -208,17 +208,30 @@ verify() {
   npm run pages:check
 }
 
+verify_generated() {
+  verify "$@"
+  # The created slice must be clean without an autocorrect. The moved and
+  # renamed slice's lint/request proof returns with rename_module (#666).
+  for engine in "$@"; do
+    bin/rubocop "engines/$engine"
+    if [ -d "spec/requests/$engine" ]; then bin/rubocop "spec/requests/$engine"; fi
+  done
+}
+
 # Create: a domain engine, two product modules, a read page and a write page.
 bin/rails generate rafelo:domain smoke_party
 bin/rails generate rafelo:module smoke_check
 bin/rails generate rafelo:module smoke_other
 bin/rails generate rafelo:page smoke_check widgets --actions=index,new
-verify smoke_party smoke_check smoke_other
+verify_generated smoke_party smoke_check smoke_other
+RAILS_ENV=test bin/rails db:prepare
+RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb spec/requests/smoke_check
 
 # Change: move the resource to the other module, then rename that module.
 bin/rails generate rafelo:move_page smoke_check smoke_other widgets
 bin/rails generate rafelo:rename_module smoke_other smoke_renamed
 verify smoke_check smoke_renamed
+RAILS_ENV=test bundle exec rspec spec/upstream/drift_spec.rb
 ```
 
 `bin/check <engine>` runs Packwerk, the generated dependency-cruiser rules,

@@ -3,6 +3,7 @@
 require "rails/generators"
 require "shellwords"
 require "yaml"
+require_relative "../base/grant_catalog"
 
 module Rafelo
   module Generators
@@ -220,6 +221,7 @@ module Rafelo
       end
 
       def post_write
+        Rafelo::Generators::GrantCatalog.sync(root)
         inside(root) do
           %w[bundle\ install script/ci/engine_graph npm\ run\ aliases:generate npm\ run\ permissions:generate npm\ run\ errors:generate npm\ run\ i18n:generate npm\ run\ contracts:generate].each do |cmd|
             raise Thor::Error, "post-write step failed: #{cmd}" unless run(cmd)
