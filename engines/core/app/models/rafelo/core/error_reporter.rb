@@ -6,7 +6,7 @@ module Rafelo
     # catalog code, request id, trace id and release tag, and one subscriber
     # that forwards the allow-listed context (OPS-03).
     class ErrorReporter
-      CONTEXT_KEYS = %w[code request_id trace_id release].freeze
+      CONTEXT_KEYS = %w[code request_id trace_id release partition database_role rows].freeze
       CLIENT_KEYS = %w[message stack page path release request_id trace_id].freeze
 
       def self.report(error, handled:, code: nil, request_id: nil, trace_id: nil)
@@ -40,6 +40,7 @@ module Rafelo
           else
             allowed.slice(*CONTEXT_KEYS)
           end
+          allowed = allowed.merge(ProcessIdentity.to_h.stringify_keys)
           ReportingService.capture(error, handled: handled, severity: severity, context: allowed)
         rescue StandardError => error
           Rails.logger.warn("error report forward failed: #{error.class.name}")

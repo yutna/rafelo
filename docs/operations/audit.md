@@ -68,7 +68,10 @@ DROP TABLE core_audit_events_default;
 ```
 
 The alert is a `Rails.error` report (`AuditPartitions::DefaultPartitionOccupied`)
-and is on by default in the OPS-03 reporter.
+and is on by default in the OPS-03 reporter. It carries the DEFAULT partition
+name, the database runtime role, the row count, and the process identity
+(`host`, `pid`, and deployment `role`), so the report names which partition
+and which process saw the rows.
 
 ## Append-only and retention
 

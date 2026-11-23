@@ -3,6 +3,7 @@ require "rails_helper"
 RSpec.describe "Client error reports", :csrf, type: :request do
   let(:trace_id) { "a" * 32 }
   let(:forwarded) { [] }
+  let(:identity) { Rafelo::Core::ProcessIdentity.to_h.stringify_keys }
 
   before do
     allow(Rafelo::Core::ReportingService).to receive(:capture) do |_error, handled:, severity:, context:|
@@ -50,8 +51,9 @@ RSpec.describe "Client error reports", :csrf, type: :request do
     expect(response.body).to be_empty
     context = forwarded.fetch(0).fetch(:context).stringify_keys
     expect(context.keys).to contain_exactly(
-      "message", "stack", "page", "path", "release", "request_id", "trace_id"
+      "message", "stack", "page", "path", "release", "request_id", "trace_id", *identity.keys
     )
+    expect(context).to include(identity)
     expect(context["message"]).to include("[FILTERED]")
     expect(context["stack"]).to eq("Authorization: [FILTERED]")
     expect(context["page"]).to include("[FILTERED]")

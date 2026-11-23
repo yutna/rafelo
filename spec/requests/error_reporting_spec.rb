@@ -19,6 +19,7 @@ RSpec.describe "Server error reporting", type: :request do
   end
   let(:probe) { ErrorProbe.new }
   let(:forwarded) { [] }
+  let(:identity) { Rafelo::Core::ProcessIdentity.to_h.stringify_keys }
 
   before do
     allow(Rafelo::Core::ReportingService).to receive(:capture) do |_error, handled:, severity:, context:|
@@ -60,7 +61,8 @@ RSpec.describe "Server error reporting", type: :request do
       "release" => "#{Rafelo::Core::Release.version}:#{Rafelo::Core::AssetVersion.call}"
     )
     expect(context_for.keys).to include("code", "request_id", "trace_id", "release")
-    expect(forwarded_context.keys).to contain_exactly("code", "request_id", "trace_id", "release")
+    expect(forwarded_context.keys).to contain_exactly("code", "request_id", "trace_id", "release", *identity.keys)
+    expect(forwarded_context).to include(identity)
   end
 
   it "reports an unhandled exception once" do
@@ -79,6 +81,28 @@ RSpec.describe "Server error reporting", type: :request do
     expect(context_for["code"]).to eq("resource.not_found")
     expect(context_for["request_id"]).to eq("request-error")
     expect(context_for["trace_id"]).to eq(trace_id)
+  end
+
+  it "adds the process identity and partition context to a Rails-originated alert" do
+    Rails.error.report(
+      Rafelo::Core::AuditPartitions::DefaultPartitionOccupied.new("core_audit_events_default holds rows"),
+      handled: false,
+      context: {
+        partition: "core_audit_events_default",
+        database_role: "acme_runtime",
+        rows: 1,
+        secret: "must not be forwarded"
+      }
+    )
+
+    context = forwarded.last.fetch(:context).to_h.stringify_keys
+    expect(context).to include(
+      "partition" => "core_audit_events_default",
+      "database_role" => "acme_runtime",
+      "rows" => 1,
+      **identity
+    )
+    expect(context).not_to have_key("secret")
   end
 
   it "never attaches parameters, props, headers or cookies" do

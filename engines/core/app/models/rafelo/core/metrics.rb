@@ -91,6 +91,7 @@ module Rafelo
             @counters.each do |(name, labels), count|
               lines << metric(name, labels, count)
             end
+            lines.concat(process_lines)
             lines.concat(pool_lines)
             lines.join("\n") + "\n"
           end
@@ -122,6 +123,18 @@ module Rafelo
           end
         end
 
+        def process_lines
+          identity = ProcessIdentity.to_h
+          [
+            metric(
+              "rafelo_process_info",
+              { host: identity[:host], pid: identity[:pid], role: identity[:role] },
+              1,
+              type: "gauge"
+            )
+          ]
+        end
+
         def pool_lines
           return [] unless defined?(ActiveRecord::Base) && ActiveRecord::Base.connected?
 
@@ -137,7 +150,11 @@ module Rafelo
 
         def metric(name, labels, value, type: "counter")
           rendered = labels.map { |key, label| "#{key}=\"#{escape(label)}\"" }.join(",")
-          prefix = type == "histogram" ? "# TYPE #{name} histogram\n" : ""
+          prefix = case type
+          when "histogram" then "# TYPE #{name} histogram\n"
+          when "gauge" then "# TYPE #{name} gauge\n"
+          else ""
+          end
           suffix = rendered.empty? ? name : "#{name}{#{rendered}}"
           "#{prefix}#{suffix} #{value}"
         end

@@ -19,6 +19,8 @@ module Rafelo
         core_config = app.config_for(:core)
         app.config.x.executor = Data.define(:size).new(size: core_config.fetch(:executor).fetch(:size).to_i)
         app.config.x.puma_threads = core_config.fetch(:puma_threads, 3).to_i
+        app.config.x.process = ActiveSupport::OrderedOptions.new
+        app.config.x.process.role = core_config.fetch(:process).fetch(:role).to_s
         app.config.x.requests.upstream_deadline_seconds = 10
         app.config.x.sessions.refresh_timeout_seconds = 15
         app.config.x.sessions.idle_timeout_seconds = 30 * 60
