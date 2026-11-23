@@ -29,13 +29,15 @@ RSpec.describe Rafelo::Core::ProductionRoutes do
     routes = ActionDispatch::Routing::RouteSet.new
     routes.draw do
       get "/_inertia/devtools/entries", to: "inertia_rails/devtools/entries#index"
+      get "/_inertia/devtools/fake", to: "other#show"
     end
 
     allow(InertiaRails::Devtools).to receive(:enabled?).and_return(false)
-    expect(described_class.walk(routes)).to be_empty
+    expect(described_class.walk(routes).map(&:path)).to eq([ "/_inertia/devtools/fake" ])
 
     allow(InertiaRails::Devtools).to receive(:enabled?).and_return(true)
-    expect(described_class.walk(routes).map(&:path)).to eq([ "/_inertia/devtools/entries" ])
+    expect(described_class.walk(routes).map(&:path))
+      .to eq([ "/_inertia/devtools/entries", "/_inertia/devtools/fake" ])
   end
 
   it "derives only the module routes whose controller belongs to the engine" do

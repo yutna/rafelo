@@ -41,7 +41,7 @@ module Rafelo
           handled: false,
           context: {
             partition: DEFAULT_TABLE,
-            database_role: Rails.application.config.x.database.runtime_role.to_s.presence || "unknown",
+            database_role: @connection.select_value("SELECT current_user").to_s,
             rows: rows
           }
         )
@@ -86,7 +86,7 @@ module Rafelo
 
         quoted_role = @connection.quote_table_name(role)
         exists = @connection.select_value("SELECT 1 FROM pg_roles WHERE rolname = #{@connection.quote(role)}")
-        return false unless exists
+        raise "audit runtime role #{role} does not exist" unless exists
 
         names = [ TABLE, DEFAULT_TABLE ] + partitions.keys
         names << "core_audits" if @connection.table_exists?("core_audits")
