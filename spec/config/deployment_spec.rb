@@ -69,12 +69,20 @@ RSpec.describe "Deployment profiles" do
   end
 
   it "rebuilds the Dev Container image when a pinned input changes" do
-    workflow = File.read(Rails.root.join(".github/workflows/devcontainer.yml"))
+    paths = %w[
+      .github/workflows/devcontainer.yml
+      template/.github/workflows/devcontainer.yml
+    ].select { |path| Rails.root.join(path).file? }
+    expect(paths).to include(".github/workflows/devcontainer.yml")
 
-    %w[mise.toml .ruby-version package.json package-lock.json].each do |path|
-      expect(workflow).to include(%(- "#{path}"))
+    paths.each do |path|
+      workflow = File.read(Rails.root.join(path))
+
+      %w[mise.toml .ruby-version package.json package-lock.json].each do |input|
+        expect(workflow).to include(%(- "#{input}"))
+      end
+      expect(workflow).to include(%(- "!.devcontainer/image_digest"))
     end
-    expect(workflow).to include(%(- "!.devcontainer/image_digest"))
   end
 
   it "describes a multi-host profile on the same image and code with managed services" do
