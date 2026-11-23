@@ -1,3 +1,8 @@
+<% amazon = ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" %>
+<% if amazon %>
+<%   region = ENV["AWS_REGION"].presence || raise("AWS_REGION is required when ACTIVE_STORAGE_SERVICE is amazon") %>
+<%   bucket = ENV["AWS_BUCKET"].presence || raise("AWS_BUCKET is required when ACTIVE_STORAGE_SERVICE is amazon") %>
+<% end %>
 test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
@@ -8,10 +13,11 @@ local:
 
 # S3-compatible Active Storage service for the multi-host profile (OPS-06).
 # The access keys are secrets from the encrypted production credentials
-# (BE-08); the region and bucket are clear settings in config/deploy.multi.yml.
+# (BE-08); the region and bucket are required clear settings in
+# config/deploy.multi.yml, never defaults.
 amazon:
   service: S3
   access_key_id: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :access_key_id) : nil %>
   secret_access_key: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :secret_access_key) : nil %>
-  region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
-  bucket: <%= ENV.fetch("AWS_BUCKET", "acme-production") %>
+  region: <%= region if amazon %>
+  bucket: <%= bucket if amazon %>
