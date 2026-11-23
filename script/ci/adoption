@@ -154,6 +154,29 @@ run_update() {
     cp "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" \
       "$work/smoke_shop_prev/config/grants.json"
   fi
+  # The N-1 generator's post-write steps run the app's npm scripts, so install
+  # the app's toolchain before generating.
+  ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/setup --skip-server >/dev/null )
+  # The generated-page leg (GEN-02, GEN-07): the N-1 generator writes a module
+  # and a page slice before the update, so the gate proves that generated code
+  # survives a kernel update. Never park this behind a version condition.
+  ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/rails generate rafelo:module legacy_check >/dev/null && \
+      BUNDLE_FROZEN=false bin/rails generate rafelo:page legacy_check widgets --actions=index,new,edit >/dev/null )
+  # The generated slice's permission keys belong to the app-owned grant catalog
+  # (BE-03). The v0.37 generator syncs it; older N-1 generators need this merge.
+  "$ruby_bin" -rjson -ryaml -e '
+    root, module_name = ARGV
+    grants_path = File.join(root, "config/grants.json")
+    abort "adoption: #{grants_path} is missing" unless File.file?(grants_path)
+    manifest = YAML.safe_load_file(File.join(root, "engines", module_name, "config/permissions.yml"), aliases: false) || {}
+    grants = JSON.parse(File.read(grants_path)).fetch("grants")
+    manifest.each do |prefix, resources|
+      (resources || {}).each do |resource, actions|
+        Array(actions).each { |action| grants << "#{prefix}:#{resource}:#{action}" }
+      end
+    end
+    File.write(grants_path, JSON.pretty_generate("grants" => grants.uniq.sort) + "\n")
+  ' "$work/smoke_shop_prev" legacy_check
   if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
     cp "$current_src/bin/kernel_update" "$work/smoke_shop_prev/bin/kernel_update"
     cp "$current_src/script/ci/kernel_update" "$work/smoke_shop_prev/script/ci/kernel_update"
@@ -197,7 +220,13 @@ run_update() {
   "$ruby_bin" -r"$current_src/template/lib/rafelo_template.rb" -e \
     'RafeloTemplate.render_examples!(source_root: ARGV[0], destination: ARGV[1], app_name: ARGV[2], version: ARGV[3])' \
     "$current_src" "$work/smoke_shop_prev" "smoke_shop_prev" "$version"
-  ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bundle install >/dev/null )
+  # Run the same setup the gate runs before committing, so the generated
+  # engine's path gem and migration are in the committed tree. The extra
+  # `bundle check` settles Bundler's path-source order; the first check after
+  # adding an engine can pass while rewriting the lockfile, and the gate's own
+  # check would then leave the tree dirty for the generator smoke.
+  ( cd "$work/smoke_shop_prev" && BUNDLE_FROZEN=false bin/setup --skip-server >/dev/null && \
+      BUNDLE_FROZEN=false bundle check >/dev/null )
   ( cd "$work/smoke_shop_prev" && git add -A && \
       git -c user.name="Rafelo CI" -c user.email="ci@rafelo.invalid" -c commit.gpgsign=false \
         commit -q -m "chore: update the kernel to v$version" )

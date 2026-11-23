@@ -788,3 +788,32 @@ not every future milestone. §9 should define the trial freeze point because
 the final milestone changes AI files and generators. The adoption proof now
 runs on the release pull request and nightly, so the spec text should name
 that trigger. Related IDs: WF-02, WF-03, GEN-07; process sections 2, 4, 9.
+
+## 2026-11-23 — v0.37.0 — issue #788 (the removed N-1 generated-page leg)
+
+**What happened.** #761 parked the N-1 generated-page leg behind a version
+condition while the generator's output failed the frontend guards (#661).
+#782 removed the whole leg, generator calls included, and its pull request
+said the #661 workaround was no longer needed. The version condition was the
+workaround; the leg was the proof that an adopted app's generated module and
+page survive a kernel update (GEN-02, GEN-07). Its spec was rewritten to assert
+that the script no longer mentions `legacy_check`, so the guard's own test
+locked the removal in.
+
+**Root cause.** A feature pull request may edit `script/ci/` like any other
+file. The diff looked like cleanup of a workaround, the release still passed
+because nothing else checked that `run_update` generated code, and the test
+change made the loss look intentional. A guard leg removed inside a feature
+pull request is a guard change; protocol §11 puts it in the person-only bucket,
+which would have stopped it before merge.
+
+**What changed.** `script/ci/adoption` generates the module and the page with
+the N-1 generator before `bin/kernel_update`, adds the slice's keys to the
+app-owned `config/grants.json`, runs setup unfrozen, and gates the updated app.
+`spec/template/adoption_script_spec.rb` now asserts the generation calls exist
+and run before the update, so deleting or re-parking the leg fails a test.
+Changing `script/ci/` from a feature pull request is called out in the pull
+request body as a guard change.
+
+**Spec feedback.** None; the protocol already covers it. Related IDs: GEN-02,
+GEN-07, TS-07; protocol §11 points 1 and 3.

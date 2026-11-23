@@ -16,9 +16,21 @@ RSpec.describe "script/ci/adoption" do
     expect(script.index("rev-parse -q --verify")).to be < script.index("predates the template payload")
   end
 
-  it "does not park the generated-page leg after #661" do
+  it "generates a module and a page with the N-1 generator before the update" do
+    module_call = script.index("rafelo:module legacy_check")
+    page_call = script.index("rafelo:page legacy_check widgets --actions=index,new,edit")
+    update_call = script.index('bin/kernel_update "$version"')
+
+    expect(module_call).not_to be_nil
+    expect(page_call).to be > module_call
+    expect(update_call).to be > page_call
+    expect(script).to include('File.join(root, "config/grants.json")')
+    expect(script).to include("bin/setup --skip-server")
+    expect(script).to include("BUNDLE_FROZEN=false bundle check")
+  end
+
+  it "never parks the generated-page leg behind a version condition" do
     expect(script).not_to include('"0.36.0" "$base_version"')
-    expect(script).not_to include("legacy_check")
     expect(script).not_to include("bin/rubocop -A")
   end
 
