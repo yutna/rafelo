@@ -25,6 +25,15 @@ RSpec.describe Rafelo::Generators::DomainGenerator do
         "legacy_constants" => 0
       )
       expect(root.join("engines/customers_probe/db/migrate/.keep")).to exist
+      engine = File.read(root.join("engines/customers_probe/lib/rafelo/customers_probe/engine.rb"))
+      expect(engine).to include("rafelo_customers_probe.migration_paths")
+      expect(engine).to include('app.config.paths["db/migrate"] << path')
+      expect(File.read(root.join("engines/customers_probe/vitest.config.mts"))).to include(
+        'root: fileURLToPath(new URL(".", import.meta.url))'
+      )
+      expect(YAML.safe_load_file(root.join("engines/customers_probe/config/locales/en.yml"))).to eq(
+        "en" => { "customers_probe" => {} }
+      )
       expect(File.read(root.join("engines/customers_probe/spec/rails_helper.rb"))).to eq("require_relative \"../../../spec/rails_helper\"\n")
       expect(root.join("engines/customers_probe/config/routes.rb")).not_to exist
       expect(root.join("engines/customers_probe/lib/rafelo/customers_probe/engine.rb").read).not_to include("Modules.register")

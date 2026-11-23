@@ -29,11 +29,16 @@ module Rafelo
             # frozen_string_literal: true
 
             require "rails/engine"
+            require "rafelo_core"
 
             module #{namespace}
               module #{module_name}
                 class Engine < ::Rails::Engine
                   isolate_namespace #{namespace}::#{module_name}
+
+                  initializer "#{app_ns_underscore}_#{name}.migration_paths" do |app|
+                    config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
+                  end
                 end
               end
             end
@@ -74,7 +79,7 @@ module Rafelo
           create_file "#{engine_dir}/spec/fixtures/upstream/.keep", ""
           create_file "#{engine_dir}/e2e/.keep", ""
           Rafelo::Core::Locales.available.map(&:to_s).each do |locale|
-            create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}:\n    nav:\n      title: \"#{name.humanize}\"\n"
+            create_file "#{engine_dir}/config/locales/#{locale}.yml", "#{locale}:\n  #{name}: {}\n"
           end
           create_file "#{engine_dir}/vitest.config.mts", <<~TS
             import { defineConfig } from "vitest/config";
@@ -85,6 +90,7 @@ module Rafelo
             const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
 
             export default defineConfig({
+              root: fileURLToPath(new URL(".", import.meta.url)),
               plugins: reactPlugins(),
               resolve: { alias: engineAliases },
               test: {
