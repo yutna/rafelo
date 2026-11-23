@@ -59,6 +59,66 @@ export function isRuleId(id: string): boolean {
   return RULE_PREFIXES.some((prefix) => id.startsWith(`${prefix}-`));
 }
 
+// Every pack skill named by one of the 16 resolved conflicts in
+// docs/architecture/lessons-learned.md (2026-11-14, skills audit). The root
+// guide must carry each resolution, not only the history entry.
+export const PACK_CONFLICTS = [
+  "oo-assigning-responsibilities",
+  "oo-placing-domain-logic",
+  "oo-layering-the-system",
+  "oo-designing-repositories",
+  "oo-taming-persistence",
+  "oo-design",
+  "oo-constructing-valid-objects",
+  "oo-encapsulating-state-and-behaviour",
+  "oo-making-illegal-states-impossible",
+  "oo-modeling-values-and-entities",
+  "oo-designing-failure-behaviour",
+  "oo-modeling-lifecycles",
+  "oo-deciding-object-or-data",
+  "oo-ruby",
+  "oo-reviewing-object-design",
+  "oo-working-within-a-framework",
+  "oo-managing-shared-state",
+  "oo-publishing-domain-events",
+  "oo-separating-reads-from-writes",
+  "oo-designing-what-to-record",
+  "oo-crossing-system-boundaries",
+  "oo-bounding-contexts",
+  "oo-organising-modules",
+  "oo-inverting-dependencies",
+  "oo-testing-object-oriented-code",
+  "oo-designing-for-testability",
+] as const;
+
+export function checkPackConflicts(text: string): Finding[] {
+  const findings: Finding[] = [];
+  const heading = "## Pack versus project";
+  const start = text.indexOf(heading);
+  if (start < 0) {
+    return [{ file: "AGENTS.md", message: `the "${heading}" section is missing` }];
+  }
+
+  const rest = text.slice(start + heading.length);
+  const next = rest.search(/\n## /);
+  const section = next < 0 ? rest : rest.slice(0, next);
+  for (const name of PACK_CONFLICTS) {
+    if (!section.includes(`\`${name}\``)) {
+      findings.push({ file: "AGENTS.md", message: `resolved pack conflict is missing: ${name}` });
+    }
+  }
+
+  const rows = section.split("\n").filter((line) => /^\|\s*`oo-/.test(line)).length;
+  if (rows < 16) {
+    findings.push({
+      file: "AGENTS.md",
+      message: `the "${heading}" section names ${rows} of the 16 pack conflicts`,
+    });
+  }
+
+  return findings;
+}
+
 export function loadConfig(root: string): { config?: DocsConfig; findings: Finding[] } {
   const path = "config/docs.yml";
   if (!existsSync(resolve(root, path))) {

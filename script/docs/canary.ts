@@ -7,8 +7,10 @@ import {
   checkCitations,
   checkGenerated,
   checkMatrix,
+  checkPackConflicts,
   checkPaths,
   collectDefinitions,
+  PACK_CONFLICTS,
   rewriteGenerated,
   type Definition,
   type Finding,
@@ -275,6 +277,17 @@ try {
 } finally {
   rmSync(aiRoot, { recursive: true, force: true });
 }
+
+// Pack-versus-project conflicts.
+const packRows = PACK_CONFLICTS.map((name) => `| \`${name}\` | rule | resolution |`).join("\n");
+const packSection = `## Pack versus project\n\n${packRows}\n\n## Next\n`;
+expectNone("pack conflicts section", checkPackConflicts(packSection));
+expectFinding(
+  "missing pack conflict",
+  checkPackConflicts(packSection.replace(`\`${PACK_CONFLICTS[0]}\``, "")),
+  /resolved pack conflict is missing/,
+);
+expectFinding("missing pack section", checkPackConflicts("# Guide\n"), /section is missing/);
 
 // Generated table.
 const start = "<!-- generated:envelope:start -->";
