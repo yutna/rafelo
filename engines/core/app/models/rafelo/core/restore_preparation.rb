@@ -13,16 +13,20 @@ module Rafelo
     class RestorePreparation
       class LiveDatabase < StandardError; end
 
-      def initialize(connection: nil, url: nil)
+      def initialize(connection: nil, url: nil, expected_role: nil)
         @connection = connection || (ActiveRecord::Base.connection if url.nil?)
         @url = url
+        @expected_role = expected_role
         raise ArgumentError, "a connection or URL is required" if @connection.nil? && @url.blank?
       end
 
       def empty_sessions!
         if @url.present?
-          refuse_live_database!
-          with_restore_connection { |connection| connection.exec("TRUNCATE TABLE core_sessions") }
+          with_restore_connection do |connection|
+            refuse_live_database!(connection)
+            refuse_wrong_role!(connection)
+            connection.exec("TRUNCATE TABLE core_sessions")
+          end
         else
           @connection.execute("TRUNCATE TABLE core_sessions")
         end
@@ -30,31 +34,42 @@ module Rafelo
 
       private
 
-      def refuse_live_database!
-        if same_database?(target, live_database)
-          raise LiveDatabase, "RESTORE_DATABASE_URL points at the live database; use a scratch target"
+      def refuse_live_database!(connection)
+        unless same_database?(connection_identity(connection), live_identity)
+          return
         end
+
+        raise LiveDatabase, "RESTORE_DATABASE_URL points at the live database; use a scratch target"
       end
 
-      def target
-        @target ||= URI.parse(@url)
-      rescue URI::InvalidURIError
-        raise LiveDatabase, "RESTORE_DATABASE_URL is not a valid PostgreSQL URL"
+      def refuse_wrong_role!(connection)
+        expected = @expected_role.to_s
+        return if expected.blank?
+
+        current = connection.exec("SELECT current_user").getvalue(0, 0)
+        return if current == expected
+
+        raise LiveDatabase, "RESTORE_DATABASE_URL must connect as #{expected}, not #{current}"
       end
 
-      def live_database
-        @live_database ||= ActiveRecord::Base.connection_db_config.configuration_hash
+      def connection_identity(connection)
+        row = connection.exec(<<~SQL).first
+          SELECT current_database(), inet_server_addr()::text, inet_server_port()
+        SQL
+        { database: row.fetch("current_database"), address: row["inet_server_addr"], port: row["inet_server_port"] }
+      end
+
+      def live_identity
+        row = ActiveRecord::Base.connection.select_one(<<~SQL)
+          SELECT current_database(), inet_server_addr()::text AS address, inet_server_port() AS port
+        SQL
+        { database: row.fetch("current_database"), address: row["address"], port: row["port"] }
       end
 
       def same_database?(target, live)
-        target_host = target.host.presence || "localhost"
-        live_host = live[:host].presence || "localhost"
-        target_port = target.port || 5432
-        live_port = (live[:port].presence || 5432).to_i
-        target_database = target.path.to_s.delete_prefix("/")
-        live_database_name = live[:database].to_s
-
-        target_host == live_host && target_port == live_port && target_database == live_database_name
+        target[:database] == live[:database] &&
+          target[:address] == live[:address] &&
+          target[:port].to_s == live[:port].to_s
       end
 
       def with_restore_connection
