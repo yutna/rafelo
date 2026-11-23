@@ -47,9 +47,10 @@ RSpec.describe "script/ci/adoption" do
     expect(script).not_to include('cp -R "$current_src/engines/$example"')
   end
 
-  it "scopes the namespace check to kernel-owned specs and the example slice in the N-1 proof" do
+  it "checks the app namespace across the whole N-1 app except app-owned docs" do
     expect(script).to include('gate "$work/smoke_shop_prev" examples')
-    expect(script).to include("paths=(spec/core engines/example_* config Gemfile.lock)")
-    expect(script).to include("docs/architecture is app-owned")
+    expect(script).to include('paths=(. ":(exclude)docs/architecture")')
+    expect(script).to include("docs/architecture")
+    expect(script).not_to include("paths=(spec/core engines/example_*")
   end
 end
