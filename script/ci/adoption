@@ -97,6 +97,7 @@ git_matches() {
 check_no_placeholder() {
   local app="$1"
   local scope="${2:-all}"
+  local files
   local found
   local brand="Rafelo"
   local lower="rafelo"
@@ -107,7 +108,8 @@ check_no_placeholder() {
     # and a base release's prose may legitimately mention the examples.
     paths=(. ":(exclude)docs/architecture")
   fi
-  found="$(tracked_files "$app" | grep -i 'acme' || true)"
+  files="$(tracked_files "$app")"
+  found="$(printf '%s\n' "$files" | grep -i 'acme' || true)"
   if [ -n "$found" ]; then
     echo "adoption: placeholder path in $app: $found" >&2
     exit 1
