@@ -43,7 +43,7 @@ RSpec.describe "Metrics endpoint", type: :request do
     expect(body).to include('rafelo_circuit_state{upstream="api",gateway="OrdersGateway",state="red"} 1')
     expect(body).to include('rafelo_circuit_open_total{gateway="OrdersGateway",upstream="api"} 1')
     expect(body).to include('rafelo_bulkhead_refused_total{upstream="api"} 1')
-    expect(body).to include('rafelo_csp_reports_total{blocked_origin="https://evil.test",directive="script-src"} 1')
+    expect(body).to include('rafelo_csp_reports_total{blocked_origin="external",directive="script-src"} 1')
     expect(body).to include("rafelo_jobs_ready")
     expect(body).to include('rafelo_db_dead_tuple_ratio{table="core_sessions"}')
 
@@ -56,9 +56,18 @@ RSpec.describe "Metrics endpoint", type: :request do
 
     get "/core/metrics"
 
-    expect(response.body).to include("# TYPE rafelo_process_info gauge")
     expect(response.body).to include(
       %(rafelo_process_info{host="#{identity[:host]}",pid="#{identity[:pid]}",role="#{identity[:role]}"} 1)
     )
+  end
+
+  it "throttles scrapes per IP" do
+    12.times do
+      get "/core/metrics"
+      expect(response).to have_http_status(:ok)
+    end
+
+    get "/core/metrics"
+    expect(response).to have_http_status(:too_many_requests)
   end
 end

@@ -6,6 +6,14 @@ module Rafelo
     # (OPS-04). Labels are allow-listed and never include viewer data.
     class Metrics
       BUCKETS = [ 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0 ].freeze
+      CSP_DIRECTIVES = %w[
+        base-uri child-src connect-src default-src font-src form-action frame-ancestors
+        frame-src img-src manifest-src media-src object-src prefetch-src report-to
+        report-uri require-trusted-types-for sandbox script-src script-src-attr
+        script-src-elem style-src style-src-attr style-src-elem trusted-types
+        upgrade-insecure-requests worker-src
+      ].freeze
+      CSP_ORIGINS = %w[inline eval self data: blob: about: javascript: unknown].freeze
 
       class << self
         def install!
@@ -89,8 +97,8 @@ module Rafelo
 
         def csp_report(directive:, blocked_origin:)
           increment("rafelo_csp_reports_total", {
-            directive: directive.to_s.presence || "unknown",
-            blocked_origin: blocked_origin.to_s.presence || "unknown"
+            directive: csp_directive(directive),
+            blocked_origin: csp_origin(blocked_origin)
           })
         end
 
@@ -111,23 +119,25 @@ module Rafelo
         end
 
         def text
-          mutex.synchronize do
-            lines = []
-            lines.concat(request_lines)
-            lines.concat(upstream_lines)
+          lines = mutex.synchronize do
+            collected = []
+            collected.concat(request_lines)
+            collected.concat(upstream_lines)
             @errors.each do |code, count|
-              lines << metric("rafelo_errors_total", { code: code }, count)
+              collected << metric("rafelo_errors_total", { code: code }, count)
             end
             @counters.each do |(name, labels), count|
-              lines << metric(name, labels, count)
+              collected << metric(name, labels, count)
             end
-            lines.concat(process_lines)
-            lines.concat(circuit_lines)
-            lines.concat(pool_lines)
-            lines.concat(queue_lines)
-            lines.concat(table_health_lines)
-            lines.join("\n") + "\n"
+            collected.concat(circuit_lines)
+            collected
           end
+
+          lines.concat(process_lines)
+          lines.concat(pool_lines)
+          lines.concat(queue_lines)
+          lines.concat(table_health_lines)
+          lines.join("\n") + "\n"
         end
 
         private
@@ -218,7 +228,8 @@ module Rafelo
             live = row["n_live_tup"].to_i + row["n_dead_tup"].to_i
             dead_ratio = live.zero? ? 0.0 : row["n_dead_tup"].to_f / live
             updates = row["n_tup_upd"].to_i
-            hot_ratio = updates.zero? ? 0.0 : row["n_tup_hot_upd"].to_f / updates
+            hot_updates = row["n_tup_hot_upd"].to_i
+            hot_ratio = updates.zero? ? 0.0 : hot_updates.to_f / [ updates, hot_updates ].max
             [
               metric("rafelo_db_dead_tuple_ratio", { table: row["relname"] }, dead_ratio.round(4), type: "gauge"),
               metric("rafelo_db_hot_update_ratio", { table: row["relname"] }, hot_ratio.round(4), type: "gauge")
@@ -228,25 +239,28 @@ module Rafelo
           []
         end
 
-        def metric(name, labels, value, type: "counter")
+        def csp_directive(value)
+          name = value.to_s.downcase.split.first.to_s
+          CSP_DIRECTIVES.include?(name) ? name : "other"
+        end
+
+        def csp_origin(value)
+          value = value.to_s.downcase
+          return value if CSP_ORIGINS.include?(value)
+          return "external" if value.start_with?("http://", "https://")
+
+          "other"
+        end
+
+        def metric(name, labels, value, type: nil)
           rendered = labels.map { |key, label| "#{key}=\"#{escape(label)}\"" }.join(",")
-          prefix = case type
-          when "histogram" then "# TYPE #{name} histogram\n"
-          when "gauge" then "# TYPE #{name} gauge\n"
-          else ""
-          end
           suffix = rendered.empty? ? name : "#{name}{#{rendered}}"
-          "#{prefix}#{suffix} #{value}"
+          "#{suffix} #{value}"
         end
 
         def escape(value)
-          value.to_s.gsub(/[\\"\n]/) do |character|
-            case character
-            when "\\" then "\\\\"
-            when '"' then '\\"'
-            when "\n" then "\\n"
-            end
-          end
+          value.to_s.gsub("\\", "\\\\").gsub('"', '\\"').gsub("\n", "\\n")
+            .gsub(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/, "")
         end
 
         def mutex
