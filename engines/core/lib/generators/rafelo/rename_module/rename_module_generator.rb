@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails/generators"
+require "json"
 require "yaml"
 require_relative "../base/grant_catalog"
 require_relative "../base/post_write"
@@ -41,6 +42,33 @@ module Rafelo
         raise Thor::Error, "engine not found: #{@source_name}" unless Dir.exist?(root.join("engines", @source_name))
         raise Thor::Error, "engine already exists: #{@destination_name}" if Dir.exist?(root.join("engines", @destination_name))
         raise Thor::Error, "reserved name: #{@destination_name}" if %w[core design_system app engines].include?(@destination_name) || @destination_name.start_with?("example_") || !@destination_name.match?(/\A[a-z][a-z0-9_]*\z/)
+        raise Thor::Error, "#{@destination_name} is a locale" if locale_segments.include?(@destination_name) || @destination_name.match?(/\A[a-z]{2}\z/)
+        raise Thor::Error, "#{@destination_name} is an app route" if route_names.include?(@destination_name)
+        raise Thor::Error, "#{@destination_name} is a kernel error prefix" if error_prefixes.include?(@destination_name)
+        raise Thor::Error, "npm scope @#{@destination_name} is already used" if npm_scopes.include?(@destination_name)
+      end
+
+      def npm_scopes
+        path = root.join("package.json")
+        path = Rails.root.join("package.json") unless File.file?(path)
+        package = JSON.parse(File.read(path))
+        package.fetch("dependencies", {}).merge(package.fetch("devDependencies", {})).keys.filter_map { |key| key[%r{\A@([^/]+)/}, 1] }
+      end
+
+      def locale_segments
+        Rafelo::Core::Locales.available.map(&:to_s)
+      end
+
+      def route_names
+        names = Rails.application.routes.routes.filter_map(&:name).map(&:to_s)
+        segments = Rails.application.routes.routes.filter_map { |route| route.path.spec.to_s[%r{\A/([a-z][a-z0-9_]*)}, 1] }
+        names + segments
+      end
+
+      def error_prefixes
+        path = root.join("config/errors.yml")
+        path = Rails.root.join("config/errors.yml") unless File.file?(path)
+        YAML.load_file(path).keys.map { |key| key.split(".").first }
       end
 
       def perform_rename
@@ -79,6 +107,10 @@ module Rafelo
           "app/policies/#{app_ns_underscore}",
           "app/props/#{app_ns_underscore}",
           "app/forms/#{app_ns_underscore}",
+          "app/gateways/#{app_ns_underscore}",
+          "app/models/#{app_ns_underscore}",
+          "app/jobs/#{app_ns_underscore}",
+          "app/helpers/#{app_ns_underscore}",
           "app/public/#{app_ns_underscore}"
         ].each do |base|
           from = target.join(base, @source_name)
@@ -272,19 +304,22 @@ module Rafelo
         files.uniq
       end
 
+      def tree_files
+        Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |p| File.file?(p) }
+      end
+
       def snapshot
-        paths = Dir[root.join("**/*")].select { |p| File.file?(p) }
-        paths.to_h { |p| [ p, File.binread(p) ] }
+        tree_files.to_h { |p| [ p, File.binread(p) ] }
       end
 
       def restore_snapshot(before)
-        after = Dir[root.join("**/*")].select { |p| File.file?(p) }
+        after = tree_files
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
         before.each do |p, content|
           FileUtils.mkdir_p(File.dirname(p))
           File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
         end
-        Dir[root.join("**/*")].select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
+        Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
           Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
         rescue StandardError
           nil

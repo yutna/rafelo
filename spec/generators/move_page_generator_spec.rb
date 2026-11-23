@@ -10,18 +10,19 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
     File.write(path, body)
   end
 
-  def write_engine(root, name, path:, routes:, permissions:, module_rb_extra: "")
+  def write_engine(root, name, path:, routes:, permissions:, module_rb_extra: "", prefixes: nil)
     dir = root.join("engines", name)
     FileUtils.mkdir_p(dir.join("config"))
     FileUtils.mkdir_p(dir.join("app/controllers/rafelo/#{name}"))
     File.write(dir.join("config/routes.rb"), routes)
     File.write(dir.join("config/permissions.yml"), YAML.dump(permissions))
+    prefixes ||= [ name ]
     File.write(dir.join("config/module.rb"), <<~RUBY)
       Rafelo::Core::Modules.register(
         key: :#{name},
         engine: Object,
         path: "#{path}",
-        permission_prefixes: ["#{name}"],
+        permission_prefixes: [#{prefixes.map { |prefix| "\"#{prefix}\"" }.join(", ")}],
         nav: { order: 10 }
       #{module_rb_extra}  )
     RUBY
@@ -64,8 +65,39 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
 
       redirect_spec = root.join("spec/requests/payments/widgets_legacy_redirect_spec.rb")
       expect(redirect_spec).to exist
-      expect(File.read(redirect_spec)).to include('get "/en/billing/widgets"')
-      expect(File.read(redirect_spec)).to include('redirect_to("/en/payments/widgets")')
+      expect(File.read(redirect_spec)).to include('get "/#{I18n.default_locale}/billing/widgets"')
+      expect(File.read(redirect_spec)).to include('redirect_to("/#{I18n.default_locale}/payments/widgets")')
+    end
+  end
+
+  it "keeps the stable permission prefix and route path after a rename" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "invoicing",
+        path: "/billing",
+        routes: "Rafelo::Invoicing::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "billing" => { "widgets" => [ "read" ] } },
+        prefixes: [ "billing" ])
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      FileUtils.mkdir_p(root.join("engines/invoicing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/invoicing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+      described_class.start([ "invoicing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      target_permissions = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
+      expect(target_permissions.dig("billing", "widgets")).to eq([ "read" ])
+      expect(target_permissions).not_to have_key("invoicing")
+
+      module_rb = File.read(root.join("engines/payments/config/module.rb"))
+      expect(module_rb).to include('legacy_paths: { "/billing/widgets"')
+      expect(module_rb).to include('"billing"')
+
+      redirect_spec = File.read(root.join("spec/requests/payments/widgets_legacy_redirect_spec.rb"))
+      expect(redirect_spec).to include('get "/#{I18n.default_locale}/billing/widgets"')
+      expect(redirect_spec).to include('redirect_to("/#{I18n.default_locale}/payments/widgets")')
     end
   end
 

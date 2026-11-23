@@ -74,6 +74,102 @@ RSpec.describe Rafelo::Generators::RenameModuleGenerator do
     end
   end
 
+  it "moves gateway, model and job directories with the namespace" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      engine = root.join("engines/billing")
+      FileUtils.mkdir_p(engine.join("config"))
+      File.write(engine.join("package.yml"), YAML.dump("enforce_dependencies" => "strict", "dependencies" => []))
+      File.write(engine.join("config/ratchets.yml"), YAML.dump("eslint_disable" => 0))
+      File.write(engine.join("config/module.rb"), <<~RUBY)
+        Rafelo::Core::Modules.register(
+          key: :billing,
+          engine: Object,
+          path: "/billing",
+          permission_prefixes: ["billing"],
+          nav: { order: 10 }
+        )
+      RUBY
+      File.write(engine.join("config/permissions.yml"), YAML.dump("billing" => {}))
+      {
+        "app/gateways/rafelo/billing/widgets_gateway.rb" => "module Rafelo::Billing; class WidgetsGateway; end; end\n",
+        "app/models/rafelo/billing/widget.rb" => "module Rafelo::Billing; Widget = Data.define(:id); end\n",
+        "app/jobs/rafelo/billing/widget_export_job.rb" => "module Rafelo::Billing; class WidgetExportJob; end; end\n"
+      }.each do |relative, body|
+        path = engine.join(relative)
+        FileUtils.mkdir_p(path.dirname)
+        File.write(path, body)
+      end
+
+      described_class.start([ "billing", "invoicing", "--skip-post-write" ], destination_root: dir)
+
+      expect(root.join("engines/billing/app/gateways")).not_to exist
+      expect(root.join("engines/billing/app/models")).not_to exist
+      expect(root.join("engines/billing/app/jobs")).not_to exist
+      {
+        "app/gateways/rafelo/invoicing/widgets_gateway.rb" => "module Rafelo::Invoicing; class WidgetsGateway",
+        "app/models/rafelo/invoicing/widget.rb" => "module Rafelo::Invoicing; Widget",
+        "app/jobs/rafelo/invoicing/widget_export_job.rb" => "module Rafelo::Invoicing; class WidgetExportJob"
+      }.each do |relative, klass|
+        path = root.join("engines/invoicing", relative)
+        expect(path).to exist
+        expect(path.read).to include(klass)
+      end
+    end
+  end
+
+  it "refuses a name the engine naming rules reject" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      source = root.join("engines/billing")
+      FileUtils.mkdir_p(source.join("config"))
+      File.write(source.join("package.yml"), YAML.dump("dependencies" => []))
+      File.write(source.join("config/ratchets.yml"), YAML.dump("eslint_disable" => 0))
+      File.write(source.join("config/module.rb"), "Rafelo::Core::Modules.register(key: :billing, engine: Object, path: \"/billing\", permission_prefixes: [\"billing\"], nav: { order: 10 })\n")
+      File.write(source.join("config/permissions.yml"), YAML.dump("billing" => {}))
+
+      expect {
+        begin
+          described_class.start([ "billing", "en", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to change { Dir[root.join("engines/*")].sort }
+      expect(root.join("engines/en")).not_to exist
+    end
+  end
+
+  it "restores dotfiles when rename fails mid-run" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      source = root.join("engines/billing")
+      FileUtils.mkdir_p(source.join("config"))
+      FileUtils.mkdir_p(source.join("app/frontend/pages/widgets"))
+      File.write(source.join("app/frontend/pages/widgets/.keep"), "")
+      File.write(source.join("package.yml"), YAML.dump("dependencies" => []))
+      File.write(source.join("config/ratchets.yml"), YAML.dump("eslint_disable" => 0))
+      File.write(source.join("config/module.rb"), "Rafelo::Core::Modules.register(key: :billing, engine: Object, path: \"/billing\", permission_prefixes: [\"billing\"], nav: { order: 10 })\n")
+      File.write(source.join("config/permissions.yml"), YAML.dump("billing" => {}))
+      failing = Class.new(described_class) do
+        private
+
+        def write_legacy_constants(_engine_root)
+          raise "boom"
+        end
+      end
+
+      expect {
+        begin
+          failing.start([ "billing", "invoicing", "--skip-post-write" ], destination_root: dir)
+        rescue SystemExit, Thor::Error
+          nil
+        end
+      }.not_to raise_error
+      expect(root.join("engines/billing/app/frontend/pages/widgets/.keep")).to exist
+      expect(root.join("engines/invoicing")).not_to exist
+    end
+  end
+
   it "renames every reference and leaves only stable URLs, permissions, and legacy entries" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)

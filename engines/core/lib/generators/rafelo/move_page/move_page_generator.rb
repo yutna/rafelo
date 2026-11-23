@@ -57,6 +57,25 @@ module Rafelo
       def app_namespace = Rails.application.class.module_parent_name
       def app_ns_underscore = app_namespace.gsub(/([a-z\d])([A-Z])/, '\\1_\\2').downcase
 
+      def manifest_for(name)
+        path = root.join("engines", name, "config/module.rb")
+        File.file?(path) ? File.read(path) : ""
+      end
+
+      def permission_prefix_for(name)
+        manifest_for(name)[/permission_prefixes:\s*\[(.*?)\]/m, 1]
+          &.scan(/"([^"]+)"|'([^']+)'/)&.flatten&.compact&.first || name
+      end
+
+      def route_segment_for(name)
+        manifest_for(name)[/path:\s*["']([^"']+)["']/, 1]&.delete_prefix("/") || name
+      end
+
+      def source_permission_prefix = @source_permission_prefix ||= permission_prefix_for(@source)
+      def target_permission_prefix = @target_permission_prefix ||= permission_prefix_for(@target)
+      def source_route_segment = @source_route_segment ||= route_segment_for(@source)
+      def target_route_segment = @target_route_segment ||= route_segment_for(@target)
+
       def plural = @res.pluralize
       def singular = @res.singularize
 
@@ -221,6 +240,7 @@ module Rafelo
           changed = changed.gsub("use#{@source.camelize}Translation", "use#{@target.camelize}Translation")
           changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
           changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
+          changed = changed.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
           changed = changed.gsub(":#{@source},", ":#{@target},")
           File.binwrite(path, changed) if changed != body
         end
@@ -231,6 +251,7 @@ module Rafelo
           moved_path = root.join("spec/requests", @target, File.basename(path))
           body = File.read(moved_path)
           body = body.gsub("engines/#{@source}/", "engines/#{@target}/")
+          body = body.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
           body = body.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           File.write(moved_path, body)
         end
@@ -240,7 +261,7 @@ module Rafelo
         move_app_files("e2e/#{@source}", "e2e/#{@target}").each do |path|
           moved_path = root.join("e2e", @target, File.basename(path))
           body = File.read(moved_path)
-          body = body.gsub("/#{@source}/#{plural}", "/#{@target}/#{plural}")
+          body = body.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
           body = body.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
           body = body.gsub("@#{@source}/", "@#{@target}/")
           File.write(moved_path, body)
@@ -250,6 +271,8 @@ module Rafelo
       def rewrite_routes
         src_path = root.join("engines", @source, "config/routes.rb")
         src = File.read(src_path)
+        source_line = src[/^\s*resources :#{plural}[^\n]*\n/]
+        only = source_line&.[](/only:\s*%i\[([^\]]*)\]/, 1)
         moved_had_index = src.match?(/resources :#{plural}[^\n]*index/) || src.match?(/resources :#{plural}(?![^\n]*only:)/)
         moved_was_root = src.match?(/^\s*root to:\s*"#{plural}#index"/)
         src = src.gsub(/^\s*resources :#{plural}[^\n]*\n/, "")
@@ -267,7 +290,8 @@ module Rafelo
         tgt = File.read(tgt_path)
         unless tgt.include?("resources :#{plural}")
           root_line = (!tgt.include?("root to:") && moved_had_index) ? "    root to: \"#{plural}#index\"\n" : ""
-          tgt = tgt.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n    resources :#{plural}\n#{root_line}")
+          only_clause = only ? ", only: %i[#{only}]" : ""
+          tgt = tgt.sub("Engine.routes.draw do\n", "Engine.routes.draw do\n    resources :#{plural}#{only_clause}\n#{root_line}")
         end
         File.write(tgt_path, tgt)
       end
@@ -277,18 +301,18 @@ module Rafelo
         tgt_path = root.join("engines", @target, "config/permissions.yml")
         src = YAML.safe_load(File.read(src_path), aliases: false) || {}
         tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
-        src_prefix = src[@source] || {}
+        src_prefix = src[source_permission_prefix] || {}
         # Keep permission keys stable by preserving the source prefix in the target manifest.
-        tgt_source_prefix = tgt[@source] || {}
+        tgt_source_prefix = tgt[source_permission_prefix] || {}
         if src_prefix.key?(plural)
           tgt_source_prefix[plural] = src_prefix.delete(plural)
         end
-        src[@source] = src_prefix
+        src[source_permission_prefix] = src_prefix
         # The target's seed entry for the same resource is a placeholder, not a
         # route: keeping it would generate a duplicate constant for the key the
         # move just brought under the source prefix.
-        tgt[@target]&.delete(plural)
-        tgt[@source] = tgt_source_prefix
+        tgt[target_permission_prefix]&.delete(plural)
+        tgt[source_permission_prefix] = tgt_source_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))
       end
@@ -296,7 +320,7 @@ module Rafelo
       def add_legacy_path
         path = root.join("engines", @target, "config/module.rb")
         content = File.read(path)
-        old_prefix = "/#{@source}/#{plural}"
+        old_prefix = "/#{source_route_segment}/#{plural}"
         target_suffix = "/#{plural}"
 
         if content.include?("legacy_paths:")
@@ -314,8 +338,8 @@ module Rafelo
 
         if content =~ /permission_prefixes:\s*\[([^\]]*)\]/
           prefixes = $1.scan(/"([^"]+)"/).flatten
-          unless prefixes.include?(@source)
-            prefixes << @source
+          unless prefixes.include?(source_permission_prefix)
+            prefixes << source_permission_prefix
             content = content.sub(/permission_prefixes:\s*\[[^\]]*\]/, "permission_prefixes: [ #{prefixes.map { |p| "\"#{p}\"" }.join(", ")} ]")
           end
         end
@@ -332,9 +356,9 @@ module Rafelo
 
           RSpec.describe "#{@target}/#{plural} legacy redirect", type: :request do
             it "redirects the old URL to the moved resource with a 301" do
-              get "/en/#{@source}/#{plural}"
+              get "/\#{I18n.default_locale}/#{source_route_segment}/#{plural}"
               expect(response).to have_http_status(:moved_permanently)
-              expect(response).to redirect_to("/en/#{@target}/#{plural}")
+              expect(response).to redirect_to("/\#{I18n.default_locale}/#{target_route_segment}/#{plural}")
             end
           end
         RUBY
@@ -355,18 +379,22 @@ module Rafelo
         files.uniq
       end
 
+      def tree_files
+        Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |p| File.file?(p) }
+      end
+
       def snapshot
-        Dir[root.join("**/*")].select { |p| File.file?(p) }.to_h { |p| [ p, File.binread(p) ] }
+        tree_files.to_h { |p| [ p, File.binread(p) ] }
       end
 
       def restore_snapshot(before)
-        after = Dir[root.join("**/*")].select { |p| File.file?(p) }
+        after = tree_files
         (after - before.keys).each { |p| FileUtils.rm_f(p) }
         before.each do |p, content|
           FileUtils.mkdir_p(File.dirname(p))
           File.binwrite(p, content) unless File.file?(p) && File.binread(p) == content
         end
-        Dir[root.join("**/*")].select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
+        Dir.glob(root.join("**/*"), File::FNM_DOTMATCH).select { |p| File.directory?(p) }.sort_by(&:length).reverse_each do |dir|
           Dir.rmdir(dir) if (Dir.entries(dir) - %w[. ..]).empty?
         rescue StandardError
           nil
