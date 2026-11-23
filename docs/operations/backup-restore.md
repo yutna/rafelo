@@ -49,6 +49,34 @@ host; a volume on the same host is not a backup.
 recovery, set the same 14-day retention, and record the provider's restore
 procedure in this file. The application-side steps below do not change.
 
+## Decision record: single-host PITR uses pgBackRest
+
+Status: accepted.
+
+**Context.** The single-host profile runs PostgreSQL as a Kamal accessory on
+a named volume (OPS-06). A volume on the serving host is not a backup, and
+copying a running data directory is unsafe. The profile therefore needs an
+off-host repository, continuous WAL archiving, and a restore path proven by a
+drill; the specification leaves the tool to a decision record (OPS-07).
+
+**Decision.** Use pgBackRest for the single-host profile. Run it from a
+pinned backup container or a backup host, not from the application image and
+not from the database accessory: it owns the stanza, the off-host repository,
+the base backups, and the WAL archive. The repository is a second host, an
+S3-compatible bucket, or a mounted volume that is not the database volume.
+The database runs with `wal_level=replica`, `archive_mode=on`, and an
+`archive_command` that writes the repository; keep 14 daily full backups and
+14 days of WAL. The multi-host profile keeps the managed provider's PITR
+instead.
+
+**Consequences.** The template adds no application dependency, and the
+single-host profile gets the same recovery point objective shape as the
+managed one. The cost is one more scheduled service to pin, monitor, and drill;
+its image or package version, stanza name, repository, and retention are
+recorded beside the deploy profile at adoption. Verification is the drill
+below, which restores a base backup, replays WAL to a chosen point, and runs
+`script/ops/restore_drill` against the scratch database.
+
 ## Restore procedure
 
 1. Choose the recovery point. It must be after the base backup's consistent
@@ -70,18 +98,19 @@ procedure in this file. The application-side steps below do not change.
    table:
 
    ```sh
-   RESTORE_DATABASE_URL=postgres://.../acme \
+   RESTORE_DATABASE_URL=postgres://.../acme_scratch \
    RAILS_ENV=production \
    ACME_DATABASE_ROLE=migration \
    ACME_RESTORE_CONFIRMED=1 \
      bin/rails rafelo:restore:prepare
    ```
 
-   The task refuses to run without the confirmation flag and the migration
-   role, truncates `core_sessions`, and prints that the table is empty. Make
-   `RESTORE_DATABASE_URL` connect as the migration role (or use `DB_HOST`,
-   `DB_PORT`, and `DB_NAME` so the role switch in `config/database.yml`
-   applies); the URL is never printed.
+   The task opens only `RESTORE_DATABASE_URL`; it never uses the serving
+   connection. It refuses to run without the URL, the confirmation flag, and
+   the migration role, refuses a URL whose host, port, and database name match
+   the live configuration, truncates `core_sessions` on the scratch target,
+   and prints that the table is empty. Make the URL connect as the migration
+   role; the URL is never printed.
 
 4. Run the drill check, which repeats the truncate and proves the table has
    zero rows:
