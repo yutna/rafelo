@@ -85,17 +85,31 @@ on the first deploy and on every restore (C2, OPS-06).
 1. Edit `config/deploy.yml`: the host, registry, `RAILS_HOSTS`, upstream base
    URL, and the PostgreSQL accessory host.
 2. Provide `RAILS_MASTER_KEY` and `POSTGRES_PASSWORD` to `.kamal/secrets`.
-3. Deploy:
+3. Prepare the host and boot the database before the app:
 
-```sh
-bin/kamal setup
-bin/kamal deploy
-```
+   ```sh
+   bin/kamal server bootstrap
+   bin/kamal accessory boot db
+   ```
 
-The PostgreSQL accessory image is pinned by version and digest at the Dev
-Container's major version. A major upgrade is planned work (dump and restore,
-or `pg_upgrade`), never a tag bump. The web Puma process runs Solid Queue's
-supervisor because `SOLID_QUEUE_IN_PUMA` is set.
+4. Create the runtime and migration roles now, before any app container can
+   run `db:prepare`; use the `psql` command in
+   [operations/database-roles.md](operations/database-roles.md) against the
+   accessory, through its published port or `bin/kamal accessory exec db`.
+   Put the same passwords in the `database` credentials.
+5. Deploy:
+
+   ```sh
+   bin/kamal setup
+   bin/kamal deploy
+   ```
+
+`bin/kamal setup` skips the accessory that is already running and boots the
+app only after the roles exist. The PostgreSQL accessory image is pinned by
+version and digest at the Dev Container's major version. A major upgrade is
+planned work (dump and restore, or `pg_upgrade`), never a tag bump. The web
+Puma process runs Solid Queue's supervisor because `SOLID_QUEUE_IN_PUMA` is
+set.
 
 Useful aliases are defined in the profile:
 

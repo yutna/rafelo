@@ -30,8 +30,10 @@ psql -v ON_ERROR_STOP=1 \
   -f script/ops/database_roles.sql
 ```
 
-The script is re-runnable. Run it before the first `db:prepare` on a fresh
-database, and before the first v0.19.0 deploy on an existing one. It creates
+The script is re-runnable. On a fresh single-host profile, boot the database
+accessory first (`bin/kamal accessory boot db`), then run it before the first
+`db:prepare`; on an existing database run it before the first v0.19.0 deploy.
+It creates
 the roles when they are missing, gives the migration role ownership of the
 tables and sequences that already exist (a pre-v0.19.0 database was created by
 the deploy superuser), grants the runtime role its DML, and applies the

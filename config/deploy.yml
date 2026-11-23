@@ -7,7 +7,7 @@
 service: acme
 
 # The first host runs db:prepare before /up; size this for boot migrations.
-deploy_timeout: 120
+deploy_timeout: 180
 
 # One host at a time; the first runs db:prepare before the next boots.
 boot:

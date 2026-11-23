@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 # A migration queued behind a long query fails instead of blocking every
-# request; boot-time migrations must fit deploy_timeout (BE-22).
+# request; boot-time migrations must fit deploy_timeout with time left to boot
+# (BE-22). The profiles use 180 seconds against this 120-second limit.
 StrongMigrations.lock_timeout = 10.seconds
 StrongMigrations.statement_timeout = 2.minutes
 

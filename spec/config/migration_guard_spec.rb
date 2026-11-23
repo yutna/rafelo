@@ -2,18 +2,19 @@ require "rails_helper"
 require "yaml"
 
 RSpec.describe "Migration guard" do
-  let(:deploy_timeout) do
-    YAML.safe_load_file(Rails.root.join("config/deploy.yml"), aliases: true).fetch("deploy_timeout").to_i.seconds
-  end
-
   it "pins strong_migrations and its short lock timeout" do
     expect(Gem.loaded_specs.fetch("strong_migrations").version.to_s).to eq("2.8.0")
     expect(StrongMigrations.lock_timeout).to eq(10.seconds)
     expect(StrongMigrations.remove_invalid_indexes).to be(true)
   end
 
-  it "keeps statements inside the deploy timeout" do
-    expect(StrongMigrations.statement_timeout).to be <= deploy_timeout
+  it "leaves boot time inside both deploy timeouts" do
+    [ "config/deploy.yml", "config/deploy.multi.yml" ].each do |path|
+      timeout = YAML.safe_load_file(Rails.root.join(path), aliases: true)
+        .fetch("deploy_timeout").to_i.seconds
+
+      expect(timeout).to be > StrongMigrations.statement_timeout
+    end
   end
 
   it "keeps a concurrent-index expand/contract example" do
@@ -28,7 +29,11 @@ RSpec.describe "Migration guard" do
   end
 
   it "boots one host at a time with an explicit deploy timeout" do
-    expect(Rails.root.join("config/deploy.yml").read).to include("deploy_timeout: 120")
-    expect(Rails.root.join("config/deploy.yml").read).to match(/^boot:\n  limit: 1$/)
+    %w[config/deploy.yml config/deploy.multi.yml].each do |path|
+      config = YAML.safe_load_file(Rails.root.join(path), aliases: true)
+
+      expect(config.fetch("deploy_timeout")).to be_a(Integer).and be_positive
+      expect(config.dig("boot", "limit")).to eq(1)
+    end
   end
 end

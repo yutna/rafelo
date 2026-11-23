@@ -1,6 +1,8 @@
 require "rails_helper"
 
 RSpec.describe "CSP reports", type: :request do
+  before { Rafelo::Core::Metrics.reset! }
+
   def report_headers
     { "Content-Type" => "application/csp-report" }
   end
@@ -45,6 +47,9 @@ RSpec.describe "CSP reports", type: :request do
     expect(line["source_origin"]).to eq("https://app.test")
     expect(line["source_line"]).to eq(42)
     expect(line["release"]).to start_with("#{Rafelo::Core::Release.version}:")
+    expect(Rafelo::Core::Metrics.text).to include(
+      'rafelo_csp_reports_total{blocked_origin="https://evil.test",directive="script-src"} 1'
+    )
   end
 
   it "accepts the Reporting API array and logs each report" do
