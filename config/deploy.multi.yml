@@ -20,11 +20,17 @@ servers:
     hosts:
       - 192.168.0.1
       - 192.168.0.2
+    env:
+      clear:
+        KAMAL_ROLE: web
   # The job role runs Solid Queue without Puma. It never migrates.
   job:
     hosts:
       - 192.168.0.1
     cmd: bin/jobs
+    env:
+      clear:
+        KAMAL_ROLE: job
 
 # The load balancer terminates TLS in front of kamal-proxy; every host still
 # runs kamal-proxy and Thruster.

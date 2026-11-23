@@ -36,6 +36,17 @@ RSpec.describe "Metrics endpoint", type: :request do
     expect(body).to include('rafelo_upstream_duration_seconds_sum{upstream="api"} 0.25')
 
     label_names = body.scan(/(\w+)="/).flatten.uniq
-    expect(label_names - %w[controller action status upstream code job le]).to be_empty
+    expect(label_names - %w[controller action status upstream code job le host pid role]).to be_empty
+  end
+
+  it "publishes the process identity as an OPS-04 metric" do
+    identity = Rafelo::Core::ProcessIdentity.to_h
+
+    get "/core/metrics"
+
+    expect(response.body).to include("# TYPE rafelo_process_info gauge")
+    expect(response.body).to include(
+      %(rafelo_process_info{host="#{identity[:host]}",pid="#{identity[:pid]}",role="#{identity[:role]}"} 1)
+    )
   end
 end

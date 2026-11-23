@@ -39,7 +39,11 @@ module Rafelo
         Rails.error.report(
           DefaultPartitionOccupied.new("#{DEFAULT_TABLE} holds #{rows} audit rows"),
           handled: false,
-          context: { rows: rows }
+          context: {
+            partition: DEFAULT_TABLE,
+            database_role: Rails.application.config.x.database.runtime_role.to_s.presence || "unknown",
+            rows: rows
+          }
         )
         true
       end
