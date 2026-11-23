@@ -66,8 +66,9 @@ real secret (SEC-07); re-encrypt it with the deployment's real secrets before
 the first deploy. The key that encrypts it now is the template's local
 `config/master.key`, which is not committed: an adopter who does not hold it
 deletes the file and creates a new one with `credentials:edit`. Put the key in `.kamal/secrets` through a password manager
-or the deploy environment; never commit it. The single-host PostgreSQL
-accessory also reads `POSTGRES_PASSWORD` from `.kamal/secrets`.
+or the deploy environment; never commit it, and never read it from
+`config/master.key`. The single-host PostgreSQL accessory also reads
+`POSTGRES_PASSWORD` from `.kamal/secrets`.
 
 Create the runtime and migration database roles before the first deploy (the
 accessory starts as the `postgres` superuser and creates no application role),

@@ -71,7 +71,7 @@ RSpec.describe "Deployment profiles" do
   it "rebuilds the Dev Container image when a pinned input changes" do
     workflow = File.read(Rails.root.join(".github/workflows/devcontainer.yml"))
 
-    %w[mise.toml package.json package-lock.json].each do |path|
+    %w[mise.toml .ruby-version package.json package-lock.json].each do |path|
       expect(workflow).to include(%(- "#{path}"))
     end
     expect(workflow).to include(%(- "!.devcontainer/image_digest"))

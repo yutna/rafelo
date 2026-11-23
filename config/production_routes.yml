@@ -1,13 +1,5 @@
 ---
 routes:
-- verb: GET
-  path: "/_inertia/devtools/entries"
-  to: inertia_rails/devtools/entries#index
-  kind: dispatch
-- verb: GET
-  path: "/_inertia/devtools/entries/:id"
-  to: inertia_rails/devtools/entries#show
-  kind: dispatch
 - verb: ''
   path: "/cable"
   to: ActionCable::Server::Base
