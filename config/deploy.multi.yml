@@ -8,7 +8,7 @@
 # (BE-22, OPS-06).
 service: acme
 
-deploy_timeout: 120
+deploy_timeout: 180
 
 boot:
   limit: 1

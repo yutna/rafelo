@@ -3,9 +3,10 @@
 module Rafelo
   module Core
     class Bulkhead
-      def initialize(limit, wait: 0.1)
+      def initialize(limit, wait: 0.1, name: nil)
         @limit = limit
         @wait = wait
+        @name = name.to_s
         @in_use = 0
         @mutex = Mutex.new
         @condition = ConditionVariable.new
@@ -25,7 +26,10 @@ module Rafelo
         @mutex.synchronize do
           while @in_use >= @limit
             remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            raise ApplicationError.new("upstream.unavailable") if remaining <= 0
+            if remaining <= 0
+              Metrics.bulkhead_refused(@name) if @name.present?
+              raise ApplicationError.new("upstream.unavailable")
+            end
 
             @condition.wait(@mutex, remaining)
           end

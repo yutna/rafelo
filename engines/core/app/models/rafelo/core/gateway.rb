@@ -57,7 +57,8 @@ module Rafelo
           trace_id: @trace_id,
           trace_sampled: @trace_sampled,
           session: @session,
-          deadline: @budget.respond_to?(:deadline) ? @budget.deadline : nil
+          deadline: @budget.respond_to?(:deadline) ? @budget.deadline : nil,
+          gateway: self.class.name
         )
       end
     end

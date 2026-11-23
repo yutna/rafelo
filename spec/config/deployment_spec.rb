@@ -140,6 +140,20 @@ RSpec.describe "Deployment profiles" do
     expect(dockerfile).to match(/^EXPOSE 80$/)
   end
 
+  it "boots the database and creates roles before the app on the first deploy" do
+    section = File.read(Rails.root.join("docs/deployment.md"))[/^## Single host.*?(?=^## )/m]
+    commands = [
+      "bin/kamal server bootstrap",
+      "bin/kamal accessory boot db",
+      "operations/database-roles.md",
+      "bin/kamal setup"
+    ]
+
+    positions = commands.map { |command| section.index(command) }
+    expect(positions).to all(be_a(Integer))
+    expect(positions).to eq(positions.sort)
+  end
+
   it "passes the deploy preflight" do
     output, status = Open3.capture2e(Rails.root.join("script/ci/deploy_preflight").to_s, Rails.root.to_s)
 

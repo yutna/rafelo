@@ -16,7 +16,9 @@ module Rafelo
 
       def create
         CspReport.from(request.raw_post).each do |report|
-          Rails.logger.info(report.to_log.to_json)
+          log = report.to_log
+          Metrics.csp_report(directive: log[:directive], blocked_origin: log[:blocked_origin])
+          Rails.logger.info(log.to_json)
         end
         head :no_content
       rescue JSON::ParserError
