@@ -6,6 +6,7 @@ require "fileutils"
 require "open-uri"
 require "open3"
 require "optparse"
+require "set"
 require "tmpdir"
 require "yaml"
 
@@ -20,57 +21,29 @@ module KernelUpdate
     script/ci
     script/contracts
     script/docs
-    script/ops/database_roles.sql
-    script/ops/restore_drill
     playwright.config.ts
     vite.config.mts
     vitest.config.mts
-    config/frontend_react.mts
     bin/check
-    bin/docker-entrypoint
     bin/kernel_update
-    .env.ci.production
     spec/fixtures/hostile_urls.json
     spec/rails_helper.rb
     spec/spec_helper.rb
     spec/core
     spec/generators
-    spec/patches
-    spec/config
-    spec/requests
-    spec/support
-    spec/tasks
-    lib/tasks
     .rubocop.yml
     .dependency-cruiser.cjs
-    .devcontainer
-    Dockerfile
-    package.json
-    package-lock.json
     .prettierignore
     .prettierrc.json
     eslint.config.mjs
     config/audit_exceptions.yml
     config/budgets.yml
-    config/core.yml
     config/ci.rb
-    config/ratchets.yml
     config/contracts/_shared.json
-    config/database.yml
-    config/deploy.yml
-    config/deploy.multi.yml
     config/docs.yml
     config/errors.yml
-    config/locales.yml
-    config/permission_mapping.yml
     config/production_routes.yml
-    config/puma.rb
-    config/queue.yml
-    config/routes.rb
-    config/storage.yml
-    config/upstreams.yml
-    config/environments
-    config/initializers
+    config/ratchets.yml
     package.yml
     packwerk.yml
     docs/contracts.md
@@ -79,8 +52,46 @@ module KernelUpdate
   ].freeze
 
   # App-owned paths a template update may refresh only with --app-owned; the
-  # update leaves them alone by default (GEN-07).
-  APP_OWNED_PATHS = %w[app/frontend config/locales e2e engines/design_system/e2e AGENTS.md config/application.rb].freeze
+  # default pass leaves them alone (GEN-07). These are the paths the template
+  # renders with the app's namespace and the adopter owns after adoption.
+  APP_OWNED_PATHS = %w[
+    AGENTS.md
+    .env.ci.production
+    app/frontend
+    bin/docker-entrypoint
+    config/application.rb
+    config/core.yml
+    config/database.yml
+    config/deploy.multi.yml
+    config/deploy.yml
+    config/environments
+    config/frontend_react.mts
+    config/initializers
+    config/locales
+    config/locales.yml
+    config/permission_mapping.yml
+    config/puma.rb
+    config/queue.yml
+    config/routes.rb
+    config/storage.yml
+    config/upstreams.yml
+    .devcontainer
+    Dockerfile
+    e2e
+    engines/design_system/e2e
+    lib/tasks
+    package-lock.json
+    package.json
+    script/ops/database_roles.sql
+    script/ops/restore_drill
+    spec/config
+    spec/contracts
+    spec/i18n
+    spec/patches
+    spec/requests
+    spec/support
+    spec/tasks
+  ].freeze
 
   # The example engines are optional (GEN-08) and are never updated.
   UNTOUCHED_PREFIXES = %w[engines/example_ .opencode/ script/ci/adoption].freeze
@@ -112,13 +123,22 @@ module KernelUpdate
     def files_under(relative)
       source = KernelUpdate.source_path(relative)
       full = File.join(root, source)
-      return [ relative ] if File.file?(full)
-      return [] unless Dir.exist?(full)
+      files = if File.file?(full)
+        [ relative ]
+      elsif Dir.exist?(full)
+        Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
+          .map { |path| File.join(relative, path.delete_prefix("#{full}/")) }
+      else
+        []
+      end
 
-      Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
-        .map { |path| File.join(relative, path.delete_prefix("#{full}/")) }
-        .reject { |path| KernelUpdate.untouched?(path) }
-        .sort
+      files.reject { |path| KernelUpdate.untouched?(path) || !shipped?(path) }.sort
+    end
+
+    def shipped?(relative)
+      return true if @manifest.empty?
+
+      shipped_paths.include?(relative)
     end
 
     def mode_for(relative)
@@ -172,6 +192,37 @@ module KernelUpdate
 
       manifest = YAML.safe_load_file(path, aliases: false)
       Array(manifest["paths"])
+    end
+
+    # The payload is the list of files the template actually copied. A broader
+    # updater path must not add a file the adopter never received (the v0.37
+    # grant-catalog spec was the first such conflict).
+    def shipped_paths
+      @shipped_paths ||= @manifest.flat_map do |entry|
+        source = entry.fetch("source")
+        destination = entry.fetch("destination", source)
+        full = File.join(root, KernelUpdate.source_path(source))
+        files = if File.file?(full)
+          [ source ]
+        elsif Dir.exist?(full)
+          Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
+            .map { |path| File.join(source, path.delete_prefix("#{full}/")) }
+        else
+          []
+        end
+
+        files.reject { |file| excluded?(entry, file.delete_prefix("#{source}/")) }
+          .map { |file| destination + file.delete_prefix(source) }
+          .reject { |file| KernelUpdate.untouched?(file) }
+      end.to_set
+    end
+
+    def excluded?(entry, relative)
+      Array(entry["exclude"]).any? do |pattern|
+        relative == pattern ||
+          relative.start_with?("#{pattern}/") ||
+          File.fnmatch?(pattern, relative, File::FNM_PATHNAME)
+      end
     end
 
     def fallback_mode(relative)
@@ -664,6 +715,8 @@ module KernelUpdate
   module_function
 
   def untouched?(relative)
+    return true if relative.match?(%r{\Aengines/[^/]+/AGENTS\.md\z})
+
     UNTOUCHED_PREFIXES.any? { |prefix| relative.start_with?(prefix) }
   end
 

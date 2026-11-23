@@ -124,15 +124,7 @@ paths:
       - formats/**/*
   - source: template/adopter/spec/fixtures/formats/v0.1.0
     destination: spec/fixtures/formats/v0.1.0
-  - source: spec/generators/domain_generator_spec.rb
-    mode: app
-  - source: spec/generators/module_generator_spec.rb
-    mode: app
-  - source: spec/generators/move_page_generator_spec.rb
-    mode: app
-  - source: spec/generators/page_generator_spec.rb
-    mode: app
-  - source: spec/generators/rename_module_generator_spec.rb
+  - source: spec/generators
     mode: app
   - source: spec/i18n
     mode: app

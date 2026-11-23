@@ -389,8 +389,11 @@ when adopting.
   must pass `bin/ci`.
 - By default it updates core, the generators, `script/ci/`, `bin/check`,
   `bin/kernel_update`, `spec/fixtures/hostile_urls.json` (FE-18), and the guard
-  configurations. design_system is updated
-  only folder by folder, on request
+  configurations. App-owned files the template renders with the app's namespace
+  are updated only with `--app-owned` and only while they still match the base
+  release; a file the payload does not ship is never added. An engine's
+  `AGENTS.md` is never overwritten. design_system is updated only folder by
+  folder, on request
   (`bin/kernel_update <version> --include design_system/<folder>`), because
   adopters restyle it.
 - The template's own CI adopts the commit under test: it packs `HEAD` with

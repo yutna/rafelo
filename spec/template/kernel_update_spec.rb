@@ -13,14 +13,16 @@ RSpec.describe "bin/kernel_update" do
     expect(KernelUpdate::DEFAULT_PATHS).to include(
       "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
       ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
-      "script/contracts", "script/docs", "playwright.config.ts", "config/frontend_react.mts",
-      "spec/core"
+      "script/contracts", "script/docs", "playwright.config.ts", "spec/core"
     )
   end
 
   it "keeps app-owned paths behind the --app-owned option" do
     expect(KernelUpdate::APP_OWNED_PATHS).to include(
-      "app/frontend", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb"
+      "app/frontend", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
+      "config/database.yml", "config/storage.yml", "config/frontend_react.mts", "lib/tasks",
+      "package.json", "package-lock.json", ".devcontainer", "Dockerfile",
+      "spec/config", "spec/requests", "spec/support", "spec/tasks"
     )
     expect(KernelUpdate::DEFAULT_PATHS).not_to include(*KernelUpdate::APP_OWNED_PATHS)
   end
@@ -95,7 +97,8 @@ RSpec.describe "bin/kernel_update" do
         { "source" => "package-lock.json", "mode" => "app" },
         { "source" => ".devcontainer", "mode" => "app" },
         { "source" => "Dockerfile", "mode" => "app" },
-        { "source" => ".opencode" }
+        { "source" => ".opencode" },
+        { "source" => "template/.github", "destination" => ".github", "mode" => "github" }
       ]
     }
     FileUtils.mkdir_p(File.join(root, "template"))
@@ -271,6 +274,24 @@ RSpec.describe "bin/kernel_update" do
           _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
 
           expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "config/database.yml"))).to eq("role: rafelo_runtime\n")
+          expect(File.read(File.join(app_root, "spec/config/database_roles_spec.rb"))).to eq("ENV[\"RAFELO_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "spec/requests/write_flow_spec.rb"))).to eq("cookie: rafelo_session\n")
+          expect(File.read(File.join(app_root, "spec/support/authentication.rb"))).to eq("rafelo_session\n")
+          expect(File.read(File.join(app_root, "spec/tasks/restore_spec.rb"))).to eq("ENV[\"RAFELO_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "lib/tasks/restore.rake"))).to eq("ENV[\"RAFELO_DATABASE_ROLE\"]\n")
+          expect(File.read(File.join(app_root, "config/storage.yml"))).to eq("bucket: rafelo-production\n")
+          expect(File.read(File.join(app_root, "package.json"))).to eq("{\"name\":\"rafelo\"}\n")
+          expect(File.read(File.join(app_root, "package-lock.json"))).to eq("{\"name\":\"rafelo\"}\n")
+          expect(File.read(File.join(app_root, ".devcontainer/compose.yaml"))).to eq("image: rafelo-devcontainer\n")
+          expect(File.read(File.join(app_root, "Dockerfile"))).to eq("ARG RAFELO_NAME\n")
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+
+          expect(status).to be_success, err
           expect(File.read(File.join(app_root, "config/database.yml"))).to eq("role: smoke_shop_runtime\n")
           expect(File.read(File.join(app_root, "spec/config/database_roles_spec.rb"))).to eq("ENV[\"SMOKE_SHOP_DATABASE_ROLE\"]\n")
           expect(File.read(File.join(app_root, "spec/requests/write_flow_spec.rb"))).to eq("cookie: smoke_shop_session\n")
@@ -287,6 +308,62 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+
+  it "never updates an engine guide the app owns" do
+    base = {
+      "engines/core/AGENTS.md" => "base guide\n",
+      "engines/core/app/models/core_file.rb" => "base core\n"
+    }
+    target = base.merge(
+      "engines/core/AGENTS.md" => "target guide\n",
+      "engines/core/app/models/core_file.rb" => "target core\n"
+    )
+    local = base.merge("engines/core/AGENTS.md" => "local guide\n")
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "engines/core/AGENTS.md"))).to eq("local guide\n")
+          expect(File.read(File.join(app_root, "engines/core/app/models/core_file.rb"))).to eq("target core\n")
+        end
+      end
+    end
+  end
+
+  it "does not add files the release payload does not ship" do
+    base = { "engines/core/app/models/core_file.rb" => "base core\n" }
+    target = base.merge(
+      "engines/core/app/models/new_file.rb" => "new core\n",
+      "spec/generators/unshipped_spec.rb" => "unshipped\n"
+    )
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          File.write(
+            File.join(target_root, "template", "payload.yml"),
+            YAML.dump("paths" => [ { "source" => "engines/core" } ])
+          )
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "engines/core/app/models/new_file.rb"))).to eq("new core\n")
+          expect(File.exist?(File.join(app_root, "spec/generators/unshipped_spec.rb"))).to be(false)
+        end
+      end
+    end
+  end
 
   it "migrates only the exact generated new/edit props and controller shapes" do
     generated_new_props = <<~'RUBY'
