@@ -210,6 +210,27 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "defines the form route when create or update is requested directly" do
+    { "create" => "new", "update" => "edit" }.each do |action, form_action|
+      Dir.mktmpdir do |dir|
+        root = Pathname(dir)
+        FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+        FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+        File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+        File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+        %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+        generator_class.start([ "billing", "widgets", "--actions=#{action}" ], destination_root: dir)
+
+        routes = File.read(root.join("engines/billing/config/routes.rb"))
+        expect(routes).to match(/\b#{action}\b/)
+        expect(routes).to match(/\b#{form_action}\b/)
+        request_spec = root.join("engines/billing/spec/requests/widgets_spec.rb").read
+        expect(request_spec).to include("renders the #{form_action} page contract")
+      end
+    end
+  end
+
   it "keeps the stable permission prefix and registry path after a rename" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)

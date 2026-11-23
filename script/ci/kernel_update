@@ -571,11 +571,20 @@ module KernelUpdate
 
     private
 
+    def app_owned?(relative)
+      APP_OWNED_PATHS.any? { |path| relative == path || relative.start_with?("#{path}/") }
+    end
+
     def merge(relative)
       local_path = File.join(@root, relative)
       local = File.file?(local_path) ? File.binread(local_path) : nil
       base = rendered(@base, relative)
       target = rendered(@target, relative)
+
+      if app_owned?(relative) && !same_content?(local, base)
+        results << Result.new(relative: relative, status: "kept")
+        return
+      end
 
       return if same_content?(base, target) && same_content?(local, base)
       if same_content?(local, target)

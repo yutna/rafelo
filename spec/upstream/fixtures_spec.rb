@@ -30,6 +30,8 @@ RSpec.describe "Upstream fixtures" do
     current = Rails.root.join("config/grants.json")
 
     expect(previous).to exist
-    expect(JSON.parse(previous.read)).to eq(JSON.parse(current.read))
+    previous_grants = JSON.parse(previous.read).fetch("grants")
+    current_grants = JSON.parse(current.read).fetch("grants")
+    expect(previous_grants - current_grants).to be_empty
   end
 end

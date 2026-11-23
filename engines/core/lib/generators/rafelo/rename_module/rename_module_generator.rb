@@ -42,7 +42,7 @@ module Rafelo
         raise Thor::Error, "engine not found: #{@source_name}" unless Dir.exist?(root.join("engines", @source_name))
         raise Thor::Error, "engine already exists: #{@destination_name}" if Dir.exist?(root.join("engines", @destination_name))
         raise Thor::Error, "reserved name: #{@destination_name}" if %w[core design_system app engines].include?(@destination_name) || @destination_name.start_with?("example_") || !@destination_name.match?(/\A[a-z][a-z0-9_]*\z/)
-        raise Thor::Error, "#{@destination_name} is a locale" if locale_segments.include?(@destination_name) || @destination_name.match?(/\A[a-z]{2}\z/)
+        raise Thor::Error, "#{@destination_name} is a locale" if locale_segments.include?(@destination_name) || Rafelo::Core::Locales.locale_segment?(@destination_name)
         raise Thor::Error, "#{@destination_name} is an app route" if route_names.include?(@destination_name)
         raise Thor::Error, "#{@destination_name} is a kernel error prefix" if error_prefixes.include?(@destination_name)
         raise Thor::Error, "npm scope @#{@destination_name} is already used" if npm_scopes.include?(@destination_name)

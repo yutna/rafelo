@@ -96,8 +96,8 @@ module Rafelo
 
       def effective_actions
         actions = requested_actions.dup
-        actions |= %w[new create] if actions.include?("new") && !actions.include?("create")
-        actions |= %w[edit update] if actions.include?("edit") && !actions.include?("update")
+        actions |= %w[new create] if (actions & %w[new create]).any?
+        actions |= %w[edit update] if (actions & %w[edit update]).any?
         actions = %w[index] if actions.empty?
         actions.uniq
       end

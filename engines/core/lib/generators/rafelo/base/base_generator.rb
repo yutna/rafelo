@@ -21,7 +21,7 @@ module Rafelo
         raise Thor::Error, "#{candidate} is not a snake_case engine name" unless candidate.match?(/\A[a-z][a-z0-9_]*\z/)
         raise Thor::Error, "#{candidate} is already taken" if Dir.exist?(root_path.join("engines", candidate))
         raise Thor::Error, "npm scope @#{candidate} is already used" if npm_scopes.include?(candidate)
-        raise Thor::Error, "#{candidate} is a locale" if locale_segments.include?(candidate) || candidate.match?(/\A[a-z]{2}\z/)
+        raise Thor::Error, "#{candidate} is a locale" if locale_segments.include?(candidate) || Rafelo::Core::Locales.locale_segment?(candidate)
         raise Thor::Error, "#{candidate} is an app route" if route_names.include?(candidate)
         raise Thor::Error, "#{candidate} is a kernel error prefix" if error_prefixes.include?(candidate)
       end

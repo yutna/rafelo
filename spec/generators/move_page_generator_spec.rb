@@ -101,6 +101,46 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
     end
   end
 
+  it "keeps the original permission prefix and legacy paths across a second move" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "source_c",
+        path: "/source_c",
+        routes: "Rafelo::SourceC::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "source_c" => { "widgets" => [ "read" ] } })
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "billing" => {}, "source_c" => { "widgets" => [ "read" ] } },
+        prefixes: [ "billing", "source_c" ],
+        module_rb_extra: "  legacy_paths: { \"/source_c/widgets\" => \"/widgets\" },\n")
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} },
+        module_rb_extra: "  legacy_paths: { \"/archive/widgets\" => \"/widgets\" },\n")
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      target_permissions = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
+      expect(target_permissions.dig("source_c", "widgets")).to eq([ "read" ])
+      expect(target_permissions.dig("payments", "widgets")).to be_nil
+
+      target_module = File.read(root.join("engines/payments/config/module.rb"))
+      expect(target_module).to include('"source_c"')
+      expect(target_module).to include('"/source_c/widgets" => "/widgets"')
+      expect(target_module).to include('"/billing/widgets" => "/widgets"')
+      expect(target_module).to include('"/archive/widgets" => "/widgets"')
+
+      source_module = File.read(root.join("engines/billing/config/module.rb"))
+      expect(source_module).not_to include('"/source_c/widgets"')
+      source_permissions = YAML.safe_load(File.read(root.join("engines/billing/config/permissions.yml")))
+      expect(source_permissions.dig("source_c", "widgets")).to be_nil
+    end
+  end
+
   it "moves the whole slice and leaves no slice file behind" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
@@ -141,7 +181,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         "config/contracts/pages/widgets/index.json" => "{}\n",
         "spec/fixtures/upstream/widgets/index.json" => '{"items":[]}',
         "spec/widget_spec.rb" => "RSpec.describe Rafelo::Billing::Widget do\nend\n",
-        "spec/requests/widgets_spec.rb" => "RSpec.describe \"billing/widgets\" do\nend\n",
+        "spec/requests/widgets_spec.rb" => "RSpec.describe \"billing/widgets\" do\n  it { get \"/en/billing/widgets\" }\nend\n",
         "e2e/widgets.spec.ts" => 'test("widgets", () => {});'
       }
       engine_slice.each { |relative, body| write_file(root, "engines/billing/#{relative}", body) }
@@ -173,6 +213,9 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       moved_spec = File.read(root.join("spec/requests/payments/widgets_spec.rb"))
       expect(moved_spec).to include("engines/payments/spec/fixtures/upstream/widgets/index.json")
       expect(moved_spec).to include('"payments/widgets/index"')
+      moved_engine_spec = File.read(root.join("engines/payments/spec/requests/widgets_spec.rb"))
+      expect(moved_engine_spec).to include('get "/en/payments/widgets"')
+      expect(moved_engine_spec).not_to include('get "/en/billing/widgets"')
       moved_page = File.read(root.join("engines/payments/app/frontend/pages/widgets/index.tsx"))
       expect(moved_page).to include("@payments/i18n")
       expect(moved_page).to include("usePaymentsTranslation")
