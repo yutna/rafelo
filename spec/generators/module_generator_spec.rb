@@ -82,4 +82,13 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
       expect(Pathname(dir).join("engines/core")).not_to exist
     end
   end
+
+  it "refuses a name shaped like a configured locale segment" do
+    allow(Rafelo::Core::Locales).to receive(:segment_pattern).and_return("[a-z]{2}_[a-z]{2}")
+
+    Dir.mktmpdir do |dir|
+      Rails::Generators.invoke("rafelo:module", [ "en_gb" ], destination_root: dir)
+      expect(Pathname(dir).join("engines/en_gb")).not_to exist
+    end
+  end
 end

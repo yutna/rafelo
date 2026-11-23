@@ -67,11 +67,20 @@ module Rafelo
           &.scan(/"([^"]+)"|'([^']+)'/)&.flatten&.compact&.first || name
       end
 
+      def permission_prefix_containing(name, resource)
+        path = root.join("engines", name, "config/permissions.yml")
+        return permission_prefix_for(name) unless File.file?(path)
+
+        manifest = YAML.safe_load(File.read(path), aliases: false) || {}
+        manifest.find { |_prefix, resources| resources.is_a?(Hash) && resources.key?(resource) }&.first ||
+          permission_prefix_for(name)
+      end
+
       def route_segment_for(name)
         manifest_for(name)[/path:\s*["']([^"']+)["']/, 1]&.delete_prefix("/") || name
       end
 
-      def source_permission_prefix = @source_permission_prefix ||= permission_prefix_for(@source)
+      def source_permission_prefix = @source_permission_prefix ||= permission_prefix_containing(@source, plural)
       def target_permission_prefix = @target_permission_prefix ||= permission_prefix_for(@target)
       def source_route_segment = @source_route_segment ||= route_segment_for(@source)
       def target_route_segment = @target_route_segment ||= route_segment_for(@target)
@@ -239,6 +248,7 @@ module Rafelo
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
           changed = changed.gsub("use#{@source.camelize}Translation", "use#{@target.camelize}Translation")
           changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
+          changed = changed.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
           changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
           changed = changed.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
           changed = changed.gsub(":#{@source},", ":#{@target},")
@@ -301,46 +311,74 @@ module Rafelo
         tgt_path = root.join("engines", @target, "config/permissions.yml")
         src = YAML.safe_load(File.read(src_path), aliases: false) || {}
         tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
-        src_prefix = src[source_permission_prefix] || {}
+        src_prefix = source_permission_prefix
+        actions = src.dig(src_prefix, plural)
+        return unless actions
+
+        src[src_prefix].delete(plural)
         # Keep permission keys stable by preserving the source prefix in the target manifest.
-        tgt_source_prefix = tgt[source_permission_prefix] || {}
-        if src_prefix.key?(plural)
-          tgt_source_prefix[plural] = src_prefix.delete(plural)
-        end
-        src[source_permission_prefix] = src_prefix
+        tgt[src_prefix] ||= {}
+        tgt[src_prefix][plural] = actions
         # The target's seed entry for the same resource is a placeholder, not a
         # route: keeping it would generate a duplicate constant for the key the
         # move just brought under the source prefix.
-        tgt[target_permission_prefix]&.delete(plural)
-        tgt[source_permission_prefix] = tgt_source_prefix
+        tgt[target_permission_prefix]&.delete(plural) unless target_permission_prefix == src_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))
       end
 
       def add_legacy_path
-        path = root.join("engines", @target, "config/module.rb")
-        content = File.read(path)
         old_prefix = "/#{source_route_segment}/#{plural}"
         target_suffix = "/#{plural}"
+        source_paths = legacy_paths_for(@source)
+        # A second move inherits the earlier resource URLs instead of dropping
+        # them when the source engine stops serving the resource.
+        transferred = source_paths.select { |_old, target| target == target_suffix }
+        write_legacy_paths(@source, source_paths.reject { |_old, target| target == target_suffix })
+        target_paths = legacy_paths_for(@target).merge(transferred)
+        target_paths[old_prefix] = target_suffix
+        write_legacy_paths(@target, target_paths)
 
-        if content.include?("legacy_paths:")
-          unless content.include?(%("#{old_prefix}"))
-            content = content.sub(/legacy_paths:\s*\{/, "legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\",")
-          end
-        else
-          insertion = "  legacy_paths: { \"#{old_prefix}\" => \"#{target_suffix}\" },\n"
-          if content =~ /^(\s*permission_prefixes:.*\n)/
-            content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
-          else
-            content = content.sub(/\A/, "#{insertion}")
-          end
-        end
-
+        path = root.join("engines", @target, "config/module.rb")
+        content = File.read(path)
         if content =~ /permission_prefixes:\s*\[([^\]]*)\]/
           prefixes = $1.scan(/"([^"]+)"/).flatten
           unless prefixes.include?(source_permission_prefix)
             prefixes << source_permission_prefix
             content = content.sub(/permission_prefixes:\s*\[[^\]]*\]/, "permission_prefixes: [ #{prefixes.map { |p| "\"#{p}\"" }.join(", ")} ]")
+            File.write(path, content)
+          end
+        end
+      end
+
+      def legacy_paths_for(name)
+        match = manifest_for(name).match(/legacy_paths:\s*\{(.*?)\}/m)
+        return {} unless match
+
+        match[1].scan(/["']([^"']+)["']\s*=>\s*["']([^"']*)["']/).to_h
+      end
+
+      def write_legacy_paths(name, paths)
+        path = root.join("engines", name, "config/module.rb")
+        content = File.read(path)
+        rendered = if paths.empty?
+          nil
+        else
+          "{ #{paths.map { |old, target| "\"#{old}\" => \"#{target}\"" }.join(", ")} }"
+        end
+
+        if content.match?(/legacy_paths:/)
+          if rendered
+            content = content.sub(/legacy_paths:\s*\{.*?\}/m, "legacy_paths: #{rendered}")
+          else
+            content = content.sub(/^\s*legacy_paths:.*\n/, "")
+          end
+        elsif rendered
+          insertion = "  legacy_paths: #{rendered},\n"
+          if content =~ /^(\s*permission_prefixes:.*\n)/
+            content = content.sub(/^(\s*permission_prefixes:.*\n)/, "\\1#{insertion}")
+          else
+            content = content.sub(/\A/, "#{insertion}")
           end
         end
         File.write(path, content)

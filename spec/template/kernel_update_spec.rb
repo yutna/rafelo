@@ -55,6 +55,30 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "leaves a customized app-owned file alone even when --app-owned is given" do
+    base = { "config/locales/en.yml" => "en:\n  app:\n    title: Base\n    nav: Base\n" }
+    target = { "config/locales/en.yml" => "en:\n  app:\n    title: Target\n    nav: Base\n" }
+    local = { "config/locales/en.yml" => "en:\n  app:\n    title: Base\n    nav: Custom\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "config/locales/en.yml"))).to eq(local.fetch("config/locales/en.yml"))
+        end
+      end
+    end
+  end
+
   it "updates a kernel-owned spec change from the base release" do
     base = { "spec/core/audit_spec.rb" => "resource = \"rafelo/example_orders/orders\"\n" }
     target = { "spec/core/audit_spec.rb" => "resource = \"admin/orders\"\n" }
