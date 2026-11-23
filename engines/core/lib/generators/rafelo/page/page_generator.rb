@@ -106,7 +106,7 @@ module Rafelo
         (effective_actions & %w[new create edit update]).any?
       end
 
-      def permission_update = "#{mod}:#{resource_plural}:update"
+      def permission_update = "#{permission_prefix}:#{resource_plural}:update"
 
       def root = destination_root_path
       def destination_root_path = Pathname.new(destination_root || Dir.pwd)
@@ -120,8 +120,34 @@ module Rafelo
       def controller_class = "#{resource_plural.camelize}Controller"
       def page_key_base = "#{mod}/#{resource_plural}"
       def engine_alias = "@#{mod}"
-      def permission_read = "#{mod}:#{resource_plural}:read"
-      def permission_create = "#{mod}:#{resource_plural}:create"
+      def permission_read = "#{permission_prefix}:#{resource_plural}:read"
+      def permission_create = "#{permission_prefix}:#{resource_plural}:create"
+
+      # A renamed module keeps the manifest's stable route path and permission
+      # prefix (GEN-06); new pages must use those, not the engine name.
+      def permission_prefix
+        @permission_prefix ||= module_manifest[/permission_prefixes:\s*\[(.*?)\]/m, 1]
+          &.scan(/"([^"]+)"|'([^']+)'/)&.flatten&.compact&.first || mod
+      end
+
+      def route_segment
+        @route_segment ||= module_manifest[/path:\s*["']([^"']+)["']/, 1]&.delete_prefix("/") || mod
+      end
+
+      def module_manifest
+        path = root.join(engine_file("config/module.rb"))
+        File.file?(path) ? File.read(path) : ""
+      end
+
+      def create_success_route
+        target = effective_actions.include?("index") ? resource_plural : "new_#{resource_singular}"
+        "page_context.urls.route(:#{mod}, :#{target})"
+      end
+
+      def update_success_route
+        target = effective_actions.include?("show") ? resource_singular : "edit_#{resource_singular}"
+        "page_context.urls.route(:#{mod}, :#{target}, id: params[:id])"
+      end
       def capability_key(permission_key) = permission_key.split(":")[1..].join(".")
 
       def locales
@@ -212,7 +238,7 @@ module Rafelo
                   payload: form.payload, idempotency_key: idempotency_key
                 )
                 request.env["rafelo.audit.upstream_id"] = created.id.to_s if created.respond_to?(:id)
-                redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_plural}), notice: "Created.")
+                redirect_after_write(#{create_success_route}, notice: "Created.")
               end
             rescue Rafelo::Core::ValidationFailed => error
               redirect_after_write(back, errors: form.translate(error.field_codes))
@@ -255,7 +281,7 @@ module Rafelo
                   idempotency_key: idempotency_key, if_match: form.version
                 )
                 request.env["rafelo.audit.upstream_id"] = updated.id.to_s if updated.respond_to?(:id)
-                redirect_after_write(page_context.urls.route(:#{mod}, :#{resource_singular}, id: params[:id]), notice: "Updated.")
+                redirect_after_write(#{update_success_route}, notice: "Updated.")
               end
             rescue Rafelo::Core::ValidationFailed => error
               redirect_after_write(back, errors: form.translate(error.field_codes))
@@ -418,7 +444,7 @@ module Rafelo
                   {
                     data: {
                       #{resource_singular}: { id: @id, name: @id },
-                      indexHref: context.urls.route(:#{mod}, :#{resource_plural})
+                      indexHref: #{effective_actions.include?("index") ? "context.urls.route(:#{mod}, :#{resource_plural})" : "nil"}
                     },
                     meta: {},
                     query: {},
@@ -441,7 +467,7 @@ module Rafelo
                   {
                     data: {
                       createHref: context.urls.route(:#{mod}, :#{resource_plural}),
-                      indexHref: context.urls.route(:#{mod}, :#{resource_plural})
+                      indexHref: #{effective_actions.include?("index") ? "context.urls.route(:#{mod}, :#{resource_plural})" : "nil"}
                     },
                     meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
@@ -470,7 +496,7 @@ module Rafelo
                     data: {
                       #{resource_singular}: { id: @id, name: @id, version: 1 },
                       updateHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id),
-                      showHref: context.urls.route(:#{mod}, :#{resource_singular}, id: @id)
+                      showHref: #{effective_actions.include?("show") ? "context.urls.route(:#{mod}, :#{resource_singular}, id: @id)" : "nil"}
                     },
                     meta: { formToken: Rafelo::Core::FormToken.issue(session_id: context.session_id) },
                     query: {},
@@ -690,7 +716,7 @@ module Rafelo
           import { z } from "zod";
 
           export const pageSchema = definePage({
-            data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexHref: hrefSchema }),
+            data: z.object({ #{resource_singular}: z.object({ id: z.string(), name: z.string() }), indexHref: hrefSchema.nullable() }),
             query: z.object({}),
             can: [] as const,
             paginated: false,
@@ -733,7 +759,7 @@ module Rafelo
 
           type Props = {
             #{resource_singular}: { id: string; name: string };
-            indexHref: Href;
+            indexHref: Href | null;
             can: Record<string, { allowed: boolean; reason: string | null }>;
           };
 
@@ -752,9 +778,11 @@ module Rafelo
                     <dd>{#{resource_singular}.name}</dd>
                   </div>
                 </dl>
-                <p className="mt-6">
-                  <Link testId="#{mod}.#{resource_plural}.show.back" href={indexHref}>{t("#{plural}.back")}</Link>
-                </p>
+                {indexHref ? (
+                  <p className="mt-6">
+                    <Link testId="#{mod}.#{resource_plural}.show.back" href={indexHref}>{t("#{plural}.back")}</Link>
+                  </p>
+                ) : null}
               </section>
             );
           }
@@ -821,7 +849,7 @@ module Rafelo
           import { z } from "zod";
 
           export const pageSchema = definePage({
-            data: z.object({ createHref: hrefSchema, indexHref: hrefSchema }),
+            data: z.object({ createHref: hrefSchema, indexHref: hrefSchema.nullable() }),
             meta: z.object({ formToken: z.string() }),
             query: z.object({}),
             can: [] as const,
@@ -867,7 +895,7 @@ module Rafelo
 
           type Props = {
             createHref: Href;
-            indexHref: Href;
+            indexHref: Href | null;
             meta: { formToken: string };
             errors: Record<string, string>;
           };
@@ -897,7 +925,9 @@ module Rafelo
                     <Button testId="#{mod}.#{resource_plural}.new.submit" type="submit" isPending={form.processing}>
                       {t("#{plural}.create")}
                     </Button>
-                    <Link testId="#{mod}.#{resource_plural}.new.back" href={indexHref}>{t("#{plural}.back")}</Link>
+                    {indexHref ? (
+                      <Link testId="#{mod}.#{resource_plural}.new.back" href={indexHref}>{t("#{plural}.back")}</Link>
+                    ) : null}
                   </div>
                 </form>
               </section>
@@ -916,7 +946,7 @@ module Rafelo
             data: z.object({
               #{resource_singular}: z.object({ id: z.string(), name: z.string(), version: z.number().int() }),
               updateHref: hrefSchema,
-              showHref: hrefSchema,
+              showHref: hrefSchema.nullable(),
             }),
             meta: z.object({ formToken: z.string() }),
             query: z.object({}),
@@ -964,7 +994,7 @@ module Rafelo
           type Props = {
             #{resource_singular}: { id: string; name: string; version: number };
             updateHref: Href;
-            showHref: Href;
+            showHref: Href | null;
             meta: { formToken: string };
             errors: Record<string, string>;
           };
@@ -1004,7 +1034,9 @@ module Rafelo
                     <Button testId="#{mod}.#{resource_plural}.edit.submit" type="submit" isPending={form.processing}>
                       {t("#{plural}.save")}
                     </Button>
-                    <Link testId="#{mod}.#{resource_plural}.edit.back" href={showHref}>{t("#{plural}.back")}</Link>
+                    {showHref ? (
+                      <Link testId="#{mod}.#{resource_plural}.edit.back" href={showHref}>{t("#{plural}.back")}</Link>
+                    ) : null}
                   </div>
                 </form>
               </section>
@@ -1056,12 +1088,12 @@ module Rafelo
         path = root.join(engine_file("config/permissions.yml"))
         content = read_file(path)
         data = YAML.safe_load(content, aliases: false) || {}
-        prefix = data[mod] || {}
+        prefix = data[permission_prefix] || {}
         actions = [ "read" ]
         actions << "create" if effective_actions.include?("create")
         actions << "update" if effective_actions.include?("update")
         prefix[resource_plural] = actions.uniq
-        data[mod] = prefix
+        data[permission_prefix] = prefix
         write_managed(path, YAML.dump(data))
       end
 
@@ -1116,7 +1148,7 @@ module Rafelo
                 .to_return(status: 200, body: { items: items }.to_json,
                            headers: { "Content-Type" => "application/json" })
 
-              expect { get "/\#{locale}/#{mod}/#{resource_plural}?per_page=\#{Rafelo::Core::ListQuery.max_per_page}", headers: headers }.to within_budgets("#{page_key_base}/index")
+              expect { get "/\#{locale}/#{route_segment}/#{resource_plural}?per_page=\#{Rafelo::Core::ListQuery.max_per_page}", headers: headers }.to within_budgets("#{page_key_base}/index")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/index")
               expect(response).to be_within_props_budget("#{page_key_base}/index")
@@ -1130,7 +1162,7 @@ module Rafelo
 
             it "renders the show page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/\#{locale}/#{mod}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
+              expect { get "/\#{locale}/#{route_segment}/#{resource_plural}/1", headers: headers }.to within_budgets("#{page_key_base}/show")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/show")
               expect(response).to be_within_props_budget("#{page_key_base}/show")
@@ -1144,7 +1176,7 @@ module Rafelo
 
             it "renders the new page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/\#{locale}/#{mod}/#{resource_plural}/new", headers: headers }.to within_budgets("#{page_key_base}/new")
+              expect { get "/\#{locale}/#{route_segment}/#{resource_plural}/new", headers: headers }.to within_budgets("#{page_key_base}/new")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/new")
               expect(response).to be_within_props_budget("#{page_key_base}/new")
@@ -1158,7 +1190,7 @@ module Rafelo
 
             it "renders the edit page contract" do
               headers = sign_in_with([ #{grants_literal} ])
-              expect { get "/\#{locale}/#{mod}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
+              expect { get "/\#{locale}/#{route_segment}/#{resource_plural}/1/edit", headers: headers }.to within_budgets("#{page_key_base}/edit")
               expect(response).to have_http_status(:ok)
               expect(response).to match_page_schema("#{page_key_base}/edit")
               expect(response).to be_within_props_budget("#{page_key_base}/edit")
@@ -1172,47 +1204,47 @@ module Rafelo
 
             it "creates through the gateway, redirects with 303, and replays without a second call" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/new")
               stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 201, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{route_segment}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}#{effective_actions.include?("index") ? "" : "/new"}")
 
-              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{route_segment}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
               expect(a_request(:post, "\#{upstream_base_url}/#{resource_plural}")).to have_been_made.once
             end
 
             it "redirects back with errors when create params are invalid" do
               headers = sign_in_with([ #{grants_literal} ])
-              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
+              post "/\#{locale}/#{route_segment}/#{resource_plural}", params: { name: "", token: "bad-token" }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/new")
             end
 
             it "redirects back with translated errors when the upstream rejects the create" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/new")
               stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 422, body: '{"errors":{"name":["taken"]}}',
                            headers: { "Content-Type" => "application/json" })
 
-              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{route_segment}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/new")
             end
 
             it "redirects back with a conflict when the upstream answers 409" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/new")
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/new")
               stub_request(:post, "\#{upstream_base_url}/#{resource_plural}")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              post "/\#{locale}/#{mod}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
+              post "/\#{locale}/#{route_segment}/#{resource_plural}", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/new")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/new")
             end
           RUBY
         end
@@ -1221,39 +1253,39 @@ module Rafelo
 
             it "updates through the gateway and redirects with 303" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
               stub_request(:patch, "\#{upstream_base_url}/#{resource_plural}/1")
                 .to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
+              patch "/\#{locale}/#{route_segment}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/1#{effective_actions.include?("show") ? "" : "/edit"}")
             end
 
             it "redirects back with errors when update params are invalid" do
               headers = sign_in_with([ #{grants_literal} ])
-              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "", token: "bad-token", version: 1 }, headers: headers
+              patch "/\#{locale}/#{route_segment}/#{resource_plural}/1", params: { name: "", token: "bad-token", version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
             end
 
             it "redirects back when the edit version is missing" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
-              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
+              patch "/\#{locale}/#{route_segment}/#{resource_plural}/1", params: { name: "Widget", token: token }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
             end
 
             it "redirects back with a conflict when the upstream rejects the update" do
               headers = sign_in_with([ #{grants_literal} ])
-              token = form_token(headers, "/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              token = form_token(headers, "/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
               stub_request(:patch, "\#{upstream_base_url}/#{resource_plural}/1")
                 .to_return(status: 409, body: "{}", headers: { "Content-Type" => "application/json" })
 
-              patch "/\#{locale}/#{mod}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
+              patch "/\#{locale}/#{route_segment}/#{resource_plural}/1", params: { name: "Widget", token: token, version: 1 }, headers: headers
               expect(response).to have_http_status(:see_other)
-              expect(response).to redirect_to("/\#{locale}/#{mod}/#{resource_plural}/1/edit")
+              expect(response).to redirect_to("/\#{locale}/#{route_segment}/#{resource_plural}/1/edit")
             end
           RUBY
         end
