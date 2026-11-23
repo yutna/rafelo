@@ -1,5 +1,7 @@
 default: &default
   puma_threads: <%= ENV.fetch("RAILS_MAX_THREADS", 3) %>
+  executor:
+    size: 4
   database:
     runtime_role: <%= ENV["DB_USER"] %>
 

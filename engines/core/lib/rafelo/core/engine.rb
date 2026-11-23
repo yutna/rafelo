@@ -16,9 +16,9 @@ module Rafelo
       end
 
       initializer "rafelo_core.runtime" do |app|
-        app.config.x.executor_threads = 4
         core_config = app.config_for(:core)
-        app.config.x.puma_threads = core_config.fetch("puma_threads", 3).to_i
+        app.config.x.executor = Data.define(:size).new(size: core_config.fetch(:executor).fetch(:size).to_i)
+        app.config.x.puma_threads = core_config.fetch(:puma_threads, 3).to_i
         app.config.x.requests.upstream_deadline_seconds = 10
         app.config.x.sessions.refresh_timeout_seconds = 15
         app.config.x.sessions.idle_timeout_seconds = 30 * 60
