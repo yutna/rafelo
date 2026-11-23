@@ -3,20 +3,25 @@
 set -euo pipefail
 export BUNDLE_FROZEN=false # each new engine changes Gemfile.lock; other CI jobs, except the production image build (OPS-06), run with BUNDLE_FROZEN=true (WF-06)
 
-# The engines this smoke creates. Their node_modules are ignored, so
-# `git clean -fdq` leaves the directories behind and a second local run would
-# generate into a stale one. Remove them by name before the clean-tree check
-# and in the cleanup, leaving the rest of the ignored tree alone.
-generated_engines=(smoke_party smoke_check smoke_other smoke_renamed)
-for engine in "${generated_engines[@]}"; do rm -rf "engines/$engine"; done
-
 # bin/ci runs this locally too: refuse to start on uncommitted or untracked work,
-# because the cleanup below restores the whole tree.
+# because the cleanup below restores the whole tree. Check this before removing
+# anything: the preflight must never delete a user's work.
 if [ -n "$(git status --porcelain)" ]; then
   echo "generator_smoke: needs a clean working tree; commit or stash first" >&2
   git status --short >&2
   exit 1
 fi
+
+# The engines this smoke creates. A committed engine with one of those names is
+# real work, not stale residue: refuse before the preflight removes ignored
+# files under it.
+generated_engines=(smoke_party smoke_check smoke_other smoke_renamed)
+for engine in "${generated_engines[@]}"; do
+  if [ -n "$(git ls-files "engines/$engine")" ]; then
+    echo "generator_smoke: engines/$engine is tracked; remove or rename it before running the smoke" >&2
+    exit 1
+  fi
+done
 
 cleanup() {
   # The tree was clean at the start, so this removes only what the run created,
@@ -28,6 +33,11 @@ cleanup() {
   bundle install --quiet
 }
 trap cleanup EXIT # also after a failed step
+
+# Their node_modules are ignored, so `git status` does not show them. Remove
+# only ignored residue; the directory names were checked above and the tree is
+# clean, so no tracked file is in scope.
+git clean -fdXq -- "${generated_engines[@]/#/engines/}"
 
 # GEN-09 canary: every post-write step failure restores the pre-run tree.
 bin/rails runner script/ci/generator_rollback
