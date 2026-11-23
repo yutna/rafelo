@@ -172,6 +172,7 @@ module Rafelo
           const setupFiles = [fileURLToPath(new URL("../../vitest.setup.ts", import.meta.url))];
 
           export default defineConfig({
+            root: fileURLToPath(new URL(".", import.meta.url)),
             plugins: reactPlugins(),
             resolve: { alias: engineAliases },
             test: {
