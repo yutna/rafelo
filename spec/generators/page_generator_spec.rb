@@ -152,6 +152,99 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "does not link a show-only page to a missing index route" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      generator_class.start([ "billing", "widgets", "--actions=show" ], destination_root: dir)
+
+      props = root.join("engines/billing/app/props/rafelo/billing/widgets_show_props.rb").read
+      expect(props).to include("indexHref: nil")
+      expect(props).not_to include("route(:billing, :widgets)")
+      expect(root.join("engines/billing/app/frontend/pages/widgets/show.schema.ts").read).to include(
+        "indexHref: hrefSchema.nullable()"
+      )
+      container = root.join("engines/billing/app/frontend/containers/widgets/show_container.tsx").read
+      expect(container).to include("indexHref: Href | null")
+      expect(container).to include("indexHref ?")
+      expect(root.join("engines/billing/spec/requests/widgets_spec.rb").read).to include("renders the show page contract")
+    end
+  end
+
+  it "keeps write redirects on routes the slice actually defines" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      generator_class.start([ "billing", "widgets", "--actions=new" ], destination_root: dir)
+      controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
+      expect(controller).to include("route(:billing, :new_widget)")
+      expect(controller).not_to include("route(:billing, :widgets)")
+      expect(root.join("engines/billing/spec/requests/widgets_spec.rb").read).to include(
+        'redirect_to("/#{locale}/billing/widgets/new")'
+      )
+
+      FileUtils.rm_rf(root.join("engines/billing"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "--- {}\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      generator_class.start([ "billing", "widgets", "--actions=edit" ], destination_root: dir)
+      controller = root.join("engines/billing/app/controllers/rafelo/billing/widgets_controller.rb").read
+      expect(controller).to include("route(:billing, :edit_widget, id: params[:id])")
+      expect(controller).not_to include("route(:billing, :widget, id: params[:id])")
+      expect(root.join("engines/billing/spec/requests/widgets_spec.rb").read).to include(
+        'redirect_to("/#{locale}/billing/widgets/1/edit")'
+      )
+    end
+  end
+
+  it "keeps the stable permission prefix and registry path after a rename" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/invoicing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/invoicing/config/contracts"))
+      File.write(root.join("engines/invoicing/config/module.rb"), <<~RUBY)
+        Rafelo::Core::Modules.register(
+          key: :invoicing,
+          engine: Rafelo::Invoicing::Engine,
+          path: "/billing",
+          permission_prefixes: [ "billing" ],
+          nav: { order: 10, label_key: "invoicing.nav.title", icon: "folder" }
+        )
+      RUBY
+      File.write(root.join("engines/invoicing/config/permissions.yml"), "billing:\n  invoices:\n    - read\n")
+      File.write(root.join("engines/invoicing/config/routes.rb"), "Rafelo::Invoicing::Engine.routes.draw do\nend\n")
+      %w[en th].each { |loc| File.write(root.join("engines/invoicing/config/locales/#{loc}.yml"), "#{loc}:\n  invoicing: {}\n") }
+
+      generator_class.start([ "invoicing", "widgets", "--actions=index,new,edit" ], destination_root: dir)
+
+      permissions = YAML.safe_load_file(root.join("engines/invoicing/config/permissions.yml"))
+      expect(permissions).to have_key("billing")
+      expect(permissions).not_to have_key("invoicing")
+      expect(permissions.dig("billing", "widgets")).to eq([ "read", "create", "update" ])
+
+      request_spec = root.join("engines/invoicing/spec/requests/widgets_spec.rb").read
+      expect(request_spec).to include("/\#{locale}/billing/widgets")
+      expect(request_spec).to include('"billing:widgets:read"')
+      expect(request_spec).not_to include("/\#{locale}/invoicing/widgets")
+      expect(root.join("engines/invoicing/app/controllers/rafelo/invoicing/widgets_controller.rb").read).to include(
+        "route(:invoicing"
+      )
+    end
+  end
+
   it "generates an edit/update slice with props, frontend files, and request specs" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
