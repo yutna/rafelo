@@ -6,6 +6,7 @@ import {
   checkCitations,
   checkGenerated,
   checkMatrix,
+  checkPackConflicts,
   checkPaths,
   collectDefinitions,
   loadConfig,
@@ -54,6 +55,8 @@ const matrix = checkMatrix(
   definitions.definitions,
 );
 const citations = checkCitations([...topicText, ...instructionText], definitions.definitions);
+const rootGuide = instructionText.find(({ file }) => file === "AGENTS.md");
+const packConflicts = checkPackConflicts(rootGuide?.text ?? "");
 
 const sources: PathSource[] = [
   ...topicText.map(({ file, text }) => ({ file, text, kind: "topic" as const })),
@@ -70,6 +73,7 @@ const findings: Finding[] = [
   ...definitions.findings,
   ...matrix.findings,
   ...citations.findings,
+  ...packConflicts,
   ...paths.findings,
   ...checkGenerated(generated),
 ];
