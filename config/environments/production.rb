@@ -99,9 +99,13 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  hosts = ENV["RAILS_HOSTS"].presence || ENV["RAILS_HOST"].presence || "example.com"
-  config.hosts = hosts.split(",").map(&:strip).reject(&:empty?)
+  # Enable DNS rebinding protection and other `Host` header attacks. A missing
+  # host list fails boot instead of allowing the template's example host.
+  hosts = (ENV["RAILS_HOSTS"].presence || ENV["RAILS_HOST"].presence).to_s
+    .split(",").map(&:strip).reject(&:empty?)
+  raise "RAILS_HOSTS or RAILS_HOST is required" if hosts.empty?
+
+  config.hosts = hosts
 
   # Skip DNS rebinding protection for the default health check endpoint.
   config.host_authorization = { exclude: ->(request) { request.path == "/up" } }

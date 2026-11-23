@@ -5,7 +5,9 @@ RSpec.describe "Production configuration" do
   DUMMY_ENV = {
     "RAILS_ENV" => "production",
     "RAILS_MASTER_KEY" => File.read(Rails.root.join("config/credentials/dummy.key")).strip,
-    "ACME_API_BASE_URL" => "http://localhost:4000"
+    "ACME_API_BASE_URL" => "http://localhost:4000",
+    "RAILS_HOSTS" => "example.com",
+    "DB_USER" => "acme_runtime"
   }.freeze
 
   SCRIPT = <<~'RUBY'
@@ -15,6 +17,7 @@ RSpec.describe "Production configuration" do
     page = request.get("/en", "HTTP_HOST" => "example.com", "HTTPS" => "on")
     puts({
       hosts: app.config.hosts,
+      runtime_role: app.config.x.database.runtime_role,
       force_ssl: app.config.force_ssl,
       assume_ssl: app.config.assume_ssl,
       excluded: app.config.host_authorization[:exclude].call(Struct.new(:path).new("/up")),
@@ -47,14 +50,32 @@ RSpec.describe "Production configuration" do
   end
 
   it "forces SSL, allows only configured hosts, excludes /up and rejects an unknown host" do
-    config = production_config("RAILS_HOSTS" => "")
+    config = production_config
 
     expect(config["force_ssl"]).to be(true)
     expect(config["assume_ssl"]).to be(true)
     expect(config["hosts"]).to eq([ "example.com" ])
+    expect(config["runtime_role"]).to eq("acme_runtime")
     expect(config["excluded"]).to be(true)
     expect(config["unknown_host"]).to eq(403)
     expect(config["health"]).to eq(200)
+  end
+
+  it "refuses to boot without a configured host instead of using example.com" do
+    expect { production_config("RAILS_HOSTS" => nil, "RAILS_HOST" => nil) }
+      .to raise_error(/production boot failed: .*RAILS_HOSTS or RAILS_HOST is required/m)
+  end
+
+  it "refuses to boot without DB_USER instead of skipping the audit grants" do
+    expect { production_config("DB_USER" => nil) }
+      .to raise_error(/production boot failed: .*DB_USER is required/m)
+  end
+
+  it "requires the amazon region and bucket instead of the old defaults" do
+    expect { production_config("ACTIVE_STORAGE_SERVICE" => "amazon", "AWS_REGION" => "us-east-1") }
+      .to raise_error(/production boot failed: .*AWS_BUCKET is required/m)
+    expect { production_config("ACTIVE_STORAGE_SERVICE" => "amazon", "AWS_BUCKET" => "acme-production") }
+      .to raise_error(/production boot failed: .*AWS_REGION is required/m)
   end
 
   it "enforces CSP by default and reports only when CSP_REPORT_ONLY is true" do
