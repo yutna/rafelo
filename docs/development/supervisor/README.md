@@ -15,15 +15,18 @@ a clean `main` without losing the interrupted edit.
 
 To pause, run `./stop.sh`; it stops the session and removes the supervisor's
 cron entries. Resume by removing `STOP` and `STOPPED` from the state directory
-and running `./install.sh`. A run that prints `OWNER DECISION NEEDED #<issue>`
-on its own line in the final message, or writes the issue number to
-`$RAFELO_OWNER_DECISION_FILE`, writes `NEEDS_OWNER` with the reason and
-launches no further run; the owner deletes that file to resume. A timeout is
-logged as `outcome=timeout` and resumed with backoff; a marker quoted from a
-protocol or a process listing is ignored. Three consecutive successful runs
-that change neither GitHub nor the local worktree write `NEEDS_OWNER` with
-`no progress`. Infrastructure failures (state hash or `opencode` failing
-repeatedly) pause with an `infrastructure:` reason instead of `no progress`.
+and running `./install.sh`. A run pauses only when its last non-empty line is
+`OWNER DECISION NEEDED #<issue> ...` (or it writes the issue numbers to
+`$RAFELO_OWNER_DECISION_FILE`) and every named issue is still open and labelled
+`blocked`; it then writes `NEEDS_OWNER` and launches no further run. `ensure.sh`
+deletes that file and resumes by itself once none of the named issues is still
+open and blocked. A marker quoted from a protocol, a process listing, or an
+earlier line is logged as `marker-ignored`; a marker naming a closed or
+unblocked issue does the same. A timeout or any other non-zero exit is logged
+as `outcome=aborted` and resumed with backoff, never an owner pause. Three
+consecutive successful runs that change neither GitHub nor the local worktree
+write `NEEDS_OWNER` with `no progress`; that pause and the state-hash
+`infrastructure:` pause stay until a person handles them.
 
 Runtime state and logs live in
 `${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor/` (persistent across
@@ -45,8 +48,9 @@ the latest release and main CI, and a `STUCK` flag when a run has been active
 for more than seven hours.
 
 The final audit independently verifies milestones 24–43 and releases
-v0.23.0–v0.42.0, the absence of open high-priority or gate issues, exception
-expiries, the last push and scheduled CI runs, the trials record against later
-AI/generator changes, `VERSION`, a clean tree on `main`, `bin/ci`, and the DONE
-marker before the supervisor removes its cron entries and exits. A premature
-DONE is deleted and the loop continues.
+v0.23.0–v0.42.0, the absence of gate issues, the absence of open high-priority
+issues except ones named by an unexpired audit exception, exception expiries,
+the last push and scheduled CI runs, the trials record against later AI or
+generator changes (including every `engines/*/AGENTS.md`), `VERSION`, a clean
+tree on `main`, `bin/ci`, and the DONE marker before the supervisor removes its
+cron entries and exits. A premature DONE is deleted and the loop continues.
