@@ -137,7 +137,10 @@ module KernelUpdate
     end
 
     def shipped?(relative)
-      return true if @manifest.empty?
+      # A release without a payload predates the filter; it ships everything it
+      # contains. A present but empty payload is a broken release, not a free
+      # pass for every path.
+      return true if @manifest.nil?
 
       shipped_paths.include?(relative)
     end
@@ -145,7 +148,7 @@ module KernelUpdate
     def mode_for(relative)
       return "github" if relative == ".github" || relative.start_with?(".github/")
 
-      entry = @manifest.select { |candidate| KernelUpdate.covers?(candidate.fetch("source"), relative) }
+      entry = Array(@manifest).select { |candidate| KernelUpdate.covers?(candidate.fetch("source"), relative) }
         .max_by { |candidate| candidate.fetch("source").length }
       entry ? entry.fetch("mode", "copy") : fallback_mode(relative)
     end
@@ -189,17 +192,22 @@ module KernelUpdate
 
     def load_manifest
       path = File.join(root, "template", "payload.yml")
-      return [] unless File.file?(path)
+      return nil unless File.file?(path)
 
       manifest = YAML.safe_load_file(path, aliases: false)
-      Array(manifest["paths"])
+      paths = manifest.is_a?(Hash) ? manifest["paths"] : nil
+      unless paths.is_a?(Array) && paths.any?
+        raise Error, "release payload has no paths: #{path}"
+      end
+
+      paths
     end
 
     # The payload is the list of files the template actually copied. A broader
     # updater path must not add a file the adopter never received (the v0.37
     # grant-catalog spec was the first such conflict).
     def shipped_paths
-      @shipped_paths ||= @manifest.flat_map do |entry|
+      @shipped_paths ||= Array(@manifest).flat_map do |entry|
         source = entry.fetch("source")
         destination = entry.fetch("destination", source)
         full = File.join(root, KernelUpdate.source_path(source))

@@ -392,6 +392,28 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "refuses a release whose payload exists but ships no paths" do
+    files = { "engines/core/app/models/core_file.rb" => "base core\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: files)
+          write_release(target_root, version: "0.2.0", files: files)
+          File.write(File.join(target_root, "template", "payload.yml"), YAML.dump("paths" => []))
+          write_app(app_root, version: "0.1.0", files: files)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root
+          )
+
+          expect(status).not_to be_success
+          expect(err).to include("release payload has no paths")
+        end
+      end
+    end
+  end
+
   it "migrates only the exact generated new/edit props and controller shapes" do
     generated_new_props = <<~'RUBY'
       # frozen_string_literal: true
