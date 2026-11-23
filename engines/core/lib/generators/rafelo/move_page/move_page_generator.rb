@@ -85,6 +85,16 @@ module Rafelo
       def source_route_segment = @source_route_segment ||= route_segment_for(@source)
       def target_route_segment = @target_route_segment ||= route_segment_for(@target)
 
+      def rewrite_route_segment(body)
+        pattern = %r{(?<![\w-])#{Regexp.escape(source_route_segment)}/#{Regexp.escape(plural)}(?![\w-])}
+        body.gsub(pattern, "#{target_route_segment}/#{plural}")
+      end
+
+      def rewrite_page_key(body)
+        pattern = %r{(?<![\w-])#{Regexp.escape(@source)}/#{Regexp.escape(plural)}(?![\w-])}
+        body.gsub(pattern, "#{@target}/#{plural}")
+      end
+
       def plural = @res.pluralize
       def singular = @res.singularize
 
@@ -248,8 +258,8 @@ module Rafelo
           changed = changed.gsub("module #{@source.camelize}", "module #{@target.camelize}") # unlikely but safe
           changed = changed.gsub("use#{@source.camelize}Translation", "use#{@target.camelize}Translation")
           changed = changed.gsub("engines/#{@source}/", "engines/#{@target}/")
-          changed = changed.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
-          changed = changed.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
+          changed = rewrite_route_segment(changed)
+          changed = rewrite_page_key(changed)
           changed = changed.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
           changed = changed.gsub(":#{@source},", ":#{@target},")
           File.binwrite(path, changed) if changed != body
@@ -261,8 +271,8 @@ module Rafelo
           moved_path = root.join("spec/requests", @target, File.basename(path))
           body = File.read(moved_path)
           body = body.gsub("engines/#{@source}/", "engines/#{@target}/")
-          body = body.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
-          body = body.gsub("#{@source}/#{plural}", "#{@target}/#{plural}")
+          body = rewrite_route_segment(body)
+          body = rewrite_page_key(body)
           File.write(moved_path, body)
         end
       end
@@ -271,7 +281,7 @@ module Rafelo
         move_app_files("e2e/#{@source}", "e2e/#{@target}").each do |path|
           moved_path = root.join("e2e", @target, File.basename(path))
           body = File.read(moved_path)
-          body = body.gsub("/#{source_route_segment}/#{plural}", "/#{target_route_segment}/#{plural}")
+          body = rewrite_route_segment(body)
           body = body.gsub("#{@source}.#{plural}.", "#{@target}.#{plural}.")
           body = body.gsub("@#{@source}/", "@#{@target}/")
           File.write(moved_path, body)
@@ -329,14 +339,19 @@ module Rafelo
 
       def add_legacy_path
         old_prefix = "/#{source_route_segment}/#{plural}"
+        target_prefix = "/#{target_route_segment}/#{plural}"
         target_suffix = "/#{plural}"
         source_paths = legacy_paths_for(@source)
         # A second move inherits the earlier resource URLs instead of dropping
-        # them when the source engine stops serving the resource.
-        transferred = source_paths.select { |_old, target| target == target_suffix }
-        write_legacy_paths(@source, source_paths.reject { |_old, target| target == target_suffix })
+        # them when the source engine stops serving the resource. The target's
+        # own current URL is never a legacy path.
+        transferred = source_paths.select do |old, target|
+          target == target_suffix && old != target_prefix
+        end
+        write_legacy_paths(@source, source_paths.reject { |old, target| target == target_suffix || old == target_prefix })
         target_paths = legacy_paths_for(@target).merge(transferred)
-        target_paths[old_prefix] = target_suffix
+        target_paths.delete(target_prefix)
+        target_paths[old_prefix] = target_suffix unless old_prefix == target_prefix
         write_legacy_paths(@target, target_paths)
 
         path = root.join("engines", @target, "config/module.rb")
@@ -371,7 +386,7 @@ module Rafelo
           if rendered
             content = content.sub(/legacy_paths:\s*\{.*?\}/m, "legacy_paths: #{rendered}")
           else
-            content = content.sub(/^\s*legacy_paths:.*\n/, "")
+            content = remove_legacy_paths(content, name)
           end
         elsif rendered
           insertion = "  legacy_paths: #{rendered},\n"
@@ -382,6 +397,20 @@ module Rafelo
           end
         end
         File.write(path, content)
+      end
+
+      def remove_legacy_paths(content, name)
+        unless content.match?(/legacy_paths:\s*\{/m)
+          raise Thor::Error, "cannot remove legacy_paths in engines/#{name}/config/module.rb"
+        end
+
+        content = content.sub(/\n[ \t]*legacy_paths:\s*\{.*?\}[ \t]*,?[ \t]*(?:#[^\n]*)?/m, "")
+        content = content.sub(/legacy_paths:\s*\{.*?\}\s*,?\s*/m, "")
+        if content.match?(/legacy_paths:/)
+          raise Thor::Error, "cannot remove legacy_paths in engines/#{name}/config/module.rb"
+        end
+
+        content
       end
 
       def add_legacy_redirect_spec

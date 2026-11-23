@@ -23,7 +23,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         engine: Object,
         path: "#{path}",
         permission_prefixes: [#{prefixes.map { |prefix| "\"#{prefix}\"" }.join(", ")}],
-        nav: { order: 10 }
+        nav: { order: 10 },
       #{module_rb_extra}  )
     RUBY
   end
@@ -141,6 +141,64 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
     end
   end
 
+  it "removes a multi-line or inline source legacy path when the resource leaves" do
+    {
+      "multi-line" => "  legacy_paths: {\n    \"/source_c/widgets\" => \"/widgets\"\n  },\n",
+      "inline" => "  legacy_paths: { \"/source_c/widgets\" => \"/widgets\" }, icon: \"folder\",\n"
+    }.each do |label, legacy_paths|
+      Dir.mktmpdir do |dir|
+        root = Pathname(dir)
+        write_engine(root, "billing",
+          path: "/billing",
+          routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n",
+          permissions: { "billing" => {}, "source_c" => { "widgets" => [ "read" ] } },
+          prefixes: [ "billing", "source_c" ],
+          module_rb_extra: legacy_paths)
+        write_engine(root, "payments",
+          path: "/payments",
+          routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+          permissions: { "payments" => {} })
+        FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+        File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+        described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+        source_module = File.read(root.join("engines/billing/config/module.rb"))
+        expect(source_module).not_to include("legacy_paths"), label
+        expect { RubyVM::InstructionSequence.compile(source_module) }.not_to raise_error, label
+        expect(File.read(root.join("engines/payments/config/module.rb"))).to include('"/source_c/widgets"')
+      end
+    end
+  end
+
+  it "does not add the target's own URL as a legacy path" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "source_c",
+        path: "/source_c",
+        routes: "Rafelo::SourceC::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "source_c" => { "widgets" => [ "read" ] } })
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "billing" => {}, "source_c" => { "widgets" => [ "read" ] } },
+        prefixes: [ "billing", "source_c" ],
+        module_rb_extra: "  legacy_paths: { \"/payments/widgets\" => \"/widgets\" },\n")
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      target_module = File.read(root.join("engines/payments/config/module.rb"))
+      expect(target_module).to include('"/billing/widgets"')
+      expect(target_module).not_to include('"/payments/widgets"')
+    end
+  end
+
   it "moves the whole slice and leaves no slice file behind" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
@@ -181,7 +239,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
         "config/contracts/pages/widgets/index.json" => "{}\n",
         "spec/fixtures/upstream/widgets/index.json" => '{"items":[]}',
         "spec/widget_spec.rb" => "RSpec.describe Rafelo::Billing::Widget do\nend\n",
-        "spec/requests/widgets_spec.rb" => "RSpec.describe \"billing/widgets\" do\n  it { get \"/en/billing/widgets\" }\nend\n",
+        "spec/requests/widgets_spec.rb" => "RSpec.describe \"billing/widgets\" do\n  it { get \"/en/billing/widgets\" }\n  it { get \"/en/billing/widgets_archive\" }\nend\n",
         "e2e/widgets.spec.ts" => 'test("widgets", () => {});'
       }
       engine_slice.each { |relative, body| write_file(root, "engines/billing/#{relative}", body) }
@@ -216,6 +274,7 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       moved_engine_spec = File.read(root.join("engines/payments/spec/requests/widgets_spec.rb"))
       expect(moved_engine_spec).to include('get "/en/payments/widgets"')
       expect(moved_engine_spec).not_to include('get "/en/billing/widgets"')
+      expect(moved_engine_spec).to include('get "/en/billing/widgets_archive"')
       moved_page = File.read(root.join("engines/payments/app/frontend/pages/widgets/index.tsx"))
       expect(moved_page).to include("@payments/i18n")
       expect(moved_page).to include("usePaymentsTranslation")

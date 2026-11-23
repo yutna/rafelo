@@ -168,7 +168,7 @@ run_update() {
   # The new updater is now installed. Re-run it with the explicit base version
   # and the app-owned merge: a real adopter makes this second pass after seeing
   # that the updater changed, and --app-owned only updates files that still match
-  # the base release (customized files merge or conflict). No version rewind.
+  # the base release (customized files stay untouched). No version rewind.
   ( cd "$work/smoke_shop_prev" && bin/kernel_update "$version" \
       --base-version "$base_version" --base-source "$work/base-src" --source "$current_src" \
       --include design_system/app/frontend --include design_system/config/locales \
