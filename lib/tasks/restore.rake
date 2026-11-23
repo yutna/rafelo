@@ -10,9 +10,13 @@ namespace :rafelo do
       unless ENV["ACME_RESTORE_CONFIRMED"] == "1"
         abort "rafelo:restore:prepare needs ACME_RESTORE_CONFIRMED=1"
       end
+      restore_url = ENV["RESTORE_DATABASE_URL"].presence
+      abort "rafelo:restore:prepare needs RESTORE_DATABASE_URL" if restore_url.nil?
 
-      Rafelo::Core::RestorePreparation.new.empty_sessions!
+      Rafelo::Core::RestorePreparation.new(url: restore_url).empty_sessions!
       puts "rafelo:restore:prepare: core_sessions is empty"
+    rescue Rafelo::Core::RestorePreparation::LiveDatabase => error
+      abort "rafelo:restore:prepare: #{error.message}"
     end
   end
 end
