@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require "fileutils"
+require "open3"
+require "tmpdir"
 require "rails_helper"
 
 RSpec.describe "script/ci/adoption" do
-  let(:script) { File.read(File.expand_path("../../script/ci/adoption", __dir__)) }
+  let(:path) { File.expand_path("../../script/ci/adoption", __dir__) }
+  let(:script) { File.read(path) }
 
   it "commits the N-1 update with an explicit identity" do
     expect(script).to include('user.name="Rafelo CI"')
@@ -36,6 +40,9 @@ RSpec.describe "script/ci/adoption" do
     expect(script).not_to include("bin/rubocop -A")
     expect(control_depth_at(script, "rafelo:module legacy_check")).to eq(0)
     expect(control_depth_at(script, "rafelo:page legacy_check widgets")).to eq(0)
+    block = generated_page_block(script)
+    expect(block).not_to match(/^\s*(?:if|while|until|for|case)\b/)
+    expect(block).not_to match(/^\s*\[/)
   end
 
   it "runs the documented rails new command and checks the template commit" do
@@ -66,6 +73,67 @@ RSpec.describe "script/ci/adoption" do
     expect(script).to include("cannot search")
   end
 
+  def git_repository
+    Dir.mktmpdir("rafelo-adoption-") do |root|
+      system("git", "-C", root, "init", "--quiet", exception: true)
+      system("git", "-C", root, "config", "user.name", "Adoption", exception: true)
+      system("git", "-C", root, "config", "user.email", "adoption@example.invalid", exception: true)
+      yield root
+    end
+  end
+
+  def write_and_commit(root, relative, content)
+    full = File.join(root, relative)
+    FileUtils.mkdir_p(File.dirname(full))
+    File.write(full, content)
+    system("git", "-C", root, "add", relative, exception: true)
+    system("git", "-C", root, "commit", "--quiet", "-m", "fixture", exception: true)
+  end
+
+  def run_guard(root, scope)
+    env = { "ADOPTION_SCRIPT" => path, "ADOPTION_APP" => root, "ADOPTION_SCOPE" => scope }
+    Open3.capture3(
+      env, "bash", "-c",
+      'source "$ADOPTION_SCRIPT"; check_no_placeholder "$ADOPTION_APP" "$ADOPTION_SCOPE"'
+    )
+  end
+
+  it "finds a kernel example namespace anywhere in the app and skips app-owned docs" do
+    git_repository do |root|
+      write_and_commit(root, "docs/architecture/example.md", "Rafelo::Example\n")
+      _out, err, status = run_guard(root, "examples")
+      expect(status).to be_success, err
+    end
+
+    git_repository do |root|
+      write_and_commit(root, "app/models/example.rb", "Rafelo::Example\n")
+      _out, err, status = run_guard(root, "examples")
+      expect(status).not_to be_success
+      expect(err).to include("example engine kept the kernel namespace")
+    end
+  end
+
+  it "reports a git search error as status 2, not as no match" do
+    Dir.mktmpdir("rafelo-not-a-repo-") do |root|
+      out, err, status = Open3.capture3(
+        { "ADOPTION_SCRIPT" => path, "ADOPTION_APP" => root },
+        "bash", "-c",
+        'source "$ADOPTION_SCRIPT"; set +e; git_matches "$ADOPTION_APP" x .; echo "status=$?"'
+      )
+      expect(status).to be_success
+      expect(out).to include("status=2")
+      expect(err).to include("cannot search")
+    end
+  end
+
+  def generated_page_block(text)
+    start = text.index("# The N-1 generator's post-write steps")
+    finish = text.index("# The generated slice's permission keys")
+    expect(start).not_to be_nil
+    expect(finish).to be > start
+    text[start...finish]
+  end
+
   def control_depth_at(text, needle)
     index = text.index(needle)
     expect(index).not_to be_nil
@@ -74,8 +142,8 @@ RSpec.describe "script/ci/adoption" do
       stripped = line.strip
       next if stripped.start_with?("#")
 
-      depth += stripped.scan(/\b(?:if|case)\b/).length
-      depth -= stripped.scan(/\b(?:fi|esac)\b/).length
+      depth += stripped.scan(/\b(?:if|case|while|until|for)\b/).length
+      depth -= stripped.scan(/\b(?:fi|esac|done)\b/).length
     end
     depth
   end

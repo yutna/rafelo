@@ -7,7 +7,7 @@
 # runs; pass "current", "update", or "all" (the default) as the first argument.
 set -euo pipefail
 
-repo="$(cd "$(dirname "$0")/../.." && pwd)"
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -78,15 +78,18 @@ git_matches() {
   local pattern="$2"
   shift 2
   local output status
-  # git grep exits 1 for no match and 2+ for an error. Never treat an error as
-  # "the pattern is absent".
-  set +e
-  output="$(git -C "$app" grep -IilE "$pattern" -- "$@" 2>&1)"
-  status=$?
-  set -e
+  # git grep exits 1 for no match and 2+ for an error. Return a distinct status
+  # instead of exiting: the caller runs this in a command substitution, where
+  # exit would only leave the subshell and look like "no match". Keep the
+  # caller's `set -e` state unchanged.
+  if output="$(git -C "$app" grep -IilE "$pattern" -- "$@" 2>&1)"; then
+    status=0
+  else
+    status=$?
+  fi
   if [ "$status" -gt 1 ]; then
     echo "adoption: cannot search $app: $output" >&2
-    exit 1
+    return 2
   fi
   if [ -n "$output" ]; then
     printf '%s\n' "$output"
@@ -99,6 +102,7 @@ check_no_placeholder() {
   local scope="${2:-all}"
   local files
   local found
+  local status
   local brand="Rafelo"
   local lower="rafelo"
   local paths=(.)
@@ -114,7 +118,14 @@ check_no_placeholder() {
     echo "adoption: placeholder path in $app: $found" >&2
     exit 1
   fi
-  if found="$(git_matches "$app" 'acme' .)"; then
+  set +e
+  found="$(git_matches "$app" 'acme' .)"
+  status=$?
+  set -e
+  if [ "$status" -gt 1 ]; then
+    exit 1
+  fi
+  if [ "$status" -eq 0 ]; then
     echo "adoption: placeholder text in $app" >&2
     printf '%s\n' "$found" >&2
     exit 1
@@ -122,7 +133,14 @@ check_no_placeholder() {
   # The kernel brand stays, but an example engine never keeps a kernel Ruby
   # namespace or path after adoption (GEN-07, decision 1). The update proof
   # checks the whole app except the app-owned docs/architecture.
-  if found="$(git_matches "$app" "${brand}::Example|${lower}/example_|${lower}_example_" "${paths[@]}")"; then
+  set +e
+  found="$(git_matches "$app" "${brand}::Example|${lower}/example_|${lower}_example_" "${paths[@]}")"
+  status=$?
+  set -e
+  if [ "$status" -gt 1 ]; then
+    exit 1
+  fi
+  if [ "$status" -eq 0 ]; then
     echo "adoption: example engine kept the kernel namespace in $app" >&2
     printf '%s\n' "$found" >&2
     exit 1
@@ -146,26 +164,19 @@ gate() {
   fi
 }
 
-mode="${1:-all}"
-case "$mode" in
-  current|update|all) ;;
-  *)
-    echo "adoption: unknown mode: $mode (use current, update, or all)" >&2
-    exit 64
-    ;;
-esac
-
-echo "adoption: packing HEAD"
-archive HEAD "$work/current-src"
-if [ "$version" != "$(cat "$repo/VERSION")" ]; then
-  # The release-under-test version can be ahead of the committed VERSION while
-  # a release pull request is in review.
-  cp -a "$work/current-src" "$work/target-src"
-  printf '%s\n' "$version" > "$work/target-src/VERSION"
-  current_src="$work/target-src"
-else
-  current_src="$work/current-src"
-fi
+prepare_sources() {
+  echo "adoption: packing HEAD"
+  archive HEAD "$work/current-src"
+  if [ "$version" != "$(cat "$repo/VERSION")" ]; then
+    # The release-under-test version can be ahead of the committed VERSION while
+    # a release pull request is in review.
+    cp -a "$work/current-src" "$work/target-src"
+    printf '%s\n' "$version" > "$work/target-src/VERSION"
+    current_src="$work/target-src"
+  else
+    current_src="$work/current-src"
+  fi
+}
 
 run_current() {
   echo "adoption: adopting the commit under test"
@@ -282,11 +293,23 @@ run_update() {
   echo "adoption: $base_tag updated to $version and passed"
 }
 
-case "$mode" in
-  current) run_current ;;
-  update) run_update ;;
-  all)
-    run_current
-    run_update
-    ;;
-esac
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  mode="${1:-all}"
+  case "$mode" in
+    current|update|all) ;;
+    *)
+      echo "adoption: unknown mode: $mode (use current, update, or all)" >&2
+      exit 64
+      ;;
+  esac
+
+  prepare_sources
+  case "$mode" in
+    current) run_current ;;
+    update) run_update ;;
+    all)
+      run_current
+      run_update
+      ;;
+  esac
+fi
