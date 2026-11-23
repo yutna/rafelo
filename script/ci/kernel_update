@@ -31,6 +31,7 @@ module KernelUpdate
     spec/spec_helper.rb
     spec/core
     spec/generators
+    spec/upstream
     .rubocop.yml
     .dependency-cruiser.cjs
     .prettierignore

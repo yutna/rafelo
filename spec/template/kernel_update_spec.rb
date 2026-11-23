@@ -13,7 +13,7 @@ RSpec.describe "bin/kernel_update" do
     expect(KernelUpdate::DEFAULT_PATHS).to include(
       "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
       ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
-      "script/contracts", "script/docs", "playwright.config.ts", "spec/core"
+      "script/contracts", "script/docs", "playwright.config.ts", "spec/core", "spec/upstream"
     )
   end
 
@@ -163,6 +163,7 @@ RSpec.describe "bin/kernel_update" do
   let(:base_files) do
     {
       "engines/core/app/models/core_file.rb" => "base core\n",
+      "spec/upstream/drift_spec.rb" => "base drift\n",
       "script/ci/tool" => "#!/usr/bin/env ruby\nputs :base\n",
       "script/contracts/permissions" => "puts :base\n",
       "bin/check" => "#!/usr/bin/env ruby\nputs :base\n",
@@ -180,6 +181,7 @@ RSpec.describe "bin/kernel_update" do
     base_files.merge(
       "engines/core/app/models/core_file.rb" => "target core\n",
       "engines/core/app/models/new_file.rb" => "new core\n",
+      "spec/upstream/drift_spec.rb" => "target drift\n",
       "script/ci/tool" => "#!/usr/bin/env ruby\nputs :target\n",
       "script/contracts/permissions" => "puts :target\n",
       "bin/check" => "#!/usr/bin/env ruby\nputs :target\n",
@@ -210,6 +212,7 @@ RSpec.describe "bin/kernel_update" do
           expect(status).to be_success, err
           expect(File.read(File.join(app_root, "engines/core/app/models/core_file.rb"))).to eq("target core\n")
           expect(File.read(File.join(app_root, "engines/core/app/models/new_file.rb"))).to eq("new core\n")
+          expect(File.read(File.join(app_root, "spec/upstream/drift_spec.rb"))).to eq("target drift\n")
           expect(File.read(File.join(app_root, "script/ci/tool"))).to include(":target")
           expect(File.read(File.join(app_root, "script/contracts/permissions"))).to include(":target")
           expect(File.read(File.join(app_root, "bin/check"))).to include(":target")
