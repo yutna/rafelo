@@ -15,18 +15,45 @@ The template conversion is in progress. This release is the tested baseline:
 PostgreSQL, Inertia + React + Vite + Tailwind, and RSpec. The architecture
 specification lives in [docs/architecture/](docs/architecture/).
 
-## Use this template
+## Adopt Rafelo
 
-This repository is a GitHub template. Create a new repository from it:
+Rafelo is adopted with its Rails application template, not with GitHub's "Use
+this template" button: that button copies the repository's own state without
+rendering the app namespace, writing `KERNEL_VERSION`, or running the template
+checks (GEN-07). The tested path is:
 
-```sh
-gh repo create my-app --template yutna/rafelo --public
-```
+1. Clone the release you want to build on:
 
-Then clone your new repository and follow [Development environment](#development-environment).
-Read [docs/customization.md](docs/customization.md) before the first commit:
-the application name, credentials, deployment settings and community files
-are all meant to be replaced.
+   ```sh
+   git clone --branch v0.38.0 --depth 1 https://github.com/yutna/rafelo.git
+   ```
+
+2. Run the documented `rails new` command inside a throwaway container, passing
+   the cloned template:
+
+   ```sh
+   # on the host: the only command that runs outside the Dev Container
+   docker run --rm -it --user "$(id -u):$(id -g)" -e HOME=/tmp \
+     -v "$PWD":/work -w /work ruby:4.0.10 \
+     sh -c 'gem install rails -v 8.1.4.1 && rails new my-app -d postgresql --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal --skip-solid --skip-test -m /work/rafelo/template/template.rb'
+   ```
+
+3. Open `my-app` in its Dev Container, then run `bin/setup --skip-server` and
+   `bin/ci`. The untouched template is green.
+4. Give the AI agent its own GitHub identity (a machine user or GitHub App)
+   with write access, never a person's account, and set the adopted app's
+   `RATCHET_TOKEN` secret for the scheduled ratchet job. A pull request opened
+   with the workflow's `GITHUB_TOKEN` starts no CI, so its required checks never
+   report (WF-03; `docs/architecture/09_enforcement.md`, Ratchets).
+5. Read [docs/customization.md](docs/customization.md) before the first commit:
+   the application name, credentials, deployment settings and community files
+   are all meant to be replaced.
+
+The template's own CI proves this path on every release: the `adoption` job
+adopts the commit under test and the `adoption-update` job adopts release N-1,
+updates it to N, and runs `bin/ci`. Both live in
+[.github/workflows/ci.yml](.github/workflows/ci.yml) and are described in
+[docs/architecture/09_enforcement.md](docs/architecture/09_enforcement.md).
 
 ## What is included
 
