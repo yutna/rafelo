@@ -1070,8 +1070,14 @@ committed counts. Only a rise fails; a fall never fails a pull request. CI
 never commits a lower count and never pushes to `main`. A pull request may
 lower the counts it earned itself (`script/ci/ratchet --update` writes them);
 otherwise a scheduled job runs `--update` on `main` and opens a pull request
-that lowers them. A gain cannot be quietly spent later, and nobody has to
-remember to lower a number.
+that lowers them. The job opens that pull request with the adopted app's
+`RATCHET_TOKEN` secret (a GitHub App or a fine-grained token that may open pull
+requests): a pull request opened with the workflow's `GITHUB_TOKEN` starts no
+workflow, so its required checks never report. Without the secret the job falls
+back to `GITHUB_TOKEN` and the pull request says that CI will not start on it.
+The adopting team sets the secret; the template's own repository does not run
+this job. A gain cannot be quietly spent later, and nobody has to remember to
+lower a number.
 
 Counts live where the code they count lives (ARCH-11). Each product module
 and domain engine keeps its own in `engines/<e>/config/ratchets.yml`:
