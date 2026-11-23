@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -uo pipefail
+export PATH="$HOME/.opencode/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
-state="${SUPERVISOR_STATE:-/tmp/opencode/rafelo-supervisor}"
+state="${SUPERVISOR_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor}"
 mkdir -p "$state"
 
 if [ -f "$state/STOPPED" ]; then
@@ -21,6 +22,12 @@ if [ -f "$state/STOP" ]; then
   exit 0
 fi
 if tmux has-session -t rafelo-supervisor 2>/dev/null; then
-  exit 0
+  # A session can outlive its command (a failed shell, a dead tmux pane). Only
+  # treat it as healthy while the supervisor script itself is alive.
+  if pgrep -f "$root/docs/development/supervisor/supervisor.sh" >/dev/null 2>&1; then
+    exit 0
+  fi
+  tmux kill-session -t rafelo-supervisor 2>/dev/null || true
 fi
+export SUPERVISOR_STATE="$state"
 tmux new-session -d -s rafelo-supervisor "$root/docs/development/supervisor/supervisor.sh"
