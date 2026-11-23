@@ -3,6 +3,13 @@
 set -euo pipefail
 export BUNDLE_FROZEN=false # each new engine changes Gemfile.lock; other CI jobs, except the production image build (OPS-06), run with BUNDLE_FROZEN=true (WF-06)
 
+# The engines this smoke creates. Their node_modules are ignored, so
+# `git clean -fdq` leaves the directories behind and a second local run would
+# generate into a stale one. Remove them by name before the clean-tree check
+# and in the cleanup, leaving the rest of the ignored tree alone.
+generated_engines=(smoke_party smoke_check smoke_other smoke_renamed)
+for engine in "${generated_engines[@]}"; do rm -rf "engines/$engine"; done
+
 # bin/ci runs this locally too: refuse to start on uncommitted or untracked work,
 # because the cleanup below restores the whole tree.
 if [ -n "$(git status --porcelain)" ]; then
@@ -13,7 +20,10 @@ fi
 
 cleanup() {
   # The tree was clean at the start, so this removes only what the run created,
-  # inside and outside engines/ (Gemfile.lock, generated aliases). Ignored files stay.
+  # inside and outside engines/ (Gemfile.lock, generated aliases). The smoke's
+  # own engines go first so their ignored node_modules go with them; other
+  # ignored files stay.
+  for engine in "${generated_engines[@]}"; do rm -rf "engines/$engine"; done
   git checkout -- . && git clean -fdq
   bundle install --quiet
 }
