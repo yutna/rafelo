@@ -69,6 +69,30 @@ if File.file?(SUPERVISOR_SH)
       failures = note(failures, "issue ##{issue} was not mentioned") unless calls_list.any? { |call| call.start_with?("issue comment #{issue} ") }
     end
 
+    # A marker embedded in a process listing is not a decision.
+    scenario = File.join(root, "embedded-marker")
+    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho '3180853 opencode run ... OWNER DECISION NEEDED #668'\nexit 0\n")
+    cases += 1
+    failures = note(failures, "embedded marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "an embedded marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
+
+    # A timed-out run is not an owner decision, even if it ends with a marker.
+    scenario = File.join(root, "timeout-marker")
+    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho 'OWNER DECISION NEEDED #123'\nexit 124\n")
+    cases += 1
+    failures = note(failures, "timeout marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "a timed-out marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
+
+    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    cases += 1
+    failures = note(failures, "the timeout outcome was not logged: #{log}") unless log.include?("outcome=timeout")
+
     # A run that fails without a marker logs the aborted outcome; three runs
     # without progress pause with the no-progress marker.
     scenario = File.join(root, "aborted")

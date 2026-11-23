@@ -28,10 +28,18 @@ state_hash() {
   printf '%s|%s|%s|%s' "$head" "$prs" "$issues" "$releases"
 }
 
+# The marker is the final message, on its own line. A protocol quote or a
+# process listing can contain the phrase, and a timed-out run was not a
+# decision; neither may pause the loop.
+owner_decision_marker() {
+  local output="$1"
+  printf '%s\n' "$output" | tail -n 20 | grep -E '^OWNER DECISION NEEDED( #[0-9]+)+$' | tail -1
+}
+
 # Every issue number in the last owner-decision marker, unique, in order.
 owner_decision_issues() {
   local output="$1"
-  printf '%s\n' "$output" | grep -o "OWNER DECISION NEEDED.*" | tail -1 | grep -o "#[0-9][0-9]*" | sed 's/^#//' | sort -un
+  owner_decision_marker "$output" | grep -o "#[0-9][0-9]*" | sed 's/^#//' | sort -un
 }
 
 logline "started"
@@ -70,12 +78,13 @@ $(cat "$state/STATE.md")"
   logline "run start"
   # Pin the provider, model, and effort: the free model quota must never stop
   # the loop and no fallback model may run this repository (#629).
-  timeout --signal=TERM --kill-after=60s 10800 \
+  timeout --signal=TERM --kill-after=60s 21600 \
     opencode run --model "opencode-go/deepseek-v4.1-flash#max" --auto --archived \
       --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1
   rc=$?
   run_output="$(tail -n +"$((start_line + 1))" "$log")"
-  if [ -n "$(printf '%s\n' "$run_output" | grep -o "OWNER DECISION NEEDED.*" | tail -1)" ]; then
+  marker_line="$(owner_decision_marker "$run_output")"
+  if [ "$rc" -ne 124 ] && [ -n "$marker_line" ]; then
     issues="$(owner_decision_issues "$run_output")"
     numbers="$(printf '%s\n' "$issues" | sed 's/^/#/' | tr '\n' ' ' | sed -e 's/ *$//')"
     marker="OWNER DECISION NEEDED $numbers"
@@ -97,7 +106,9 @@ $(cat "$state/STATE.md")"
   else
     no_progress=0
   fi
-  if [ "$rc" -ne 0 ]; then
+  if [ "$rc" -eq 124 ]; then
+    outcome="timeout"
+  elif [ "$rc" -ne 0 ]; then
     outcome="aborted"
   fi
   logline "run end rc=$rc outcome=$outcome no_progress=$no_progress"

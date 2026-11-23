@@ -7,10 +7,13 @@ one fresh session per run, and repeats until the final audit passes.
 
 To pause, run `./stop.sh`; resume by removing `/tmp/opencode/rafelo-supervisor/STOP`
 and running `./install.sh`. A run that prints `OWNER DECISION NEEDED #<issue>`
-or three consecutive runs that change nothing on GitHub writes
-`NEEDS_OWNER` with the reason and launches no further run; the owner deletes
-that file to resume. To remove the supervisor entirely, run `./stop.sh` and
-delete its two crontab entries (the script removes them when the session exits).
+on its own line in the final message writes `NEEDS_OWNER` with the reason and
+launches no further run; the owner deletes that file to resume. A timeout is
+logged as `outcome=timeout` and resumed, and a marker quoted from a protocol or
+a process listing is ignored. Three consecutive runs that change nothing on
+GitHub also write `NEEDS_OWNER` with `no progress`. To remove the supervisor
+entirely, run `./stop.sh` and delete its two crontab entries (the script
+removes them when the session exits).
 
 Runtime state and logs live in `/tmp/opencode/rafelo-supervisor/`:
 
