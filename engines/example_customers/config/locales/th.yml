@@ -1,4 +1,2 @@
 th:
-  example_customers:
-    nav:
-      title: "ลูกค้าตัวอย่าง"
+  example_customers: {}

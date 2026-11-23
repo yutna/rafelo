@@ -26,6 +26,9 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
         "legacy_constants" => 0
       )
       expect(root.join("engines/billing_probe/app/frontend/domain/skeleton.test.ts")).to exist
+      expect(File.read(root.join("engines/billing_probe/vitest.config.mts"))).to include(
+        'root: fileURLToPath(new URL(".", import.meta.url))'
+      )
       expect(File.read(root.join("engines/billing_probe/spec/rails_helper.rb"))).to eq("require_relative \"../../../spec/rails_helper\"\n")
       expect(YAML.safe_load_file(root.join("engines/billing_probe/config/permissions.yml"))).to eq(
         "billing_probe" => { "widgets" => [ "read" ] }
