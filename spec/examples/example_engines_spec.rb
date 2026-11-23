@@ -53,7 +53,7 @@ if Dir.exist?(Rails.root.join("engines/example_orders")) &&
       end
 
       engine = File.read(customers.join("lib/rafelo/example_customers/engine.rb"))
-      expect(engine).to include("rafelo_example_customers.migration_paths")
+      expect(engine).to include("example_customers.migration_paths")
       expect(engine).to include('app.config.paths["db/migrate"] << path')
       expect(YAML.safe_load_file(customers.join("config/locales/en.yml"))).to eq(
         "en" => { "example_customers" => {} }

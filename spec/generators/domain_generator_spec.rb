@@ -26,7 +26,8 @@ RSpec.describe Rafelo::Generators::DomainGenerator do
       )
       expect(root.join("engines/customers_probe/db/migrate/.keep")).to exist
       engine = File.read(root.join("engines/customers_probe/lib/rafelo/customers_probe/engine.rb"))
-      expect(engine).to include("rafelo_customers_probe.migration_paths")
+      app_ns = Rails.application.class.module_parent_name.underscore
+      expect(engine).to include("#{app_ns}_customers_probe.migration_paths")
       expect(engine).to include('app.config.paths["db/migrate"] << path')
       expect(File.read(root.join("engines/customers_probe/vitest.config.mts"))).to include(
         'root: fileURLToPath(new URL(".", import.meta.url))'

@@ -8,7 +8,7 @@ module Rafelo
     class Engine < ::Rails::Engine
       isolate_namespace Rafelo::ExampleCustomers
 
-      initializer "rafelo_example_customers.migration_paths" do |app|
+      initializer "example_customers.migration_paths" do |app|
         config.paths["db/migrate"].expanded.each { |path| app.config.paths["db/migrate"] << path }
       end
     end
