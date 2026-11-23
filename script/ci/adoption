@@ -151,7 +151,7 @@ run_update() {
   # app-owned config/grants.json. An N-1 adopter follows the migration note.
   if [ -f "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" ] && \
      [ ! -f "$work/smoke_shop_prev/config/grants.json" ]; then
-    mv "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" \
+    cp "$work/smoke_shop_prev/engines/core/spec/fixtures/upstream/api/grants.json" \
       "$work/smoke_shop_prev/config/grants.json"
   fi
   if [ ! -f "$work/smoke_shop_prev/bin/kernel_update" ]; then
