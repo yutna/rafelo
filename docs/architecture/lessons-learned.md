@@ -746,3 +746,45 @@ that logic and expose ECharts types outside design_system. The typed DTO stays.
 **Spec feedback.** Filed as "spec: FE-08 feature-side chart option builder"
 (#731) so the owner can choose between the feature-side builder and the
 wrapper-owned builder. Related IDs: FE-08, FE-11, FE-16, FE-20.
+
+## 2026-11-23 — supervisor harness — owner request
+
+**What happened.** The supervisor paused twice on its own
+(`2026-11-22T15:25Z` and `2026-11-23T05:42Z`) while v0.37.0 was still moving.
+The second pause left only the v0.37.0 audit tracker open. Separately, the
+issue list grew by 52 items in two days because every protocol finding and
+audit result was filed as its own future-milestone issue.
+
+**Root cause.** The harness had four independent faults: the stop detector
+matched `OWNER DECISION NEEDED` anywhere in the run output (including a
+process listing that contained the prompt) and treated a three-hour timeout as
+an owner decision; the no-progress counter watched only GitHub counts (capped
+at 100 issues) and ignored local work; the cron environment did not contain
+`opencode`, Ruby, or the mise shims; and the flock file descriptor was
+inherited by `timeout`/`opencode`, so a surviving child could block the next
+supervisor. State, including `NEEDS_OWNER` and the issue-freeze policy, lived
+in `/tmp`, so a reboot could silently discard an owner decision. The planning
+rule in the protocol was read as "file every finding for every future
+milestone now", which front-loaded the whole round.
+
+**What changed.** The harness now exports the tool PATH, keeps state under
+`${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor`, compares a hash of
+GitHub counts plus the local worktree, treats GitHub failures and model
+failures as retryable infrastructure events with backoff and a distinct
+reason, accepts only a standalone final-line marker (ANSI-stripped) or the
+`RAFELO_OWNER_DECISION_FILE` sentinel, closes the lock FD for child commands,
+checkpoints a dirty worktree before the next run, stops the session
+deterministically, and gives the final audit timeouts and a `main` branch
+check. The hourly report reads the lowest open version milestone and flags a
+run older than seven hours. The issue list is frozen to the existing
+trackers; the supervisor plans only the current and next milestone.
+
+**Spec feedback.** §9 requires the trials with the AI's own GitHub identity
+while §11 makes the owner hands-off and §10 classifies the identity as
+person-only; the final audit also requires zero open `priority: high` issues
+while #535 (no patched picomatch) and #364 (a repository secret) need the
+owner. §4 should say that only the current and next milestone are planned,
+not every future milestone. §9 should define the trial freeze point because
+the final milestone changes AI files and generators. The adoption proof now
+runs on the release pull request and nightly, so the spec text should name
+that trigger. Related IDs: WF-02, WF-03, GEN-07; process sections 2, 4, 9.

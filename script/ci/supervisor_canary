@@ -18,17 +18,19 @@ end
 
 # Writes the opencode, gh, and sleep stubs for one scenario and runs the
 # supervisor against them, returning [exitstatus, gh-calls path, state dir].
-def run_supervisor(scenario, opencode_body)
+def run_supervisor(scenario, opencode_body, gh_fail: false)
   FileUtils.mkdir_p(File.join(scenario, "bin"))
   FileUtils.mkdir_p(File.join(scenario, "state"))
   calls = File.join(scenario, "gh-calls")
-  File.write(File.join(scenario, "bin", "opencode"), opencode_body)
-  File.chmod(0o755, File.join(scenario, "bin", "opencode"))
+  opencode = File.join(scenario, "bin", "opencode")
+  File.write(opencode, opencode_body)
+  File.chmod(0o755, opencode)
   File.write(File.join(scenario, "bin", "sleep"), "#!/usr/bin/env bash\nexit 0\n")
   File.chmod(0o755, File.join(scenario, "bin", "sleep"))
-  File.write(File.join(scenario, "bin", "gh"), <<~BASH)
+  File.write(File.join(scenario, "bin", "gh"), <<~'BASH')
     #!/usr/bin/env bash
     printf '%s\n' "$*" >> "$GH_CALLS"
+    if [ "${GH_FAIL:-0}" = "1" ]; then exit 1; fi
     if [ "$1" = "api" ] && [ "$2" = "repos/yutna/rafelo" ]; then
       echo yutna
     fi
@@ -38,7 +40,10 @@ def run_supervisor(scenario, opencode_body)
   _, status = Open3.capture2e(
     {
       "SUPERVISOR_STATE" => File.join(scenario, "state"),
+      "SUPERVISOR_SKIP_RECOVERY" => "1",
+      "SUPERVISOR_OPENCODE" => opencode,
       "GH_CALLS" => calls,
+      "GH_FAIL" => gh_fail ? "1" : "0",
       "PATH" => "#{scenario}/bin:#{ENV.fetch("PATH", "")}"
     },
     SUPERVISOR_SH
@@ -48,9 +53,18 @@ end
 
 if File.file?(SUPERVISOR_SH)
   Dir.mktmpdir("rafelo-supervisor-canary-") do |root|
-    # A run that finds only blocked work prints the marker and pauses at once.
+    # A real marker pauses at once, and the lock FD is not inherited by the
+    # child command.
     scenario = File.join(root, "marker")
-    exitstatus, calls, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho 'OWNER DECISION NEEDED #123 #456'\nexit 0\n")
+    exitstatus, calls, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      if [ -e /proc/$$/fd/9 ]; then
+        echo "lock fd leaked" >&2
+        exit 7
+      fi
+      echo 'OWNER DECISION NEEDED #123 #456'
+      exit 0
+    BASH
     cases += 1
     failures = note(failures, "marker run exited #{exitstatus}, expected 0") if exitstatus != 0
 
@@ -69,22 +83,55 @@ if File.file?(SUPERVISOR_SH)
       failures = note(failures, "issue ##{issue} was not mentioned") unless calls_list.any? { |call| call.start_with?("issue comment #{issue} ") }
     end
 
-    # A marker embedded in a process listing is not a decision.
+    # A marker with ANSI colour is still a decision.
+    scenario = File.join(root, "ansi-marker")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      printf '\033[32mOWNER DECISION NEEDED #123\033[0m\n'
+      exit 0
+    BASH
+    cases += 1
+    failures = note(failures, "ANSI marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "an ANSI marker did not pause: #{needs_owner.inspect}") unless needs_owner.include?("OWNER DECISION NEEDED #123")
+
+    # The sentinel file is the non-text contract for a decision.
+    scenario = File.join(root, "sentinel")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      printf '123\n' > "$RAFELO_OWNER_DECISION_FILE"
+      exit 0
+    BASH
+    cases += 1
+    failures = note(failures, "sentinel run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "the sentinel did not pause: #{needs_owner.inspect}") unless needs_owner.include?("OWNER DECISION NEEDED #123")
+
+    # A marker embedded in a process listing is not a decision; after three
+    # successful no-op runs the loop pauses for no progress.
     scenario = File.join(root, "embedded-marker")
-    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho '3180853 opencode run ... OWNER DECISION NEEDED #668'\nexit 0\n")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      echo '3180853 opencode run ... OWNER DECISION NEEDED #668'
+      exit 0
+    BASH
     cases += 1
     failures = note(failures, "embedded marker run exited #{exitstatus}, expected 0") if exitstatus != 0
-
     needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
     cases += 1
     failures = note(failures, "an embedded marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
 
     # A timed-out run is not an owner decision, even if it ends with a marker.
     scenario = File.join(root, "timeout-marker")
-    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho 'OWNER DECISION NEEDED #123'\nexit 124\n")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      echo 'OWNER DECISION NEEDED #123'
+      exit 124
+    BASH
     cases += 1
     failures = note(failures, "timeout marker run exited #{exitstatus}, expected 0") if exitstatus != 0
-
     needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
     cases += 1
     failures = note(failures, "a timed-out marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
@@ -93,19 +140,46 @@ if File.file?(SUPERVISOR_SH)
     cases += 1
     failures = note(failures, "the timeout outcome was not logged: #{log}") unless log.include?("outcome=timeout")
 
-    # A run that fails without a marker logs the aborted outcome; three runs
-    # without progress pause with the no-progress marker.
+    # A run that exits 0 without changing anything pauses for no progress.
+    scenario = File.join(root, "no-progress")
+    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\nexit 0\n")
+    cases += 1
+    failures = note(failures, "no-progress run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "the no-progress pause was not written: #{needs_owner.inspect}") unless needs_owner.include?("no progress")
+
+    # A failing model run is an infrastructure pause, not "no progress".
     scenario = File.join(root, "aborted")
     exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho failed\nexit 1\n")
     cases += 1
     failures = note(failures, "aborted run exited #{exitstatus}, expected 0") if exitstatus != 0
-
-    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
     cases += 1
-    failures = note(failures, "the aborted outcome was not logged: #{log}") unless log.include?("outcome=aborted")
+    failures = note(failures, "a failing model run did not pause with the infrastructure reason: #{needs_owner.inspect}") unless needs_owner.include?("infrastructure: opencode failed")
 
+    # A GitHub outage must not become "no progress".
+    scenario = File.join(root, "state-hash-failure")
+    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\nexit 0\n", gh_fail: true)
     cases += 1
-    failures = note(failures, "the no-progress pause was not written: #{log}") unless File.file?(File.join(state, "NEEDS_OWNER")) && File.read(File.join(state, "NEEDS_OWNER")).include?("no progress")
+    failures = note(failures, "state-hash failure run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "a GitHub outage did not pause with the infrastructure reason: #{needs_owner.inspect}") unless needs_owner.include?("infrastructure: state hash failed")
+
+    # A marker quoted from the protocol inside a trailing code fence is not a
+    # decision: the line is indented and the fence closes after it.
+    scenario = File.join(root, "quoted-marker")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      printf '  OWNER DECISION NEEDED #999\n'
+      exit 0
+    BASH
+    cases += 1
+    failures = note(failures, "quoted marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "an indented quoted marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
   end
 else
   # Adopted apps do not ship the supervisor (docs/development/supervisor/ is
