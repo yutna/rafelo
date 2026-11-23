@@ -6,6 +6,7 @@ on:
       - ".devcontainer/**"
       - "!.devcontainer/image_digest"
       - "mise.toml"
+      - ".ruby-version"
       - "package.json"
       - "package-lock.json"
   workflow_dispatch:

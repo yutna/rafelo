@@ -19,7 +19,7 @@ ENV
 
 write_secrets() {
   cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
-RAILS_MASTER_KEY=$(cat config/master.key)
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
 }
@@ -201,6 +201,13 @@ SECRETS
 expect_fail "secrets without RAILS_MASTER_KEY"
 
 reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=$(cat config/master.key)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "secrets reading config/master.key" "never config/master.key"
+
+reset
 echo "SECRET=1" > "$tmp/.env.local"
 git -C "$tmp" add -f .env.local
 expect_fail_with "tracked .env.local" "OPS-06/SEC-07"
@@ -286,14 +293,14 @@ expect_fail "missing pre-deploy hook"
 
 reset
 cat > "$tmp/.kamal/secrets" <<'SECRETS'
-RAILS_MASTER_KEY=$(cat config/master.key)
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
 expect_pass "present but untracked .kamal/secrets with a tracked example"
 
 reset
 cat > "$tmp/.kamal/secrets" <<'SECRETS'
-RAILS_MASTER_KEY=$(cat config/master.key)
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
 git -C "$tmp" add -f .kamal/secrets
@@ -308,4 +315,4 @@ mkdir -p "$tmp/template/.github/workflows"
 mv "$tmp/.github/workflows/audits.yml" "$tmp/template/.github/workflows/audits.yml"
 expect_pass "template repository uses the payload audits workflow"
 
-echo "deploy_preflight_canary: checked 26 cases"
+echo "deploy_preflight_canary: checked 27 cases"
