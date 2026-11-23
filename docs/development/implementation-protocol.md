@@ -30,13 +30,7 @@ prove it, without stopping until section 9 is met.
    App), never a person's account (amended WF-03, 14, ADR-32, AGENTS.md).
    guard_approval and the ratchet approval count only an owner who is not the
    pull request's author, and read CODEOWNERS and run from the merge base.
-   For this repository, keep working as you do; for the trials in section 9 you
-   need a token for your own identity. If the environment variable
-   RAFELO_TRIALS_GH_TOKEN is set, it belongs to that identity: use it only for
-   yutna/rafelo-trials (GH_TOKEN=$RAFELO_TRIALS_GH_TOKEN for those commands),
-   never print it, and never use it for this repository. If it is not set when
-   the trials start, ask the owner once (a stop condition) and continue other
-   work meanwhile.
+   For this repository, keep working as you do; for the trials, see section 9.
 4. The 17 custom cops and the ESLint configuration of 09_enforcement.md stay
    MUST. Implement them all, with real-path canaries. Never downgrade a matrix
    status, never list a missing path in a skip or "deferred" list, and close
@@ -81,6 +75,14 @@ and the rule IDs it closes. Order, adjusting only where a dependency forces it:
    as an issue labelled "question", titled "spec: <rule ID> <summary>".
 10. Final milestone: full re-audit, skills audit, trials (section 9).
 
+Plan issues only for the current milestone and the next one. A later milestone
+keeps its title and its description (scope, finding numbers, rule IDs) and gets
+issues only when it becomes the next one; issues already filed for later
+milestones stay where they are. Findings still get one issue each (sections 3
+and 5): an S1 in the current milestone, an S2 carry-over in the next one, an S3
+or any other finding in Backlog. Never pause issue creation: a finding that is
+not filed is lost.
+
 ## 5. The gate (stricter than round 1)
 
 Same audit as round 1 (separate subagent, fixed checklist: traceability,
@@ -101,6 +103,12 @@ security), plus:
   Backlog). S3 goes to Backlog.
 - Then the release PR sets VERSION, merge, close the milestone, confirm the
   release, start the next milestone.
+
+The gate is a run of its own. When the last work issue of a milestone closes,
+push, update STATE.md, and end the run with "CONTINUE". The next run does only
+the gate: the canary checks, the audit, the traceability table, the fix rounds,
+and the release pull request, each a box in the gate issue's checklist. A gate
+run that ends early resumes from that checklist.
 
 ## 6. Lessons learned and spec feedback
 
@@ -299,11 +307,24 @@ E7 S2 Plural permission keys; the drift catalog lives in engines/core (every
   documented command; the N-1 to N update passes.
 - The skills audit passes again on the final code.
 - The trials of round 1 are rerun on the release candidate, in a freshly adopted
-  app in yutna/rafelo-trials, with the AI under its own identity; every trial
-  meets the round-1 pass rule without supervisor help or hand edits, and the
-  decision trial is handed over; any change to an AI file or a generator after
-  that reruns all trials.
-- The final gate passes with no open S1 or S2, and its release exists.
+  app in yutna/rafelo-trials. In round 2 the AI runs them with the credentials
+  it already uses (owner decision 2026-11-23, #685). The trials record says so
+  and names what that leaves unproven: an approval by someone other than the
+  pull request's author in guard_approval and the ratchet approval, and
+  notifications to the owner. Own-identity work (#614) is outside this list.
+  Every trial meets the round-1 pass rule without supervisor help or hand
+  edits, and the decision trial is handed over.
+- The release candidate is the commit the final gate issue names when the trials
+  start; fix every finding that touches an AI file or a generator before you
+  name it. After it, a change to an AI file or a generator reruns all trials on
+  a new release candidate. These paths count: `.opencode/`, `AGENTS.md` and
+  every `engines/*/AGENTS.md`, `docs/opencode.md`,
+  `engines/core/lib/generators/`, and `template/`. A change anywhere else,
+  documentation included, does not.
+- The final gate passes with no open S1 or S2, and its release exists. No open
+  `priority: high` issue remains, except one named by an unexpired entry in
+  `config/audit_exceptions.yml` that the owner approved (#535);
+  final_audit.sh checks both.
 
 อ่านแล้ววางแผนทำตามได้เลย
 
@@ -385,7 +406,23 @@ this section wins.
    picomatch entry of #535 expires 2026-12-18), check for a patched release.
    If one exists, pin it and remove the exception in one pull request. If
    none exists, write the options in the issue as point 3 says, before CI
-   turns red.
+   turns red. For the picomatch entry only (#535), the owner's standing
+   approval of 2026-11-23 applies when no patched release exists: extend its
+   expiry by 30 days at a time, never past 2027-03-18, each time in its own
+   pull request that links #535 and re-proves that picomatch is build- and
+   test-time only (absent from the production image, loaded by no Rails
+   process). A patched release ends the exception at once. Any other
+   exception, or this one past 2027-03-18, follows point 3.
 6. Supervisor. You may re-arm docs/development/supervisor yourself; its prompt
    is prompt.md (the continue prompt). Never leave it paused for a reason that
    is already resolved.
+7. Run limits and the marker. The supervisor tells each run when it ends. Thirty
+   minutes before that, start no new step: push, update the open pull request's
+   checklist and STATE.md, and end with "CONTINUE". The owner marker is the last
+   line of your final message, exactly `OWNER DECISION NEEDED #<n> #<n> ...`,
+   and every number is an open issue labelled "blocked". The supervisor reads
+   only the last non-empty line of a run's output, and pauses only when that
+   line is the marker and every number it names is open and blocked. A run that
+   times out or exits non-zero is aborted and resumed, never a pause. While
+   NEEDS_OWNER names issues, the supervisor checks them on every cron tick and
+   resumes by itself once none of them is still open and blocked.
