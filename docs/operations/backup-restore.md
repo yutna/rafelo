@@ -100,24 +100,34 @@ below, which restores a base backup, replays WAL to a chosen point, and runs
    ```sh
    RESTORE_DATABASE_URL=postgres://.../acme_scratch \
    RAILS_ENV=production \
+   RAILS_MASTER_KEY=$RAILS_MASTER_KEY \
+   RAILS_HOSTS=restore.invalid \
+   DB_USER=acme_runtime \
+   ACME_API_BASE_URL=https://api.example.com \
    ACME_DATABASE_ROLE=migration \
    ACME_RESTORE_CONFIRMED=1 \
      bin/rails rafelo:restore:prepare
    ```
 
-   The task opens only `RESTORE_DATABASE_URL`; it never uses the serving
-   connection. It refuses to run without the URL, the confirmation flag, and
-   the migration role, refuses a URL whose host, port, and database name match
-   the live configuration, truncates `core_sessions` on the scratch target,
-   and prints that the table is empty. Make the URL connect as the migration
-   role; the URL is never printed.
+   Run this from the release image or with the deploy profile's `env.clear`
+   and `RAILS_MASTER_KEY`, as the command shows. The task opens only
+   `RESTORE_DATABASE_URL`; it never uses the serving connection. It refuses to
+   run without the URL, the confirmation flag, and the migration role, refuses
+   a URL that reaches the live database (it compares the connected server and
+   database, not the URL spelling), truncates `core_sessions` on the scratch
+   target, and prints that the table is empty. Make the URL connect as the
+   migration role; the URL is never printed.
 
 4. Run the drill check, which repeats the truncate and proves the table has
    zero rows:
 
    ```sh
-   RESTORE_DATABASE_URL=postgres://.../acme \
+   RESTORE_DATABASE_URL=postgres://.../acme_scratch \
    RAILS_ENV=production \
+   RAILS_MASTER_KEY=$RAILS_MASTER_KEY \
+   RAILS_HOSTS=restore.invalid \
+   DB_USER=acme_runtime \
+   ACME_API_BASE_URL=https://api.example.com \
    RESTORE_RECOVERY_POINT="2026-11-13 22:39:25.268097+00" \
    RESTORE_EXPECTED_ROLE=acme_migrator \
      script/ops/restore_drill

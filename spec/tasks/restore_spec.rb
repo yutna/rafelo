@@ -56,6 +56,16 @@ RSpec.describe "rafelo:restore:prepare" do
 
     expect { task.invoke }.to raise_error(SystemExit)
   end
+
+  it "documents every production boot key the restore command needs" do
+    command = File.read(Rails.root.join("docs/operations/backup-restore.md"))
+      .match(/RESTORE_DATABASE_URL=.*?bin\/rails rafelo:restore:prepare/m)
+      .to_s
+
+    %w[RAILS_MASTER_KEY RAILS_HOSTS DB_USER ACME_API_BASE_URL].each do |key|
+      expect(command).to include(key)
+    end
+  end
 end
 
 RSpec.describe "rafelo:restore:prepare against a scratch target", :database_roles,
