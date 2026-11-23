@@ -8,6 +8,7 @@ root="$(cd "$(dirname "$0")/../../.." && pwd)"
 export PATH="$HOME/.opencode/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 cd "$root"
 state="${SUPERVISOR_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor}"
+run_timeout=21600
 mkdir -p "$state"
 log="$state/supervisor.log"
 lock="$state/lock"
@@ -77,21 +78,41 @@ state_hash() (
   printf '%s|%s|%s|%s|%s' "$head" "$prs" "$issues" "$releases" "$local_hash"
 )
 
-# The marker is the final message, on its own line. A protocol quote or a
-# process listing can contain the phrase, and a timed-out run was not a
-# decision; neither may pause the loop. Strip ANSI and CR first because the
-# CLI may colorize the line.
+# The marker is the last non-empty line of the run's final message, on its own.
+# A protocol quote, a process listing, or a line followed by more output can
+# contain the phrase; none may pause the loop. Strip ANSI and CR first because
+# the CLI may colorize the line.
 owner_decision_marker() {
   local output="$1"
-  printf '%s\n' "$output" | tail -n 40 \
-    | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r$//' \
-    | grep -E '^OWNER DECISION NEEDED( #[0-9]+)+$' | tail -1
+  printf '%s\n' "$output" \
+    | sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' -e 's/\r$//' -e 's/[[:space:]]*$//' \
+    | grep -v '^$' | tail -1 \
+    | grep -E '^OWNER DECISION NEEDED( #[0-9]+)+$'
 }
 
 # Every issue number in the last owner-decision marker, unique, in order.
 owner_decision_issues() {
   local output="$1"
   owner_decision_marker "$output" | grep -o "#[0-9][0-9]*" | sed 's/^#//' | sort -un
+}
+
+# A marker pauses only for issues that are still open and labelled "blocked".
+# A closed, unblocked, or missing issue means the run's plan moved on and the
+# marker is stale; the supervisor logs it and resumes instead.
+issues_open_and_blocked() {
+  local issue line state labels
+  for issue in "$@"; do
+    line="$(timeout 30 gh issue view "$issue" --json state,labels \
+      --jq '[.state, (.labels | map(.name) | join(","))] | @tsv' 2>/dev/null 9>&- || true)"
+    state="${line%%$'\t'*}"
+    labels="${line#*$'\t'}"
+    [ "$state" = "OPEN" ] || return 1
+    case ",$labels," in
+      *,blocked,*) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
 }
 
 owner_decision() {
@@ -149,6 +170,10 @@ while true; do
 Previous supervisor state:
 $(cat "$state/STATE.md")"
   fi
+  run_ends="$(date -u -d "@$(( $(date +%s) + run_timeout ))" +%Y-%m-%dT%H:%M:%SZ)"
+  prompt="$prompt
+
+This run ends at $run_ends."
   if [ "$no_progress" -ge 3 ]; then
     pause "no progress in $no_progress runs"
   fi
@@ -162,26 +187,36 @@ $(cat "$state/STATE.md")"
   # Pin the provider, model, and effort: the free model quota must never stop
   # the loop and no fallback model may run this repository (#629). Close the
   # lock FD: a surviving child must not keep the next supervisor from starting.
-  timeout --signal=TERM --kill-after=60s 21600 \
+  timeout --signal=TERM --kill-after=60s "$run_timeout" \
     "$opencode_bin" run --model "opencode-go/deepseek-v4.1-flash#max" --auto --archived \
       --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1 9>&-
   rc=$?
   run_tail="$(tail -n +"$((start_line + 1))" "$log" | tail -n 40)"
   marker_line="$(owner_decision_marker "$run_tail")"
 
-  if [ "$rc" -ne 124 ] && [ -n "$marker_line" ]; then
+  if [ "$rc" -eq 0 ] && [ -n "$marker_line" ]; then
     issues="$(owner_decision_issues "$run_tail")"
-    if [ -n "$issues" ]; then
+    if [ -n "$issues" ] && issues_open_and_blocked $issues; then
       logline "run end rc=$rc outcome=blocked"
       owner_decision "$issues"
+    else
+      logline "marker-ignored: $marker_line (an issue is not open and blocked)"
     fi
   fi
-  if [ "$rc" -ne 124 ] && [ -s "$decision_file" ]; then
+  if [ "$rc" -eq 0 ] && [ -s "$decision_file" ]; then
     issues="$(grep -oE '#?[0-9]+' "$decision_file" | tr -d '#' | sort -un | tr '\n' ' ')"
-    if [ -n "${issues// /}" ]; then
+    if [ -n "${issues// /}" ] && issues_open_and_blocked $issues; then
       logline "run end rc=$rc outcome=blocked"
       owner_decision "$issues"
+    else
+      logline "marker-ignored: the decision file names an issue that is not open and blocked"
     fi
+  fi
+  if [ "$rc" -eq 0 ] && [ -z "$marker_line" ] && printf '%s' "$run_tail" | grep -q "OWNER DECISION NEEDED"; then
+    logline "marker-ignored: the phrase is not the last non-empty line"
+  fi
+  if [ "$rc" -ne 0 ] && printf '%s' "$run_tail" | grep -q "OWNER DECISION NEEDED"; then
+    logline "marker-ignored: the run exited $rc"
   fi
 
   if ! after="$(state_hash)"; then
@@ -195,11 +230,7 @@ $(cat "$state/STATE.md")"
   fi
   state_failures=0
 
-  if [ "$rc" -eq 124 ]; then
-    outcome="timeout"
-    failures=$((failures + 1))
-    no_progress=0
-  elif [ "$rc" -ne 0 ]; then
+  if [ "$rc" -ne 0 ]; then
     outcome="aborted"
     failures=$((failures + 1))
     no_progress=0
@@ -215,9 +246,6 @@ $(cat "$state/STATE.md")"
   fi
 
   logline "run end rc=$rc outcome=$outcome no_progress=$no_progress failures=$failures"
-  if [ "$failures" -ge 3 ]; then
-    pause "infrastructure: opencode failed $failures times (last rc=$rc, $outcome)"
-  fi
   if [ "$no_progress" -ge 3 ]; then
     pause "no progress in $no_progress runs"
   fi

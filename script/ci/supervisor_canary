@@ -7,6 +7,7 @@ require "tmpdir"
 
 repo = File.expand_path("../..", __dir__)
 SUPERVISOR_SH = File.join(repo, "docs", "development", "supervisor", "supervisor.sh")
+ENSURE_SH = File.join(repo, "docs", "development", "supervisor", "ensure.sh")
 
 failures = 0
 cases = 0
@@ -18,7 +19,7 @@ end
 
 # Writes the opencode, gh, and sleep stubs for one scenario and runs the
 # supervisor against them, returning [exitstatus, gh-calls path, state dir].
-def run_supervisor(scenario, opencode_body, gh_fail: false)
+def run_supervisor(scenario, opencode_body, gh_fail: false, issue_state: "OPEN", issue_blocked: true)
   FileUtils.mkdir_p(File.join(scenario, "bin"))
   FileUtils.mkdir_p(File.join(scenario, "state"))
   calls = File.join(scenario, "gh-calls")
@@ -34,6 +35,11 @@ def run_supervisor(scenario, opencode_body, gh_fail: false)
     if [ "$1" = "api" ] && [ "$2" = "repos/yutna/rafelo" ]; then
       echo yutna
     fi
+    if [ "$1" = "issue" ] && [ "$2" = "view" ]; then
+      names=""
+      [ "${GH_ISSUE_BLOCKED:-1}" = "1" ] && names="blocked"
+      printf '%s\t%s\n' "${GH_ISSUE_STATE:-OPEN}" "$names"
+    fi
     exit 0
   BASH
   File.chmod(0o755, File.join(scenario, "bin", "gh"))
@@ -44,11 +50,50 @@ def run_supervisor(scenario, opencode_body, gh_fail: false)
       "SUPERVISOR_OPENCODE" => opencode,
       "GH_CALLS" => calls,
       "GH_FAIL" => gh_fail ? "1" : "0",
+      "GH_ISSUE_STATE" => issue_state,
+      "GH_ISSUE_BLOCKED" => issue_blocked ? "1" : "0",
       "PATH" => "#{scenario}/bin:#{ENV.fetch("PATH", "")}"
     },
     SUPERVISOR_SH
   )
   [ status.exitstatus, calls, File.join(scenario, "state") ]
+end
+
+# Writes stubs for gh and tmux, then runs ensure.sh with one NEEDS_OWNER.
+def run_ensure(scenario, needs_owner, issue_state: "OPEN", issue_blocked: true)
+  FileUtils.mkdir_p(File.join(scenario, "bin"))
+  FileUtils.mkdir_p(File.join(scenario, "state"))
+  File.write(File.join(scenario, "state", "NEEDS_OWNER"), "#{needs_owner}\n")
+  File.write(File.join(scenario, "bin", "gh"), <<~'BASH')
+    #!/usr/bin/env bash
+    printf '%s\n' "$*" >> "$GH_CALLS"
+    if [ "$1" = "issue" ] && [ "$2" = "view" ]; then
+      names=""
+      [ "${GH_ISSUE_BLOCKED:-1}" = "1" ] && names="blocked"
+      printf '%s\t%s\n' "${GH_ISSUE_STATE:-OPEN}" "$names"
+    fi
+    exit 0
+  BASH
+  File.chmod(0o755, File.join(scenario, "bin", "gh"))
+  File.write(File.join(scenario, "bin", "tmux"), <<~'BASH')
+    #!/usr/bin/env bash
+    printf '%s\n' "$*" >> "$TMUX_CALLS"
+    [ "$1" = "has-session" ] && exit 1
+    exit 0
+  BASH
+  File.chmod(0o755, File.join(scenario, "bin", "tmux"))
+  _, status = Open3.capture2e(
+    {
+      "SUPERVISOR_STATE" => File.join(scenario, "state"),
+      "GH_CALLS" => File.join(scenario, "gh-calls"),
+      "TMUX_CALLS" => File.join(scenario, "tmux-calls"),
+      "GH_ISSUE_STATE" => issue_state,
+      "GH_ISSUE_BLOCKED" => issue_blocked ? "1" : "0",
+      "PATH" => "#{scenario}/bin:#{ENV.fetch("PATH", "")}"
+    },
+    ENSURE_SH
+  )
+  [ status.exitstatus, File.join(scenario, "tmux-calls"), File.join(scenario, "state") ]
 end
 
 if File.file?(SUPERVISOR_SH)
@@ -62,6 +107,10 @@ if File.file?(SUPERVISOR_SH)
         echo "lock fd leaked" >&2
         exit 7
       fi
+      case "$*" in
+        *"This run ends at "*) ;;
+        *) echo "missing run deadline" >&2; exit 8 ;;
+      esac
       echo 'OWNER DECISION NEEDED #123 #456'
       exit 0
     BASH
@@ -78,10 +127,51 @@ if File.file?(SUPERVISOR_SH)
 
     calls_list = File.file?(calls) ? File.read(calls).lines.map(&:strip) : []
     [ 123, 456 ].each do |issue|
-      cases += 2
+      cases += 3
+      failures = note(failures, "issue ##{issue} was not checked for open/blocked") unless calls_list.any? { |call| call.start_with?("issue view #{issue} ") }
       failures = note(failures, "issue ##{issue} was not assigned to the owner") unless calls_list.any? { |call| call == "issue edit #{issue} --add-assignee yutna" }
       failures = note(failures, "issue ##{issue} was not mentioned") unless calls_list.any? { |call| call.start_with?("issue comment #{issue} ") }
     end
+
+    # A marker that names a closed or unblocked issue is stale: log it and
+    # resume instead of pausing.
+    { "closed" => "CLOSED", "unblocked" => "OPEN" }.each do |name, state_name|
+      scenario = File.join(root, "marker-#{name}-issue")
+      exitstatus, _, state = run_supervisor(
+        scenario,
+        <<~'BASH',
+          #!/usr/bin/env bash
+          echo 'OWNER DECISION NEEDED #123'
+          exit 0
+        BASH
+        issue_state: state_name,
+        issue_blocked: name == "unblocked" ? false : true
+      )
+      cases += 1
+      failures = note(failures, "#{name} issue marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+      needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+      cases += 1
+      failures = note(failures, "a marker naming a #{name} issue paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
+      log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+      cases += 1
+      failures = note(failures, "a marker naming a #{name} issue was not logged as ignored: #{log}") unless log.include?("marker-ignored")
+    end
+
+    # A truncated marker is not a decision.
+    scenario = File.join(root, "truncated-marker")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      echo 'OWNER DECISION NEEDED #'
+      exit 0
+    BASH
+    cases += 1
+    failures = note(failures, "truncated marker run exited #{exitstatus}, expected 0") if exitstatus != 0
+    needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
+    cases += 1
+    failures = note(failures, "a truncated marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
+    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    cases += 1
+    failures = note(failures, "a truncated marker was not logged as ignored: #{log}") unless log.include?("marker-ignored")
 
     # A marker with ANSI colour is still a decision.
     scenario = File.join(root, "ansi-marker")
@@ -127,6 +217,7 @@ if File.file?(SUPERVISOR_SH)
     scenario = File.join(root, "timeout-marker")
     exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
       #!/usr/bin/env bash
+      touch "$SUPERVISOR_STATE/STOP"
       echo 'OWNER DECISION NEEDED #123'
       exit 124
     BASH
@@ -138,7 +229,7 @@ if File.file?(SUPERVISOR_SH)
 
     log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
     cases += 1
-    failures = note(failures, "the timeout outcome was not logged: #{log}") unless log.include?("outcome=timeout")
+    failures = note(failures, "the timeout outcome was not logged as aborted: #{log}") unless log.include?("outcome=aborted")
 
     # A run that exits 0 without changing anything pauses for no progress.
     scenario = File.join(root, "no-progress")
@@ -149,14 +240,22 @@ if File.file?(SUPERVISOR_SH)
     cases += 1
     failures = note(failures, "the no-progress pause was not written: #{needs_owner.inspect}") unless needs_owner.include?("no progress")
 
-    # A failing model run is an infrastructure pause, not "no progress".
+    # A failing model run is aborted and resumed, never an owner pause.
     scenario = File.join(root, "aborted")
-    exitstatus, _, state = run_supervisor(scenario, "#!/usr/bin/env bash\necho failed\nexit 1\n")
+    exitstatus, _, state = run_supervisor(scenario, <<~'BASH')
+      #!/usr/bin/env bash
+      touch "$SUPERVISOR_STATE/STOP"
+      echo failed
+      exit 1
+    BASH
     cases += 1
     failures = note(failures, "aborted run exited #{exitstatus}, expected 0") if exitstatus != 0
     needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
     cases += 1
-    failures = note(failures, "a failing model run did not pause with the infrastructure reason: #{needs_owner.inspect}") unless needs_owner.include?("infrastructure: opencode failed")
+    failures = note(failures, "a failing model run paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("infrastructure: opencode failed")
+    log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+    cases += 1
+    failures = note(failures, "the aborted outcome was not logged: #{log}") unless log.include?("outcome=aborted")
 
     # A GitHub outage must not become "no progress".
     scenario = File.join(root, "state-hash-failure")
@@ -180,6 +279,42 @@ if File.file?(SUPERVISOR_SH)
     needs_owner = File.file?(File.join(state, "NEEDS_OWNER")) ? File.read(File.join(state, "NEEDS_OWNER")) : ""
     cases += 1
     failures = note(failures, "an indented quoted marker paused the supervisor: #{needs_owner.inspect}") if needs_owner.include?("OWNER DECISION NEEDED")
+
+    # ensure.sh leaves a live owner decision paused.
+    scenario = File.join(root, "ensure-blocked")
+    exitstatus, tmux_calls, state = run_ensure(scenario, "OWNER DECISION NEEDED #123")
+    cases += 2
+    failures = note(failures, "ensure blocked run exited #{exitstatus}, expected 0") if exitstatus != 0
+    failures = note(failures, "ensure started a session while its issues were blocked") if File.file?(tmux_calls)
+    cases += 1
+    failures = note(failures, "ensure removed a live NEEDS_OWNER") unless File.file?(File.join(state, "NEEDS_OWNER"))
+
+    # ensure.sh resumes by itself once no named issue is open and blocked.
+    { "closed" => "CLOSED", "unblocked" => "OPEN" }.each do |name, state_name|
+      scenario = File.join(root, "ensure-#{name}")
+      exitstatus, tmux_calls, state = run_ensure(
+        scenario,
+        "OWNER DECISION NEEDED #123",
+        issue_state: state_name,
+        issue_blocked: name == "unblocked" ? false : true
+      )
+      cases += 3
+      failures = note(failures, "ensure #{name} run exited #{exitstatus}, expected 0") if exitstatus != 0
+      failures = note(failures, "ensure did not resume for a #{name} issue") unless File.file?(tmux_calls)
+      failures = note(failures, "ensure kept NEEDS_OWNER for a #{name} issue") if File.file?(File.join(state, "NEEDS_OWNER"))
+      log = File.file?(File.join(state, "supervisor.log")) ? File.read(File.join(state, "supervisor.log")) : ""
+      cases += 1
+      failures = note(failures, "ensure did not log the #{name} resume: #{log}") unless log.include?("resumed")
+    end
+
+    # A "no progress" pause is not an owner-decision marker and stays put.
+    scenario = File.join(root, "ensure-no-progress")
+    exitstatus, tmux_calls, state = run_ensure(scenario, "no progress in 3 runs")
+    cases += 2
+    failures = note(failures, "ensure no-progress run exited #{exitstatus}, expected 0") if exitstatus != 0
+    failures = note(failures, "ensure resumed a no-progress pause") if File.file?(tmux_calls)
+    cases += 1
+    failures = note(failures, "ensure removed a no-progress NEEDS_OWNER") unless File.file?(File.join(state, "NEEDS_OWNER"))
   end
 else
   # Adopted apps do not ship the supervisor (docs/development/supervisor/ is

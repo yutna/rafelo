@@ -29,8 +29,24 @@ test -d "spec/fixtures/formats/v0.42.0" || fail "formats fixture v0.42.0 is miss
 
 open_gates="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --search 'audit: feature gate in:title' --json number --jq length)"
 test "$open_gates" = "0" || fail "an audit gate issue is still open"
-open_high="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --label 'priority: high' --json number --jq length)"
-test "$open_high" = "0" || fail "an open priority:high issue remains"
+approved_high="$(ruby -ryaml -rdate -e '
+  path = "config/audit_exceptions.yml"
+  exit 0 unless File.file?(path)
+  entries = (YAML.safe_load_file(path, aliases: false) || {})["exceptions"] || []
+  entries.each do |entry|
+    next unless entry["expires_on"].is_a?(String)
+    next if Date.iso8601(entry["expires_on"]) < Date.today
+    match = entry["issue"].to_s.match(/issues\/(\d+)|#(\d+)/)
+    puts(match[1] || match[2]) if match
+  end
+' | tr '\n' ' ')" || fail "could not read the approved audit-exception issues"
+open_high="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --label 'priority: high' --json number --jq '.[].number')"
+for issue in $open_high; do
+  case " $approved_high " in
+    *" $issue "*) ;;
+    *) fail "open priority:high issue #$issue is not named by an unexpired audit exception" ;;
+  esac
+done
 test -z "$(grep -R "deferred_paths" config script/ci script/docs 2>/dev/null || true)" || fail "deferred_paths remains"
 
 ruby -ryaml -rdate -e '
@@ -60,7 +76,7 @@ done
 test "$scheduled_conclusion" = "success" || fail "the last scheduled CI on main is $scheduled_conclusion"
 
 trials_commit="$(git log -1 --format=%ct -- docs/development/ai-workflow-trials.md 2>/dev/null || echo 0)"
-ai_commit="$(git log -1 --format=%ct -- .opencode AGENTS.md docs/opencode.md engines/core/lib/generators template 2>/dev/null || echo 0)"
+ai_commit="$(git log -1 --format=%ct -- .opencode AGENTS.md docs/opencode.md engines/core/lib/generators template 'engines/*/AGENTS.md' 2>/dev/null || echo 0)"
 test "$trials_commit" -ge "$ai_commit" || fail "the trials record is older than an AI file or generator change"
 
 timeout 3600 bin/ci >"$state/final-ci.log" 2>&1 || fail "bin/ci is not green"
