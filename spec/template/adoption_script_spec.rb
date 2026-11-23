@@ -19,19 +19,23 @@ RSpec.describe "script/ci/adoption" do
   it "generates a module and a page with the N-1 generator before the update" do
     module_call = script.index("rafelo:module legacy_check")
     page_call = script.index("rafelo:page legacy_check widgets --actions=index,new,edit")
+    grants_call = script.index('File.join(root, "config/grants.json")')
     update_call = script.index('bin/kernel_update "$version"')
+    setup_call = script.index("bin/setup --skip-server", script.index("adopting release"))
 
     expect(module_call).not_to be_nil
     expect(page_call).to be > module_call
-    expect(update_call).to be > page_call
-    expect(script).to include('File.join(root, "config/grants.json")')
-    expect(script).to include("bin/setup --skip-server")
+    expect(setup_call).to be < module_call
+    expect(grants_call).to be > page_call
+    expect(update_call).to be > grants_call
     expect(script).to include("BUNDLE_FROZEN=false bundle check")
   end
 
-  it "never parks the generated-page leg behind a version condition" do
+  it "keeps the generated-page leg unconditional" do
     expect(script).not_to include('"0.36.0" "$base_version"')
     expect(script).not_to include("bin/rubocop -A")
+    expect(control_depth_at(script, "rafelo:module legacy_check")).to eq(0)
+    expect(control_depth_at(script, "rafelo:page legacy_check widgets")).to eq(0)
   end
 
   it "runs the documented rails new command and checks the template commit" do
@@ -50,7 +54,29 @@ RSpec.describe "script/ci/adoption" do
   it "checks the app namespace across the whole N-1 app except app-owned docs" do
     expect(script).to include('gate "$work/smoke_shop_prev" examples')
     expect(script).to include('paths=(. ":(exclude)docs/architecture")')
+    expect(script).to include('"${paths[@]}"')
     expect(script).to include("docs/architecture")
     expect(script).not_to include("paths=(spec/core engines/example_*")
+  end
+
+  it "fails closed when git cannot read or search the app" do
+    expect(script).to include('"$status" -gt 1')
+    expect(script).to include("cannot read the working tree")
+    expect(script).to include("cannot list tracked files")
+    expect(script).to include("cannot search")
+  end
+
+  def control_depth_at(text, needle)
+    index = text.index(needle)
+    expect(index).not_to be_nil
+    depth = 0
+    text[0...index].each_line do |line|
+      stripped = line.strip
+      next if stripped.start_with?("#")
+
+      depth += stripped.scan(/\b(?:if|case)\b/).length
+      depth -= stripped.scan(/\b(?:fi|esac)\b/).length
+    end
+    depth
   end
 end

@@ -43,7 +43,9 @@ adopt() {
 assert_template_commit_clean() {
   local app="$1"
   local dirty
-  dirty="$(clean_tree "$app")"
+  if ! dirty="$(clean_tree "$app")"; then
+    exit 1
+  fi
   if [ -z "$dirty" ]; then return; fi
 
   echo "adoption: rails new changed the template's initial commit in $app:" >&2
@@ -53,12 +55,49 @@ assert_template_commit_clean() {
 
 clean_tree() {
   local app="$1"
-  git -C "$app" status --porcelain --untracked-files=all
+  local output
+  if ! output="$(git -C "$app" status --porcelain --untracked-files=all)"; then
+    echo "adoption: cannot read the working tree in $app" >&2
+    return 1
+  fi
+  printf '%s\n' "$output"
+}
+
+tracked_files() {
+  local app="$1"
+  local output
+  if ! output="$(git -C "$app" ls-files)"; then
+    echo "adoption: cannot list tracked files in $app" >&2
+    exit 1
+  fi
+  printf '%s\n' "$output"
+}
+
+git_matches() {
+  local app="$1"
+  local pattern="$2"
+  shift 2
+  local output status
+  # git grep exits 1 for no match and 2+ for an error. Never treat an error as
+  # "the pattern is absent".
+  set +e
+  output="$(git -C "$app" grep -IilE "$pattern" -- "$@" 2>&1)"
+  status=$?
+  set -e
+  if [ "$status" -gt 1 ]; then
+    echo "adoption: cannot search $app: $output" >&2
+    exit 1
+  fi
+  if [ -n "$output" ]; then
+    printf '%s\n' "$output"
+  fi
+  return "$status"
 }
 
 check_no_placeholder() {
   local app="$1"
   local scope="${2:-all}"
+  local files
   local found
   local brand="Rafelo"
   local lower="rafelo"
@@ -69,23 +108,23 @@ check_no_placeholder() {
     # and a base release's prose may legitimately mention the examples.
     paths=(. ":(exclude)docs/architecture")
   fi
-  found="$(git -C "$app" ls-files | grep -i 'acme' || true)"
+  files="$(tracked_files "$app")"
+  found="$(printf '%s\n' "$files" | grep -i 'acme' || true)"
   if [ -n "$found" ]; then
     echo "adoption: placeholder path in $app: $found" >&2
     exit 1
   fi
-  if git -C "$app" grep -Iil 'acme' -- . >/dev/null 2>&1; then
+  if found="$(git_matches "$app" 'acme' .)"; then
     echo "adoption: placeholder text in $app" >&2
-    git -C "$app" grep -Iil 'acme' -- . >&2
+    printf '%s\n' "$found" >&2
     exit 1
   fi
   # The kernel brand stays, but an example engine never keeps a kernel Ruby
-  # namespace or path after adoption (GEN-07, decision 1). A kernel update
-  # refreshes only changed paths, so the N-1 proof checks the example slice it
-  # actually renders instead of unrelated app-owned docs and specs.
-  if git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- "${paths[@]}" >/dev/null 2>&1; then
+  # namespace or path after adoption (GEN-07, decision 1). The update proof
+  # checks the whole app except the app-owned docs/architecture.
+  if found="$(git_matches "$app" "${brand}::Example|${lower}/example_|${lower}_example_" "${paths[@]}")"; then
     echo "adoption: example engine kept the kernel namespace in $app" >&2
-    git -C "$app" grep -IilE "${brand}::Example|${lower}/example_|${lower}_example_" -- "${paths[@]}" >&2
+    printf '%s\n' "$found" >&2
     exit 1
   fi
 }
@@ -93,10 +132,18 @@ check_no_placeholder() {
 gate() {
   local app="$1"
   local scope="${2:-all}"
+  local dirty
   ( cd "$app" && BUNDLE_FROZEN=false bin/setup --skip-server )
   ( cd "$app" && BUNDLE_FROZEN=false BASE_SHA="$(git rev-list --max-parents=0 HEAD)" bin/ci )
   check_no_placeholder "$app" "$scope"
-  test -z "$(clean_tree "$app")"
+  if ! dirty="$(clean_tree "$app")"; then
+    exit 1
+  fi
+  if [ -n "$dirty" ]; then
+    echo "adoption: $app has uncommitted changes after the gate:" >&2
+    printf '%s\n' "$dirty" >&2
+    exit 1
+  fi
 }
 
 mode="${1:-all}"
