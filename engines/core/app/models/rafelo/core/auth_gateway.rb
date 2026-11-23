@@ -39,7 +39,8 @@ module Rafelo
           trace_id: @trace_id,
           trace_sampled: @trace_sampled,
           deadline: @deadline,
-          kind: :auth
+          kind: :auth,
+          gateway: self.class.name
         )
         payload = parse_json(
           client.post(
@@ -69,7 +70,8 @@ module Rafelo
           trace_id: @trace_id,
           trace_sampled: @trace_sampled,
           deadline: @deadline,
-          kind: :session_refresh
+          kind: :session_refresh,
+          gateway: self.class.name
         )
       end
 

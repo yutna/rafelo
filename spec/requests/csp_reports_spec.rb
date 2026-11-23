@@ -48,7 +48,7 @@ RSpec.describe "CSP reports", type: :request do
     expect(line["source_line"]).to eq(42)
     expect(line["release"]).to start_with("#{Rafelo::Core::Release.version}:")
     expect(Rafelo::Core::Metrics.text).to include(
-      'rafelo_csp_reports_total{blocked_origin="https://evil.test",directive="script-src"} 1'
+      'rafelo_csp_reports_total{blocked_origin="external",directive="script-src"} 1'
     )
   end
 
