@@ -15,6 +15,7 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
+REQUIRED_CANARIES = %w[design_system_api_canary].freeze
 
 config_path = File.join(root, "config", "ci.rb")
 abort "enforcement_canaries: config/ci.rb is missing" unless File.file?(config_path)
@@ -27,6 +28,11 @@ abort "enforcement_canaries: config/ci.rb has no script/ci steps" if step_script
 step_scripts.each do |name|
   path = File.join(root, "script", "ci", name)
   abort "enforcement_canaries: config/ci.rb names missing script/ci/#{name}" unless File.file?(path)
+end
+
+missing_canaries = REQUIRED_CANARIES - step_scripts
+unless missing_canaries.empty?
+  abort "enforcement_canaries: config/ci.rb does not run #{missing_canaries.join(', ')}"
 end
 
 # Rafelo cops: discovered from the cops directory.
