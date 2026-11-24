@@ -247,29 +247,45 @@ RSpec.describe RafeloTemplate, "payload rendering" do
   end
 
   describe ".render_examples!" do
-    it "ships the example engines the E1 proof renders" do
-      # The template repository always carries the examples; their removable
-      # behaviour after adoption is proved by script/ci/example_removal.
-      %w[example_customers example_orders].each do |example|
-        expect(Dir).to exist(File.join(source_root, "engines", example)),
-                         "#{example} is a template fixture; a missing example is not a passing proof"
-      end
-    end
+    # GEN-08: the template repository always carries the examples. The
+    # examples-removable job deletes them on purpose and commits that removal;
+    # anywhere else an absent example must fail, never turn the proof into a
+    # pass.
+    it "proves the E1 rendering on the fixture, or the deliberate removal" do
+      if example_engines_present?
+        %w[example_customers example_orders].each do |example|
+          expect(Dir).to exist(File.join(source_root, "engines", example)),
+                           "#{example} is a template fixture; a missing example is not a passing proof"
+        end
 
-    it "refreshes only the example engines in the app namespace" do
-      Dir.mktmpdir("rafelo-template-examples-") do |destination|
-        written = described_class.render_examples!(
-          source_root: source_root,
-          destination: destination,
-          app_name: "smoke_shop",
-          version: version
-        )
+        Dir.mktmpdir("rafelo-template-examples-") do |destination|
+          written = described_class.render_examples!(
+            source_root: source_root,
+            destination: destination,
+            app_name: "smoke_shop",
+            version: version
+          )
 
-        expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
-        expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
-        expect(File).not_to exist(File.join(destination, "config", "application.rb"))
-        expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
-          .to include("SmokeShop::ExampleOrders::Engine")
+          expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
+          expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
+          expect(File).not_to exist(File.join(destination, "config", "application.rb"))
+          expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
+            .to include("SmokeShop::ExampleOrders::Engine")
+        end
+      else
+        expect(last_commit_subject).to eq("test: prove the example engines are removable"),
+                                       "the examples are absent, but HEAD is not the examples-removable commit"
+
+        Dir.mktmpdir("rafelo-template-no-examples-") do |destination|
+          expect(
+            described_class.render_examples!(
+              source_root: source_root,
+              destination: destination,
+              app_name: "smoke_shop",
+              version: version
+            )
+          ).to be_empty
+        end
       end
     end
   end
@@ -303,5 +319,17 @@ RSpec.describe RafeloTemplate, "payload rendering" do
           .to raise_error(ArgumentError, /acme/)
       end
     end
+  end
+
+  def example_engines_present?
+    %w[example_customers example_orders].all? do |example|
+      Dir.exist?(File.join(source_root, "engines", example))
+    end
+  end
+
+  def last_commit_subject
+    output, status = Open3.capture2("git", "-C", source_root, "log", "-1", "--format=%s")
+    expect(status).to be_success
+    output.strip
   end
 end
