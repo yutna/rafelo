@@ -190,6 +190,18 @@ export function aiFiles(
         !path.startsWith(".git/"),
     )
     .sort();
+  for (const path of globSync(".opencode/skills/*/SKILL.md", { cwd: root })
+    .map((path) => path.split("\\").join("/"))
+    .sort()) {
+    const name = path.split("/")[2] ?? "";
+    if (name.startsWith("oo-")) continue;
+    if (files.has(path)) continue;
+
+    findings.push({
+      file: "config/docs.yml",
+      message: `skill is not listed in ai_instruction_files: ${path}`,
+    });
+  }
   for (const path of selected) {
     if (path.startsWith(".opencode/skills/") && path.endsWith("/SKILL.md"))
       validateSkill(root, path, findings);
