@@ -47,6 +47,8 @@ jobs:
     needs: image
     outputs:
       mode: ${{ steps.select.outputs.mode }}
+      app: ${{ steps.select.outputs.app }}
+      engines: ${{ steps.select.outputs.engines }}
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -62,9 +64,8 @@ jobs:
       - name: Select affected applications and engines
         id: select
         run: |
-          selection="$(script/ci/affected --base HEAD^1)"
-          printf '%s\n' "$selection"
-          echo "mode=$(script/ci/affected --mode --base HEAD^1)" >> "$GITHUB_OUTPUT"
+          script/ci/affected --base HEAD^1
+          script/ci/affected --format github --base HEAD^1 >> "$GITHUB_OUTPUT"
 
   actionlint:
     defaults:
@@ -263,7 +264,7 @@ jobs:
         run: npm test
 
       - name: Run tests
-        if: needs.affected.outputs.mode != 'narrow'
+        if: needs.affected.outputs.app == 'true'
         env:
           RAILS_ENV: test
           DB_HOST: postgres
@@ -272,12 +273,13 @@ jobs:
         run: script/ci/rspec
 
       - name: Run engine specs
-        if: needs.affected.outputs.mode != 'narrow'
+        if: needs.affected.outputs.engines != ''
         env:
           RAILS_ENV: test
           DB_HOST: postgres
           DB_USER: postgres
           DB_PASSWORD: postgres
+          AFFECTED_ENGINES: ${{ needs.affected.outputs.engines }}
         run: script/ci/engine_specs
 
       - name: Check page matcher coverage
@@ -479,12 +481,27 @@ jobs:
           DB_USER: postgres
           DB_PASSWORD: postgres
           AFFECTED_MODE: ${{ needs.affected.outputs.mode }}
+          AFFECTED_APP: ${{ needs.affected.outputs.app }}
+          AFFECTED_ENGINES: ${{ needs.affected.outputs.engines }}
         run: |
+          args=()
           if [ "$AFFECTED_MODE" = "narrow" ]; then
-            script/ci/e2e --project design_system
-          else
-            script/ci/e2e
+            args=(--project design_system)
+          elif [ "$AFFECTED_APP" = "true" ] && [ -z "$AFFECTED_ENGINES" ]; then
+            args=(--project app)
+          elif [ "$AFFECTED_APP" = "false" ] && [ -n "$AFFECTED_ENGINES" ]; then
+            IFS=',' read -ra names <<< "$AFFECTED_ENGINES"
+            for name in "${names[@]}"; do
+              if [ -d "engines/$name/e2e" ]; then
+                args+=(--project "$name")
+              fi
+            done
+            if [ "${#args[@]}" -eq 0 ]; then
+              echo "affected: no engine e2e projects"
+              exit 0
+            fi
           fi
+          script/ci/e2e "${args[@]}"
 
   examples-removable:
     defaults:

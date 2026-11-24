@@ -10,7 +10,22 @@ while [ "$#" -gt 0 ]; do
 done
 cd "$root"
 
-mapfile -t spec_dirs < <(find engines -maxdepth 2 -type d -name spec | sort)
+selected="${AFFECTED_ENGINES:-}"
+if [ -n "$selected" ]; then
+  spec_dirs=()
+  IFS=',' read -ra names <<< "$selected"
+  for name in "${names[@]}"; do
+    dir="engines/$name/spec"
+    if [ ! -d "$dir" ]; then
+      echo "engine_specs: unknown engine or missing spec directory: $name" >&2
+      exit 1
+    fi
+    spec_dirs+=("$dir")
+  done
+else
+  mapfile -t spec_dirs < <(find engines -maxdepth 2 -type d -name spec | sort)
+fi
+
 if [ "${#spec_dirs[@]}" -eq 0 ]; then
   echo "engine_specs: checked 0 engine spec directories" >&2
   exit 1

@@ -73,3 +73,43 @@
     - engines/alpha/app/models/alpha.rb
   expected:
     - all
+- name: the github format names the app lane
+  args:
+    - --format
+    - github
+  paths:
+    - app/controllers/home_controller.rb
+  expected:
+    - mode=all
+    - app=true
+    - engines=
+- name: the github format names the engine lane
+  args:
+    - --format
+    - github
+  paths:
+    - engines/alpha/app/models/alpha.rb
+  expected:
+    - mode=all
+    - app=false
+    - engines=alpha,beta,gamma
+- name: the github format clears the lanes for the design_system narrowing
+  args:
+    - --format
+    - github
+  paths:
+    - engines/design_system/app/frontend/button.tsx
+  expected:
+    - mode=narrow
+    - app=false
+    - engines=
+- name: the github format selects no test lane for documentation
+  args:
+    - --format
+    - github
+  paths:
+    - docs/architecture/00_README.md
+  expected:
+    - mode=all
+    - app=false
+    - engines=
