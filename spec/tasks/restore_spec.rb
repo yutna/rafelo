@@ -111,4 +111,13 @@ RSpec.describe "rafelo:restore:prepare against a scratch target", :database_role
     expect(@connection.exec("SELECT count(*) FROM core_sessions").getvalue(0, 0)).to eq("0")
     expect(Rafelo::Core::Session.where(id: live.id).exists?).to be(true)
   end
+
+  it "refuses a connected role that is not the configured migration role" do
+    ENV["DB_MIGRATION_USER"] = "someone_else"
+
+    expect { task.invoke }.to raise_error(SystemExit)
+    expect(@connection.exec("SELECT count(*) FROM core_sessions").getvalue(0, 0)).to eq("1")
+  ensure
+    ENV.delete("DB_MIGRATION_USER")
+  end
 end

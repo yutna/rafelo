@@ -259,8 +259,11 @@ module Rafelo
         end
 
         def escape(value)
-          value.to_s.gsub("\\", "\\\\").gsub('"', '\\"').gsub("\n", "\\n")
-            .gsub(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/, "")
+          value.to_s
+            .gsub("\\") { "\\\\" }
+            .gsub('"') { '\\"' }
+            .gsub("\n") { "\\n" }
+            .gsub(/[\x00-\x1f\x7f]/, "")
         end
 
         def mutex

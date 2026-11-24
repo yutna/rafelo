@@ -61,6 +61,15 @@ RSpec.describe "Metrics endpoint", type: :request do
     )
   end
 
+  it "escapes backslashes and drops control characters from labels" do
+    Rafelo::Core::Metrics.record_upstream("a\\b\r", 0.1)
+
+    get "/core/metrics"
+
+    expect(response.body).to include('upstream="a\\\\b"')
+    expect(response.body).not_to include("\r")
+  end
+
   it "throttles scrapes per IP" do
     12.times do
       get "/core/metrics"

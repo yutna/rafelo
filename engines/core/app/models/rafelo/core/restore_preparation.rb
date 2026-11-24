@@ -54,22 +54,32 @@ module Rafelo
 
       def connection_identity(connection)
         row = connection.exec(<<~SQL).first
-          SELECT current_database(), inet_server_addr()::text, inet_server_port()
+          SELECT current_database() AS database,
+                 (SELECT oid FROM pg_database WHERE datname = current_database()) AS database_oid,
+                 pg_postmaster_start_time()::text AS started_at
         SQL
-        { database: row.fetch("current_database"), address: row["inet_server_addr"], port: row["inet_server_port"] }
+        {
+          database: row.fetch("database"),
+          database_oid: row.fetch("database_oid").to_s,
+          started_at: row.fetch("started_at")
+        }
       end
 
       def live_identity
         row = ActiveRecord::Base.connection.select_one(<<~SQL)
-          SELECT current_database(), inet_server_addr()::text AS address, inet_server_port() AS port
+          SELECT current_database() AS database,
+                 (SELECT oid FROM pg_database WHERE datname = current_database()) AS database_oid,
+                 pg_postmaster_start_time()::text AS started_at
         SQL
-        { database: row.fetch("current_database"), address: row["address"], port: row["port"] }
+        {
+          database: row.fetch("database"),
+          database_oid: row.fetch("database_oid").to_s,
+          started_at: row.fetch("started_at")
+        }
       end
 
       def same_database?(target, live)
-        target[:database] == live[:database] &&
-          target[:address] == live[:address] &&
-          target[:port].to_s == live[:port].to_s
+        target == live
       end
 
       def with_restore_connection

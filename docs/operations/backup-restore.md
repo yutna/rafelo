@@ -110,13 +110,16 @@ below, which restores a base backup, replays WAL to a chosen point, and runs
    ```
 
    Run this from the release image or with the deploy profile's `env.clear`
-   and `RAILS_MASTER_KEY`, as the command shows. The task opens only
-   `RESTORE_DATABASE_URL`; it never uses the serving connection. It refuses to
-   run without the URL, the confirmation flag, and the migration role, refuses
-   a URL that reaches the live database (it compares the connected server and
-   database, not the URL spelling), truncates `core_sessions` on the scratch
-   target, and prints that the table is empty. Make the URL connect as the
-   migration role; the URL is never printed.
+   and `RAILS_MASTER_KEY`, as the command shows. The task opens
+   `RESTORE_DATABASE_URL` for the truncate and reads the live connection only
+   to compare cluster identity; it never writes to the live database. It
+   refuses to run without the URL, the confirmation flag, and the migration
+   role, refuses a URL that reaches the live cluster (it compares the database
+   OID and postmaster start time, not the URL spelling), refuses a connected
+   role that differs from `DB_MIGRATION_USER` when that setting is present,
+   truncates `core_sessions` on the scratch target, and prints that the table
+   is empty. Make the URL connect as the migration role; the URL is never
+   printed.
 
 4. Run the drill check, which repeats the truncate and proves the table has
    zero rows:
