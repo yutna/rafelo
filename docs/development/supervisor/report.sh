@@ -4,16 +4,25 @@ export PATH="$HOME/.opencode/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:
 
 repo="yutna/rafelo"
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
-state="${SUPERVISOR_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor}"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=state.sh
+. "$script_dir/state.sh"
+state="$(supervisor_state)"
+session="$(supervisor_session "$state")"
+default_state="$(supervisor_default_state)"
 mkdir -p "$state"
 issue="${RAFELO_REPORT_ISSUE:-611}"
+if [ "$state" != "$default_state" ] && [ -z "${RAFELO_REPORT_ISSUE:-}" ]; then
+  echo "report: refusing to post for a non-default state without RAFELO_REPORT_ISSUE" >&2
+  exit 0
+fi
 now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 now_epoch="$(date -u +%s)"
 last="$(cat "$state/report.last" 2>/dev/null || echo 1970-01-01T00:00:00Z)"
 cd "$root" || exit 1
 
 tmux_state="not running"
-tmux has-session -t rafelo-supervisor 2>/dev/null && tmux_state="running"
+tmux has-session -t "$session" 2>/dev/null && tmux_state="running"
 
 flags="none"
 for flag in NEEDS_OWNER STOP STOPPED DONE; do

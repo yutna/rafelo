@@ -3,7 +3,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$root"
-state="${SUPERVISOR_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor}"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=state.sh
+. "$script_dir/state.sh"
+state="$(supervisor_state)"
 repository="yutna/rafelo"
 
 fail() { echo "final_audit: $*" >&2; exit 1; }

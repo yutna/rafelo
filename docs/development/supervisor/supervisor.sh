@@ -2,12 +2,17 @@
 set -uo pipefail
 
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=state.sh
+. "$script_dir/state.sh"
 # Cron starts this script with a minimal PATH. The model, Ruby, and npm live
 # in the user's tool directories; a missing opencode must not look like a
 # no-progress run (see the supervisor canary).
 export PATH="$HOME/.opencode/bin:$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"
 cd "$root"
-state="${SUPERVISOR_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/rafelo-supervisor}"
+state="$(supervisor_state)"
+default_state="$(supervisor_default_state)"
+title="${SUPERVISOR_TITLE:-$(supervisor_title "$state")}"
 run_timeout=21600
 mkdir -p "$state"
 log="$state/supervisor.log"
@@ -27,9 +32,7 @@ pause() {
 
 stop_supervisor() {
   touch "$state/STOPPED"
-  if crontab -l >/tmp/rafelo-cron 2>/dev/null; then
-    grep -v '# rafelo-supervisor' /tmp/rafelo-cron | crontab - || true
-  fi
+  remove_cron_for_state "$state" "# rafelo-supervisor"
   logline "stopped"
   exit 0
 }
@@ -189,7 +192,7 @@ This run ends at $run_ends."
   # lock FD: a surviving child must not keep the next supervisor from starting.
   timeout --signal=TERM --kill-after=60s "$run_timeout" \
     "$opencode_bin" run --model "opencode-go/deepseek-v4.1-flash#max" --auto --archived \
-      --title "Rafelo supervisor" "$prompt" >>"$log" 2>&1 9>&-
+      --title "$title" "$prompt" >>"$log" 2>&1 9>&-
   rc=$?
   run_tail="$(tail -n +"$((start_line + 1))" "$log" | tail -n 40)"
   marker_line="$(owner_decision_marker "$run_tail")"

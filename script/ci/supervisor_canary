@@ -7,6 +7,7 @@ require "tmpdir"
 
 repo = File.expand_path("../..", __dir__)
 SUPERVISOR_SH = File.join(repo, "docs", "development", "supervisor", "supervisor.sh")
+STOP_SH = File.join(repo, "docs", "development", "supervisor", "stop.sh")
 ENSURE_SH = File.join(repo, "docs", "development", "supervisor", "ensure.sh")
 
 failures = 0
@@ -315,6 +316,49 @@ if File.file?(SUPERVISOR_SH)
     failures = note(failures, "ensure resumed a no-progress pause") if File.file?(tmux_calls)
     cases += 1
     failures = note(failures, "ensure removed a no-progress NEEDS_OWNER") unless File.file?(File.join(state, "NEEDS_OWNER"))
+  end
+
+  # A temporary state must not remove the default supervisor's cron entries.
+  if File.file?(STOP_SH)
+    Dir.mktmpdir("rafelo-supervisor-stop-canary-") do |scenario|
+      bin = File.join(scenario, "bin")
+      FileUtils.mkdir_p(bin)
+      cron_file = File.join(scenario, "crontab")
+      temp_state = File.join(scenario, "state")
+      default_base = ENV["XDG_STATE_HOME"] || File.join(ENV.fetch("HOME"), ".local", "state")
+      default_state = File.join(default_base, "rafelo-supervisor")
+      default_line = "*/5 * * * * SUPERVISOR_STATE='#{default_state}' /bin/true # rafelo-supervisor"
+      temp_line = "*/5 * * * * SUPERVISOR_STATE='#{temp_state}' /bin/true # rafelo-supervisor"
+      File.write(cron_file, "#{default_line}\n#{temp_line}\n")
+
+      File.write(File.join(bin, "crontab"), <<~'BASH')
+        #!/usr/bin/env bash
+        if [ "$1" = "-l" ]; then cat "$CRON_FILE"; else cat > "$CRON_FILE"; fi
+      BASH
+      File.write(File.join(bin, "tmux"), <<~'BASH')
+        #!/usr/bin/env bash
+        if [ "$1" = "has-session" ]; then exit 1; fi
+        exit 0
+      BASH
+      File.write(File.join(bin, "pgrep"), "#!/usr/bin/env bash\nexit 1\n")
+      File.write(File.join(bin, "kill"), "#!/usr/bin/env bash\nexit 0\n")
+      File.write(File.join(bin, "sleep"), "#!/usr/bin/env bash\nexit 0\n")
+      FileUtils.chmod(0o755, Dir[File.join(bin, "*")])
+
+      _, status = Open3.capture2e(
+        {
+          "SUPERVISOR_STATE" => temp_state,
+          "CRON_FILE" => cron_file,
+          "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}"
+        },
+        STOP_SH
+      )
+      cases += 3
+      failures = note(failures, "stop.sh isolation exited #{status.exitstatus}, expected 0") unless status.success?
+      cron = File.read(cron_file)
+      failures = note(failures, "stop.sh removed the default supervisor cron: #{cron.inspect}") unless cron.include?(default_line)
+      failures = note(failures, "stop.sh left the temporary supervisor cron: #{cron.inspect}") if cron.include?(temp_line)
+    end
   end
 else
   # Adopted apps do not ship the supervisor (docs/development/supervisor/ is

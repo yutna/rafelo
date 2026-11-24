@@ -13,6 +13,12 @@ new run, a dirty worktree from a timed-out run is committed and pushed on its
 branch (or a `wip/supervisor-<timestamp>` branch), so the next run starts from
 a clean `main` without losing the interrupted edit.
 
+A non-default `SUPERVISOR_STATE` (a test) gets its own hashed tmux session and
+title and only removes its own cron lines. `stop.sh` and `install.sh` never
+remove the default supervisor's entries when they run against a temporary
+state. The report cron also runs `ensure.sh`, so a lost five-minute entry is
+recovered on the next hourly report.
+
 To pause, run `./stop.sh`; it stops the session and removes the supervisor's
 cron entries. Resume by removing `STOP` and `STOPPED` from the state directory
 and running `./install.sh`. A run pauses only when its last non-empty line is
