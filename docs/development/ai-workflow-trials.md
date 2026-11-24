@@ -316,7 +316,7 @@ answers.
 | #   | Trial                           | Issue / PR     | Questions | Guard failures                                                                 | First push green | Result                             |
 | --- | ------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------ | ---------------- | ---------------------------------- |
 | 3   | New product module              | #34 / #35      | none      | `docs:check` path roots; `fixtures_spec` grant; `guard_approval` (nameable)     | no               | Pass, `guard_approval` exception    |
-| 1   | Read page                       | running        |           |                                                                                |                  |                                    |
+| 1   | Read page                       | #36 / #37      | none      | ESLint import/order and path; Prettier; plural permission key; Packwerk root spec; CI database; empty e2e project | no               | Pass                               |
 
 The list keeps round 1's task-type numbering. The module trial (3) runs first
 because it creates the `billing` module the later trials use.
@@ -360,4 +360,47 @@ its own permissions, but no pages yet, and no upstream calls."
   5m27s; all other pull-request checks green.
 - **Follow-up:** the branch is not the default branch, so GitHub did not
   auto-close #34 on merge; the trial closed it by hand with a link to #35.
+
+
+### Trial 1 — read page
+
+**Request:** "Add a read-only invoices page to the billing module. It should
+list invoice number, customer name, status, total, and issue date. Only people
+allowed to read invoices should see it."
+
+- **Issue / PR:** #36 / #37, merged into `round-2` as `3e1fedf`.
+- **Generator:** `bin/rails generate rafelo:page billing invoices --actions=index`.
+- **Questions:** none. The example slice answered the gateway, fixture, props,
+  screen and permission shape. The app's invoice fixture had no customer field,
+  so the billing-owned fixture uses `customer_name` as the earlier page did.
+- **Guard failures and fixes:**
+  - `bin/check billing`: ESLint FE-05 rejected the relative `../../i18n`
+    import; the trial used `@billing/i18n` and fixed import order (`@billing`
+    before `@design_system`).
+  - Prettier rejected two new TSX files; the trial ran `prettier --write`.
+  - `rafelo:page` wrote the plural permission key `billing:invoices:read` and
+    the `INVOICES_READ` constant. The module manifest already declares
+    `billing: invoice: [read, create]`; the trial restored `billing:invoice:read`
+    and regenerated the constants and catalog. **Template defect:** the page
+    generator pluralizes the resource for the permission key instead of using
+    the manifest's existing resource. Filed as #933.
+  - Packwerk rejected the app-level root spec's reference to
+    `RafeloTrials::Billing::Permissions::INVOICE_READ` (the root package does
+    not depend on the engine). The trial used the grant string
+    `"billing:invoice:read"`, as the example specs do.
+  - The GitHub `test` job failed with `database "rafelo_trials_test" does not
+    exist`: an engine-only change skipped the app RSpec step that prepares the
+    database. The trial added the app-level billing root request spec, which pulls
+    the app into the affected set. **Template defect:** an engine-only slice
+    still needs the database prepared before the engine specs. Filed as #934.
+  - The GitHub `e2e` job failed with "No tests found" for the empty
+    engines/billing/e2e project. The trial removed the empty skeleton.
+    **Template defect:** the page generator leaves an empty engine e2e project
+    that Playwright then runs. Filed as #935.
+- **Files outside the task:** the generated graph, permission constants and
+  catalog; the billing engine guide's stale "no page yet" sentence.
+- **Result:** pass. Local `bin/ci` green in 5m30s; all pull-request checks green
+  after the fixes, `guard_approval` and `ratchet` included.
+- **Follow-up:** the branch is not the default branch, so the trial closed #36
+  by hand with a link to #37.
 
