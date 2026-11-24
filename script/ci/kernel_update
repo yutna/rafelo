@@ -635,7 +635,7 @@ module KernelUpdate
         return
       end
 
-      merged, conflict = merge_text(local, base, target)
+      merged, conflict = merge_text(local, base, target, relative: relative)
       write(local_path, merged, local_mode(local_path) || file_mode(@target, relative))
       if conflict
         results << Result.new(relative: relative, status: "conflict", conflict: true)
@@ -703,7 +703,7 @@ module KernelUpdate
       File.binwrite(path, body)
     end
 
-    def merge_text(local, base, target)
+    def merge_text(local, base, target, relative: nil)
       Dir.mktmpdir("rafelo-merge-") do |directory|
         local_path = File.join(directory, "local")
         base_path = File.join(directory, "base")
@@ -713,7 +713,7 @@ module KernelUpdate
         File.binwrite(target_path, target)
 
         output, status = Open3.capture2("git", "merge-file", "-p", "--diff3", local_path, base_path, target_path)
-        raise Error, "git merge-file failed" if status.exitstatus > 1
+        raise Error, "git merge-file failed for #{relative || 'a kernel file'}" if status.exitstatus > 1
 
         [ output, status.exitstatus == 1 ]
       end
