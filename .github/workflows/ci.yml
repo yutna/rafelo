@@ -475,6 +475,7 @@ jobs:
         run: bin/rails db:prepare
 
       - name: Run design-system e2e
+        shell: bash
         env:
           RAILS_ENV: test
           DB_HOST: postgres

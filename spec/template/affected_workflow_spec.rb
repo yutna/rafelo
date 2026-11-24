@@ -18,6 +18,7 @@ RSpec.describe "affected selection in CI" do
 
       it "consumes the design_system narrowing and app e2e projects" do
         expect(workflow).to include("AFFECTED_MODE: ${{ needs.affected.outputs.mode }}")
+        expect(workflow).to include("shell: bash")
         expect(workflow).to include("args=(--project design_system)")
         expect(workflow).to include('args=(--project app)')
         expect(workflow).to include('args+=(--project "$name")')
