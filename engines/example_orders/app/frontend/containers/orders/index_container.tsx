@@ -8,6 +8,8 @@ import { OrdersList } from "@example_orders/components/orders/list";
 import { useOrderExport } from "@example_orders/hooks/orders/use_order_export";
 import { useOrdersTranslation } from "@example_orders/i18n";
 
+import { ordersChartOption } from "./chart";
+
 type Props = {
   items: OrderListRow[];
   newHref: Href | null;
@@ -105,7 +107,7 @@ export function OrdersIndexContainer({
           {chart ? (
             <Chart
               testId="example_orders.orders.index.chart"
-              series={chart.series}
+              option={ordersChartOption(chart)}
               ariaLabel={t("orders.title")}
               description={t("orders.chart_summary")}
             />

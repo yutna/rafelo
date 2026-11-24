@@ -29,6 +29,7 @@ export { Link } from "@design_system/link";
 export { Image } from "@design_system/image";
 export { Deferred } from "@design_system/deferred";
 export { Chart } from "@design_system/chart";
+export type { ChartOption } from "@design_system/chart.types";
 export { DataTable } from "@design_system/data_table";
 export { ErrorBoundary } from "@design_system/error_boundary";
 export { focusFirstError } from "@design_system/focus_first_error";

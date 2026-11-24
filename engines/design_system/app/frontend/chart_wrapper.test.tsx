@@ -12,7 +12,7 @@ describe("Chart wrapper", () => {
   it("shows its loading state until the lazy implementation arrives", async () => {
     render(
       <I18nProvider locale="en" timeZone="UTC">
-        <Chart testId="lazy.chart" ariaLabel="Lazy chart" series={[]} />
+        <Chart testId="lazy.chart" ariaLabel="Lazy chart" option={{ series: [] }} />
       </I18nProvider>,
     );
 

@@ -67,7 +67,7 @@ function renderChart(next: ChartSeries[] = series) {
     <ChartImpl
       testId="orders.chart"
       ariaLabel="Orders by status"
-      series={next}
+      option={{ series: next }}
       locale="en"
       timeZone="UTC"
       labels={labels}
@@ -90,7 +90,7 @@ describe("ChartImpl", () => {
       <ChartImpl
         testId="orders.chart"
         ariaLabel="Orders by status"
-        series={[{ ...series[0]!, data: [{ label: "Paid", value: 900 }] }]}
+        option={{ series: [{ ...series[0]!, data: [{ label: "Paid", value: 900 }] }] }}
         locale="en"
         timeZone="UTC"
         labels={labels}

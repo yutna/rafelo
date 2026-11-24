@@ -12,11 +12,15 @@ export type ChartSeries = {
   data: ChartPoint[];
 };
 
+export type ChartOption = {
+  series: ChartSeries[];
+};
+
 export type ChartProps = {
   testId: string;
   ariaLabel: string;
   description?: string;
-  series: ChartSeries[];
+  option: ChartOption;
 };
 
 export type ChartTheme = {

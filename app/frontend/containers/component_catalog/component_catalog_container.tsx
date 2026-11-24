@@ -14,6 +14,8 @@ import { lazy, Suspense } from "react";
 
 import { t } from "@/lib/i18n";
 
+import { catalogChartOption } from "./chart";
+
 type CatalogRow = { id: string; name: string; total: string };
 
 const ComponentCatalogPrimitives = lazy(() =>
@@ -74,16 +76,7 @@ export function ComponentCatalogContainer() {
           testId="catalog-chart"
           ariaLabel={t("app:catalog.sample")}
           description={t("app:catalog.sample")}
-          series={[
-            {
-              name: t("app:catalog.sample"),
-              type: "pie",
-              data: [
-                { label: "A", value: 1 },
-                { label: "B", value: 2 },
-              ],
-            },
-          ]}
+          option={catalogChartOption(t("app:catalog.sample"))}
         />
       </section>
       <Suspense fallback={<Skeleton testId="catalog-primitives.loading" />}>
