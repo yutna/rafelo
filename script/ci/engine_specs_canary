@@ -10,4 +10,15 @@ if "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "engine_specs_canary: checked 1 case"
+if AFFECTED_ENGINES=missing "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
+  echo "engine_specs_canary: an unknown selected engine passed" >&2
+  exit 1
+fi
+
+mkdir -p "$tmp/engines/no_specs"
+if ! AFFECTED_ENGINES=no_specs "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
+  echo "engine_specs_canary: an engine without specs failed" >&2
+  exit 1
+fi
+
+echo "engine_specs_canary: checked 3 cases"

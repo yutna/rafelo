@@ -4,15 +4,16 @@
 require "optparse"
 require "yaml"
 
-options = { root: Dir.pwd, base: nil, paths: nil, all: false, mode: false }
+options = { root: Dir.pwd, base: nil, paths: nil, all: false, mode: false, format: "lines" }
 
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/affected [--root DIR] [--base REV] [--paths FILE] [--all] [--mode]"
+  parser.banner = "Usage: script/ci/affected [--root DIR] [--base REV] [--paths FILE] [--all] [--mode] [--format lines|github]"
   parser.on("--root DIR") { |value| options[:root] = value }
   parser.on("--base REV") { |value| options[:base] = value }
   parser.on("--paths FILE") { |value| options[:paths] = value }
   parser.on("--all") { options[:all] = true }
   parser.on("--mode") { options[:mode] = true }
+  parser.on("--format FORMAT") { |value| options[:format] = value }
 end.parse!
 
 ROOT = File.expand_path(options[:root])
@@ -102,10 +103,11 @@ paths =
     paths_from_git(ROOT, base)
   end
 
+kinds = paths.map { |path| classify(path) }
+narrowed = kinds.include?(:design_system) &&
+  kinds.all? { |kind| %i[design_system engine_free derived].include?(kind) }
+
 if options[:mode]
-  kinds = paths.map { |path| classify(path) }
-  narrowed = kinds.include?(:design_system) &&
-    kinds.all? { |kind| %i[design_system engine_free derived].include?(kind) }
   puts(narrowed ? "narrow" : "all")
   exit
 end
@@ -147,6 +149,12 @@ end
 include_app = selected.include?(nil)
 engines = selected.compact.uniq
 
-puts "app" if include_app
-engines.sort.each { |engine| puts "engine:#{engine}" }
+if options[:format] == "github"
+  puts "mode=#{narrowed ? 'narrow' : 'all'}"
+  puts "app=#{narrowed ? false : include_app}"
+  puts "engines=#{narrowed ? '' : engines.sort.join(',')}"
+else
+  puts "app" if include_app
+  engines.sort.each { |engine| puts "engine:#{engine}" }
+end
 warn "affected: checked #{paths.length} paths; selected app=#{include_app} engines=#{engines.join(',')}"
