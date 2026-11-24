@@ -37,7 +37,7 @@ cases.each do |test_case|
     file.close
     output, status = Open3.capture2e(
       RbConfig.ruby, File.join(root, "script", "ci", "affected"),
-      "--root", fixture, "--paths", file.path
+      "--root", fixture, "--paths", file.path, *Array(test_case["args"])
     )
     actual = output.lines.map(&:strip).reject(&:empty?).reject { |line| line.start_with?("affected:") }
     expected = Array(test_case.fetch("expected"))

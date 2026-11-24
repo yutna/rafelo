@@ -29,3 +29,47 @@
     - engine:alpha
     - engine:beta
     - engine:gamma
+- name: an unchanged design_system API narrows to the design_system lane
+  args:
+    - --mode
+  paths:
+    - engines/design_system/app/frontend/button.tsx
+  expected:
+    - narrow
+- name: a design_system API change runs everything
+  args:
+    - --mode
+  paths:
+    - engines/design_system/api.d.ts
+  expected:
+    - all
+- name: a design_system change beside an app change runs everything
+  args:
+    - --mode
+  paths:
+    - engines/design_system/app/frontend/button.tsx
+    - app/controllers/home_controller.rb
+  expected:
+    - all
+- name: a design_system change beside documentation still narrows
+  args:
+    - --mode
+  paths:
+    - engines/design_system/app/frontend/button.tsx
+    - docs/architecture/00_README.md
+  expected:
+    - narrow
+- name: a documentation-only change does not narrow the RSpec lane
+  args:
+    - --mode
+  paths:
+    - docs/architecture/00_README.md
+  expected:
+    - all
+- name: an engine change does not narrow the RSpec lane
+  args:
+    - --mode
+  paths:
+    - engines/alpha/app/models/alpha.rb
+  expected:
+    - all

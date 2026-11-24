@@ -4,14 +4,15 @@
 require "optparse"
 require "yaml"
 
-options = { root: Dir.pwd, base: nil, paths: nil, all: false }
+options = { root: Dir.pwd, base: nil, paths: nil, all: false, mode: false }
 
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/affected [--root DIR] [--base REV] [--paths FILE] [--all]"
+  parser.banner = "Usage: script/ci/affected [--root DIR] [--base REV] [--paths FILE] [--all] [--mode]"
   parser.on("--root DIR") { |value| options[:root] = value }
   parser.on("--base REV") { |value| options[:base] = value }
   parser.on("--paths FILE") { |value| options[:paths] = value }
   parser.on("--all") { options[:all] = true }
+  parser.on("--mode") { options[:mode] = true }
 end.parse!
 
 ROOT = File.expand_path(options[:root])
@@ -27,7 +28,7 @@ GLOBAL_INPUTS = %w[
   config/ci.rb config/errors.yml config/budgets.yml config/ratchets.yml config/locales.yml
   config/upstreams.yml config/permission_mapping.yml config/contracts/_shared.json
   bin/ db/ spec/enforcement/ spec/fixtures/formats/ spec/fixtures/hostile_urls.json
-  .devcontainer/ .devcontainer/image_digest .github/ script/ tsconfig.base.json engines/core/ engines/design_system/
+  .devcontainer/ .devcontainer/image_digest .github/ script/ tsconfig.base.json engines/core/
 ].freeze
 
 APP_ONLY = %w[app/ e2e/ spec/ config/locales/ config/contracts/].freeze
@@ -78,6 +79,10 @@ def with_transitive_dependents(graph, names)
 end
 
 def classify(path)
+  # FE-21: design_system is a global input, but an unchanged committed API
+  # file narrows the run to design_system's tests and the modules' Vitest.
+  return :global if path == "engines/design_system/api.d.ts"
+  return :design_system if path.start_with?("engines/design_system/")
   return :global if GLOBAL_INPUTS.any? { |prefix| path == prefix || path.start_with?(prefix) }
   return :derived if DERIVED.include?(path)
   return :engine_free if ENGINE_FREE.any? { |prefix| path == prefix || path.start_with?(prefix) }
@@ -97,6 +102,14 @@ paths =
     paths_from_git(ROOT, base)
   end
 
+if options[:mode]
+  kinds = paths.map { |path| classify(path) }
+  narrowed = kinds.include?(:design_system) &&
+    kinds.all? { |kind| %i[design_system engine_free derived].include?(kind) }
+  puts(narrowed ? "narrow" : "all")
+  exit
+end
+
 abort "affected: no changed paths" if paths.empty?
 
 engines = all_engines(ROOT)
@@ -106,6 +119,8 @@ mode = :app
 paths.each do |path|
   case classify(path)
   when :global
+    mode = :all
+  when :design_system
     mode = :all
   when :unknown
     mode = :all
