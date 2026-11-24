@@ -623,14 +623,15 @@ module KernelUpdate
         return
       end
 
-      if base.nil? || target.nil? || local.nil?
-        write_conflict(local_path, local, target)
+      if binary?(local) || binary?(base) || binary?(target)
+        FileUtils.mkdir_p(File.dirname(local_path))
+        File.write("#{local_path}.conflict", "resolve this binary conflict by hand\n")
         results << Result.new(relative: relative, status: "conflict", conflict: true)
         return
       end
 
-      if binary?(local) || binary?(base) || binary?(target)
-        File.write("#{local_path}.conflict", "resolve this binary conflict by hand\n")
+      if base.nil? || target.nil? || local.nil?
+        write_conflict(local_path, local, target)
         results << Result.new(relative: relative, status: "conflict", conflict: true)
         return
       end
@@ -848,8 +849,7 @@ module KernelUpdate
       end
 
       if update.conflicts?
-        includes = @options[:includes].flat_map { |folder| [ "--include", folder ] }
-        warn "kernel_update: conflicts remain; resolve them, then run bin/kernel_update #{@version} --continue #{includes.join(' ')}".strip
+        warn "kernel_update: conflicts remain; resolve them, then run bin/kernel_update #{@version} --continue"
         return 1
       end
 
