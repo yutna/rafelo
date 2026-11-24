@@ -13,25 +13,22 @@ module Rafelo
     module GrantCatalog
       module_function
 
-      # Rebuilds the generated keys from every manifest and keeps the grants the
-      # app owns itself. The catalog records which keys came from a manifest in
-      # "generated", so a removed or renamed permission cannot leave a stale
-      # grant behind. A catalog written before the marker existed is treated as
-      # all fixture; the first sync records the marker without dropping a key.
+      # Rebuilds the keys of every prefix a manifest declares, so a removed or
+      # renamed permission cannot leave a stale grant. Grants under any other
+      # prefix belong to the app (kernel fixtures, synthetic test keys) and are
+      # kept untouched.
       def sync(root)
         root = Pathname(root)
         path = root.join("config/grants.json")
         return unless path.file?
 
-        catalog = JSON.parse(path.read)
-        grants = Array(catalog.fetch("grants"))
-        generated_before = Array(catalog["generated"])
-        fixture = grants - generated_before
+        grants = JSON.parse(path.read).fetch("grants")
         generated = manifest_keys(root).uniq.sort
-        rebuilt = (fixture + generated).uniq.sort
-        return if rebuilt == grants && generated == generated_before
+        owned = generated.map { |key| key.split(":").first }.uniq
+        rebuilt = (grants.reject { |grant| owned.include?(grant.split(":").first) } + generated).uniq.sort
+        return if rebuilt == grants
 
-        path.write(JSON.pretty_generate("grants" => rebuilt, "generated" => generated) + "\n")
+        path.write(JSON.pretty_generate("grants" => rebuilt) + "\n")
       end
 
       def manifest_keys(root)
