@@ -17,6 +17,24 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("AFFECTED_ENGINES: ${{ needs.affected.outputs.engines }}")
       end
 
+      it "prepares the test database before either RSpec lane" do
+        jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
+        steps = jobs.fetch("test").fetch("steps")
+        names = steps.map { |step| step["name"] }
+        prepare = steps.find { |step| step["name"] == "Prepare the test database" }
+
+        expect(prepare).not_to be_nil
+        expect(prepare.fetch("if")).to eq(
+          "needs.affected.outputs.app == 'true' || needs.affected.outputs.engines != ''"
+        )
+        expect(prepare.fetch("run")).to include("bin/rails db:prepare")
+        expect(prepare.fetch("env")).to include(
+          "RAILS_ENV" => "test", "DB_HOST" => "postgres"
+        )
+        expect(names.index("Prepare the test database")).to be < names.index("Run tests")
+        expect(names.index("Prepare the test database")).to be < names.index("Run engine specs")
+      end
+
       it "consumes the design_system narrowing and app e2e projects" do
         expect(workflow).to include("AFFECTED_MODE: ${{ needs.affected.outputs.mode }}")
         expect(workflow).to include("shell: bash")
