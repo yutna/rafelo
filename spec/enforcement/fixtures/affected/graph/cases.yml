@@ -113,3 +113,29 @@
     - mode=all
     - app=false
     - engines=
+- name: a lockfile-only change selects the reduced lane
+  args:
+    - --mode
+  paths:
+    - Gemfile.lock
+    - package-lock.json
+  expected:
+    - lockfile
+- name: a lockfile change beside a source change runs everything
+  args:
+    - --mode
+  paths:
+    - Gemfile.lock
+    - app/controllers/home_controller.rb
+  expected:
+    - all
+- name: the github format names the lockfile lane and clears the test lanes
+  args:
+    - --format
+    - github
+  paths:
+    - Gemfile.lock
+  expected:
+    - mode=lockfile
+    - app=false
+    - engines=

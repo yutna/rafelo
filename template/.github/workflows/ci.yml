@@ -69,6 +69,67 @@ jobs:
           script/ci/affected --base "$BASE_SHA"
           script/ci/affected --format github --base "$BASE_SHA" >> "$GITHUB_OUTPUT"
 
+  lockfile:
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+    needs: [image, affected]
+    if: needs.affected.outputs.mode == 'lockfile'
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      options: --user root
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.6@sha256:e3d24f6906d0760bf4da0dae872415391ededefad23fd471c47dc53b0ddf3c42
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Install gems
+        run: bundle check || bundle install
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Audit gems
+        run: bin/bundler-audit
+
+      - name: Audit npm packages
+        run: script/ci/npm_audit
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Prepare database
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bin/rails db:prepare
+
+      - name: Run the app smoke suite
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: script/ci/e2e --project app
+
   actionlint:
     defaults:
       run:
@@ -196,6 +257,7 @@ jobs:
       run:
         working-directory: ${{ github.workspace }}
     needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -393,7 +455,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -434,6 +497,7 @@ jobs:
       run:
         working-directory: ${{ github.workspace }}
     needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -506,7 +570,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -548,7 +613,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -594,8 +660,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: [image, production-image-needed]
-    if: needs.production-image-needed.outputs.run == 'true'
+    needs: [image, affected, production-image-needed]
+    if: needs.affected.outputs.mode != 'lockfile' && needs.production-image-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -632,7 +698,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -678,8 +745,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: [image, smoke-needed]
-    if: needs.smoke-needed.outputs.run == 'true'
+    needs: [image, affected, smoke-needed]
+    if: needs.affected.outputs.mode != 'lockfile' && needs.smoke-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -723,7 +790,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
+    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -800,6 +868,7 @@ jobs:
       [
         image,
         affected,
+        lockfile,
         actionlint,
         scan_ruby,
         scan_js,
