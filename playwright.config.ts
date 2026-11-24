@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-import { engineE2eProjects } from "./config/playwright_projects.mts";
+import { engineE2eProjects } from "./script/ci/playwright_projects.mts";
 
 const sessionHeaders: Record<string, string> = {};
 if (process.env.E2E_SESSION_COOKIE) {

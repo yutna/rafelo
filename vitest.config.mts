@@ -41,7 +41,7 @@ export default defineConfig({
         test: {
           name: "app:node",
           environment: "node",
-          include: ["app/frontend/**/*.test.ts", "config/**/*.test.ts"],
+          include: ["app/frontend/**/*.test.ts", "script/**/*.test.ts"],
           exclude: ["app/frontend/**/hooks/**/*.test.ts"],
         },
       },

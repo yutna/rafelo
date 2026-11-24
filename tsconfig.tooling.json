@@ -18,8 +18,6 @@
     "vitest.setup.ts",
     "config/frontend_aliases.mts",
     "config/frontend_react.mts",
-    "config/playwright_projects.mts",
-    "config/playwright_projects.test.ts",
     "engines/*/vitest.config.mts"
   ],
   "references": [
