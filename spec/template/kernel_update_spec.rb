@@ -55,6 +55,38 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "renders docs placeholders without touching the kernel names" do
+    base = {
+      "docs/operations/backup-restore.md" =>
+        "# Ops\nUse Acme::Core and acme/core with ACME and acme.\nold command\n"
+    }
+    target = {
+      "docs/operations/backup-restore.md" =>
+        "# Ops\nUse Acme::Core and acme/core with ACME and acme.\nnew command\n"
+    }
+    local = {
+      "docs/operations/backup-restore.md" =>
+        "# Ops\nUse Rafelo::Core and rafelo/core with SMOKE_SHOP and smoke_shop.\nold command\n"
+    }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "docs/operations/backup-restore.md"))).to eq(
+            "# Ops\nUse Rafelo::Core and rafelo/core with SMOKE_SHOP and smoke_shop.\nnew command\n"
+          )
+        end
+      end
+    end
+  end
+
   it "keeps app-owned paths behind the --app-owned option" do
     expect(KernelUpdate::APP_OWNED_PATHS).to include(
       "app/frontend", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
@@ -747,6 +779,29 @@ RSpec.describe "bin/kernel_update" do
           _out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
           expect(status).to be_success, err
           expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
+  it "treats a multi-hunk conflict as a conflict, not an updater failure" do
+    base = { "config/errors.yml" => "one: 1\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 2\n" }
+    target = { "config/errors.yml" => "one: 5\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 6\n" }
+    local = { "config/errors.yml" => "one: 3\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 4\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status.exitstatus).to eq(1), err
+          expect(err).not_to include("git merge-file failed")
+          expect(File.read(File.join(app_root, "config/errors.yml")))
+            .to include("<<<<<<<", "one: 3", "one: 5", "two: 4", "two: 6")
         end
       end
     end
