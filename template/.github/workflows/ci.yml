@@ -63,15 +63,15 @@ jobs:
 
       - name: Select affected applications and engines
         id: select
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
             script/ci/affected --all
             script/ci/affected --all --format github >> "$GITHUB_OUTPUT"
           else
-            script/ci/affected --base "$BASE_SHA"
-            script/ci/affected --format github --base "$BASE_SHA" >> "$GITHUB_OUTPUT"
+            # The tested merge commit against its first parent (11_workflow.md):
+            # never the event's base.sha, which a stale branch makes too old.
+            script/ci/affected --base HEAD^1
+            script/ci/affected --format github --base HEAD^1 >> "$GITHUB_OUTPUT"
           fi
 
   lockfile:
@@ -318,7 +318,7 @@ jobs:
 
       - name: Check the release version
         env:
-          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: script/ci/release_check
 
       - name: Check frontend boundaries
@@ -634,7 +634,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false
@@ -719,7 +719,7 @@ jobs:
         id: decide
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'push' && github.event.before || 'HEAD^1' }}
         run: |
           set -euo pipefail
           run=false

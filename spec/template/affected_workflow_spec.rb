@@ -73,6 +73,20 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("script/ci/affected --all")
         expect(workflow).to include("script/ci/affected --all --format github >> \"$GITHUB_OUTPUT\"")
       end
+
+      # 11_workflow.md: the change set is read from the tested merge commit
+      # against its first parent, never the event's base.sha, which a stale
+      # branch makes too old for the release check.
+      it "reads the affected base from the tested merge commit's first parent" do
+        jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
+        select = jobs.fetch("affected").fetch("steps").find do |step|
+          step["run"].to_s.include?("script/ci/affected")
+        end
+
+        expect(select.fetch("run")).to include("script/ci/affected --base HEAD^1")
+        expect(select.fetch("run")).not_to include("BASE_SHA")
+        expect(select["env"]).to be_nil
+      end
     end
   end
 end
