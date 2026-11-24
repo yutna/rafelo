@@ -53,6 +53,48 @@ RSpec.describe "script/ci/adoption" do
     expect(script).to include("assert_template_commit_clean")
   end
 
+  # GEN-07: the documented command is the tested one. Read every document that
+  # shows it and compare its flags, in order, with what the adoption script
+  # runs, so a doc edit cannot drift away from the proof.
+  it "runs the flags and order the documents present" do
+    documented = %w[README.md docs/architecture/00_README.md docs/architecture/08_generators.md].map do |relative|
+      text = File.read(File.expand_path("../../#{relative}", __dir__))
+      match = text.match(/rails new \S+ ((?:-d \S+ |--\S+ )+)-m \S+/)
+      expect(match).not_to be_nil, "#{relative} has no rails new command with -m"
+      match[1].split.join(" ")
+    end
+
+    expect(documented.uniq.length).to eq(1), documented.inspect
+
+    adopt = script.match(/new "\$destination" \\\n\s*(.*?)-m "\$template"/m)
+    expect(adopt).not_to be_nil, "script/ci/adoption has no rails new call"
+    expect(adopt[1].gsub("\\\n", " ").split.join(" ")).to eq(documented.first)
+  end
+
+  it "fails when the template leaves a modified or untracked file" do
+    git_repository do |root|
+      write_and_commit(root, "README.md", "clean\n")
+      _out, err, status = run_template_commit_check(root)
+      expect(status).to be_success, err
+    end
+
+    git_repository do |root|
+      write_and_commit(root, "README.md", "clean\n")
+      File.write(File.join(root, "README.md"), "changed\n")
+      _out, err, status = run_template_commit_check(root)
+      expect(status).not_to be_success
+      expect(err).to include("rails new changed the template's initial commit")
+    end
+
+    git_repository do |root|
+      write_and_commit(root, "README.md", "clean\n")
+      File.write(File.join(root, "untracked.txt"), "left behind\n")
+      _out, err, status = run_template_commit_check(root)
+      expect(status).not_to be_success
+      expect(err).to include("untracked.txt")
+    end
+  end
+
   it "renders the refreshed examples with the app namespace" do
     expect(script).to include("RafeloTemplate.render_examples!")
     expect(script).not_to include('cp -R "$current_src/engines/$example"')
@@ -95,6 +137,14 @@ RSpec.describe "script/ci/adoption" do
     Open3.capture3(
       env, "bash", "-c",
       'source "$ADOPTION_SCRIPT"; check_no_placeholder "$ADOPTION_APP" "$ADOPTION_SCOPE"'
+    )
+  end
+
+  def run_template_commit_check(root)
+    Open3.capture3(
+      { "ADOPTION_SCRIPT" => path, "ADOPTION_APP" => root },
+      "bash", "-c",
+      'source "$ADOPTION_SCRIPT"; assert_template_commit_clean "$ADOPTION_APP"'
     )
   end
 
