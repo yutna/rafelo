@@ -41,10 +41,12 @@ checks (GEN-07). The tested path is:
 3. Open `my-app` in its Dev Container, then run `bin/setup --skip-server` and
    `bin/ci`. The untouched template is green.
 4. Give the AI agent its own GitHub identity (a machine user or GitHub App)
-   with write access, never a person's account, and set the adopted app's
-   `RATCHET_TOKEN` secret for the scheduled ratchet job. A pull request opened
-   with the workflow's `GITHUB_TOKEN` starts no CI, so its required checks never
-   report (WF-03; `docs/architecture/09_enforcement.md`, Ratchets).
+   with write access, never a person's account. For the scheduled ratchet job,
+   set the adopted app's `RATCHET_TOKEN` secret to a GitHub App or a fine-grained
+   token limited to the repository with contents and pull-request write: a pull
+   request opened with the workflow's `GITHUB_TOKEN` starts no CI, so its
+   required checks never report (WF-03;
+   `docs/architecture/09_enforcement.md`, Ratchets).
 5. Read [docs/customization.md](docs/customization.md) before the first commit:
    the application name, credentials, deployment settings and community files
    are all meant to be replaced.

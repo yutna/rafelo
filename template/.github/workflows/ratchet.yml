@@ -41,8 +41,9 @@ jobs:
         run: script/ci/ratchet --update
 
       # A pull request opened with the workflow GITHUB_TOKEN does not start CI.
-      # Set RATCHET_TOKEN to a GitHub App or personal-access token so the
-      # required checks run on the lowering pull request.
+      # Set RATCHET_TOKEN to a GitHub App or a fine-grained token limited to
+      # this repository with contents and pull-request write, so the required
+      # checks run on the lowering pull request.
       - name: Open a lowering pull request
         env:
           GH_TOKEN: ${{ secrets.RATCHET_TOKEN || secrets.GITHUB_TOKEN }}
