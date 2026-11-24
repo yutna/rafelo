@@ -77,7 +77,6 @@ the diff before committing: upstream may add, remove or rename skills.
 Then update:
 
 - the version and commit in this file
-- the version and commit in [AGENTS.md](../AGENTS.md)
 - the version and commit in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)
 
 ## Validation
@@ -86,13 +85,15 @@ From the repository root:
 
 ```sh
 find .opencode/skills -name SKILL.md | wc -l
+find .opencode/skills -maxdepth 1 -type d -name 'oo-*' | wc -l
 opencode debug config
 bin/ci
 ```
 
-The skill count should be 49 for this snapshot. To confirm that OpenCode sees
-them, start OpenCode in this repository and type `@oo-design`; the mention
-picker should list it together with the other `oo-*` skills.
+The pack count should be 49 for this snapshot; the total also includes the
+project task skills (58 at v0.41.0). To confirm that OpenCode sees them, start
+OpenCode in this repository and type `@oo-design`; the mention picker should
+list it together with the other `oo-*` skills.
 
 If a skill does not appear:
 

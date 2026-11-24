@@ -28,9 +28,12 @@ bin/rails generate rafelo:domain <name>
 ```
 
 The generator writes the engine, guide, `package.yml`, locale files, public
-surface, frontend directories, and specs, and regenerates the graph, aliases,
-contracts, and catalogs. A product module also gets routes, the registry entry,
-permissions, errors, budgets, ratchets, its contract folder, and `db/migrate/`.
+surface, frontend directories, specs, `config/errors.yml`,
+`config/ratchets.yml`, its contract folder, `db/migrate/`, and `e2e/`, and
+regenerates the graph, aliases, contracts, and catalogs. A product module also
+gets routes, the registry entry, permissions, budgets, and navigation; a domain
+engine keeps the errors, ratchets, contracts, migrations, specs, and e2e
+directory it needs for its public surface.
 
 ## Fill in
 
@@ -42,13 +45,13 @@ permissions, errors, budgets, ratchets, its contract folder, and `db/migrate/`.
   engines.
 - `engines/<name>/AGENTS.md`: the engine's kind, allowed dependencies, public
   surface, and what is special about it.
-- A product module's `engines/<name>/config/locales/*.yml`,
-  `engines/<name>/config/permissions.yml`,
+- Both kinds keep `engines/<name>/config/locales/*.yml`,
   `engines/<name>/config/errors.yml`,
-  `engines/<name>/config/budgets.yml`,
-  `engines/<name>/config/ratchets.yml`, and `engines/<name>/db/migrate/`; a
-  domain engine keeps the locale copy it exposes and adds only the config files
-  it needs.
+  `engines/<name>/config/ratchets.yml`, `engines/<name>/db/migrate/`,
+  `engines/<name>/spec/`, and `engines/<name>/e2e/`. A product module also owns
+  `engines/<name>/config/permissions.yml` and
+  `engines/<name>/config/budgets.yml`; a domain engine keeps only the config
+  files its public surface needs.
 - The public Ruby and TypeScript files under `engines/<name>/app/public/` and
   `engines/<name>/app/frontend/public/`; never copy code from another engine.
 - The smoke/request specs and any upstream fixture the module needs.
@@ -65,7 +68,8 @@ BE-03; BE-10; CT-08; WF-06.
 - `script/ci/engine_graph --check`
 - `npm run aliases:check`
 - `script/ci/generator_smoke` after every change to a generator or its
-  templates, never only `bin/check`
+  templates, never only `bin/check`; it refuses a dirty tree, so commit or
+  stash first
 - `bin/ci`
 
 ## Design skills

@@ -17,7 +17,7 @@ description: Use whenever the user asks for a change to the app in plain words; 
 ## 2. Plan
 
 - Split the request into deliverable outcomes (WF-01); open one issue per
-  outcome.
+  outcome. A small chore may need no issue (WF-01).
 - Pick the task skills each outcome needs: `add-read-page`,
   `add-write-action`, `add-module`, `expose-public-interface`,
   `add-design-system-component`, `add-copy`; use `migrate-a-feature` in a
@@ -30,7 +30,8 @@ description: Use whenever the user asks for a change to the app in plain words; 
 
 One issue at a time (WF-02):
 
-1. Branch and open a draft pull request with `Closes #<issue>`.
+1. Branch and open a draft pull request with `Closes #<issue>`; work under
+   your own GitHub identity, never a person's account (WF-03, 14).
 2. Start from the generator the task skill names; never hand-write what a
    generator writes.
 3. Write the test at the cheapest useful level first, then fill the slice.
@@ -46,7 +47,7 @@ One issue at a time (WF-02):
 - One that needs a person: keep it open and list the decisions at the top of
   its description, prepared but not decided (ADR-32):
   - a guard-file change;
-  - a budget, ratchet, or baseline raise;
+  - a budget, ratchet, or baseline raise (including a visual baseline, TS-11);
   - an ADR (a framework-level library needs one, WF-06);
   - a change to an AI instruction file;
   - a real secret (BE-08).

@@ -22,15 +22,17 @@ description: Use when adding or changing a reusable design_system component, its
 - Export it from `engines/design_system/app/frontend/index.ts` and the public
   surface in `engines/design_system/app/frontend/public/index.ts`; regenerate
   the committed `engines/design_system/api.d.ts` with `npm run api:generate`.
-- Add the component to the catalog in
-  `app/frontend/screens/component_catalog/component_catalog_screen.tsx` with a
-  test id, so the screenshot covers it.
+- Add the component to the catalog container in
+  `app/frontend/containers/component_catalog/component_catalog_container.tsx`
+  (or `primitives_container.tsx` for a primitive) with a test id, so the
+  screenshot covers it; the screen only renders the container (FE-01).
 - Use only design_system controls and wrappers; no raw `<button>`, `<input>`,
   `<select>`, or `<textarea>` in a page.
 - Add the component test with role/accessible-name or test-id selectors, and
   update the committed baselines under
   `engines/design_system/e2e/catalog.spec.ts-snapshots/` with
-  `npm run e2e:update`.
+  `npm run e2e:update`; commit the new image in the same pull request and list
+  it for a person's review (TS-11).
 - Add copy in every configured locale; keep the design_system i18n namespace.
 - Keep ECharts and TanStack Table behind the design_system wrappers.
 
