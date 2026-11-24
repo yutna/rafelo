@@ -64,8 +64,13 @@ jobs:
       - name: Select affected applications and engines
         id: select
         run: |
-          script/ci/affected --base HEAD^1
-          script/ci/affected --format github --base HEAD^1 >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            script/ci/affected --all
+            script/ci/affected --all --format github >> "$GITHUB_OUTPUT"
+          else
+            script/ci/affected --base HEAD^1
+            script/ci/affected --format github --base HEAD^1 >> "$GITHUB_OUTPUT"
+          fi
 
   lockfile:
     defaults:
