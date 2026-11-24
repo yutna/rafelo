@@ -19,6 +19,29 @@ RSpec.describe "bin/kernel_update" do
     )
   end
 
+  # GEN-07: the updater reads the same payload as the template renderer. A
+  # local --source tree carries generated and ignored paths the template never
+  # copies; they must not count as shipped kernel files.
+  it "does not treat ignored build paths as shipped" do
+    Dir.mktmpdir("rafelo-kernel-") do |root|
+      write_release(root, version: "0.2.0", files: {
+        "engines/core/app/models/real.rb" => "real\n",
+        "engines/core/tmp/scratch.rb" => "scratch\n",
+        "engines/core/node_modules/pkg/index.js" => "ignored\n",
+        "engines/core/public/vite/app.js" => "built\n",
+        "engines/core/log/development.log" => "log\n"
+      })
+
+      release = KernelUpdate::Release.new(version: "0.2.0", source: root, workspace: root)
+
+      expect(release.shipped?("engines/core/app/models/real.rb")).to be(true)
+      expect(release.shipped?("engines/core/tmp/scratch.rb")).to be(false)
+      expect(release.shipped?("engines/core/node_modules/pkg/index.js")).to be(false)
+      expect(release.shipped?("engines/core/public/vite/app.js")).to be(false)
+      expect(release.shipped?("engines/core/log/development.log")).to be(false)
+    end
+  end
+
   it "refreshes the core controllers, the deploy secrets example, and the operations docs" do
     base = {
       "app/controllers/core/metrics_controller.rb" => "module Rafelo::Core\n  class MetricsController\n  end\nend\n",

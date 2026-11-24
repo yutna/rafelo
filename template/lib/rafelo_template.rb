@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "yaml"
+require_relative "../../script/ci/payload_paths"
 
 # The application template's name rules, payload renderer and initial commit.
 # Kept in a plain object so the Rails template and its specs share one
@@ -33,22 +34,9 @@ module RafeloTemplate
     --skip-test
   ].freeze
 
-  # Directories and files that never belong to an adopted app.
-  DEFAULT_EXCLUDES = %w[
-    .git
-    .bundle
-    node_modules
-    tmp
-    log
-    storage
-    test-results
-    playwright-report
-    blob-report
-    coverage
-    public/vite
-    public/vite-dev
-    public/vite-test
-  ].freeze
+  # Directories and files that never belong to an adopted app. The predicate is
+  # shared with `script/ci/kernel_update` so the copy and update walks agree.
+  DEFAULT_EXCLUDES = Rafelo::PayloadPaths::DEFAULT_EXCLUDES
 
   module_function
 
@@ -258,11 +246,7 @@ module RafeloTemplate
   end
 
   def excluded?(relative, excludes)
-    components = relative.split(File::SEPARATOR)
-    return true if (components & DEFAULT_EXCLUDES).any?
-    return true if DEFAULT_EXCLUDES.any? { |exclude| relative.start_with?("#{exclude}/") }
-
-    excludes.any? { |pattern| File.fnmatch?(pattern, relative, File::FNM_PATHNAME | File::FNM_DOTMATCH) }
+    Rafelo::PayloadPaths.excluded?(relative, excludes)
   end
 
   def write_file(source, target, mode, app_name, namespace)
