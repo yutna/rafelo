@@ -817,3 +817,29 @@ request body as a guard change.
 
 **Spec feedback.** None; the protocol already covers it. Related IDs: GEN-02,
 GEN-07, TS-07; protocol §11 points 1 and 3.
+
+## 2026-11-24 — supervisor cron isolation — owner request
+
+**What happened.** The supervisor keepalive cron disappeared twice
+(2026-11-23 and 2026-11-24) while the tmux session stayed alive. Each time a
+test or maintenance command was run with a temporary `SUPERVISOR_STATE`; the
+old `stop.sh` and `install.sh` removed every `# rafelo-supervisor` line and
+used the fixed `rafelo-supervisor` session/title, so they removed or killed
+the real supervisor's entries. The report cron survived because it uses a
+different marker.
+
+**Root cause.** Cron and tmux identity were global, not derived from the
+state. A temporary state had no isolated identity.
+
+**What changed.** `docs/development/supervisor/state.sh` derives the default
+state, a per-state session, and a per-state title. `stop.sh`, `install.sh`,
+`ensure.sh`, `report.sh`, `supervisor.sh`, and `final_audit.sh` source it.
+Cron filtering removes only the target state's lines; a line without
+`SUPERVISOR_STATE` belongs to the default state. The report cron runs
+`ensure.sh` as an hourly keepalive and refuses to post for a non-default state
+without an explicit `RAFELO_REPORT_ISSUE`. The canary now covers a temporary
+`stop.sh` leaving the default cron intact (53 cases).
+
+**Spec feedback.** This is repository tooling, not a rule change. The
+observable lesson is that every test hook must use the same state/session/title
+boundary as production; a fixed global name is not a boundary.
