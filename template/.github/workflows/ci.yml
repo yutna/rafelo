@@ -619,7 +619,6 @@ jobs:
       run:
         working-directory: ${{ github.workspace }}
     needs: [image, affected]
-    if: needs.affected.outputs.mode != 'lockfile'
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -666,7 +665,7 @@ jobs:
       run:
         working-directory: ${{ github.workspace }}
     needs: [image, affected, production-image-needed]
-    if: needs.affected.outputs.mode != 'lockfile' && needs.production-image-needed.outputs.run == 'true'
+    if: needs.production-image-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
