@@ -274,6 +274,22 @@ try {
     }).findings,
     /no front matter/,
   );
+
+  skill(
+    "unlisted",
+    "---\nname: unlisted\ndescription: Use when checking a skill.\n---\n\n# Unlisted\n",
+  );
+  expectFinding(
+    "unlisted skill",
+    aiFiles(aiRoot, config).findings,
+    /skill is not listed in ai_instruction_files/,
+  );
+  for (const directory of ["unlisted", "bad", "nodesc", "nofront"]) {
+    rmSync(join(aiRoot, ".opencode", "skills", directory), { recursive: true, force: true });
+  }
+
+  skill("oo-pack", "---\nname: oo-pack\ndescription: Use when checking a skill.\n---\n\n# Pack\n");
+  expectNone("unlisted pack skill", aiFiles(aiRoot, config).findings);
 } finally {
   rmSync(aiRoot, { recursive: true, force: true });
 }
