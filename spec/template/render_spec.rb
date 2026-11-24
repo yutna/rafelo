@@ -247,22 +247,29 @@ RSpec.describe RafeloTemplate, "payload rendering" do
   end
 
   describe ".render_examples!" do
-    it "refreshes only the example engines in the app namespace" do
-      if Dir.exist?(File.join(source_root, "engines", "example_orders"))
-        Dir.mktmpdir("rafelo-template-examples-") do |destination|
-          written = described_class.render_examples!(
-            source_root: source_root,
-            destination: destination,
-            app_name: "smoke_shop",
-            version: version
-          )
+    it "ships the example engines the E1 proof renders" do
+      # The template repository always carries the examples; their removable
+      # behaviour after adoption is proved by script/ci/example_removal.
+      %w[example_customers example_orders].each do |example|
+        expect(Dir).to exist(File.join(source_root, "engines", example)),
+                         "#{example} is a template fixture; a missing example is not a passing proof"
+      end
+    end
 
-          expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
-          expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
-          expect(File).not_to exist(File.join(destination, "config", "application.rb"))
-          expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
-            .to include("SmokeShop::ExampleOrders::Engine")
-        end
+    it "refreshes only the example engines in the app namespace" do
+      Dir.mktmpdir("rafelo-template-examples-") do |destination|
+        written = described_class.render_examples!(
+          source_root: source_root,
+          destination: destination,
+          app_name: "smoke_shop",
+          version: version
+        )
+
+        expect(written).to include("engines/example_orders/lib/smoke_shop/example_orders/engine.rb")
+        expect(written).to include("engines/example_customers/app/public/smoke_shop/example_customers/customer.rb")
+        expect(File).not_to exist(File.join(destination, "config", "application.rb"))
+        expect(File.read(File.join(destination, "engines", "example_orders", "config", "module.rb")))
+          .to include("SmokeShop::ExampleOrders::Engine")
       end
     end
   end
