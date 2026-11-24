@@ -330,6 +330,15 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Prepare the test database
+        if: needs.affected.outputs.app == 'true' || needs.affected.outputs.engines != ''
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bin/rails db:prepare
+
       - name: Run tests
         if: needs.affected.outputs.app == 'true'
         env:
