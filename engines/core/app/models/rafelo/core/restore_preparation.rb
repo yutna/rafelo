@@ -56,7 +56,7 @@ module Rafelo
         row = connection.exec(<<~SQL).first
           SELECT current_database() AS database,
                  (SELECT oid FROM pg_database WHERE datname = current_database()) AS database_oid,
-                 pg_postmaster_start_time()::text AS started_at
+                 extract(epoch from pg_postmaster_start_time())::text AS started_at
         SQL
         {
           database: row.fetch("database"),
@@ -69,7 +69,7 @@ module Rafelo
         row = ActiveRecord::Base.connection.select_one(<<~SQL)
           SELECT current_database() AS database,
                  (SELECT oid FROM pg_database WHERE datname = current_database()) AS database_oid,
-                 pg_postmaster_start_time()::text AS started_at
+                 extract(epoch from pg_postmaster_start_time())::text AS started_at
         SQL
         {
           database: row.fetch("database"),
