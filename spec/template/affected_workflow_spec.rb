@@ -41,6 +41,9 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("args=(--project design_system)")
         expect(workflow).to include('args=(--project app)')
         expect(workflow).to include('args+=(--project "$name")')
+        expect(workflow).to include(
+          %q(if find "engines/$name/e2e" -type f -name '*.spec.ts' -print -quit | grep -q .; then)
+        )
         expect(workflow).to include('script/ci/e2e "${args[@]}"')
       end
 
