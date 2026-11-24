@@ -831,6 +831,37 @@ RSpec.describe "bin/kernel_update" do
   end
 
 
+  it "writes a sidecar for binary add/add and delete/modify conflicts" do
+    cases = [
+      [ { "config/errors.yml" => "max: 1\n" },
+        { "config/errors.yml" => "max: 1\n", "config/budgets.yml" => "PNG\x00target" },
+        { "config/errors.yml" => "max: 1\n", "config/budgets.yml" => "PNG\x00local" } ],
+      [ { "config/budgets.yml" => "PNG\x00base" },
+        {},
+        { "config/budgets.yml" => "PNG\x00local" } ]
+    ]
+
+    cases.each do |base, target, local|
+      Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+        Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+          Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+            write_release(base_root, version: "0.1.0", files: base)
+            write_release(target_root, version: "0.2.0", files: target)
+            write_app(app_root, version: "0.1.0", files: local)
+
+            _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+            expect(status.exitstatus).to eq(1)
+            expect(err).to include("--continue")
+            expect(err).not_to include("--include")
+            expect(File.exist?(File.join(app_root, "config/budgets.yml.conflict"))).to be(true), base.inspect
+            expect(File.read(File.join(app_root, "config/budgets.yml"))).not_to include("<<<<<<<") if local.key?("config/budgets.yml")
+          end
+        end
+      end
+    end
+  end
+
   it "finds an included design_system conflict on --continue without repeating --include" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
