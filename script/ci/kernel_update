@@ -713,9 +713,15 @@ module KernelUpdate
         File.binwrite(target_path, target)
 
         output, status = Open3.capture2("git", "merge-file", "-p", "--diff3", local_path, base_path, target_path)
-        raise Error, "git merge-file failed for #{relative || 'a kernel file'}" if status.exitstatus > 1
+        # git merge-file exits with the number of conflicts (truncated to 127),
+        # not 1. More than 127 means an error, and a signalled process has no
+        # exit status at all.
+        exitstatus = status.exitstatus
+        if exitstatus.nil? || exitstatus > 127
+          raise Error, "git merge-file failed for #{relative || 'a kernel file'}"
+        end
 
-        [ output, status.exitstatus == 1 ]
+        [ output, exitstatus.positive? ]
       end
     end
 

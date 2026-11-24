@@ -752,6 +752,29 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  it "treats a multi-hunk conflict as a conflict, not an updater failure" do
+    base = { "config/errors.yml" => "one: 1\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 2\n" }
+    target = { "config/errors.yml" => "one: 5\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 6\n" }
+    local = { "config/errors.yml" => "one: 3\nkeep1: 1\nkeep2: 1\nkeep3: 1\ntwo: 4\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status.exitstatus).to eq(1), err
+          expect(err).not_to include("git merge-file failed")
+          expect(File.read(File.join(app_root, "config/errors.yml")))
+            .to include("<<<<<<<", "one: 3", "one: 5", "two: 4", "two: 6")
+        end
+      end
+    end
+  end
+
   it "marks a delete/modify conflict and refuses --continue until the person decides" do
     Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
       Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
