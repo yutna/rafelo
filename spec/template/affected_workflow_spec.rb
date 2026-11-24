@@ -34,6 +34,17 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("if: needs.affected.outputs.mode != 'lockfile'")
       end
 
+      it "leaves page matcher coverage to the full gate" do
+        jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
+        test_steps = jobs.fetch("test").fetch("steps")
+        expect(test_steps.map { |step| step["run"].to_s }).not_to include(
+          a_string_including("pages:check -- --matchers")
+        )
+        expect(File.read(Rails.root.join("config/ci.rb"))).to include(
+          "npm run pages:check -- --matchers"
+        )
+      end
+
       it "keeps the production image and adoption decisions outside the lockfile lane" do
         jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
         expect(jobs.fetch("production-image-needed")).not_to have_key("if")

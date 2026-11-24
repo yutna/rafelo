@@ -351,9 +351,6 @@ jobs:
           AFFECTED_ENGINES: ${{ needs.affected.outputs.engines }}
         run: script/ci/engine_specs
 
-      - name: Check page matcher coverage
-        run: npm run pages:check -- --matchers
-
   guards:
     defaults:
       run:
