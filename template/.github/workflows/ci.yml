@@ -646,7 +646,7 @@ jobs:
             if ! changed=$(git diff --name-only "$BASE_SHA" HEAD); then
               run=true
               reason="run: cannot read the change set"
-            elif echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
+            elif echo "$changed" | grep -Eq '^(Dockerfile|\.dockerignore|Gemfile|Gemfile\.lock|package(-lock)?\.json|.*\.gemspec|\.env\.ci\.production|config/credentials/dummy\.(key|yml\.enc))$'; then
               run=true
               reason="run: production image inputs changed"
             fi

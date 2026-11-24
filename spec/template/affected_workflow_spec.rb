@@ -45,6 +45,13 @@ RSpec.describe "affected selection in CI" do
         )
       end
 
+      it "rebuilds the production image for either lockfile" do
+        jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
+        decide = jobs.fetch("production-image-needed").fetch("steps").find { |step| step["id"] == "decide" }
+        expect(decide.fetch("run")).to include("Gemfile\\.lock")
+        expect(decide.fetch("run")).to include("package(-lock)?\\.json")
+      end
+
       it "keeps the production image and adoption decisions outside the lockfile lane" do
         jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
         expect(jobs.fetch("production-image-needed")).not_to have_key("if")
