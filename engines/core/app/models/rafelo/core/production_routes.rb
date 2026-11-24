@@ -129,7 +129,9 @@ module Rafelo
           return true if route.kind == "legacy_redirect"
           return false unless route.kind == "dispatch"
 
-          route.to.start_with?("#{engine_controller_prefix(engine)}/")
+          controller = route.to.to_s.split("#", 2).first
+          prefix = engine_controller_prefix(engine)
+          controller == prefix || controller.start_with?("#{prefix}/")
         end
 
         def engine_controller_prefix(engine)

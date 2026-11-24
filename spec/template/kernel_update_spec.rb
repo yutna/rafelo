@@ -13,8 +13,46 @@ RSpec.describe "bin/kernel_update" do
     expect(KernelUpdate::DEFAULT_PATHS).to include(
       "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
       ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
-      "script/contracts", "script/docs", "playwright.config.ts", "spec/core", "spec/upstream"
+      "script/contracts", "script/docs", "playwright.config.ts", "spec/core", "spec/upstream",
+      "app/controllers/core", ".kamal/secrets.example", "docs/deployment.md",
+      "docs/operations/audit.md", "docs/operations/backup-restore.md", "docs/operations/database-roles.md"
     )
+  end
+
+  it "refreshes the core controllers, the deploy secrets example, and the operations docs" do
+    base = {
+      "app/controllers/core/metrics_controller.rb" => "module Rafelo::Core\n  class MetricsController\n  end\nend\n",
+      ".kamal/secrets.example" => "RAILS_MASTER_KEY=$(cat config/master.key)\n",
+      "docs/deployment.md" => "First deploy: old order\n",
+      "docs/operations/audit.md" => "Old audit runbook\n",
+      "docs/operations/backup-restore.md" => "Old restore runbook\n",
+      "docs/operations/database-roles.md" => "Old role runbook\n"
+    }
+    target = {
+      "app/controllers/core/metrics_controller.rb" => "module Rafelo::Core\n  class MetricsController\n    def show = head(:ok)\n  end\nend\n",
+      ".kamal/secrets.example" => "RAILS_MASTER_KEY=$RAILS_MASTER_KEY\n",
+      "docs/deployment.md" => "First deploy: new order\n",
+      "docs/operations/audit.md" => "New audit runbook\n",
+      "docs/operations/backup-restore.md" => "New restore runbook\n",
+      "docs/operations/database-roles.md" => "New role runbook\n"
+    }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          target.each do |relative, content|
+            expect(File.read(File.join(app_root, relative))).to eq(content), relative
+          end
+        end
+      end
+    end
   end
 
   it "keeps app-owned paths behind the --app-owned option" do
@@ -108,6 +146,9 @@ RSpec.describe "bin/kernel_update" do
     File.write(File.join(root, "VERSION"), "#{version}\n")
     manifest = {
       "paths" => [
+        { "source" => "app", "mode" => "app" },
+        { "source" => ".kamal" },
+        { "source" => "docs", "mode" => "docs" },
         { "source" => "engines/core" },
         { "source" => "engines/design_system" },
         { "source" => "engines/example_orders" },
