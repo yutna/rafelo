@@ -367,6 +367,10 @@ module RafeloTemplate
         groups.last << line
       end
     end
+    groups.each do |group|
+      head, *dependencies = group
+      group.replace([ head, *dependencies.sort_by(&:strip) ])
+    end
     groups.sort_by! { |group| group.first.strip }
     lines[(specs + 1)...finish] = groups.flatten
   end
