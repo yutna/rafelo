@@ -664,11 +664,24 @@ module KernelUpdate
           .gsub(%r{\blib/rafelo/(?!(?:core|design_system|page|module|domain|base|move_page|rename_module)/)}, "lib/#{@slug}/")
           .gsub(%r{(engines/[a-z0-9_]+/)rafelo_([a-z0-9_]+)}, "\\1#{@slug}_\\2")
           .gsub(%r{\blib/rafelo_([a-z0-9_]+)\.rb}, "lib/#{@slug}_\\1.rb")
+      when "docs"
+        placeholders(restore_kernel_names(text))
       when "placeholder", "github"
         placeholders(text)
       else
         text
       end
+    end
+
+    # The documentation examples use the placeholder app, but kernel names in
+    # them stay `Rafelo` in every adopter. This mirrors the template's docs mode
+    # so an unchanged adopted doc compares equal to its base release.
+    def restore_kernel_names(text)
+      text
+        .gsub("#{APP_PLACEHOLDER}::Core", "Rafelo::Core")
+        .gsub("#{APP_PLACEHOLDER}::DesignSystem", "Rafelo::DesignSystem")
+        .gsub("#{APP_PLACEHOLDER.downcase}/core", "rafelo/core")
+        .gsub("#{APP_PLACEHOLDER.downcase}/design_system", "rafelo/design_system")
     end
 
     def placeholders(text)
