@@ -231,6 +231,29 @@ RSpec.describe Rafelo::Generators::PageGenerator do
     end
   end
 
+  it "adds a page's actions to the singular manifest resource" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      FileUtils.mkdir_p(root.join("engines/billing/config/locales"))
+      FileUtils.mkdir_p(root.join("engines/billing/config/contracts"))
+      File.write(root.join("engines/billing/config/routes.rb"), "Rafelo::Billing::Engine.routes.draw do\nend\n")
+      File.write(root.join("engines/billing/config/permissions.yml"), "billing:\n  invoice: [read, create]\n")
+      %w[en th].each { |loc| File.write(root.join("engines/billing/config/locales/#{loc}.yml"), "#{loc}:\n  billing: {}\n") }
+
+      generator_class.start([ "billing", "invoices", "--actions=index" ], destination_root: dir)
+
+      permissions = YAML.safe_load_file(root.join("engines/billing/config/permissions.yml"))
+      expect(permissions.dig("billing", "invoice")).to eq([ "read", "create" ])
+      expect(permissions.dig("billing", "invoices")).to be_nil
+
+      policy = root.join("engines/billing/app/policies/rafelo/billing/invoice_policy.rb").read
+      expect(policy).to include("INVOICE_READ")
+      expect(policy).not_to include("INVOICES_READ")
+      expect(root.join("engines/billing/spec/requests/invoices_spec.rb").read)
+        .to include('"billing:invoice:read"')
+    end
+  end
+
   it "keeps the stable permission prefix and registry path after a rename" do
     Dir.mktmpdir do |dir|
       root = Pathname(dir)
@@ -254,11 +277,11 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       permissions = YAML.safe_load_file(root.join("engines/invoicing/config/permissions.yml"))
       expect(permissions).to have_key("billing")
       expect(permissions).not_to have_key("invoicing")
-      expect(permissions.dig("billing", "widgets")).to eq([ "read", "create", "update" ])
+      expect(permissions.dig("billing", "widget")).to eq([ "read", "create", "update" ])
 
       request_spec = root.join("engines/invoicing/spec/requests/widgets_spec.rb").read
       expect(request_spec).to include("/\#{locale}/billing/widgets")
-      expect(request_spec).to include('"billing:widgets:read"')
+      expect(request_spec).to include('"billing:widget:read"')
       expect(request_spec).not_to include("/\#{locale}/invoicing/widgets")
       expect(root.join("engines/invoicing/app/controllers/rafelo/invoicing/widgets_controller.rb").read).to include(
         "route(:invoicing"
@@ -419,7 +442,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       expect(controller).to include("resource.conflict")
 
       index_schema = root.join("engines/billing/app/frontend/pages/widgets/index.schema.ts").read
-      expect(index_schema).to include('can: ["widgets.create"] as const')
+      expect(index_schema).to include('can: ["widget.create"] as const')
       expect(index_schema).not_to include("billing:widgets:create")
       expect(index_schema).not_to include("paginated: false")
       index_props = root.join("engines/billing/app/props/rafelo/billing/widgets_index_props.rb").read
@@ -427,7 +450,7 @@ RSpec.describe Rafelo::Generators::PageGenerator do
       fixture = JSON.parse(root.join("engines/billing/spec/fixtures/upstream/widgets/index.json").read)
       expect(fixture.fetch("items").length).to eq(Rafelo::Core::ListQuery.max_per_page)
       index_container = root.join("engines/billing/app/frontend/containers/widgets/index_container.tsx").read
-      expect(index_container).to include('can["widgets.create"]?.allowed')
+      expect(index_container).to include('can["widget.create"]?.allowed')
 
       request_spec = root.join("engines/billing/spec/requests/widgets_spec.rb").read
       expect(request_spec).to include("renders the index page contract at the maximum page size")

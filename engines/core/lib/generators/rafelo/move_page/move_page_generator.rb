@@ -322,17 +322,20 @@ module Rafelo
         src = YAML.safe_load(File.read(src_path), aliases: false) || {}
         tgt = YAML.safe_load(File.read(tgt_path), aliases: false) || {}
         src_prefix = source_permission_prefix
-        actions = src.dig(src_prefix, plural)
+        # v0.42 keys a page's permission by the singular resource; a page
+        # generated before that keeps its plural key and must move as it is.
+        resource = [ singular, plural ].find { |key| src.dig(src_prefix, key) }
+        actions = src.dig(src_prefix, resource)
         return unless actions
 
-        src[src_prefix].delete(plural)
+        src[src_prefix].delete(resource)
         # Keep permission keys stable by preserving the source prefix in the target manifest.
         tgt[src_prefix] ||= {}
-        tgt[src_prefix][plural] = actions
+        tgt[src_prefix][resource] = actions
         # The target's seed entry for the same resource is a placeholder, not a
         # route: keeping it would generate a duplicate constant for the key the
         # move just brought under the source prefix.
-        tgt[target_permission_prefix]&.delete(plural) unless target_permission_prefix == src_prefix
+        tgt[target_permission_prefix]&.delete(resource) unless target_permission_prefix == src_prefix
         File.write(src_path, YAML.dump(src))
         File.write(tgt_path, YAML.dump(tgt))
       end

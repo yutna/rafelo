@@ -437,4 +437,27 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       expect(File.read(root.join("engines/payments/config/routes.rb"))).to include("resources :widgets")
     end
   end
+  it "moves a page whose manifest keys the permission by the singular resource" do
+    Dir.mktmpdir do |dir|
+      root = Pathname(dir)
+      write_engine(root, "billing",
+        path: "/billing",
+        routes: "Rafelo::Billing::Engine.routes.draw do\n  resources :widgets\nend\n",
+        permissions: { "billing" => { "widget" => [ "read", "create", "update" ] } })
+      write_engine(root, "payments",
+        path: "/payments",
+        routes: "Rafelo::Payments::Engine.routes.draw do\nend\n",
+        permissions: { "payments" => {} })
+      FileUtils.mkdir_p(root.join("engines/billing/app/frontend/pages/widgets"))
+      File.write(root.join("engines/billing/app/frontend/pages/widgets/index.tsx"), 'export default "billing/widgets"')
+
+      described_class.start([ "billing", "payments", "widgets", "--skip-post-write" ], destination_root: dir)
+
+      src_perm = YAML.safe_load(File.read(root.join("engines/billing/config/permissions.yml")))
+      tgt_perm = YAML.safe_load(File.read(root.join("engines/payments/config/permissions.yml")))
+      expect(src_perm.dig("billing", "widget")).to be_nil
+      expect(tgt_perm.dig("billing", "widget")).to eq([ "read", "create", "update" ])
+      expect(tgt_perm.dig("billing", "widgets")).to be_nil
+    end
+  end
 end
