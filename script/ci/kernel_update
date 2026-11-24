@@ -10,6 +10,8 @@ require "set"
 require "tmpdir"
 require "yaml"
 
+require_relative "payload_paths"
+
 # Three-way merge of a new Rafelo kernel release into an adopted app (GEN-07,
 # ADR-27, ADR-28). Both releases are rendered with the adopter's namespace
 # before the merge; the kernel brand `Rafelo` stays in kernel-owned names.
@@ -233,11 +235,7 @@ module KernelUpdate
     end
 
     def excluded?(entry, relative)
-      Array(entry["exclude"]).any? do |pattern|
-        relative == pattern ||
-          relative.start_with?("#{pattern}/") ||
-          File.fnmatch?(pattern, relative, File::FNM_PATHNAME)
-      end
+      Rafelo::PayloadPaths.excluded?(relative, entry["exclude"])
     end
 
     def fallback_mode(relative)
