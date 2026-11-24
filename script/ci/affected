@@ -106,9 +106,11 @@ paths =
 kinds = paths.map { |path| classify(path) }
 narrowed = kinds.include?(:design_system) &&
   kinds.all? { |kind| %i[design_system engine_free derived].include?(kind) }
+lockfile_only = !paths.empty? && paths.all? { |path| %w[Gemfile.lock package-lock.json].include?(path) }
+selection_mode = if lockfile_only then "lockfile" elsif narrowed then "narrow" else "all" end
 
 if options[:mode]
-  puts(narrowed ? "narrow" : "all")
+  puts selection_mode
   exit
 end
 
@@ -150,9 +152,9 @@ include_app = selected.include?(nil)
 engines = selected.compact.uniq
 
 if options[:format] == "github"
-  puts "mode=#{narrowed ? 'narrow' : 'all'}"
-  puts "app=#{narrowed ? false : include_app}"
-  puts "engines=#{narrowed ? '' : engines.sort.join(',')}"
+  puts "mode=#{selection_mode}"
+  puts "app=#{narrowed || lockfile_only ? false : include_app}"
+  puts "engines=#{narrowed || lockfile_only ? '' : engines.sort.join(',')}"
 else
   puts "app" if include_app
   engines.sort.each { |engine| puts "engine:#{engine}" }

@@ -24,6 +24,14 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include('args+=(--project "$name")')
         expect(workflow).to include('script/ci/e2e "${args[@]}"')
       end
+
+      it "runs the lockfile-only reduced lane and skips the full jobs" do
+        expect(workflow).to include("if: needs.affected.outputs.mode == 'lockfile'")
+        expect(workflow).to include("bin/bundler-audit")
+        expect(workflow).to include("script/ci/npm_audit")
+        expect(workflow).to include("script/ci/e2e --project app")
+        expect(workflow).to include("if: needs.affected.outputs.mode != 'lockfile'")
+      end
     end
   end
 end
