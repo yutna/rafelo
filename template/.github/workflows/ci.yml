@@ -45,6 +45,8 @@ jobs:
       run:
         working-directory: ${{ github.workspace }}
     needs: image
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -58,9 +60,13 @@ jobs:
           fetch-depth: 0
 
       - name: Select affected applications and engines
+        id: select
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
-        run: script/ci/affected --base "$BASE_SHA"
+        run: |
+          selection="$(script/ci/affected --base "$BASE_SHA")"
+          printf '%s\n' "$selection"
+          echo "mode=$(script/ci/affected --mode --base "$BASE_SHA")" >> "$GITHUB_OUTPUT"
 
   actionlint:
     defaults:
@@ -188,7 +194,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -259,6 +265,7 @@ jobs:
         run: npm test
 
       - name: Run tests
+        if: needs.affected.outputs.mode != 'narrow'
         env:
           RAILS_ENV: test
           DB_HOST: postgres
@@ -267,6 +274,7 @@ jobs:
         run: script/ci/rspec
 
       - name: Run engine specs
+        if: needs.affected.outputs.mode != 'narrow'
         env:
           RAILS_ENV: test
           DB_HOST: postgres
@@ -423,7 +431,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ github.workspace }}
-    needs: image
+    needs: [image, affected]
     runs-on: ubuntu-latest
     container:
       image: ${{ needs.image.outputs.ref }}
@@ -468,7 +476,13 @@ jobs:
           DB_HOST: postgres
           DB_USER: postgres
           DB_PASSWORD: postgres
-        run: script/ci/e2e
+          AFFECTED_MODE: ${{ needs.affected.outputs.mode }}
+        run: |
+          if [ "$AFFECTED_MODE" = "narrow" ]; then
+            script/ci/e2e --project design_system
+          else
+            script/ci/e2e
+          fi
 
   examples-removable:
     defaults:
