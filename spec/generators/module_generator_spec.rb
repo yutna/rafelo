@@ -38,12 +38,20 @@ RSpec.describe Rafelo::Generators::ModuleGenerator do
     end
   end
 
-  it "writes the navigation order as a literal computed at generation time" do
+  it "writes the next free navigation order as a literal computed at generation time" do
+    existing = [
+      Rafelo::Core::Modules::Entry.new(key: :alpha, engine: Object, path: "/alpha", permission_prefixes: [ "alpha" ], legacy_paths: {}, nav: { order: 10 }, flag: nil),
+      # A module without navigation must not reset the counter.
+      Rafelo::Core::Modules::Entry.new(key: :beta, engine: Object, path: "/beta", permission_prefixes: [ "beta" ], legacy_paths: {}, nav: {}, flag: nil),
+      Rafelo::Core::Modules::Entry.new(key: :gamma, engine: Object, path: "/gamma", permission_prefixes: [ "gamma" ], legacy_paths: {}, nav: { order: 40 }, flag: nil)
+    ]
+    allow(Rafelo::Core::Modules).to receive(:all).and_return(existing)
+
     Dir.mktmpdir do |dir|
       Rails::Generators.invoke("rafelo:module", [ "billing_probe", "--skip-post-write" ], destination_root: dir)
 
       config = File.read(File.join(dir, "engines/billing_probe/config/module.rb"))
-      expect(config).to match(/nav: \{ order: \d+,/)
+      expect(config).to match(/nav: \{ order: 50,/)
       expect(config).not_to include("Modules.all")
     end
   end
