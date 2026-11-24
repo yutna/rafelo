@@ -460,6 +460,4 @@ RSpec.describe Rafelo::Generators::MovePageGenerator do
       expect(tgt_perm.dig("billing", "widgets")).to be_nil
     end
   end
-
-
 end
