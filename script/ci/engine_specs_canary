@@ -21,4 +21,14 @@ if ! AFFECTED_ENGINES=no_specs "$root/script/ci/engine_specs" --root "$tmp" >/de
   exit 1
 fi
 
-echo "engine_specs_canary: checked 3 cases"
+if AFFECTED_ENGINES=, "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
+  echo "engine_specs_canary: a comma-only selection passed" >&2
+  exit 1
+fi
+
+if AFFECTED_ENGINES=bad-name "$root/script/ci/engine_specs" --root "$tmp" >/dev/null 2>&1; then
+  echo "engine_specs_canary: a malformed engine name passed" >&2
+  exit 1
+fi
+
+echo "engine_specs_canary: checked 5 cases"

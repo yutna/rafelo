@@ -17,6 +17,10 @@ if [ -n "$selected" ]; then
   spec_dirs=()
   IFS=',' read -ra names <<< "$selected"
   for name in "${names[@]}"; do
+    if [[ ! "$name" =~ ^[a-z0-9_]+$ ]]; then
+      echo "engine_specs: invalid engine name: $name" >&2
+      exit 1
+    fi
     if [ ! -d "engines/$name" ]; then
       echo "engine_specs: unknown engine: $name" >&2
       exit 1
