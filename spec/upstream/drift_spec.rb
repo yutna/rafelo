@@ -17,4 +17,21 @@ RSpec.describe "Fixture drift" do
       end
     end
   end
+
+  # The generator rebuilds the keys of every manifest prefix, so a permission
+  # that a manifest no longer declares must not survive in the catalog.
+  it "keeps no grant that a manifest prefix no longer declares" do
+    grants = JSON.parse(Rails.root.join("config/grants.json").read).fetch("grants")
+    declared = Dir[Rails.root.join("engines/*/config/permissions.yml")].flat_map do |path|
+      YAML.load_file(path).flat_map do |prefix, resources|
+        resources.flat_map do |resource, actions|
+          actions.map { |action| "#{prefix}:#{resource}:#{action}" }
+        end
+      end
+    end
+    owned = declared.map { |key| key.split(":").first }.uniq
+
+    stale = grants.select { |grant| owned.include?(grant.split(":").first) } - declared
+    expect(stale).to eq([])
+  end
 end

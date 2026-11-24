@@ -13,16 +13,22 @@ module Rafelo
     module GrantCatalog
       module_function
 
+      # Rebuilds the keys of every prefix a manifest declares, so a removed or
+      # renamed permission cannot leave a stale grant. Grants under any other
+      # prefix belong to the app (kernel fixtures, synthetic test keys) and are
+      # kept untouched.
       def sync(root)
         root = Pathname(root)
         path = root.join("config/grants.json")
         return unless path.file?
 
         grants = JSON.parse(path.read).fetch("grants")
-        merged = (grants + manifest_keys(root)).uniq.sort
-        return if merged == grants
+        generated = manifest_keys(root).uniq.sort
+        owned = generated.map { |key| key.split(":").first }.uniq
+        rebuilt = (grants.reject { |grant| owned.include?(grant.split(":").first) } + generated).uniq.sort
+        return if rebuilt == grants
 
-        path.write(JSON.pretty_generate("grants" => merged) + "\n")
+        path.write(JSON.pretty_generate("grants" => rebuilt) + "\n")
       end
 
       def manifest_keys(root)
