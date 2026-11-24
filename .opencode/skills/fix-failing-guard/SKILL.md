@@ -25,8 +25,9 @@ description: Use when a guard, linter, cop, boundary check, budget, ratchet, con
   count, a canary fixture, `config/production_routes.yml`, `script/ci/`,
   `config/ci.rb`, or `.github/` (09_enforcement.md, ADR-32).
 - Add a disable comment, skip, ignore entry, baseline, or a higher budget or
-  ratchet count to get green. A skip still needs a linked issue and counts
-  against the ratchet (TS-05, FE-10).
+  ratchet count to get green. A TS-05 skip is allowed only with a linked issue,
+  counts against the ratchet, and is never the fix for a failing guard
+  (TS-05, FE-10).
 - Bypass the check, or mix a guard change into a feature pull request.
 
 ## When the guard looks wrong

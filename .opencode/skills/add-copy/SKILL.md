@@ -7,7 +7,7 @@ description: Use when adding or changing a user-facing string, when a page needs
 
 ## Inputs to collect
 
-- The owning engine (`core`, `design_system`, app, or a product module) and its namespace.
+- The owning engine (`core`, `design_system`, app, a product module, or a domain engine) and its namespace.
 - The key under that namespace and the English copy.
 - The value for every other configured locale, translated or a visible `[<locale>]` placeholder.
 
@@ -16,7 +16,9 @@ description: Use when adding or changing a user-facing string, when a page needs
 1. Add the English string to `engines/<engine>/config/locales/en.yml` under `<engine>:`; for app pages use `config/locales/en.yml` under `app:`.
 2. Add the same key to every other configured locale file. Do not leave a blank value; use a visible placeholder until a translator fills it, and translate every placeholder before the release (CT-08, WF-05).
 3. Run `npm run i18n:generate` and commit the generated JSON.
-4. Read the string in the page with the i18n resolver; never hardcode user-facing English.
+4. Read the string in the page with `t` or the module's
+   `use<Module>Translation` hook (the page resolver only loads namespaces);
+   never hardcode user-facing English.
 
 ## Rules that apply
 
@@ -30,7 +32,11 @@ CT-08; FE-11; ARCH-11.
 
 ## Design skills
 
-Load `oo-design` before changing a props or page object. Load `oo-typescript` for TypeScript page code and `oo-working-within-a-framework` for React components. Load `oo-reviewing-object-design` when reviewing the diff. A rule or ADR wins over the pack.
+Load `oo-design` before changing a page object and `oo-ruby` for a Ruby props
+object. Load `oo-typescript` for TypeScript page code and
+`oo-working-within-a-framework` for React components. Load
+`oo-reviewing-object-design` when reviewing the diff. A rule or ADR wins over
+the pack.
 
 ## Done when
 

@@ -19,8 +19,10 @@ For a new resource:
 bin/rails generate rafelo:page <module> <resource> --actions=index,show
 ```
 
+Use `--actions=index` or `--actions=show` for a single read action.
+
 For an existing resource, add the action by hand: route, controller action,
-policy method, props object, page/screen/container/component, contract, copy,
+policy method, props object, page/screen/container/component, page schema, copy,
 permission key, request spec, and upstream fixture.
 
 ## Fill in
@@ -33,14 +35,18 @@ permission key, request spec, and upstream fixture.
 - `engines/<module>/app/props/<app>/<module>/<resources>_{index,show}_props.rb`
   and the frontend props type.
 - `engines/<module>/app/frontend/pages|screens|containers|components/<resources>/`
-  and `engines/<module>/config/contracts/pages/<resources>/`.
+  and the page schema under
+  `engines/<module>/app/frontend/pages/<resources>/<action>.schema.ts`; run
+  `npm run contracts:generate` to write
+  `engines/<module>/config/contracts/pages/<resources>/` (never edit that
+  generated JSON by hand).
 - `engines/<module>/config/locales/*.yml`,
   `engines/<module>/config/permissions.yml`, and
-  `engines/<module>/spec/fixtures/upstream/<upstream>/` (the generator names
-  the folder after the resource; rename it when the module's upstream key
-  differs).
-- `spec/requests/<module>/<resources>_spec.rb`; keep the schema, SQL, upstream
-  call budget, props budget, resolvable hrefs, and policy capability checks.
+  `engines/<module>/spec/fixtures/upstream/<resources>/` (the generator names
+  the folder after the resource; keep that name).
+- `engines/<module>/spec/requests/<resources>_spec.rb`; keep the schema, SQL,
+  upstream call budget, props budget, resolvable hrefs, and policy capability
+  checks.
 
 ## Rules that apply
 

@@ -21,27 +21,35 @@ For a new resource:
 bin/rails generate rafelo:page <module> <resource> --actions=new,edit
 ```
 
+Use `--actions=new` or `--actions=edit` for one write action.
+
 For an existing resource, add the write slice by hand: route, controller
-actions, policy methods, form object, props objects, contract, copy, permission
-keys, request spec, and upstream fixture.
+actions, policy methods, form object, props objects, page schema, copy,
+permission keys, request spec, and upstream fixture.
 
 ## Fill in
 
 - The form object under
-  `engines/<module>/app/forms/<app>/<module>/<resource>_form.rb`; input from a
-  person is checked by `issues()`, not exceptions.
+  `engines/<module>/app/forms/<app>/<module>/<resource>_form.rb`; the Ruby form
+  checks input with ActiveModel `valid?`/`errors`, never exceptions (BE-13). A
+  frontend `forms/` model reports `issues()` instead (OOP-03); both follow the
+  same field rules.
 - The controller `new`, `create`, `edit`, and `update` actions; a successful
   write redirects with 303, and so does a validation failure, with the translated errors.
 - The idempotency claim and form token; do not use a cache for idempotency.
 - The policy methods and permission keys for `create` and `update`.
 - The `new`/`edit` props, frontend pages/screens/containers/components, and the
-  form schema in `engines/<module>/config/contracts/pages/<resources>/`.
+  page schema under
+  `engines/<module>/app/frontend/pages/<resources>/{new,edit}.schema.ts`; run
+  `npm run contracts:generate` to write
+  `engines/<module>/config/contracts/pages/<resources>/` (never edit that
+  generated JSON by hand).
 - Copy in every configured locale and the request spec for success,
   validation failure, permission refusal, and replay.
 - The upstream fixture under
-  `engines/<module>/spec/fixtures/upstream/<upstream>/` (the generator names
-  the folder after the resource; rename it when the module's upstream key
-  differs); the gateway remains the only upstream caller.
+  `engines/<module>/spec/fixtures/upstream/<resources>/` (the generator names
+  the folder after the resource; keep that name); the gateway remains the only
+  upstream caller.
 
 ## Rules that apply
 
@@ -63,6 +71,6 @@ the pack.
 
 ## Done when
 
-The write is authorized, validated by `issues()`, idempotent, redirects with
-303 and the translated errors, has copy in every configured locale, and
-`bin/ci` is green.
+The write is authorized, validated by the Ruby form (and the frontend
+`issues()` where a form model exists), idempotent, redirects with 303 and the
+translated errors, has copy in every configured locale, and `bin/ci` is green.

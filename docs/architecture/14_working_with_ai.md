@@ -185,6 +185,7 @@ points:
 | Plain Ruby objects (value objects a gateway returns, props objects) | `oo-ruby` |
 | TypeScript classes in `domain/` and `forms/` (OOP-01 to OOP-10) | `oo-typescript` |
 | What Rails or React builds and wires (controllers, models, jobs, components, hooks) | `oo-working-within-a-framework`; the framework's conventions and the FE rules win |
+| Moving legacy code into an engine | `oo-working-with-legacy-code` |
 | Reviewing a diff | `oo-reviewing-object-design`; it assists a person and never counts as a guard (ADR-32) |
 
 `bin/kernel_update` never touches the AI files or the pack. A template release

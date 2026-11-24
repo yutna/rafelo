@@ -64,6 +64,7 @@ decisions the spec reserves for a person, and reports what changed.
 | Plain Ruby objects, value objects, props objects, gateways | `oo-ruby`                       |
 | TypeScript classes in `domain/` and `forms/`               | `oo-typescript`                 |
 | Rails or React code the framework builds and wires         | `oo-working-within-a-framework` |
+| Moving legacy code into an engine                          | `oo-working-with-legacy-code`   |
 | Reviewing a diff                                           | `oo-reviewing-object-design`    |
 
 A rule or ADR wins over the pack. If they disagree, follow the rule and record

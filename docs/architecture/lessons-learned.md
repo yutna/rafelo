@@ -843,3 +843,49 @@ without an explicit `RAFELO_REPORT_ISSUE`. The canary now covers a temporary
 **Spec feedback.** This is repository tooling, not a rule change. The
 observable lesson is that every test hook must use the same state/session/title
 boundary as production; a fixed global name is not a boundary.
+
+## 2026-11-24 — v0.42.0 — issue #684 (final skills audit)
+
+**What happened.** The final skills audit read the nine shipped project skills
+(`add-copy`, `add-design-system-component`, `add-module`, `add-read-page`,
+`add-write-action`, `deliver-request`, `expose-public-interface`,
+`fix-failing-guard`, `migrate-a-feature`) and all 49 pinned `oo-*` pack skills,
+then checked every path, command, generator, rule ID, and layer-to-skill row
+against the code. It found nine S2 drift items across five task skills, one
+adjacent S2 in the root guide and `deliver-request`, and thirteen S3 items. The
+pack itself was not edited.
+
+**Root cause.** The task skills were written before the page generator settled
+its engine-spec, fixture, and generated-contract paths, and before the later
+CI and AI-file changes. They still described a hand-edited contract folder, an
+app-level request spec, an `<upstream>` fixture folder, and a Ruby form that
+uses `issues()`. `add-module` also carried the pre-GEN-05 split between product
+modules and domain engines.
+
+**What changed.** `add-read-page` and `add-write-action` now name the engine
+request spec, the resource-named upstream fixture folder, and the page schema
+plus `npm run contracts:generate` instead of a hand-edited contract. The
+write skill distinguishes the Ruby form's ActiveModel `valid?`/`errors` from
+the frontend `forms/` model's `issues()`. `add-design-system-component` points
+at the catalog container and lists the TS-11 baseline for a person's review.
+`add-module` follows GEN-05: both kinds keep errors, ratchets, contracts,
+migrations, specs, and e2e; only a product module gets routes, registry,
+permissions, budgets, and navigation. `migrate-a-feature` creates the engine
+before the page, moves the schema rather than the generated JSON, and separates
+a ratchet count fall from removing a lint exemption. `add-copy`,
+`expose-public-interface`, `fix-failing-guard`, and `deliver-request` received
+the audit's wording and map corrections. The root guide adds the own-identity
+bullet (WF-03), the local-transaction qualifier from this file, and the
+`oo-working-with-legacy-code` map row; the same row is in `ai-files.md` and
+`14_working_with_ai.md`. `docs/opencode.md` counts the pack separately and no
+longer says the version lives in `AGENTS.md`.
+
+**Remaining, not blocking this audit.** #904 (the unlisted-skill check exempts
+every `oo-*` name rather than only the pinned pack) and #818 (the conflict
+checker does not require a rule and resolution per row) are guard changes; a
+person approves them. The 16 pack-versus-project conflict rows still match the
+pinned pack and no new conflict was found.
+
+**Spec feedback.** None new; the audit confirms the shipped skill count and
+the layer-to-skill map. Related IDs: CT-09; TS-07; GEN-02; GEN-05; BE-13;
+TS-11; WF-03; 14.

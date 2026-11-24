@@ -20,7 +20,7 @@ description: Use when code is shared by two engines, when a consumer needs anoth
 ## Build
 
 - Add the public Ruby file under `engines/<engine>/app/public/`.
-- Add the public TypeScript re-export under `engines/<engine>/app/frontend/public/`; define the class in `domain/` and re-export it.
+- Add the public TypeScript re-export under `engines/<engine>/app/frontend/public/`; define a value object or class in `domain/` and re-export it, while a presentational component may live directly in `public/`.
 - Add the dependency to the consumer's `package.yml`. This is a guard change: name it in the pull request for a person to approve.
 - Do not copy code between engines.
 
