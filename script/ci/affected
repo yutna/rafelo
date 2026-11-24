@@ -53,10 +53,25 @@ def paths_from_file(file)
   File.readlines(file, chomp: true).map(&:strip).reject(&:empty?)
 end
 
+ENGINE_NAME = /\A[a-z0-9_]+\z/
+
+def engine_name!(name)
+  return name if name.is_a?(String) && name.match?(ENGINE_NAME)
+
+  abort "affected: invalid engine directory name: #{name.inspect}"
+end
+
 def all_engines(root)
   Dir[File.join(root, "engines", "*", "package.yml")].sort.map do |package|
-    File.basename(File.dirname(package))
+    engine_name!(File.basename(File.dirname(package)))
   end
+end
+
+def github_output(key, value)
+  value = value.to_s
+  abort "affected: unsafe workflow output for #{key}: #{value.inspect}" if value.match?(/[\r\n]/)
+
+  puts "#{key}=#{value}"
 end
 
 def engine_graph(root)
@@ -130,7 +145,9 @@ paths.each do |path|
     mode = :all
   when :engine
     name = path.split("/")[1]
-    selected << name if name && !name.empty?
+    abort "affected: engine path has no name: #{path.inspect}" if name.nil? || name.empty?
+
+    selected << engine_name!(name)
   when :derived, :engine_free
     # These files select nothing themselves; git diff will include their source.
   when :app
@@ -152,9 +169,9 @@ include_app = selected.include?(nil)
 engines = selected.compact.uniq
 
 if options[:format] == "github"
-  puts "mode=#{selection_mode}"
-  puts "app=#{narrowed || lockfile_only ? false : include_app}"
-  puts "engines=#{narrowed || lockfile_only ? '' : engines.sort.join(',')}"
+  github_output("mode", selection_mode)
+  github_output("app", narrowed || lockfile_only ? false : include_app)
+  github_output("engines", narrowed || lockfile_only ? "" : engines.sort.join(","))
 else
   puts "app" if include_app
   engines.sort.each { |engine| puts "engine:#{engine}" }

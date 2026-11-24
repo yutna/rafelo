@@ -96,5 +96,53 @@ Dir.mktmpdir("rafelo-affected-merge-canary-") do |dir|
   end
 end
 
+# An engine directory name is untrusted input: it reaches $GITHUB_OUTPUT.
+# A newline in the name could inject a second output line (for example
+# mode=lockfile) and skip the required lanes.
+Dir.mktmpdir("rafelo-affected-unsafe-canary-") do |dir|
+  cases << "unsafe engine name"
+  git_merge_canary(dir, "init", "-q")
+  git_merge_canary(dir, "config", "user.email", "canary@rafelo.invalid")
+  git_merge_canary(dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(dir, "engines", "base"))
+  File.write(File.join(dir, "engines", "base", "package.yml"), "dependencies: []\n")
+  FileUtils.mkdir_p(File.join(dir, "app"))
+  File.write(File.join(dir, "app", "a.txt"), "one\n")
+  git_merge_canary(dir, "add", ".")
+  git_merge_canary(dir, "commit", "-q", "-m", "base")
+
+  FileUtils.mkdir_p(File.join(dir, "engines", "evil\nmode=lockfile"))
+  File.write(File.join(dir, "engines", "evil\nmode=lockfile", "package.yml"), "dependencies: []\n")
+  File.write(File.join(dir, "app", "a.txt"), "two\n")
+  git_merge_canary(dir, "add", ".")
+  git_merge_canary(dir, "commit", "-q", "-m", "unsafe engine")
+
+  output, status = Open3.capture2e(
+    RbConfig.ruby, File.join(root, "script", "ci", "affected"),
+    "--root", dir, "--base", "HEAD^1", "--format", "github"
+  )
+  injected = output.lines.any? { |line| line.start_with?("mode=") }
+  if status.success? || injected
+    failures += 1
+    warn "affected_canary: unsafe engine name: expected a failure with no mode= line"
+    warn output
+  end
+end
+
+Tempfile.create("affected-paths") do |file|
+  cases << "invalid selected engine name"
+  file.write("engines/bad-name/app/models/canary.rb\n")
+  file.close
+  output, status = Open3.capture2e(
+    RbConfig.ruby, File.join(root, "script", "ci", "affected"),
+    "--root", fixture, "--paths", file.path
+  )
+  unless !status.success? && output.include?("invalid engine directory name")
+    failures += 1
+    warn "affected_canary: invalid selected engine name: expected a validation failure"
+    warn output
+  end
+end
+
 warn "affected_canary: checked #{cases.length} cases; failures=#{failures}"
 exit(failures.zero? ? 0 : 1)
