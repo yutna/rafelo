@@ -11,20 +11,20 @@ declare module "@design_system/button" {
       isPending?: boolean;
       children: ReactNode;
   };
-  export declare function Button({ testId, variant, className, children, ...props }: ButtonProps): import("react").JSX.Element;
+  export function Button({ testId, variant, className, children, ...props }: ButtonProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/chart" {
   import type { ChartProps } from "@design_system/chart.types";
-  export declare function Chart(props: ChartProps): import("react").JSX.Element;
+  export function Chart(props: ChartProps): import("react").JSX.Element;
 }
 
 declare module "@design_system/chart_color" {
   import type { ChartTheme } from "@design_system/chart.types";
   type StyleSource = Pick<CSSStyleDeclaration, "getPropertyValue">;
-  export declare function toSrgbHex(input: string): string;
-  export declare function chartTheme(styles: StyleSource): ChartTheme;
+  export function toSrgbHex(input: string): string;
+  export function chartTheme(styles: StyleSource): ChartTheme;
   export {};
 }
 
@@ -40,14 +40,14 @@ declare module "@design_system/chart_option" {
       timeZone: string;
       description: string;
   };
-  export declare function buildChartOption(series: ChartSeries[], context: FormatContext): Record<string, unknown>;
-  export declare function chartHoverText(series: ChartSeries[], params: {
+  export function buildChartOption(series: ChartSeries[], context: FormatContext): Record<string, unknown>;
+  export function chartHoverText(series: ChartSeries[], params: {
       seriesName?: string;
       name?: string;
       value?: unknown;
       dataIndex?: number;
   }, context: Pick<FormatContext, "locale" | "timeZone">): string;
-  export declare function chartTableRows(series: ChartSeries[], context: Pick<FormatContext, "locale" | "timeZone">): {
+  export function chartTableRows(series: ChartSeries[], context: Pick<FormatContext, "locale" | "timeZone">): {
       series: string;
       label: string;
       date: string;
@@ -112,7 +112,7 @@ declare module "@design_system/combobox" {
       onSelectionChange?: (key: string) => void;
       placeholder?: string;
   };
-  export declare function ComboBox({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: ComboBoxProps): import("react").JSX.Element;
+  export function ComboBox({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: ComboBoxProps): import("react").JSX.Element;
   export {};
 }
 
@@ -128,13 +128,13 @@ declare module "@design_system/confirm_dialog" {
       onCancel: () => void;
       destructive?: boolean;
   };
-  export declare function ConfirmDialog({ testId, title, message, confirmLabel, cancelLabel, open, onConfirm, onCancel, destructive, }: ConfirmDialogProps): import("react").JSX.Element;
+  export function ConfirmDialog({ testId, title, message, confirmLabel, cancelLabel, open, onConfirm, onCancel, destructive, }: ConfirmDialogProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/data_table" {
   import type { DataTableProps, DataTableRow } from "@design_system/data_table.types";
-  export declare function DataTable<T extends DataTableRow>(props: DataTableProps<T>): import("react").JSX.Element;
+  export function DataTable<T extends DataTableRow>(props: DataTableProps<T>): import("react").JSX.Element;
 }
 
 declare module "@design_system/data_table_impl" {
@@ -146,7 +146,7 @@ declare module "@design_system/data_table_impl" {
 
 declare module "@design_system/data_table.types" {
   import type { ColumnDef } from "@tanstack/react-table";
-  export declare const dataTableFeatures: {
+  export const dataTableFeatures: {
       rowSortingFeature: import("@tanstack/table-core").TableFeature;
   };
   export type DataTableRow = {
@@ -177,13 +177,13 @@ declare module "@design_system/date_field" {
       onChange: (isoDate: string) => void;
       name?: string;
   };
-  export declare function DateField({ testId, label, value, min, max, onChange, name }: DateFieldProps): import("react").JSX.Element;
+  export function DateField({ testId, label, value, min, max, onChange, name }: DateFieldProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/deferred" {
   import type { ReactNode } from "react";
-  export declare function Deferred({ data, children, fallback, }: {
+  export function Deferred({ data, children, fallback, }: {
       data: string;
       children: ReactNode;
       fallback: ReactNode;
@@ -201,7 +201,7 @@ declare module "@design_system/dialog" {
       showClose?: boolean;
       children: ReactNode;
   };
-  export declare function Dialog({ testId, title, open, onClose, closeLabel, showClose, children, }: DialogProps): import("react").JSX.Element;
+  export function Dialog({ testId, title, open, onClose, closeLabel, showClose, children, }: DialogProps): import("react").JSX.Element;
   export {};
 }
 
@@ -213,7 +213,7 @@ declare module "@design_system/empty_state" {
       description?: string;
       action?: ReactNode;
   };
-  export declare function EmptyState({ testId, title, description, action }: EmptyStateProps): import("react").JSX.Element;
+  export function EmptyState({ testId, title, description, action }: EmptyStateProps): import("react").JSX.Element;
   export {};
 }
 
@@ -239,7 +239,7 @@ declare module "@design_system/error_boundary" {
       failed: boolean;
       error?: Error;
   };
-  export declare class ErrorBoundary extends Component<Props, State> {
+  export class ErrorBoundary extends Component<Props, State> {
       state: State;
       private heading;
       static getDerivedStateFromError(error: Error): State;
@@ -260,21 +260,21 @@ declare module "@design_system/filter_bar" {
       onSearchChange: (value: string) => void;
       children?: ReactNode;
   };
-  export declare function FilterBar({ testId, label, searchLabel, searchValue, onSearchChange, children, }: FilterBarProps): import("react").JSX.Element;
+  export function FilterBar({ testId, label, searchLabel, searchValue, onSearchChange, children, }: FilterBarProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/focus_first_error" {
-  export declare function focusFirstError(scope?: ParentNode): void;
+  export function focusFirstError(scope?: ParentNode): void;
 }
 
 declare module "@design_system/formatters" {
-  export declare function calendarFor(locale: string): string;
-  export declare function formatDate(value: string | Date, locale: string, timeZone?: string): string;
-  export declare function formatDateTime(value: string | Date, locale: string, timeZone?: string): string;
-  export declare function formatNumber(value: number, locale: string): string;
-  export declare function isValidIsoDate(value: string): boolean;
-  export declare function formatMoney(minor: number, currency: string, exponent: number, locale: string): string;
+  export function calendarFor(locale: string): string;
+  export function formatDate(value: string | Date, locale: string, timeZone?: string): string;
+  export function formatDateTime(value: string | Date, locale: string, timeZone?: string): string;
+  export function formatNumber(value: number, locale: string): string;
+  export function isValidIsoDate(value: string): boolean;
+  export function formatMoney(minor: number, currency: string, exponent: number, locale: string): string;
 }
 
 declare module "@design_system/hidden_field" {
@@ -283,12 +283,12 @@ declare module "@design_system/hidden_field" {
       name: string;
       value: string;
   };
-  export declare function HiddenField({ testId, name, value }: HiddenFieldProps): import("react").JSX.Element;
+  export function HiddenField({ testId, name, value }: HiddenFieldProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/i18n" {
-  export declare function t(key: string, options?: Record<string, unknown>): string;
+  export function t(key: string, options?: Record<string, unknown>): string;
 }
 
 declare module "@design_system/i18n_provider" {
@@ -298,19 +298,19 @@ declare module "@design_system/i18n_provider" {
       calendar: string;
       timeZone: string;
   };
-  export declare function I18nProvider({ locale, timeZone, children, }: {
+  export function I18nProvider({ locale, timeZone, children, }: {
       locale: string;
       timeZone: string;
       children: ReactNode;
   }): import("react").JSX.Element;
-  export declare function useLocale(): LocaleContextValue;
+  export function useLocale(): LocaleContextValue;
   export {};
 }
 
 declare module "@design_system/icon" {
   import type { IconName } from "@design_system/icon.types";
-  export declare function isIconName(value: string): value is IconName;
-  export declare function Icon({ name, size }: {
+  export function isIconName(value: string): value is IconName;
+  export function Icon({ name, size }: {
       name: IconName;
       size?: number;
   }): import("react").JSX.Element;
@@ -326,7 +326,7 @@ declare module "@design_system/image" {
       alt: string;
       className?: string;
   };
-  export declare function Image({ src, alt, className }: ImageProps): import("react").JSX.Element | null;
+  export function Image({ src, alt, className }: ImageProps): import("react").JSX.Element | null;
   export {};
 }
 
@@ -369,7 +369,7 @@ declare module "@design_system/link" {
       children: ReactNode;
       className?: string;
   };
-  export declare function Link({ testId, href, children, className }: LinkProps): import("react").JSX.Element;
+  export function Link({ testId, href, children, className }: LinkProps): import("react").JSX.Element;
   export {};
 }
 
@@ -384,7 +384,7 @@ declare module "@design_system/menu" {
       items: MenuItemDefinition[];
       onAction: (id: string) => void;
   };
-  export declare function Menu({ testId, label, items, onAction }: MenuProps): import("react").JSX.Element;
+  export function Menu({ testId, label, items, onAction }: MenuProps): import("react").JSX.Element;
   export {};
 }
 
@@ -410,7 +410,7 @@ declare module "@design_system/pagination" {
       status: string;
   };
   type PaginationProps = OffsetPaginationProps | CursorPaginationProps;
-  export declare function Pagination(props: PaginationProps): import("react").JSX.Element;
+  export function Pagination(props: PaginationProps): import("react").JSX.Element;
   export {};
 }
 
@@ -446,9 +446,9 @@ declare module "@design_system/public" {
 
 declare module "@design_system/safe_url" {
   import { z } from "zod";
-  export declare function isSafeUrl(value: unknown): value is string;
-  export declare function isAppPath(value: unknown): value is string;
-  export declare const hrefSchema: z.ZodString & z.ZodType<string, string, z.core.$ZodTypeInternals<string, string>>;
+  export function isSafeUrl(value: unknown): value is string;
+  export function isAppPath(value: unknown): value is string;
+  export const hrefSchema: z.ZodString & z.ZodType<string, string, z.core.$ZodTypeInternals<string, string>>;
   export type Href = z.infer<typeof hrefSchema>;
 }
 
@@ -465,12 +465,12 @@ declare module "@design_system/select" {
       onSelectionChange?: (key: string) => void;
       placeholder?: string;
   };
-  export declare function Select({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: SelectProps): import("react").JSX.Element;
+  export function Select({ testId, label, items, selectedKey, onSelectionChange, placeholder, }: SelectProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/skeleton" {
-  export declare function Skeleton({ testId }: {
+  export function Skeleton({ testId }: {
       testId: string;
   }): import("react").JSX.Element;
 }
@@ -489,7 +489,7 @@ declare module "@design_system/tabs" {
       selectedKey?: string | null;
       onSelectionChange?: (key: string) => void;
   };
-  export declare function Tabs({ testId, label, tabs, selectedKey, onSelectionChange }: TabsProps): import("react").JSX.Element;
+  export function Tabs({ testId, label, tabs, selectedKey, onSelectionChange }: TabsProps): import("react").JSX.Element;
   export {};
 }
 
@@ -506,13 +506,13 @@ declare module "@design_system/text_field" {
       defaultValue?: string;
       onChange?: (value: string) => void;
   };
-  export declare function TextField({ testId, label, error, ...props }: TextFieldProps): import("react").JSX.Element;
+  export function TextField({ testId, label, error, ...props }: TextFieldProps): import("react").JSX.Element;
   export {};
 }
 
 declare module "@design_system/toast" {
   import type { ReactNode } from "react";
-  export declare function Toast({ testId, tone, children, }: {
+  export function Toast({ testId, tone, children, }: {
       testId: string;
       tone?: "info" | "success" | "danger";
       children: ReactNode;
