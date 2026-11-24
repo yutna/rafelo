@@ -272,3 +272,92 @@ the invoice total at the bottom."
 - No trial edited a guard, budget, ratchet, canary, workflow, or CI step. The
   design-system trial did update the two TS-11 catalog screenshot baselines, as
   that task requires.
+
+## Round 2 — v0.42.0 release candidate
+
+Round 1's eight trials were rerun on the final release candidate. This section
+is the round-2 record; section 9 of the implementation protocol is the rule it
+answers.
+
+### Method
+
+- **Release candidate:** `e10e5d4` in `yutna/rafelo`, named in rafelo#686 on
+  2026-11-24 before the first trial. No file under `.opencode/`, `AGENTS.md`,
+  `engines/*/AGENTS.md`, `docs/opencode.md`, `engines/core/lib/generators/`,
+  or `template/` changed after it.
+- **Fresh adoption:** the documented `rails new rafelo-trials -d postgresql
+  --devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal
+  --skip-solid --skip-test -m template/template.rb` on 2026-11-24. Its own root
+  commit (`4dae7bf`, `KERNEL_VERSION` 0.41.0) is the first commit of branch
+  `round-2` in `yutna/rafelo-trials`. `main` keeps the round-1 app, so the two
+  rounds do not share a working tree or a baseline.
+- **Identity:** the trials ran with the credentials the AI already uses
+  (`yutna`), per the owner decision of 2026-11-23 (rafelo#685). The AI did not
+  work under its own identity (rafelo#614). **What this leaves unproven:** an
+  approval by someone other than the pull request's author in `guard_approval`
+  and the ratchet approval, and notifications to the owner. Own-identity work
+  (#614) is outside this list.
+- **Merge gate:** the `main` ruleset (required `ci-ok`, `title`, `ratchet`,
+  `guard_approval`; squash only) still protects `main`. The round-2 app lives on
+  `round-2`, which that ruleset does not cover, and a ruleset for another
+  branch is a repository setting the AI does not change (protocol §11 point 3).
+  Trial pull requests therefore merged on green checks by the AI, not by a
+  required-check gate; each pull request's check list is the evidence, and the
+  `guard_approval` exception below is the one check that cannot be satisfied in
+  a single-owner repository.
+- Each trial ran in a fresh subagent with no earlier conversation. The request
+  was the one sentence a user would type; the app's own `AGENTS.md`, skills and
+  guards were the only instructions. A trial passes on round 1's rule: a merged
+  pull request with green CI, no human edit to the code or checks, only
+  questions the files cannot answer, no guard edited, and a clean tree.
+
+### Results
+
+| #   | Trial                           | Issue / PR     | Questions | Guard failures                                                                 | First push green | Result                             |
+| --- | ------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------ | ---------------- | ---------------------------------- |
+| 3   | New product module              | #34 / #35      | none      | `docs:check` path roots; `fixtures_spec` grant; `guard_approval` (nameable)     | no               | Pass, `guard_approval` exception    |
+| 1   | Read page                       | running        |           |                                                                                |                  |                                    |
+
+The list keeps round 1's task-type numbering. The module trial (3) runs first
+because it creates the `billing` module the later trials use.
+
+### Trial 3 — new product module
+
+**Request:** "Create a new product module named billing that will later own
+invoices: give it its own navigation entry (label Billing, icon receipt) and
+its own permissions, but no pages yet, and no upstream calls."
+
+- **Issue / PR:** #34 / #35, merged into `round-2` as `133f29d`.
+- **Generator:** `bin/rails generate rafelo:module billing --icon receipt`.
+- **Questions:** none; the skill and the examples answered the module kind,
+  label, icon and permission shape.
+- **Guard failures and fixes:**
+  - `docs:check` rejected the trial's expanded engine guide
+    (engines/billing/AGENTS.md): the backticked paths it added were
+    engine-relative, and the check resolves them from the repository root. The
+    trial rewrote them root-relative and `docs:check` passed. The generated
+    guide itself uses only `config/locales`, which exists at the root, so no
+    template change is implied.
+  - The first `bin/ci` failed `spec/upstream/fixtures_spec.rb`: the one-release
+    compatibility fixture still offered `billing:invoice:create`, and the
+    generated grant sync dropped it because the rebuilt `billing` prefix
+    declared only `read`. The trial declared `billing: invoice: [read, create]`
+    (the permissions its first slice will check) and regenerated the catalog;
+    the module now genuinely owns those keys. **The stale copy was the defect:**
+    it was four releases old and made the documented `billing` module fail its
+    first gate. Retired in rafelo#931; the trial's extra declaration stays
+    because its first slice checks `create`.
+  - `guard_approval` was red on `Gemfile.lock` and the new engine's package.yml
+    (a new engine adds both). In a single-owner repository the author cannot
+    approve their own pull request, and the fresh app's `CODEOWNERS` still
+    says `@OWNER`. The trial recorded it in the pull request and merged under
+    the hands-off rule. No guard was edited or loosened; this is the exception
+    section 9 names.
+- **Files outside the task:** `config/grants.json` and the generated
+  permission constants/graph/lock files, as the generator requires;
+  the billing request spec under spec/requests is the generated one.
+- **Result:** pass with the `guard_approval` exception. Green `bin/ci` in
+  5m27s; all other pull-request checks green.
+- **Follow-up:** the branch is not the default branch, so GitHub did not
+  auto-close #34 on merge; the trial closed it by hand with a link to #35.
+
