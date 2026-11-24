@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "rails_helper"
+require "yaml"
 
 RSpec.describe "affected selection in CI" do
   %w[.github/workflows/ci.yml template/.github/workflows/ci.yml].each do |path|
@@ -31,6 +32,20 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("script/ci/npm_audit")
         expect(workflow).to include("script/ci/e2e --project app")
         expect(workflow).to include("if: needs.affected.outputs.mode != 'lockfile'")
+      end
+
+      it "keeps the production image and adoption decisions outside the lockfile lane" do
+        jobs = YAML.safe_load(workflow, aliases: true).fetch("jobs")
+        expect(jobs.fetch("production-image-needed")).not_to have_key("if")
+        expect(jobs.dig("production-image", "if")).to eq(
+          "needs.production-image-needed.outputs.run == 'true'"
+        )
+
+        next unless jobs.key?("adoption-needed")
+
+        expect(jobs.fetch("adoption-needed")).not_to have_key("if")
+        expect(jobs.dig("adoption", "if")).to eq("needs.adoption-needed.outputs.current == 'true'")
+        expect(jobs.dig("adoption-update", "if")).to eq("needs.adoption-needed.outputs.update == 'true'")
       end
 
       it "selects every lane on scheduled and manual runs" do
