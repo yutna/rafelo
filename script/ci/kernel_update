@@ -32,6 +32,12 @@ module KernelUpdate
     spec/core
     spec/generators
     spec/upstream
+    app/controllers/core
+    .kamal/secrets.example
+    docs/deployment.md
+    docs/operations/audit.md
+    docs/operations/backup-restore.md
+    docs/operations/database-roles.md
     .rubocop.yml
     .dependency-cruiser.cjs
     .prettierignore

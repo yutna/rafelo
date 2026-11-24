@@ -13,7 +13,9 @@ RSpec.describe "bin/kernel_update" do
     expect(KernelUpdate::DEFAULT_PATHS).to include(
       "spec/rails_helper.rb", "spec/spec_helper.rb", "eslint.config.mjs",
       ".prettierignore", ".prettierrc.json", "config/ratchets.yml", "docs/contracts.md",
-      "script/contracts", "script/docs", "playwright.config.ts", "spec/core", "spec/upstream"
+      "script/contracts", "script/docs", "playwright.config.ts", "spec/core", "spec/upstream",
+      "app/controllers/core", ".kamal/secrets.example", "docs/deployment.md",
+      "docs/operations/audit.md", "docs/operations/backup-restore.md", "docs/operations/database-roles.md"
     )
   end
 

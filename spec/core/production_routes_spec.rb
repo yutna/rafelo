@@ -43,14 +43,14 @@ RSpec.describe Rafelo::Core::ProductionRoutes do
   it "derives only the module routes whose controller belongs to the engine" do
     routes = ActionDispatch::Routing::RouteSet.new
     routes.draw do
-      get "/orders", to: "rafelo/example_orders/orders#index"
+      get "/orders", to: "adopter/orders#index"
       get "/other", to: "other/things#index"
     end
-    engine = double(routes: routes, railtie_namespace: double(name: "Rafelo::ExampleOrders"))
+    engine = double(routes: routes, railtie_namespace: double(name: "Adopter::Orders"))
     entry = double(path: "/orders", engine: engine, legacy_paths: {})
 
     expect(described_class.module_routes([ entry ]).map(&:to))
-      .to eq([ "rafelo/example_orders/orders#index" ])
+      .to eq([ "adopter/orders#index" ])
   end
 
   it "normalizes a legacy path to the locale-level redirect shape" do
