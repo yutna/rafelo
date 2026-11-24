@@ -24,14 +24,4 @@ RSpec.describe "Upstream fixtures" do
 
     expect(grants).to include("billing:invoice:read")
   end
-
-  it "keeps the previous fixture path as a one-release compatibility copy" do
-    previous = Rails.root.join("engines/core/spec/fixtures/upstream/api/grants.json")
-    current = Rails.root.join("config/grants.json")
-
-    expect(previous).to exist
-    previous_grants = JSON.parse(previous.read).fetch("grants")
-    current_grants = JSON.parse(current.read).fetch("grants")
-    expect(previous_grants - current_grants).to be_empty
-  end
 end
