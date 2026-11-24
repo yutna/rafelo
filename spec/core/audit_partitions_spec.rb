@@ -29,7 +29,7 @@ RSpec.describe Rafelo::Core::AuditPartitions do
       handled: false,
       context: {
         partition: described_class::DEFAULT_TABLE,
-        database_role: Rails.application.config.x.database.runtime_role.to_s,
+        database_role: ActiveRecord::Base.connection.select_value("SELECT current_user").to_s,
         rows: 1
       }
     )

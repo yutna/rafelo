@@ -20,7 +20,7 @@ module Rafelo
           routes = []
           route_set.routes.each do |route|
             path = join(prefix, route.path.spec.to_s)
-            next if disabled_devtools?(path)
+            next if disabled_devtools?(path, route)
 
             app = unwrap(route.app)
             if engine?(app)
@@ -113,8 +113,9 @@ module Rafelo
 
         private
 
-        def disabled_devtools?(path)
+        def disabled_devtools?(path, route)
           return false unless path == DEVTOOLS_PREFIX || path.start_with?("#{DEVTOOLS_PREFIX}/")
+          return false unless route.defaults[:controller].to_s == "inertia_rails/devtools/entries"
           return false unless defined?(InertiaRails::Devtools)
 
           !InertiaRails::Devtools.enabled?

@@ -84,7 +84,7 @@ secrets_example = ".kamal/secrets.example"
 if File.file?(secrets)
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must not be tracked; remove it from git and keep it in the deploy secret store") if tracked_paths.include?(".kamal/secrets")
   fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless File.read(secrets).include?("RAILS_MASTER_KEY")
-  unless File.read(secrets_example).include?("RAILS_MASTER_KEY")
+  unless File.file?(secrets_example) && File.read(secrets_example).include?("RAILS_MASTER_KEY")
     fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 else
@@ -95,8 +95,8 @@ end
 [ secrets, secrets_example ].each do |path|
   next unless File.file?(path)
 
-  if File.read(path).match?(/^\s*RAILS_MASTER_KEY\s*=.*config\/master\.key/)
-    fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key")
+  if File.read(path).match?(/^\s*RAILS_MASTER_KEY\s*=.*config\/(?:master\.key|credentials\/production\.key)/)
+    fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key or a production key")
   end
 end
 

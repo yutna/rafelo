@@ -53,8 +53,9 @@ build and nightly (OPS-06).
   Active Storage service.
 
 Everything else is a clear value in the profile's `env.clear`: upstream base
-URLs, hosts, database host/name/users, pool sizes, and the Active Storage
-service. A missing credential fails boot, not the first sign-in. Create or
+URLs, hosts, database host/name/users, and the Active Storage service; the
+connection pool is computed from `RAILS_MAX_THREADS` in `config/database.yml`
+and checked by the BE-21 spec. A missing credential fails boot, not the first sign-in. Create or
 edit the production credentials with the production key:
 
 ```sh
