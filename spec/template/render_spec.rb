@@ -244,6 +244,32 @@ RSpec.describe RafeloTemplate, "payload rendering" do
       expect(normalized.index("    alpha (2.0)")).to be < normalized.index("    smoke_shop_example_customers (0.1.0)")
       expect(normalized.index("  alpha (2.0)")).to be < normalized.index("  smoke_shop_example_customers (0.1.0)")
     end
+
+    it "sorts the dependencies inside a gem, as Bundler writes them" do
+      text = <<~LOCK
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            zeta (1.0)
+              smoke_shop_example_customers
+              alpha (= 2.0)
+            smoke_shop_example_customers (0.1.0)
+              rafelo_core
+            alpha (2.0)
+
+        PLATFORMS
+          x86_64-linux
+      LOCK
+
+      normalized = described_class.normalize_lockfile(text)
+
+      zeta = normalized[/^    zeta \(1\.0\)\n(?:^      .*\n)+/]
+      expect(zeta.lines.map(&:strip)).to eq(
+        [ "zeta (1.0)", "alpha (= 2.0)", "smoke_shop_example_customers" ]
+      )
+      expect(normalized.index("    alpha (2.0)")).to be < normalized.index("    smoke_shop_example_customers (0.1.0)")
+      expect(normalized.index("    smoke_shop_example_customers (0.1.0)")).to be < normalized.index("    zeta (1.0)")
+    end
   end
 
   describe ".render_examples!" do
