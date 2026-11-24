@@ -15,11 +15,12 @@ export default function ChartImpl({
   testId,
   ariaLabel,
   description,
-  series,
+  option,
   locale,
   timeZone,
   labels,
 }: ChartImplProps) {
+  const series = option.series;
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof echarts.init> | null>(null);
   const contextRef = useRef({ series, locale, timeZone });
