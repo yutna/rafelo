@@ -32,6 +32,14 @@ RSpec.describe "affected selection in CI" do
         expect(workflow).to include("script/ci/e2e --project app")
         expect(workflow).to include("if: needs.affected.outputs.mode != 'lockfile'")
       end
+
+      it "selects every lane on scheduled and manual runs" do
+        expect(workflow).to include(
+          'if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then'
+        )
+        expect(workflow).to include("script/ci/affected --all")
+        expect(workflow).to include("script/ci/affected --all --format github >> \"$GITHUB_OUTPUT\"")
+      end
     end
   end
 end
