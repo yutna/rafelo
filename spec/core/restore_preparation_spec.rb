@@ -26,6 +26,20 @@ RSpec.describe Rafelo::Core::RestorePreparation do
       .to raise_error(described_class::LiveDatabase, /live database/)
   end
 
+  it "refuses the live cluster even when the target session uses another time zone" do
+    options = live_connection_options
+    query = URI.encode_www_form(
+      {
+        host: options[:host], port: options[:port], user: options[:user],
+        password: options[:password], dbname: options[:database],
+        options: "-c timezone=America/New_York"
+      }.compact
+    ).gsub("+", "%20")
+
+    expect { described_class.new(url: "postgres:///?#{query}").empty_sessions! }
+      .to raise_error(described_class::LiveDatabase, /live database/)
+  end
+
   it "empties every restored session before traffic" do
     Rafelo::Core::Session.create!(
       token_digest: "restored-session",
