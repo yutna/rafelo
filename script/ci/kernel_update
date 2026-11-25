@@ -66,7 +66,12 @@ module KernelUpdate
   APP_OWNED_PATHS = %w[
     AGENTS.md
     .env.ci.production
+    app/controllers/application_controller.rb
+    app/controllers/sessions_controller.rb
     app/frontend
+    app/models
+    app/policies
+    app/props
     bin/docker-entrypoint
     config/application.rb
     config/core.yml
