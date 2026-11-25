@@ -21,8 +21,8 @@ RSpec.describe "enforcement_canaries" do
       FileUtils.cp_r(File.join(root, directory), destination)
     end
     %w[
-      .dependency-cruiser.cjs .prettierignore .prettierrc.json .rubocop.yml
-      eslint.config.mjs package.json tsconfig.base.json tsconfig.json tsconfig.tooling.json
+      .dependency-cruiser.cjs .prettierignore .prettierrc.json .ruby-version .rubocop.yml
+      eslint.config.mjs mise.toml package.json tsconfig.base.json tsconfig.json tsconfig.tooling.json
     ].each do |file|
       FileUtils.cp(File.join(root, file), destination)
     end
