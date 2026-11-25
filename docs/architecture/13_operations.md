@@ -175,6 +175,12 @@ Alert when the upstream error ratio rises, a circuit opens, p95 latency
 exceeds a p95 target the app states, refresh failures spike, pool waits
 appear under normal load, or the job backlog grows.
 
+`/core/metrics` is a scrape endpoint for the internal network, not the public
+edge: core answers `404` unless `ActionDispatch::RemoteIp` resolved the caller
+to a loopback, private, or link-local address, and keeps its per-IP throttle
+(BE-12). The monitoring system scrapes each process and aggregates the
+per-process series; the app pushes no metrics to a second store (ARCH-13).
+
 ### OPS-05 — Liveness never depends on an upstream (MUST · ADR-25)
 
 - `/up` stays Rails' default liveness check: it proves the app booted and

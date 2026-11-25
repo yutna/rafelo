@@ -61,11 +61,15 @@ RSpec.describe "Deployment profiles" do
   end
 
   it "commits the encrypted production credentials contract" do
-    path = Rails.root.join("config/credentials/production.yml.enc")
+    # A parallel process swaps this file while booting the production config,
+    # so the read takes the same lock (BE-08, SEC-07).
+    CredentialsLock.synchronize do
+      path = Rails.root.join("config/credentials/production.yml.enc")
 
-    expect(path).to be_file
-    expect(path.size).to be_positive
-    expect(path.binread).not_to include("secret_key_base")
+      expect(path).to be_file
+      expect(path.size).to be_positive
+      expect(path.binread).not_to include("secret_key_base")
+    end
   end
 
   it "rebuilds the Dev Container image when a pinned input changes" do
