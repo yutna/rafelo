@@ -14,23 +14,16 @@ RSpec.describe "enforcement_canaries" do
   end
 
   def prepare(root, destination)
-    FileUtils.mkdir_p(File.join(destination, "config"))
-    FileUtils.cp(File.join(root, ".dependency-cruiser.cjs"), destination)
-    FileUtils.cp(File.join(root, "config", "ci.rb"), File.join(destination, "config"))
-    FileUtils.cp(File.join(root, ".rubocop.yml"), destination)
-    FileUtils.mkdir_p(File.join(destination, "script"))
-    FileUtils.cp_r(File.join(root, "script", "ci"), File.join(destination, "script", "ci"))
-    FileUtils.ln_s(File.join(root, "spec"), File.join(destination, "spec"))
-    FileUtils.ln_s(File.join(root, "node_modules"), File.join(destination, "node_modules"))
-    FileUtils.ln_s(File.join(root, "eslint.config.mjs"), File.join(destination, "eslint.config.mjs"))
-    %w[package.json tsconfig.base.json tsconfig.json tsconfig.tooling.json].each do |file|
-      FileUtils.ln_s(File.join(root, file), File.join(destination, file))
+    %w[app config engines script spec].each do |directory|
+      FileUtils.cp_r(File.join(root, directory), destination)
     end
-    FileUtils.ln_s(File.join(root, "app"), File.join(destination, "app"))
-    FileUtils.mkdir_p(File.join(destination, "engines"))
-    FileUtils.ln_s(File.join(root, "engines", "core"), File.join(destination, "engines", "core"))
-    FileUtils.ln_s(File.join(root, "engines", "design_system"), File.join(destination, "engines", "design_system"))
-    FileUtils.ln_s(File.join(root, "engines", "example_orders"), File.join(destination, "engines", "example_orders"))
+    %w[
+      .dependency-cruiser.cjs .prettierignore .prettierrc.json .rubocop.yml
+      eslint.config.mjs package.json tsconfig.base.json tsconfig.json tsconfig.tooling.json
+    ].each do |file|
+      FileUtils.cp(File.join(root, file), destination)
+    end
+    FileUtils.ln_s(File.join(root, "node_modules"), File.join(destination, "node_modules"))
   end
 
   it "passes on the real root and fails closed on broken meta inputs" do
