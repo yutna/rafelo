@@ -60,8 +60,9 @@ class SessionsController < ApplicationController
     )
     failure = error.code == "auth.expired" ? Rafelo::Core::ApplicationError.new("auth.failed") : error
     Rafelo::Core::ErrorReporter.report(failure, handled: true)
-    target = "/#{I18n.locale}/sign_in"
-    target += "?return_to=#{ERB::Util.url_encode(params[:return_to])}" if params[:return_to].present?
+    fallback = "/#{I18n.locale}"
+    return_to = Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s
+    target = return_to == fallback ? "#{fallback}/sign_in" : "#{fallback}/sign_in?return_to=#{ERB::Util.url_encode(return_to)}"
     redirect_to target,
                 status: :see_other,
                 inertia: { errors: { "base" => failure.message } }
