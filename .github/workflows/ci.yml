@@ -833,6 +833,14 @@ jobs:
       - name: Create a throwaway module
         run: bin/rails generate rafelo:module image_check
 
+      - name: Copy the tree for the throwaway image
+        # The throwaway credentials must stay out of the checkout: build from a
+        # copy whose production.yml.enc is never the tracked file (BE-08, SEC-07).
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/rafelo-image
+          rsync -a --exclude .git --exclude node_modules --exclude tmp ./ /tmp/rafelo-image/
+
       - name: Write throwaway production credentials
         # The final image is booted with real (throwaway) credentials, not the
         # dummy-boot flag. The key and values are generated here, never printed
@@ -844,7 +852,7 @@ jobs:
           printf '%s' "$key" > /tmp/rafelo-production.key
           bundle exec ruby -ractive_support -ractive_support/encrypted_configuration -rsecurerandom -ryaml -e '
             config = ActiveSupport::EncryptedConfiguration.new(
-              config_path: "config/credentials/production.yml.enc",
+              config_path: "/tmp/rafelo-image/config/credentials/production.yml.enc",
               key_path: "/tmp/rafelo-production.key",
               env_key: "RAILS_MASTER_KEY",
               raise_if_missing_key: true
@@ -862,7 +870,11 @@ jobs:
           '
 
       - name: Build the production image
-        run: docker build -t rafelo-ci .
+        run: docker build -t rafelo-ci /tmp/rafelo-image
+
+      - name: Prove the tracked production credentials are untouched
+        # A regression here would leave throwaway credentials in the checkout.
+        run: git diff --quiet -- config/credentials/production.yml.enc
 
       - name: Check psql in the image
         # schema_format :sql loads structure.sql with psql at boot and restore (C2, OPS-06).
