@@ -743,3 +743,130 @@ export function loadHeldBack(root: string): { rows?: HeldBackRow[]; findings: Fi
   }
   return heldBackRows(renovate, pkg);
 }
+
+// CT-01/CT-09: the CT-01 table in the spec is descriptive, so docs:check
+// compares the shared keys it names with sharedPropsSchema. Top-level keys are
+// compared as a set; `app`, `auth`, and `trace` are compared one level down
+// (auth also names viewer's own fields).
+const PAGE_KEYS = new Set(["data", "meta", "query", "pagination", "can"]);
+const NESTED_SCOPE: Record<string, "direct" | "tree"> = {
+  app: "direct",
+  auth: "tree",
+  trace: "direct",
+};
+const PROSE_TOKENS = new Set(["null", "object", "array", "string", "boolean", "number"]);
+
+function sharedSchemaProperties(): Record<string, Record<string, unknown>> {
+  const schema = z.toJSONSchema(sharedPropsSchema, {
+    io: "output",
+    target: "draft-2020-12",
+  }) as Record<string, unknown>;
+  return (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+}
+
+function identifiers(node: unknown, tree: boolean): Set<string> {
+  const found = new Set<string>();
+  const walk = (value: unknown): void => {
+    if (!value || typeof value !== "object") return;
+    const object = value as Record<string, unknown>;
+    if (Array.isArray(object.anyOf)) {
+      object.anyOf.forEach(walk);
+      return;
+    }
+    if (object.type !== "object" || !object.properties) return;
+    for (const [key, entry] of Object.entries(object.properties as Record<string, unknown>)) {
+      found.add(key);
+      if (tree) walk(entry);
+    }
+  };
+  walk(node);
+  return found;
+}
+
+function ct01Rows(text: string): { key: string; purpose: string }[] | undefined {
+  const heading = text.indexOf("### CT-01");
+  if (heading < 0) return undefined;
+
+  const rows: { key: string; purpose: string }[] = [];
+  let inTable = false;
+  for (const line of text.slice(heading).split("\n")) {
+    if (!line.trimStart().startsWith("|")) {
+      if (inTable) break;
+      continue;
+    }
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    if (cells.length < 3) continue;
+    const key = cells[0].match(/^`([^`]+)`$/);
+    if (!key) continue;
+    inTable = true;
+    rows.push({ key: key[1], purpose: cells.slice(2).join(" | ") });
+  }
+  return inTable ? rows : undefined;
+}
+
+export function checkEnvelopeTable(text: string): Finding[] {
+  const rows = ct01Rows(text);
+  if (!rows) {
+    return [
+      {
+        file: "docs/architecture/04_contracts.md",
+        message: "the CT-01 envelope table is missing",
+      },
+    ];
+  }
+
+  const findings: Finding[] = [];
+  const schema = sharedSchemaProperties();
+  const tableKeys = new Set(rows.map((row) => row.key));
+  const shared = new Set([...tableKeys].filter((key) => !PAGE_KEYS.has(key)));
+  const expected = new Set(Object.keys(schema));
+
+  for (const key of expected) {
+    if (!shared.has(key)) {
+      findings.push({
+        file: "docs/architecture/04_contracts.md",
+        message: `the CT-01 table is missing shared key ${key}`,
+      });
+    }
+  }
+  for (const key of shared) {
+    if (!expected.has(key)) {
+      findings.push({
+        file: "docs/architecture/04_contracts.md",
+        message: `the CT-01 table names an unknown shared key ${key}`,
+      });
+    }
+  }
+
+  for (const [key, scope] of Object.entries(NESTED_SCOPE)) {
+    const row = rows.find((candidate) => candidate.key === key);
+    if (!row) continue;
+    const wanted = identifiers(schema[key], scope === "tree");
+    const named = new Set(
+      [...row.purpose.matchAll(/`([^`]+)`/g)]
+        .map((match) => match[1])
+        .filter((token) => /^[a-z][A-Za-z0-9]*$/.test(token) && !PROSE_TOKENS.has(token)),
+    );
+    for (const name of wanted) {
+      if (!named.has(name)) {
+        findings.push({
+          file: "docs/architecture/04_contracts.md",
+          message: `the CT-01 table is missing ${key}.${name}`,
+        });
+      }
+    }
+    for (const name of named) {
+      if (!wanted.has(name)) {
+        findings.push({
+          file: "docs/architecture/04_contracts.md",
+          message: `the CT-01 table names an unknown ${key} key ${name}`,
+        });
+      }
+    }
+  }
+
+  return findings;
+}

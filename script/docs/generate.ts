@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   aiFiles,
   checkCitations,
+  checkEnvelopeTable,
   checkGenerated,
   checkHeldBack,
   checkMatrix,
@@ -69,6 +70,8 @@ const heldBackFindings =
   heldBack.rows === undefined
     ? heldBack.findings
     : [...heldBack.findings, ...checkHeldBack(readme, heldBackTable(heldBack.rows))];
+const contractsTopic = topicText.find(({ file }) => file === "docs/architecture/04_contracts.md");
+const envelopeFindings = contractsTopic ? checkEnvelopeTable(contractsTopic.text) : [];
 
 const definitions = collectDefinitions(topicText);
 const matrix = checkMatrix(
@@ -98,6 +101,7 @@ const findings: Finding[] = [
   ...paths.findings,
   ...checkGenerated(generated),
   ...heldBackFindings,
+  ...envelopeFindings,
 ];
 
 if (findings.length > 0) {
