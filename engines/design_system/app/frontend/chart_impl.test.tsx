@@ -28,6 +28,8 @@ vi.mock("echarts/components", () => ({
 }));
 vi.mock("echarts/renderers", () => ({ CanvasRenderer: {} }));
 
+import { AriaComponent } from "echarts/components";
+
 import type { ChartLabels, ChartSeries } from "./chart.types";
 
 import ChartImpl from "./chart_impl";
@@ -107,6 +109,13 @@ describe("ChartImpl", () => {
 
     expect(observer.disconnect).toHaveBeenCalledTimes(1);
     expect(echarts.instance.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers the ARIA component with ECharts", async () => {
+    vi.resetModules();
+    await import("./chart_impl");
+
+    expect(echarts.use).toHaveBeenCalledWith(expect.arrayContaining([AriaComponent]));
   });
 
   it("renders the empty state without setting an option", () => {
