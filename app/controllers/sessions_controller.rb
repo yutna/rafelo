@@ -11,8 +11,10 @@ class SessionsController < ApplicationController
   throttle to: 10, within: 1.minute, only: :destroy_all, name: "sign_out_everywhere/ip"
 
   def new
+    return_to = Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s
+    return_to = nil if return_to == "/#{I18n.locale}"
     render_page "sessions/new", props: SessionsNewProps.new(
-      context: page_context, csrf_token: form_authenticity_token, return_to: params[:return_to].presence
+      context: page_context, csrf_token: form_authenticity_token, return_to: return_to
     )
   end
 

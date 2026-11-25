@@ -273,9 +273,10 @@ module Rafelo
       # SEC-04/SEC-11: the current path for a GET, the page the form came from
       # for a write. ReturnTo rejects anything outside the locale or hostile.
       def return_target
-        value = params[:return_to]
-        value = request.get? || request.head? ? request.fullpath : request.referer if value.blank?
-        value
+        configured = ReturnTo.from(params, locale: I18n.locale).to_s
+        return configured unless configured == "/#{I18n.locale}"
+
+        request.get? || request.head? ? request.fullpath : request.referer
       end
 
       def render_application_error(error)        ErrorReporter.report(error, handled: true)
