@@ -39,6 +39,7 @@ module Rafelo
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
                                     cool_off_time: config.breaker.fetch(:cool_off))
         @bulkhead = self.class.bulkhead_for(@name, config.max_concurrent_calls)
+        @connection_pool = self.class.connection_pool_for(@name, @config)
         @calls = 0
         @retries = 0
       end
@@ -48,6 +49,19 @@ module Rafelo
           @bulkheads ||= {}
           @bulkhead_mutex ||= Mutex.new
           @bulkhead_mutex.synchronize { @bulkheads[name] ||= Bulkhead.new(limit, name: name) }
+        end
+
+        # Only this class names Faraday (ARCH-01); the pool stores whatever
+        # factory it is handed.
+        def connection_pool_for(name, config)
+          UpstreamConnectionPool.for(name, config) do
+            Faraday.new(url: config.base_url) do |faraday|
+              faraday.adapter :net_http_persistent
+              faraday.options.open_timeout = config.open_timeout
+              faraday.options.timeout = config.read_timeout
+              faraday.options.write_timeout = config.write_timeout
+            end
+          end
         end
       end
 
@@ -123,23 +137,25 @@ module Rafelo
           total = 0
           @bulkhead.call do
             @breaker.run do
-              connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
-                request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-                request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-                request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-                request.options.on_data = proc do |chunk, _size, env|
-                  if first
-                    first = false
-                    map_status!(env, method: method)
-                    expected = env.response_headers["content-length"].to_i
-                    raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+              @connection_pool.with(deadline: @deadline) do |connection|
+                connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
+                  request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+                  request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+                  request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+                  request.options.on_data = proc do |chunk, _size, env|
+                    if first
+                      first = false
+                      map_status!(env, method: method)
+                      expected = env.response_headers["content-length"].to_i
+                      raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+                    end
+                    raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+                    total += chunk.bytesize
+                    raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
+
+                    block.call(chunk)
                   end
-                  raise ApplicationError.new("upstream.timeout") if @deadline.expired?
-
-                  total += chunk.bytesize
-                  raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
-
-                  block.call(chunk)
                 end
               end
             end
@@ -204,17 +220,19 @@ module Rafelo
 
       def perform_once(method, path, params:, body:, headers:, idempotency_key:, if_match:)
         collected = +""
-        response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
-          request.params.update(params) if params
-          request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-          request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-          request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-          request.options.on_data = proc do |chunk, _size|
-            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+        response = @connection_pool.with(deadline: @deadline) do |connection|
+          connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
+            request.params.update(params) if params
+            request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+            request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+            request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+            request.options.on_data = proc do |chunk, _size|
+              raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
-            collected << chunk
-            if collected.bytesize > @config.max_response_bytes
-              raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+              collected << chunk
+              if collected.bytesize > @config.max_response_bytes
+                raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+              end
             end
           end
         end
@@ -230,15 +248,6 @@ module Rafelo
         end
 
         UpstreamResponse.new(status: response.status, headers: response.headers, body: body)
-      end
-
-      def connection
-        @connection ||= Faraday.new(url: @config.base_url) do |faraday|
-          faraday.adapter :net_http_persistent
-          faraday.options.open_timeout = @config.open_timeout
-          faraday.options.timeout = @config.read_timeout
-          faraday.options.write_timeout = @config.write_timeout
-        end
       end
 
       def request_headers(headers, idempotency_key, if_match)
