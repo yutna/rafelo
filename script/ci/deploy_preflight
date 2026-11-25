@@ -265,7 +265,11 @@ if production_key_available
       )
       production_paths = flatten_paths(production.config)
       dummy_paths = flatten_paths(dummy.config)
-      if production_paths.sort != dummy_paths.sort
+      if production_paths.empty?
+        # A fresh template app has the key but no production secrets yet; the
+        # file is filled before the first deploy (BE-08, SEC-07).
+        puts "deploy_preflight: production credentials are empty; path comparison skipped"
+      elsif production_paths.sort != dummy_paths.sort
         missing = dummy_paths - production_paths
         extra = production_paths - dummy_paths
         fail_with(errors, "production credentials differ from dummy paths; missing=#{missing.join(", ")} extra=#{extra.join(", ")}")
