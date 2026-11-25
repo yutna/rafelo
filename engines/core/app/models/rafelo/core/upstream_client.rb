@@ -117,32 +117,45 @@ module Rafelo
         Metrics.circuit_state(@name, @gateway, @breaker.color)
         ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind, gateway: @gateway)
         @calls += 1
-        first = true
-        total = 0
-        @bulkhead.call do
-          @breaker.run do
-            connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
-              request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-              request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-              request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-              request.options.on_data = proc do |chunk, _size, env|
-                if first
-                  first = false
-                  map_status!(env, method: :get)
-                  expected = env.response_headers["content-length"].to_i
-                  raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+        refreshed = false
+        begin
+          first = true
+          total = 0
+          @bulkhead.call do
+            @breaker.run do
+              connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
+                request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+                request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+                request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+                request.options.on_data = proc do |chunk, _size, env|
+                  if first
+                    first = false
+                    map_status!(env, method: method)
+                    expected = env.response_headers["content-length"].to_i
+                    raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+                  end
+                  raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+                  total += chunk.bytesize
+                  raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
+
+                  block.call(chunk)
                 end
-                raise ApplicationError.new("upstream.timeout") if @deadline.expired?
-
-                total += chunk.bytesize
-                raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
-
-                block.call(chunk)
               end
             end
           end
+          total
+        rescue ApplicationError => error
+          if error.code == "auth.expired" && !refreshed && @token_provider.respond_to?(:refresh!)
+            refreshed = true
+            @token_provider.refresh!
+            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+            ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: :session_resend)
+            retry
+          end
+          raise
         end
-        total
       rescue Stoplight::Error::RedLight
         Metrics.circuit_open(@name, @gateway)
         Metrics.record_upstream_error(@name, "upstream.circuit_open", gateway: @gateway)

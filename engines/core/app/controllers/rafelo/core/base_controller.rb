@@ -266,8 +266,20 @@ module Rafelo
         raise error
       end
 
-      def render_application_error(error)
-        ErrorReporter.report(error, handled: true)
+      def json_request?
+        request.headers["X-Inertia"] != "true" && request.format.json?
+      end
+
+      # SEC-04/SEC-11: the current path for a GET, the page the form came from
+      # for a write. ReturnTo rejects anything outside the locale or hostile.
+      def return_target
+        configured = ReturnTo.from(params, locale: I18n.locale).to_s
+        return configured unless configured == "/#{I18n.locale}"
+
+        request.get? || request.head? ? request.fullpath : request.referer
+      end
+
+      def render_application_error(error)        ErrorReporter.report(error, handled: true)
         if error.code == "auth.expired"
           AuditRecorder.record(
             controller: self,
@@ -288,8 +300,15 @@ module Rafelo
         end
 
         if error.code == "auth.expired" && Current.session
+          target = ReturnTo.from({ return_to: return_target }, locale: I18n.locale).to_s
           clear_session!
-          return redirect_to "/#{I18n.locale}/sign_in", status: :see_other, inertia: { clear_history: true }
+          if json_request?
+            response.headers["Cache-Control"] = "no-store"
+            return render json: error_payload(error), status: :unauthorized
+          end
+
+          return redirect_to "/#{I18n.locale}/sign_in?return_to=#{ERB::Util.url_encode(target)}",
+                             status: :see_other, inertia: { clear_history: true }
         end
 
         response.headers["Cache-Control"] = "no-store"

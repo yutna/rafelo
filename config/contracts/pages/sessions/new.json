@@ -25,10 +25,14 @@
             "string",
             "null"
           ]
+        },
+        "formHref": {
+          "type": "string"
         }
       },
       "required": [
-        "error"
+        "error",
+        "formHref"
       ],
       "additionalProperties": false
     },
