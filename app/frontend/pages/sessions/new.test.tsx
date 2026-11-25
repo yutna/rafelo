@@ -69,6 +69,12 @@ describe("SignIn page", () => {
     await waitFor(() => expect(screen.getByTestId("signin.error")).toHaveFocus());
   });
 
+  it("renders a flash error from errors.base after a redirect", () => {
+    render(<SignIn {...props} errors={{ base: "Email or password is incorrect." }} />);
+
+    expect(screen.getByTestId("signin.error")).toHaveTextContent("Email or password is incorrect.");
+  });
+
   it("does not render a raw CSRF hidden field", () => {
     render(<SignIn {...props} />);
 

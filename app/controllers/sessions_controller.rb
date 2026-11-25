@@ -52,13 +52,17 @@ class SessionsController < ApplicationController
     }
     redirect_to Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s, status: :see_other
   rescue Rafelo::Core::ApplicationError => error
+    # BE-13: only a refused credential is a form error. An upstream outage or
+    # a forbidden answer renders the shared error page.
+    return render_application_error(error) unless error.code == "auth.expired"
+
     Rafelo::Core::AuditRecorder.record(
       controller: self,
       event: "sign_in",
       outcome: "failure",
       target: "sign_in"
     )
-    failure = error.code == "auth.expired" ? Rafelo::Core::ApplicationError.new("auth.failed") : error
+    failure = Rafelo::Core::ApplicationError.new("auth.failed")
     Rafelo::Core::ErrorReporter.report(failure, handled: true)
     fallback = "/#{I18n.locale}"
     return_to = Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s

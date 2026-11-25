@@ -71,6 +71,17 @@ RSpec.describe "Session flow", type: :request do
     expect(response.location).to end_with("/en/sign_in")
   end
 
+  it "renders the shared error page when the sign-in upstream is unavailable" do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/expired.json", status: 503, base_url: "http://localhost:4000")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "secret" }
+
+    expect(response).to have_http_status(:service_unavailable)
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+    expect(page.dig("props", "data", "code")).to eq("upstream.unavailable")
+    expect(Rafelo::Core::AuditEvent.where(event: "sign_in", outcome: "failure").count).to eq(0)
+  end
+
   it "renders the sign-in page with the form" do
     expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
