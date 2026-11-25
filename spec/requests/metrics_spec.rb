@@ -70,6 +70,32 @@ RSpec.describe "Metrics endpoint", type: :request do
     expect(response.body).not_to include("\r")
   end
 
+  it "refuses a scrape from the public network" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "203.0.113.10" }
+
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).to be_empty
+  end
+
+  it "answers a scrape from the internal network" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "10.0.0.5" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("rafelo_process_info")
+  end
+
+  it "ignores a forwarded address from an untrusted peer" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "203.0.113.10", "HTTP_X_FORWARDED_FOR" => "10.0.0.5" }
+
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "refuses a public client behind the trusted proxy" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "127.0.0.1", "HTTP_X_FORWARDED_FOR" => "203.0.113.10" }
+
+    expect(response).to have_http_status(:not_found)
+  end
+
   it "throttles scrapes per IP" do
     12.times do
       get "/core/metrics"

@@ -889,3 +889,26 @@ pinned pack and no new conflict was found.
 **Spec feedback.** None new; the audit confirms the shipped skill count and
 the layer-to-skill map. Related IDs: CT-09; TS-07; GEN-02; GEN-05; BE-13;
 TS-11; WF-03; 14.
+
+## 2026-11-26 — v0.43.0 — issue #953 (metrics endpoint exposure)
+
+**What happened.** `/core/metrics` answered any caller that could reach the
+app, with only a per-IP throttle, and its series are process-local. OPS-04 is
+a review row, so the spec never said who may scrape the endpoint or where the
+per-process series are aggregated.
+
+**Root cause.** The endpoint was added as part of OPS-04's instrumentation
+without an exposure rule. A scrape endpoint reads like an internal service,
+but nothing stopped the public edge from reaching it.
+
+**What changed.** `Rafelo::Core::InternalNetwork` accepts loopback, private,
+and link-local addresses (IPv4-mapped IPv6 unwrapped); `MetricsController`
+answers `404` to every other caller before rendering, keeps its throttle, and
+relies on `ActionDispatch::RemoteIp` so a forged `X-Forwarded-For` from an
+untrusted peer does not grant access. OPS-04 now states the rule and that the
+scrape backend aggregates the series; the app adds no second store.
+
+**Spec feedback.** Should OPS-04 name the endpoint, the allowed exposure (a
+private network or a service token), and the aggregation point? The current
+reading is recorded in the "spec: OPS-04 metrics endpoint exposure" question.
+Related IDs: OPS-04, SEC-13, BE-12.
