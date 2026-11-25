@@ -142,7 +142,15 @@ RSpec.describe RafeloTemplate, "payload rendering" do
           .to include("docker build -t smoke_shop-ci .")
         expect(File).to exist(File.join(destination, "spec", "fixtures", "formats", "v0.1.0", "sessions.json"))
         expect(File).to exist(File.join(destination, "config", "credentials", "production.yml.enc"))
-        expect(File).not_to exist(File.join(destination, "config", "credentials", "production.key"))
+        production_key = File.join(destination, "config", "credentials", "production.key")
+        expect(File).to exist(production_key)
+        production = ActiveSupport::EncryptedConfiguration.new(
+          config_path: File.join(destination, "config", "credentials", "production.yml.enc"),
+          key_path: production_key,
+          env_key: "RAILS_MASTER_KEY",
+          raise_if_missing_key: true
+        )
+        expect(production.read).to eq("--- {}\n")
 
         kernel = File.read(File.join(destination, "engines", "core", "lib", "rafelo", "core", "engine.rb"))
         expect(kernel).to include("module Rafelo")

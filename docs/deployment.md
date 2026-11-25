@@ -23,7 +23,7 @@ Build and run it locally:
 ```sh
 docker build -t acme .
 docker run -d -p 80:80 \
-  -e RAILS_MASTER_KEY="$(cat config/master.key)" \
+  -e RAILS_MASTER_KEY="$(cat config/credentials/production.key)" \
   -e DB_HOST=host.docker.internal \
   -e DB_USER=acme_runtime \
   -e DB_NAME=acme_production \
@@ -59,17 +59,18 @@ and checked by the BE-21 spec. A missing credential fails boot, not the first si
 edit the production credentials with the production key:
 
 ```sh
-RAILS_MASTER_KEY=<the key> bin/rails credentials:edit --environment production
+RAILS_MASTER_KEY=<the production key> bin/rails credentials:edit --environment production
 ```
 
 The committed file holds placeholder values so the template never ships a
 real secret (SEC-07); re-encrypt it with the deployment's real secrets before
-the first deploy. The key that encrypts it now is the template's local
-`config/master.key`, which is not committed: an adopter who does not hold it
-deletes the file and creates a new one with `credentials:edit`. Put the key in `.kamal/secrets` through a password manager
-or the deploy environment; never commit it, and never read it from
-`config/master.key`. The single-host PostgreSQL accessory also reads
-`POSTGRES_PASSWORD` from `.kamal/secrets`.
+the first deploy. The key that encrypts it is the template's local
+`config/credentials/production.key`, which is not committed; `config/master.key`
+stays for development and test only. An adopter who does not hold the
+production key deletes the file and creates a new one with `credentials:edit`.
+Put the production key in `.kamal/secrets` through a password manager or the
+deploy environment; never commit it. The single-host PostgreSQL accessory also
+reads `POSTGRES_PASSWORD` from `.kamal/secrets`.
 
 Create the runtime and migration database roles before the first deploy (the
 accessory starts as the `postgres` superuser and creates no application role),
@@ -179,7 +180,7 @@ a bad tag, disable that ruleset temporarily, fix the tag, and re-enable it.
 
 ## Security checklist
 
-- Keep `config/master.key` out of git.
+- Keep `config/master.key` and `config/credentials/production.key` out of git.
 - Set `config.force_ssl = true` and `config.assume_ssl = true` when TLS
   terminates at a proxy.
 - Configure `config.hosts` for the production host.

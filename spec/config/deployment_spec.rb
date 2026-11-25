@@ -155,7 +155,9 @@ RSpec.describe "Deployment profiles" do
   end
 
   it "passes the deploy preflight" do
-    output, status = Open3.capture2e(Rails.root.join("script/ci/deploy_preflight").to_s, Rails.root.to_s)
+    output, status = CredentialsLock.synchronize do
+      Open3.capture2e(Rails.root.join("script/ci/deploy_preflight").to_s, Rails.root.to_s)
+    end
 
     expect(status).to be_success, output
     expect(output).to include("deploy_preflight:")

@@ -32,12 +32,16 @@ RSpec.describe "Production configuration" do
   # credentials. The specs use the committed dummy credentials, encrypted with
   # the committed dummy key, so they hold no real secret (BE-08, SEC-07).
   def with_dummy_production_credentials
-    path = Rails.root.join("config/credentials/production.yml.enc")
-    original = File.binread(path)
-    FileUtils.cp(Rails.root.join("config/credentials/dummy.yml.enc"), path)
-    yield
-  ensure
-    File.binwrite(path, original) if original
+    CredentialsLock.synchronize do
+      path = Rails.root.join("config/credentials/production.yml.enc")
+      original = File.binread(path)
+      FileUtils.cp(Rails.root.join("config/credentials/dummy.yml.enc"), path)
+      begin
+        yield
+      ensure
+        File.binwrite(path, original) if original
+      end
+    end
   end
 
   def production_config(env = {})

@@ -160,17 +160,22 @@ module RafeloTemplate
     File.write(File.join(destination, "VERSION"), "#{version}\n")
   end
 
-  # Writes an empty production credentials file with the app's own
-  # `config/master.key`. The template's encrypted file would use a key the
-  # adopter does not have, and a fresh app cannot boot production without a
-  # credentials key (OPS-06).
+  # Writes an empty production credentials file encrypted with the app's own
+  # `config/credentials/production.key` (BE-08, OPS-06). Rails reads that file
+  # for the production environment; `config/master.key` stays for development
+  # and test, and the generated production key is never committed.
   def write_production_credentials!(destination:)
     require "active_support"
     require "active_support/encrypted_configuration"
+    require "securerandom"
+
+    key_path = File.join(destination, "config", "credentials", "production.key")
+    FileUtils.mkdir_p(File.dirname(key_path))
+    File.write(key_path, SecureRandom.hex(16)) unless File.exist?(key_path)
 
     config = ActiveSupport::EncryptedConfiguration.new(
       config_path: File.join(destination, "config", "credentials", "production.yml.enc"),
-      key_path: File.join(destination, "config", "master.key"),
+      key_path: key_path,
       env_key: "RAILS_MASTER_KEY",
       raise_if_missing_key: true
     )
