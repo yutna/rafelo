@@ -79,6 +79,7 @@ RSpec.describe Rafelo::Core::Modules do
       def self.routes = Struct.new(:routes).new([])
     end
 
+    fake_route = Struct.new(:name, :path).new("ledger", Struct.new(:spec).new("/:locale/ledger(.:format)"))
     expect(described_class.register(key: :ledger, engine: with_root).root_route?).to be(true)
     expect(described_class.register(key: :payments, engine: without_root, path: "/payments").root_route?).to be(false)
   end
