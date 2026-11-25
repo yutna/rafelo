@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 # Kamal runs this hook with the secrets before deploy, redeploy, and rollback
-# boot anything (OPS-06). The image build and CI run the same preflight.
+# boot anything (OPS-06). The image build and CI run the same preflight; a
+# deploy must not accept an empty production credentials file.
 set -eu
-script/ci/deploy_preflight
+script/ci/deploy_preflight --deploy

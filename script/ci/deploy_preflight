@@ -1,9 +1,19 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "optparse"
 require "yaml"
 
-root = ARGV[0] ? File.expand_path(ARGV[0]) : File.expand_path("../..", __dir__)
+deploy = false
+root_argument = nil
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/ci/deploy_preflight [--root DIR] [--deploy]"
+  parser.on("--root DIR") { |value| root_argument = value }
+  parser.on("--deploy") { deploy = true }
+end.parse!
+
+root_argument ||= ARGV[0]
+root = root_argument ? File.expand_path(root_argument) : File.expand_path("../..", __dir__)
 Dir.chdir(root)
 
 errors = []
@@ -266,9 +276,13 @@ if production_key_available
       production_paths = flatten_paths(production.config)
       dummy_paths = flatten_paths(dummy.config)
       if production_paths.empty?
-        # A fresh template app has the key but no production secrets yet; the
-        # file is filled before the first deploy (BE-08, SEC-07).
-        puts "deploy_preflight: production credentials are empty; path comparison skipped"
+        # A fresh template app has the key but no production secrets yet; CI
+        # may run the comparison, but a deploy must refuse it (BE-08, SEC-07).
+        if deploy
+          fail_with(errors, "production credentials are empty; fill config/credentials/production.yml.enc before deploying")
+        else
+          puts "deploy_preflight: production credentials are empty; path comparison skipped (not a deploy)"
+        end
       elsif production_paths.sort != dummy_paths.sort
         missing = dummy_paths - production_paths
         extra = production_paths - dummy_paths

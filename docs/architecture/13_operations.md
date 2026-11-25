@@ -293,11 +293,13 @@ flowchart LR
   not `/rails/public/vite` (CT-12); when `config/deploy.yml` lists more
   than one host and `boot.limit` is not `1` (BE-22); and when
   `config/deploy.yml` sets no `deploy_timeout`, whose 30-second default would
-  interrupt a longer boot-time migration (BE-22). Before a deploy, where
-  the production key is available, it also compares the key paths of the
-  production credentials with those of the dummy credentials and fails on any
-  difference, printing paths and never values; in CI, which never holds the
-  production key, it skips that comparison and says so. Canaries (TS-07): a
+  interrupt a longer boot-time migration (BE-22). Before a deploy
+  (`--deploy`, passed by the hook), where the production key is available, it
+  also compares the key paths of the production credentials with those of the
+  dummy credentials and fails on any difference or an empty production file,
+  printing paths and never values; without `--deploy` (CI, a local run) it
+  skips the comparison, or skips only the empty template state and says so.
+  Canaries (TS-07): a
   build-stage `USER` with none in the final stage, `USER root` after a
   non-root user, `USER 00`, an `ARG UID=0`, a tracked `.env.local`, a tracked
   `config/credentials/production.key`, a `.env.ci.production` key missing
