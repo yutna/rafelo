@@ -30,10 +30,12 @@ RSpec.describe Rafelo::Core::UpstreamConnectionPool do
     expect(pool_for(:pool_api, config(base_url: "http://other.test"))).not_to be(first)
   end
 
-  it "sizes the pool from the Puma thread count and the bulkhead" do
-    threads = Rails.application.config.x.puma_threads
+  it "sizes the pool from the process capacity and the bulkhead" do
+    capacity = Rails.application.config.x.puma_threads +
+               Rails.application.config.x.executor.size +
+               Rails.application.config.x.downloads.max_concurrent
 
-    expect(pool_for(:pool_large, config(max_concurrent_calls: 8)).size).to eq([ threads, 8 ].min)
+    expect(pool_for(:pool_large, config(max_concurrent_calls: 8)).size).to eq([ capacity, 8 ].min)
     expect(pool_for(:pool_small, config(max_concurrent_calls: 1)).size).to eq(1)
   end
 
