@@ -8,6 +8,32 @@ module Rafelo
 
       Entry = Data.define(:key, :engine, :path, :permission_prefixes, :legacy_paths, :nav, :flag) do
         def route_name = key
+
+        # ARCH-06: a navigation entry links to the engine's own root route; a
+        # module whose engine has no root route stays out of navigation.
+        def root_route?
+          engine.respond_to?(:routes) && engine.routes.routes.any? { |route| route.name == "root" }
+        end
+
+        # The permission keys the module declares in its own manifest, used by
+        # boot validation to reject a key two modules both declare (BE-03).
+        def permission_keys
+          return [] unless engine.respond_to?(:root)
+
+          path = engine.root.join("config/permissions.yml")
+          return [] unless File.file?(path)
+
+          manifest = YAML.safe_load_file(path, aliases: false) || {}
+          return [] unless manifest.is_a?(Hash)
+
+          manifest.flat_map do |prefix, resources|
+            next [] unless resources.is_a?(Hash)
+
+            resources.flat_map do |resource, actions|
+              Array(actions).map { |action| "#{prefix}:#{resource}:#{action}" }
+            end
+          end
+        end
       end
 
       class << self
@@ -46,9 +72,11 @@ module Rafelo
 
         def reset!
           entries.clear
+          entries.concat(@boot_entries || [])
         end
 
         def validate!
+          @boot_entries ||= entries.dup
           entries.group_by(&:key).each do |key, group|
             raise ArgumentError, "duplicate module key #{key.inspect}" if group.length > 1
           end
@@ -57,6 +85,14 @@ module Rafelo
           end
           nav_orders = entries.filter_map { |entry| entry.nav[:order] }
           raise ArgumentError, "duplicate navigation order" if nav_orders.length != nav_orders.uniq.length
+          entries.flat_map { |entry| entry.permission_keys.map { |key| [ key, entry.key ] } }
+                 .group_by(&:first)
+                 .each do |key, declared|
+            modules = declared.map(&:last).uniq
+            if modules.length > 1
+              raise ArgumentError, "permission key #{key} is declared by #{modules.join(', ')}"
+            end
+          end
           entries.each { |entry| validate_entry!(entry, ignore: entries) }
         end
 

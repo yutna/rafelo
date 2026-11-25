@@ -60,6 +60,18 @@ RSpec.describe "Home page", type: :request do
     expect(response.body).to include('"message":"Rafelo"')
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
+  it "links a readable module to its engine root and hides it without a read grant" do
+    get "/en", headers: auth_headers(grants: [ "example_orders:orders:read" ])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+    nav = page.dig("props", "nav")
+    entry = nav.find { |item| item["key"] == "example_orders" }
+    expect(entry["path"]).to eq("/en/example_orders/")
+
+    get "/en", headers: auth_headers(grants: [ "billing:invoice:read" ])
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+    expect(page.dig("props", "nav")).to be_empty
+  end
+
   it "proves the page contract, budgets, URLs and capabilities" do
     expect { get "/en", headers: auth_headers }.to within_budgets("home/index")
     expect(response).to match_page_schema("home/index")
