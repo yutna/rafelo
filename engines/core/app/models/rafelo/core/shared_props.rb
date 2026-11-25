@@ -74,7 +74,8 @@ module Rafelo
       end
 
       def current_module?(entry)
-        @request_path == nav_path(entry) || @request_path.start_with?("#{nav_path(entry)}/")
+        path = nav_path(entry)
+        @request_path == path || @request_path.start_with?("#{path.chomp('/')}/")
       end
     end
   end
