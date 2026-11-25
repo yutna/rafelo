@@ -3,12 +3,16 @@
 require "action_controller/log_subscriber"
 
 # Why: Rails logs the full redirect location, and an export redirect carries a
-# short-lived signed Active Storage URL, a bearer credential (BE-18).
+# short-lived signed URL, a bearer credential (BE-18). The kernel serves it at
+# /core/exports/; an adopted app's older Active Storage redirect is redacted too.
 # Upstream: https://github.com/rails/rails
 module Rafelo
   module RedactStorageRedirects
+    REDACTED_PREFIXES = [ "/rails/active_storage/", "/core/exports/" ].freeze
+
     def redirect_to(event)
-      return if event.payload[:location].to_s.include?("/rails/active_storage/")
+      location = event.payload[:location].to_s
+      return if REDACTED_PREFIXES.any? { |prefix| location.include?(prefix) }
 
       super
     end

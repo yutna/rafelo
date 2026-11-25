@@ -25,6 +25,10 @@ routes:
   to: core/metrics#show
   kind: dispatch
 - verb: GET
+  path: "/core/exports/:signed_id"
+  to: rafelo/core/export_files#show
+  kind: dispatch
+- verb: GET
   path: "/:locale/sign_in"
   to: sessions#new
   kind: dispatch

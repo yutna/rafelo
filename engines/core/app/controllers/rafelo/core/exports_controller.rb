@@ -12,18 +12,8 @@ module Rafelo
         authorize export, :show?, policy_class: Rafelo::Core::ExportPolicy
         raise ApplicationError.new("resource.not_found") unless export.file.attached?
 
-        send_download(
-          filename: export.filename,
-          type: export.file.content_type,
-          source: ->(&block) do
-            export.file.blob.open do |file|
-              while (chunk = file.read(64 * 1024))
-                block.call(chunk)
-              end
-            end
-          end,
-          event: "export"
-        )
+        redirect_to main_app.core_export_file_path(signed_id: export.signed_download_id),
+                    status: :see_other
       end
     end
   end
