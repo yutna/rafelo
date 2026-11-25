@@ -30,7 +30,13 @@ and the fix. Every `script/ci/` check and every generator or check script
 (`docs:check`, `contracts:*`, `i18n:*`, `errors:check` included) takes
 `--root DIR`, prints how many inputs it checked, and fails on an empty input
 set or a failing subprocess, so a wrong glob cannot pass by checking nothing
-(TS-07).
+(TS-07). The input set is what the check reads (the files its glob finds, the
+walked routes, the `package.yml` files). When it reads inputs but none is of
+the kind its rule applies to (`script/ci/fan_in` with no product module, for
+example after the examples are removed, GEN-08), it passes, prints a count of
+0, and names the reason. Because a broken selector would also count 0, each
+such check has a counterpart canary: a root with exactly one eligible input
+must count 1.
 
 ## Matrix
 
@@ -101,7 +107,7 @@ set or a failing subprocess, so a wrong glob cannot pass by checking nothing
 | SEC-13 | production config spec for `force_ssl` and `config.hosts` (an unknown host gets `403`, `/up` still answers) · header specs (`frame-ancestors`, `base-uri`, `form-action`, `object-src`, `Permissions-Policy` from core's middleware, never `config.permissions_policy`, which sends `Feature-Policy` in Rails 8.1.4.1; also on an error page and a router `404`) · proxy body limit | enforced (proxy body limit: verify when adopting) |
 | SEC-14 | `Rafelo/FaradayOnlyInUpstreamClient` · `Rafelo/NoTlsVerifyDisable` · client specs: no redirect followed, response size checked against the upstream's `max_response_bytes`, by `Content-Length` on the first chunk and the running total after (chunking fake: crossed in the third chunk, no fourth handed over), escaped path segments, one row per refused path class (a leading `/`, `//`, a scheme, `?`, `#`, `\`, and a control character raise; `..`, `.`, and an empty segment answer `404` with no request made), a kept base path | enforced |
 | SEC-15 | session specs: grants re-fetched on refresh and when stale · an upstream `403` marks grants stale by bumping `grants_generation`, and a concurrency spec (TS-10) proves a re-fetch started before the mark does not clear it | enforced |
-| SEC-16 | in the release pull request that bumps `VERSION` (WF-05), `bin/rails formats:dump` writes synthetic rows for every versioned format (idempotency outcomes, one job per class defined under `app/` and `engines/*/app/` through `serialize`, sessions) to `spec/fixtures/formats/v<VERSION>/` and prunes folders older than N-2, and that pull request commits the result; the release workflow fails while that folder is missing and commits nothing · the compatibility spec loads the previous tag's folder · readers of job arguments and idempotency outcomes accept the current and the previous format · session rows carry `format_version`; on an incompatible session format a release MAY revoke all sessions instead of reading the old one (it only forces sign-in, OPS-07) | enforced |
+| SEC-16 | in the release pull request that bumps `VERSION` (WF-05), `bin/rails formats:dump` writes synthetic rows for every versioned format (idempotency outcomes, one job per class defined under `app/` and `engines/*/app/` except the example engines (`engines/example_*`, GEN-08: they are removable, and a fixture that names their classes would fail once they are deleted) through `serialize`, sessions) to `spec/fixtures/formats/v<VERSION>/` and prunes folders older than N-2, and that pull request commits the result; the release workflow fails while that folder is missing and commits nothing · the compatibility spec loads the previous tag's folder · readers of job arguments and idempotency outcomes accept the current and the previous format · session rows carry `format_version`; on an incompatible session format a release MAY revoke all sessions instead of reading the old one (it only forces sign-in, OPS-07) | enforced |
 
 ### Contracts
 
@@ -217,7 +223,7 @@ set or a failing subprocess, so a wrong glob cannot pass by checking nothing
 | OPS-06 | `script/ci/deploy_preflight` (`bin/ci` step 14, and the Kamal hook `.kamal/hooks/pre-deploy` before every deploy): every `.env.ci.production` key is in `config/deploy.yml`'s `env.clear`, the app's only `env.secret` is `RAILS_MASTER_KEY` and neither `SECRET_KEY_BASE` nor `SECRET_KEY_BASE_DUMMY` appears, the final stage's effective `USER` is not root, no tracked secret file, more than one host needs `boot.limit: 1`, `deploy_timeout` is set (canaries, TS-07) · before a deploy, where the production key is available, the production and dummy credentials have the same key paths (values never printed; skipped in CI, which never holds the key) · PR image build after `rafelo:module` on Dockerfile, `.dockerignore`, `Gemfile`, gemspec, lockfile, `.env.ci.production`, and dummy credentials changes, and nightly · review of the deploy profile · `deploy_preflight` also fails unless `config/deploy.yml`'s `asset_path` is the Vite output directory, `/rails/public/vite` (canary: the generated `/rails/public/assets`) | enforced (preflight, image build) · review (deploy profile) |
 | OPS-07 | scheduled restore drill of point-in-time recovery, which asserts `core_sessions` is empty after the restore · batched purge and partition-drop job specs | review (drill) · enforced (job specs) |
 | OPS-08 | audit event specs (`core_audit_events`, partitioned by month) · one recorder, every outcome: a core request spec drives success, `422`, conflict, `403`, an upstream `503`, and a raise in a callback and asserts exactly one row each; none for the session-less endpoints and for a `GET` that fails · IP truncation helper spec: IPv4 /24, IPv6 /48, IPv4-mapped through `native`, `nil` when unparsable · user-agent family helper spec: an unknown, empty, and oversized header map to `other` · spec proves the database trigger rejects `UPDATE` and `DELETE` on audit rows · two database roles: a migration role owns the tables, and the runtime role has only `INSERT` and `SELECT` on audit tables, so the application's own role cannot disable the trigger (BE-21's spec reads both from `database.yml`) · a DEFAULT partition catches rows that match no monthly partition and an alert fires instead of the insert failing · upcoming partitions are ensured on boot in development and test and by the scheduled job in production · partition retention job spec · audit partitions are excluded from `structure.sql` (structure dump flags `--exclude-table=core_audit_events_*`) · what the migration role does to audit rows: review | enforced (trigger on every partition with the pinned PostgreSQL, structure dump flags: verify when adopting; what the migration role does to audit rows: review) |
-| OPS-09 | a workflow on changes under `.devcontainer/**` other than `.devcontainer/image_digest`, which it writes itself, and to `.ruby-version`, `mise.toml`, and `package-lock.json`, builds the Dev Container image and pushes it to the registry by digest; the digest lives only in `.devcontainer/image_digest`: a first CI job outputs it and every other `ci.yml` job except the production image build runs in `container: ${{ needs.image.outputs.ref }}`, so workflow YAML never contains it; `devcontainer.json` references the same digest; the digest file is a global input of `script/ci/affected` · Ruby pinned by the image tag and digest, Node and npm by `mise.toml`; `script/ci/pins` asserts that `mise.toml`'s Ruby, `.ruby-version` (read by the Gemfile through `ruby file:`), the production Dockerfile's `ARG RUBY_VERSION`, and the image tag agree, and that `devcontainer.json` names the digest in `.devcontainer/image_digest` · PostgreSQL image pinned by version and digest · `.gitattributes` forces `eol=lf` · Vite listens on 0.0.0.0 inside the container | enforced (vite_ruby host option: verify when adopting) |
+| OPS-09 | a workflow on changes under `.devcontainer/**` other than `.devcontainer/image_digest`, which it writes itself, and to `.ruby-version`, `mise.toml`, `package.json`, and `package-lock.json` (every root file the image's Dockerfile copies), builds the Dev Container image and pushes it to the registry by digest; the digest lives only in `.devcontainer/image_digest`: a first CI job outputs it and every other `ci.yml` job except the production image build runs in `container: ${{ needs.image.outputs.ref }}`, so workflow YAML never contains it; `devcontainer.json` references the same digest; the digest file is a global input of `script/ci/affected` · Ruby pinned by the image tag and digest, Node and npm by `mise.toml`; `script/ci/pins` asserts that `mise.toml`'s Ruby, `.ruby-version` (read by the Gemfile through `ruby file:`), the production Dockerfile's `ARG RUBY_VERSION`, and the image tag agree, and that `devcontainer.json` names the digest in `.devcontainer/image_digest` · PostgreSQL image pinned by version and digest · `.gitattributes` forces `eol=lf` · Vite listens on 0.0.0.0 inside the container | enforced (vite_ruby host option: verify when adopting) |
 
 ## Custom cops
 
@@ -867,7 +873,9 @@ and RuboCop exit 1; their exit 2 is a crash or a configuration error) and
 its machine-readable output names the expected rule, so a crash, a parse
 error, an ignored file, or a run that inspected no file fails it. Every
 `script/ci/` check and every generator or check script also runs on an empty
-`--root` and must fail there with a count of 0. TS-07 lists the fixtures. In short: every graph check (declared and actual
+`--root` and must fail there with a count of 0. A check whose rule applies to a subset
+also runs on a root that holds inputs but none of that subset and must pass
+there with a count of 0. TS-07 lists the fixtures. In short: every graph check (declared and actual
 cycles, undeclared dependencies, private constants, non-public imports,
 references into a kernel `internal/` folder, `@engines/` misuse,
 example-engine dependencies), every hand-written dependency-cruiser rule
@@ -1068,7 +1076,10 @@ Some counts rise only with an owner's approval, and every fall becomes the new
 ceiling. `script/ci/ratchet` counts each item and compares it with the
 committed counts. Only a rise fails; a fall never fails a pull request. CI
 never commits a lower count and never pushes to `main`. A pull request may
-lower the counts it earned itself (`script/ci/ratchet --update` writes them);
+lower the counts it earned itself (`script/ci/ratchet --update` writes the
+falls; it never raises a ceiling: a count above its ceiling is printed as a
+rise that needs an owner and left as it is, and the check without `--update`
+still fails on it);
 otherwise a scheduled job runs `--update` on `main` and opens a pull request
 that lowers them. The job opens that pull request with the adopted app's
 `RATCHET_TOKEN` secret (a GitHub App or a fine-grained token limited to the

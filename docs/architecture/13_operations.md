@@ -268,7 +268,12 @@ flowchart LR
   encryption key fails boot instead of the first sign-in (Active Record
   raises only when the key is first read). Changing a secret is a commit of
   the re-encrypted file followed by a deploy; rotating the key re-encrypts
-  the file and replaces the password manager entry in the same release.
+  the file and replaces the password manager entry in the same release. The template never ships its own encrypted
+  file, whose key the adopter does not have: it writes an empty
+  `config/credentials/production.yml.enc` for the new app, encrypted with a
+  key it generates and does not commit. The adopter fills it before the first
+  deploy; the preflight fails until it holds every key the dummy credentials
+  hold.
 - `script/ci/deploy_preflight` runs in CI (a `bin/ci` step,
   `09_enforcement.md`) and before every deploy, from the Kamal hook
   `.kamal/hooks/pre-deploy`, which Kamal 2.12.0 runs with the secrets before
@@ -299,8 +304,11 @@ flowchart LR
   with `BUNDLE_FROZEN=false` because the new engine changes `Gemfile.lock`
   (the second exception to the frozen bundle, after generator smoke, GEN-04),
   on pull requests that change the `Dockerfile`, `.dockerignore`, `Gemfile`,
-  `Gemfile.lock`, any gemspec, `.env.ci.production`, or the dummy
-  credentials, and nightly. Otherwise
+  `Gemfile.lock`, `package.json`, `package-lock.json` (the image runs `npm ci`
+  and the Vite build), any gemspec, `.env.ci.production`, the dummy
+  credentials, or the configuration the image's production boot reads
+  (`config/application.rb`, `config/environments/production.rb`,
+  `config/database.yml`, `config/storage.yml`), and nightly. Otherwise
   the image build that BE-08 and SEC-12 rely on would first run at deploy.
   Engines are path gems, so the `Dockerfile` copies every engine's gemspec and
   the files those gemspecs load (such as `lib/acme/<engine>/version.rb`)
@@ -394,7 +402,13 @@ stores `nil` for a value that does not parse. Its spec covers all three forms.
   audit tables it has only `INSERT` and `SELECT`, with no `UPDATE`, `DELETE`,
   or `TRUNCATE` (row triggers do not fire on `TRUNCATE`). Without ownership it
   cannot disable the trigger either. `config/database.yml` defines both roles,
-  and the BE-21 spec reads both.
+  and the BE-21 spec reads both. `script/ops/database_roles.sql` creates both
+  roles: a superuser runs it once per database before the first `db:prepare`,
+  with the passwords as `psql` variables. It is re-runnable, and on an
+  existing database it transfers ownership of the existing tables and
+  sequences to the migration role, so the release that introduces the roles
+  runs it before its first deploy. A real-database spec runs it twice on a
+  scratch database and checks ownership and every privilege.
 - **Partitioned by month.** The audit table, `core_audit_events`, lives in
   `engines/core/db/migrate` with the other kernel tables (ARCH-03) and is
   partitioned by month on the event time. One idempotent routine creates the
@@ -447,14 +461,15 @@ stores `nil` for a value that does not parse. Its spec covers all three forms.
   `mise.toml`'s Ruby, `.ruby-version`, the `Dockerfile`, and the image tag
   agree, and unless every Node and npm pin agrees (`00_README.md`).
 - **One prebuilt image.** A workflow that runs on changes to
-  `.devcontainer/**` and to the pins the image bakes in (`.ruby-version`,
-  `mise.toml`, and `package-lock.json`, which fixes the Playwright browsers)
+  `.devcontainer/**` and to the root files the image's Dockerfile copies
+  (`.ruby-version`, `mise.toml`, `package.json`, and `package-lock.json`, which
+  fixes the Playwright browsers)
   builds the image and pushes it to the registry by digest,
   and the digest is recorded in `.devcontainer/image_digest`, committed
   through a pull request like any other change, never pushed to `main` by a
   workflow. A change to that file alone does not trigger a rebuild: the
   workflow's filter is `paths: [".devcontainer/**", "!.devcontainer/image_digest",
-  ".ruby-version", "mise.toml", "package-lock.json"]`
+  ".ruby-version", "mise.toml", "package.json", "package-lock.json"]`
   (GitHub Actions refuses `paths` and `paths-ignore` on the same event). That
   file is the only place CI learns the digest: a first `ci.yml` job reads it
   and outputs the image reference, and every other `ci.yml` job, except one
