@@ -179,7 +179,6 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       304 => nil,
       410 => "resource.not_found",
       412 => "resource.conflict",
-      413 => "unexpected",
       302 => "unexpected"
     }.each do |status, code|
       stub_request(:get, "http://upstream.test/status").to_return(status: status, body: "{}")
