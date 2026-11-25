@@ -15,7 +15,7 @@ flowchart LR
   J -->|"$ref"| SJ
   J -->|"json_schemer in request specs"| RS["Rails props are validated"]
   Z -->|"schema.parse at the page boundary"| PG["React page"]
-  LC["config/locales.yml"] -->|"npm run locales:generate"| LE["@core/contracts/locales.generated.ts"]
+  LC["config/locales.yml"] -->|"npm run i18n:generate"| LE["@core/contracts/locales.generated.ts"]
   EK["config/errors.yml (kernel codes)"] -->|"npm run errors:generate"| ETK["@core/errors.generated.ts"]
   EM["engines/billing/config/errors.yml (billing.* codes)"] -->|"npm run errors:generate"| ETM["@billing/errors.generated.ts"]
   Y["engines/billing/config/locales/*.yml"] -->|"npm run i18n:generate"| L["@billing/locales/*.json (namespace billing)"]
@@ -205,7 +205,7 @@ committed and checked for staleness in CI.
   through json_schemer's ref resolver (verify the registry `$ref`/`$defs`
   output, its stability across Zod upgrades, and the resolver option when
   adopting).
-- **Generated locale enum.** `npm run locales:generate` generates the locale
+- **Generated locale enum.** `npm run i18n:generate` generates the locale
   enum from `config/locales.yml` into `@core/contracts/locales.generated.ts`.
   No schema lists locales by hand.
 

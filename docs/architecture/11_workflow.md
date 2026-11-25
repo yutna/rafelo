@@ -479,7 +479,7 @@ updates follow its own process and are not part of the payload.
 ```markdown
 - [ ] Linked issue, or a chore that does not need one (WF-01)
 - [ ] Tests at the right level (TS-01), page budgets at the maximum page size (TS-02), and axe clean (TS-08)
-- [ ] Generated files regenerated (`contracts:generate`, `errors:generate`, `permissions:generate`, `locales:generate`, `i18n:generate`, `aliases:generate`, `docs:generate`, `script/ci/engine_graph`)
+- [ ] Generated files regenerated (`contracts:generate`, `errors:generate`, `permissions:generate`, `i18n:generate`, `aliases:generate`, `docs:generate`, `script/ci/engine_graph`)
 - [ ] Copy present in every configured locale; any `[<locale>]` placeholder left is translated before the release (CT-08, WF-05)
 - [ ] Contract changes are additive, or the title carries `!` (CT-05, CT-12)
 - [ ] Migrations and stored formats work while the previous release still runs (BE-22, SEC-16)

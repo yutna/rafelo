@@ -193,7 +193,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
   mount Rafelo::Core::Engine => "/core", as: :core # internal endpoints, no locale
 
-  scope ":locale", locale: Rafelo::Core::Locales.route_constraint do # generated from config/locales.yml (npm run locales:generate)
+  scope ":locale", locale: Rafelo::Core::Locales.route_constraint do # generated from config/locales.yml (npm run i18n:generate)
     get "sign_in", to: "sessions#new"
     # ...other application routes
 
