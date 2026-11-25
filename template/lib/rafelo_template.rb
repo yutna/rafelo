@@ -129,6 +129,11 @@ module RafeloTemplate
       end
     end
 
+    # `rails new` writes its own Dependabot config. Renovate owns dependency
+    # updates (WF-06), and the payload no longer ships a replacement, so the
+    # app must not keep the generated file.
+    FileUtils.rm_f(File.join(destination, ".github", "dependabot.yml")) if only.nil?
+
     written.sort
   end
 

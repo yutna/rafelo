@@ -36,6 +36,7 @@ paths:
     mode: app
   - source: LICENSE
   - source: Rakefile
+  - source: renovate.json5
   - source: THIRD_PARTY_NOTICES.md
   - source: config.ru
   - source: docs/contracts.md

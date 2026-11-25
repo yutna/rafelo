@@ -16,6 +16,9 @@ spec/fixtures
 config/locales
 engines/*/config/locales
 package-lock.json
+# Strict JSON: the pins check and docs tooling parse it with JSON.parse;
+# Prettier's JSON5 output (unquoted keys, trailing commas) is not JSON.
+renovate.json5
 .devcontainer/image_digest
 config/database.yml
 config/storage.yml

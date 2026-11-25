@@ -20,6 +20,17 @@ errors = []
 checks = 0
 exact_version = /\A\d+(?:\.\d+)+(?:-[0-9A-Za-z.-]+)?\z/
 
+# WF-06's peer sets. A package present in package.json must be grouped under
+# its set's groupName, in exactly one rule; a member outside its group fails.
+PEER_SETS = {
+  "typescript" => %w[typescript typescript-eslint],
+  "vite" => %w[vite @vitejs/plugin-react vite-plugin-ruby @rolldown/plugin-babel],
+  "react" => %w[react react-dom @types/react @types/react-dom eslint-plugin-react-hooks],
+  "vitest" => %w[vitest @vitest/coverage-v8],
+  "tailwindcss" => %w[tailwindcss @tailwindcss/vite prettier-plugin-tailwindcss],
+  "eslint" => %w[eslint @eslint/js]
+}.freeze
+
 def read(root, path)
   full = File.join(root, path)
   abort "pins: missing #{path}" unless File.file?(full)
@@ -100,6 +111,47 @@ checks += 1
 errors << "package.json devEngines do not match mise.toml" unless package.dig("devEngines", "runtime", "version") == mise["node"] && package.dig("devEngines", "packageManager", "version") == mise["npm"]
 checks += 1
 errors << "package.json devEngines do not fail on mismatch" unless package.dig("devEngines", "runtime", "onFail") == "error" && package.dig("devEngines", "packageManager", "onFail") == "error"
+
+installed = %w[dependencies devDependencies optionalDependencies overrides]
+  .flat_map { |group| (package[group] || {}).keys }
+if File.file?(File.join(root, "renovate.json5"))
+  begin
+    renovate = JSON.parse(read(root, "renovate.json5"))
+    grouped = Hash.new { |hash, key| hash[key] = [] }
+    rules_by_group = Hash.new { |hash, key| hash[key] = [] }
+    Array(renovate["packageRules"]).each do |rule|
+      group = rule["groupName"]
+      next if group.nil?
+
+      names = Array(rule["matchPackageNames"])
+      rules_by_group[group] << names
+      names.each { |name| grouped[name] << group }
+    end
+
+    PEER_SETS.each do |group, names|
+      present = names & installed
+      next if present.empty?
+
+      checks += 1
+      entries = rules_by_group[group]
+      if entries.length != 1
+        errors << "renovate.json5 has #{entries.length} #{group} peer-group rules, expected exactly one"
+      else
+        missing = present - entries.first
+        errors << "renovate.json5 #{group} peer group is missing #{missing.join(', ')}" if missing.any?
+      end
+
+      present.each do |name|
+        checks += 1
+        errors << "renovate.json5 #{name} is in #{grouped[name].inspect}, not the #{group} peer group" unless grouped[name] == [ group ]
+      end
+    end
+  rescue JSON::ParserError => error
+    errors << "renovate.json5 cannot be parsed: #{error.message}"
+  end
+else
+  errors << "renovate.json5 is missing"
+end
 
 gemfile = read(root, "Gemfile")
 checks += 1

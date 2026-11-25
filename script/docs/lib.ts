@@ -20,6 +20,8 @@ export const RULE_PREFIXES = [
 export const STATUSES = ["enforced", "tested in kernel", "verify when adopting", "review"] as const;
 export const GENERATED_START = "<!-- generated:envelope:start -->";
 export const GENERATED_END = "<!-- generated:envelope:end -->";
+export const HELD_BACK_START = "<!-- generated:held-back:start -->";
+export const HELD_BACK_END = "<!-- generated:held-back:end -->";
 
 const ALL_PATH_PREFIXES = [
   "script/",
@@ -604,4 +606,140 @@ export function checkGenerated(text: string): Finding[] {
           message: "the generated envelope table is stale; run npm run docs:generate",
         },
       ];
+}
+
+export type HeldBackRow = { packages: string[]; pinned: string[]; why: string };
+
+type RenovateConfig = { packageRules?: unknown };
+
+function packageVersions(pkg: Record<string, unknown>): Record<string, string> {
+  const versions: Record<string, string> = {};
+  for (const group of ["dependencies", "devDependencies", "optionalDependencies", "overrides"]) {
+    const entries = pkg[group];
+    if (!entries || typeof entries !== "object") continue;
+    for (const [name, version] of Object.entries(entries as Record<string, unknown>)) {
+      if (typeof version === "string") versions[name] = version;
+    }
+  }
+  return versions;
+}
+
+// WF-06: a package held back on purpose is a Renovate rule with
+// `allowedVersions` and a description of why. The 00_README table lists the
+// ones whose package is installed, with the version package.json pins.
+export function heldBackRows(
+  renovate: unknown,
+  pkg: unknown,
+): { rows?: HeldBackRow[]; findings: Finding[] } {
+  const findings: Finding[] = [];
+  const rules = (renovate as RenovateConfig | null)?.packageRules;
+  if (!Array.isArray(rules)) {
+    return { findings: [{ file: "renovate.json5", message: "packageRules must be a list" }] };
+  }
+
+  const installed = packageVersions((pkg ?? {}) as Record<string, unknown>);
+  const rows: HeldBackRow[] = [];
+  rules.forEach((raw, index) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+      findings.push({ file: "renovate.json5", message: `packageRules[${index}] is not an object` });
+      return;
+    }
+
+    const rule = raw as Record<string, unknown>;
+    if (rule.allowedVersions === undefined) return;
+    const names = Array.isArray(rule.matchPackageNames)
+      ? rule.matchPackageNames.filter((name): name is string => typeof name === "string")
+      : [];
+    if (names.length === 0) {
+      findings.push({
+        file: "renovate.json5",
+        message: `packageRules[${index}] holds packages back without matchPackageNames`,
+      });
+      return;
+    }
+
+    const why = typeof rule.description === "string" ? rule.description.trim() : "";
+    if (why === "") {
+      findings.push({
+        file: "renovate.json5",
+        message: `packageRules[${index}] holds a package back without a description`,
+      });
+      return;
+    }
+
+    const present = names.filter((name) => installed[name] !== undefined);
+    if (present.length === 0) return;
+    rows.push({
+      packages: present,
+      pinned: [...new Set(present.map((name) => installed[name]))],
+      why,
+    });
+  });
+  return { rows, findings };
+}
+
+export function heldBackTable(rows: HeldBackRow[]): string {
+  const header = ["| Package | Pinned | Why |", "| --- | --- | --- |"];
+  const body = rows.map((row) => {
+    if (row.why.includes("|")) throw new Error("a held-back description contains a table pipe");
+    return `| ${row.packages.map((name) => `\`${name}\``).join(", ")} | ${row.pinned.join(", ")} | ${row.why} |`;
+  });
+  return [...header, ...body].join("\n");
+}
+
+export function rewriteHeldBack(text: string, table: string): string {
+  const start = text.indexOf(HELD_BACK_START);
+  const end = text.indexOf(HELD_BACK_END);
+  if (start < 0 || end < 0 || end < start) {
+    throw new Error(
+      `the held-back markers are missing or out of order (${HELD_BACK_START} / ${HELD_BACK_END})`,
+    );
+  }
+  return text.slice(0, start + HELD_BACK_START.length) + "\n" + table + "\n" + text.slice(end);
+}
+
+export function checkHeldBack(text: string, table: string): Finding[] {
+  let expected: string;
+  try {
+    expected = rewriteHeldBack(text, table);
+  } catch (error) {
+    return [{ file: "docs/architecture/00_README.md", message: (error as Error).message }];
+  }
+  return expected === text
+    ? []
+    : [
+        {
+          file: "docs/architecture/00_README.md",
+          message: "the generated held-back table is stale; run npm run docs:generate",
+        },
+      ];
+}
+
+export function loadHeldBack(root: string): { rows?: HeldBackRow[]; findings: Finding[] } {
+  const configPath = "renovate.json5";
+  const packagePath = "package.json";
+  if (!existsSync(resolve(root, configPath))) {
+    return { findings: [{ file: configPath, message: "the Renovate configuration is missing" }] };
+  }
+  if (!existsSync(resolve(root, packagePath))) {
+    return { findings: [{ file: packagePath, message: "package.json is missing" }] };
+  }
+
+  let renovate: unknown;
+  let pkg: unknown;
+  try {
+    renovate = JSON.parse(readFileSync(resolve(root, configPath), "utf8"));
+  } catch (error) {
+    return {
+      findings: [{ file: configPath, message: `cannot parse JSON: ${(error as Error).message}` }],
+    };
+  }
+  try {
+    pkg = JSON.parse(readFileSync(resolve(root, packagePath), "utf8"));
+  } catch (error) {
+    return {
+      findings: [{ file: packagePath, message: `cannot parse JSON: ${(error as Error).message}` }],
+    };
+  }
+  return heldBackRows(renovate, pkg);
 }

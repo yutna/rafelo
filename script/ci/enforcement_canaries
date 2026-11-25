@@ -287,6 +287,16 @@ canaries = [
     expected: "does not reference"
   },
   {
+    check: "pins",
+    name: "peer-set member outside its Renovate group",
+    bad: "spec/enforcement/fixtures/pins/peer_set_bad",
+    legal: "spec/enforcement/fixtures/pins/full_legal",
+    script: "script/ci/pins",
+    bad_args: [ "--root", "ROOT" ],
+    legal_args: [ "--root", "ROOT" ],
+    expected: "not the react peer group"
+  },
+  {
     check: "frontend_boundary",
     name: "usePage outside layouts",
     bad: "spec/enforcement/fixtures/frontend_boundary/bad",

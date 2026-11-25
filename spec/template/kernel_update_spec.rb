@@ -116,7 +116,7 @@ RSpec.describe "bin/kernel_update" do
       "app/frontend", "app/models", "app/policies", "app/props",
       "config/contracts/pages", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
       "config/database.yml", "config/storage.yml", "config/frontend_react.mts", "lib/tasks",
-      "package.json", "package-lock.json", ".devcontainer", "Dockerfile",
+      "package.json", "package-lock.json", "renovate.json5", ".devcontainer", "Dockerfile",
       "spec/config", "spec/requests", "spec/support", "spec/tasks"
     )
     expect(KernelUpdate::DEFAULT_PATHS).not_to include(*KernelUpdate::APP_OWNED_PATHS)
