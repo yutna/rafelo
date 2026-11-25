@@ -31,6 +31,11 @@ WRITE_ALLOW_LIST = {
   "touch-rate" => %w[issues]
 }.freeze
 PRIVILEGED_TRIGGERS = %w[pull_request_target workflow_run].freeze
+# WF-07: the only `if:` allowed to check out a workflow_run head. Compared
+# after whitespace normalisation, so an extra disjunct (`|| true`) fails.
+GUARDED_RELEASE_IF = "github.event.workflow_run.conclusion == 'success' && " \
+                     "github.event.workflow_run.event == 'push' && " \
+                     "github.event.workflow_run.head_repository.full_name == github.repository"
 
 def trigger_names(on_config)
   case on_config
@@ -90,8 +95,7 @@ files.each do |path|
     next unless privileged && job["steps"].is_a?(Array)
 
     job_if = job["if"].to_s
-    guarded_release = job_if.include?("workflow_run.event == 'push'") &&
-                      job_if.include?("workflow_run.head_repository.full_name == github.repository")
+    guarded_release = job_if.gsub(/\s+/, "") == GUARDED_RELEASE_IF.gsub(/\s+/, "")
 
     job["steps"].each do |step|
       next unless step.is_a?(Hash)
@@ -103,6 +107,9 @@ files.each do |path|
         allowed_release_ref = guarded_release && ref.include?("github.event.workflow_run.head_sha")
         unless ref.empty? || allowed_release_ref
           errors << "#{relative}: job #{name} checks out a pull request ref in a privileged workflow"
+          unless guarded_release
+            errors << "#{relative}: job #{name} has a release checkout but its if: is not exactly the guarded release condition"
+          end
         end
         errors << "#{relative}: job #{name} checks out another repository in a privileged workflow" unless repository.empty?
       end

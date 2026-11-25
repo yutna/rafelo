@@ -29,6 +29,49 @@ Dir.mktmpdir("rafelo-workflow-canary-") do |dir|
     warn "workflow_policy_canary: valid workflows: #{output}"
   end
 
+  # WF-07: the guarded release if: is exact; an extra disjunct fails.
+  publish = File.join(workflows, "publish.yml")
+  guarded = <<~YAML
+    name: publish
+    on:
+      workflow_run:
+        workflows: [CI]
+        types: [completed]
+    permissions:
+      contents: read
+    jobs:
+      release:
+        if: >-
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push' &&
+          github.event.workflow_run.head_repository.full_name == github.repository
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+          contents: write
+        steps:
+          - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+            with:
+              ref: ${{ github.event.workflow_run.head_sha }}
+  YAML
+  File.write(publish, guarded)
+
+  cases += 1
+  output, status = run(script, dir)
+  unless status.success?
+    failures += 1
+    warn "workflow_policy_canary: exact guarded release: #{output}"
+  end
+
+  File.write(publish, guarded.sub("github.repository\n", "github.repository || true\n"))
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("not exactly the guarded release condition")
+    failures += 1
+    warn "workflow_policy_canary: guarded release with || true: #{output}"
+  end
+  FileUtils.rm_f(publish)
+
   # A job the aggregator does not need is a missing gate step.
   ci = File.join(workflows, "ci.yml")
   FileUtils.cp(File.join(root, ".github", "workflows", "ci.yml"), ci)
