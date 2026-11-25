@@ -78,6 +78,36 @@ RSpec.describe "Production configuration" do
       .to raise_error(/production boot failed: .*AWS_REGION is required/m)
   end
 
+  it "boots the amazon profile with the dummy credentials" do
+    config = production_config(
+      "ACTIVE_STORAGE_SERVICE" => "amazon",
+      "AWS_REGION" => "us-east-1",
+      "AWS_BUCKET" => "acme-production"
+    )
+
+    expect(config["health"]).to eq(200)
+  end
+
+  it "fails closed when the amazon credentials are blank" do
+    keys = %w[ACTIVE_STORAGE_SERVICE AWS_REGION AWS_BUCKET]
+    previous = keys.to_h { |key| [ key, ENV[key] ] }
+    ENV["ACTIVE_STORAGE_SERVICE"] = "amazon"
+    ENV["AWS_REGION"] = "us-east-1"
+    ENV["AWS_BUCKET"] = "acme-production"
+
+    allow(Rails.application.credentials).to receive(:dig).with(:aws, :access_key_id).and_return(nil)
+    allow(Rails.application.credentials).to receive(:dig).with(:aws, :secret_access_key).and_return(nil)
+    storage = ERB.new(File.read(Rails.root.join("config/storage.yml")))
+    expect { storage.result(binding) }
+      .to raise_error(/aws.access_key_id is required when ACTIVE_STORAGE_SERVICE is amazon/)
+
+    allow(Rails.application.credentials).to receive(:dig).with(:aws, :access_key_id).and_return("dummy")
+    expect { ERB.new(File.read(Rails.root.join("config/storage.yml"))).result(binding) }
+      .to raise_error(/aws.secret_access_key is required when ACTIVE_STORAGE_SERVICE is amazon/)
+  ensure
+    previous.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+  end
+
   it "enforces CSP by default and reports only when CSP_REPORT_ONLY is true" do
     enforced = production_config
     expect(enforced["csp"]).to be_present
