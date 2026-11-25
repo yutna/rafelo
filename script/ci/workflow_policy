@@ -92,10 +92,19 @@ files.each do |path|
       end
     end
 
-    next unless privileged && job["steps"].is_a?(Array)
+    next unless privileged
 
     job_if = job["if"].to_s
     guarded_release = job_if.gsub(/\s+/, "") == GUARDED_RELEASE_IF.gsub(/\s+/, "")
+
+    if job["uses"]
+      reusable = job["uses"].to_s
+      unless reusable.start_with?("./") || reusable.match?(/@[0-9a-f]{40}\z/)
+        errors << "#{relative}: job #{name} calls a reusable workflow without a full commit SHA in a privileged workflow"
+      end
+    end
+
+    next unless job["steps"].is_a?(Array)
 
     job["steps"].each do |step|
       next unless step.is_a?(Hash)
@@ -117,6 +126,9 @@ files.each do |path|
       run = step["run"].to_s
       if run.match?(/gh pr checkout|refs\/pull\/|pull\/\d+/)
         errors << "#{relative}: job #{name} fetches pull request code in a privileged workflow"
+      end
+      if !guarded_release && run.match?(/\bpull_request\.head\b|\bhead_ref\b|\bworkflow_run\.head_sha\b|\bhead_sha\b/)
+        errors << "#{relative}: job #{name} fetches a pull request head in a privileged workflow"
       end
     end
   end

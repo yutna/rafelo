@@ -452,9 +452,11 @@ updates follow its own process and are not part of the payload.
 - Never check out pull request code in a `pull_request_target` or
   `workflow_run` workflow: such a run holds the base repository's token and
   secrets. `script/ci/workflow_policy` fails when a workflow with either
-  trigger has a checkout step with a `ref:` or `repository:` input, or a
+  trigger has a checkout step with a `ref:` or `repository:` input, a
   `run:` step that fetches or checks out a pull request (`pull/`,
-  `gh pr checkout`). The one exception is the release job (WF-05): it checks
+  `gh pr checkout`, `pull_request.head`, `head_ref`, `head_sha`), or a
+  job-level `uses:` that is not a local workflow or pinned to a full commit
+  SHA. The one exception is the release job (WF-05): it checks
   out `github.event.workflow_run.head_sha`, which the check accepts only in a
   job whose `if:` requires both `github.event.workflow_run.event == 'push'`
   and `github.event.workflow_run.head_repository.full_name == github.repository`,
