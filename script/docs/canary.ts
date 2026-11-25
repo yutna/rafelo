@@ -1,10 +1,11 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 
 import {
   aiFiles,
   checkCitations,
+  checkEnvelopeTable,
   checkGenerated,
   checkHeldBack,
   checkMatrix,
@@ -374,6 +375,25 @@ expect(
   "held-back rewrite keeps the markers",
   heldBackRewritten.includes("<!-- generated:held-back:start -->") &&
     heldBackRewritten.includes("| `react` | 19.3.1 | why |"),
+);
+
+// CT-01 table parity (CT-09).
+const ct01 = readFileSync("docs/architecture/04_contracts.md", "utf8");
+expectNone("CT-01 table matches the shared props schema", checkEnvelopeTable(ct01));
+expectFinding(
+  "CT-01 table missing app.signInHref",
+  checkEnvelopeTable(ct01.replace("`signInHref`", "the sign-in page")),
+  /missing app\.signInHref/,
+);
+expectFinding(
+  "CT-01 table missing a top-level shared key",
+  checkEnvelopeTable(ct01.replace("| `trace` |", "| `traceX` |")),
+  /missing shared key trace/,
+);
+expectFinding(
+  "CT-01 table naming an unknown shared key",
+  checkEnvelopeTable(ct01.replace("| `trace` |", "| `traceX` |")),
+  /unknown shared key traceX/,
 );
 
 if (failures > 0) {
