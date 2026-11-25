@@ -177,9 +177,10 @@ appear under normal load, or the job backlog grows.
 
 `/core/metrics` is a scrape endpoint for the internal network, not the public
 edge: core answers `404` unless `ActionDispatch::RemoteIp` resolved the caller
-to a loopback, private, or link-local address, and keeps its per-IP throttle
-(BE-12). The monitoring system scrapes each process and aggregates the
-per-process series; the app pushes no metrics to a second store (ARCH-13).
+to a loopback, private, or link-local address — and `404` when a forwarded
+address is present but does not resolve to a client — and keeps its per-IP
+throttle (BE-12). The monitoring system scrapes each process and aggregates
+the per-process series; the app pushes no metrics to a second store (ARCH-13).
 
 ### OPS-05 — Liveness never depends on an upstream (MUST · ADR-25)
 

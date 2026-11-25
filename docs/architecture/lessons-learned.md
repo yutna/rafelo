@@ -905,7 +905,9 @@ but nothing stopped the public edge from reaching it.
 and link-local addresses (IPv4-mapped IPv6 unwrapped); `MetricsController`
 answers `404` to every other caller before rendering, keeps its throttle, and
 relies on `ActionDispatch::RemoteIp` so a forged `X-Forwarded-For` from an
-untrusted peer does not grant access. OPS-04 now states the rule and that the
+untrusted peer does not grant access; a forwarded address that does not
+resolve to a client (a malformed value leaves the peer) also fails closed, and
+`internal?` accepts addresses only, never a CIDR. OPS-04 now states the rule and that the
 scrape backend aggregates the series; the app adds no second store.
 
 **Spec feedback.** Should OPS-04 name the endpoint, the allowed exposure (a
