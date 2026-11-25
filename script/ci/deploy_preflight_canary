@@ -183,6 +183,19 @@ expect_fail_with() {
   fi
 }
 
+expect_fail_with_deploy() {
+  local name="$1" expected="$2" output
+  if output=$("$root/script/ci/deploy_preflight" "$tmp" --deploy 2>&1); then
+    echo "deploy_preflight_canary: $name passed" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not name $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
 reset
 expect_pass "valid profiles"
 
@@ -306,6 +319,31 @@ SECRETS
 git -C "$tmp" add -f .kamal/secrets
 expect_fail_with "tracked .kamal/secrets" "OPS-06/SEC-07"
 
+write_production_credentials() {
+  local content="$1" key
+  key="$(ruby -rsecurerandom -e 'puts SecureRandom.hex(16)')"
+  mkdir -p "$tmp/config/credentials"
+  cp "$root/config/credentials/dummy.key" "$tmp/config/credentials/dummy.key"
+  cp "$root/config/credentials/dummy.yml.enc" "$tmp/config/credentials/dummy.yml.enc"
+  printf '%s' "$key" > "$tmp/config/credentials/production.key"
+  BUNDLE_GEMFILE="$root/Gemfile" bundle exec ruby -ractive_support \
+    -ractive_support/encrypted_configuration -e '
+      config = ActiveSupport::EncryptedConfiguration.new(
+        config_path: ARGV[0], key_path: ARGV[1], env_key: "RAILS_MASTER_KEY", raise_if_missing_key: true
+      )
+      config.write(ARGV[2])
+    ' "$tmp/config/credentials/production.yml.enc" "$tmp/config/credentials/production.key" "$content"
+}
+
+reset
+write_production_credentials "--- {}\n"
+expect_pass "empty production credentials outside a deploy"
+expect_fail_with_deploy "empty production credentials at deploy" "production credentials are empty"
+
+reset
+write_production_credentials "secret_key_base: fixture\n"
+expect_fail_with_deploy "partial production credentials at deploy" "missing=active_record_encryption.primary_key"
+
 reset
 rm -f "$tmp/.github/workflows/audits.yml"
 expect_fail_with "missing daily advisory workflow" "daily advisory workflow"
@@ -315,4 +353,4 @@ mkdir -p "$tmp/template/.github/workflows"
 mv "$tmp/.github/workflows/audits.yml" "$tmp/template/.github/workflows/audits.yml"
 expect_pass "template repository uses the payload audits workflow"
 
-echo "deploy_preflight_canary: checked 27 cases"
+echo "deploy_preflight_canary: checked 30 cases"
