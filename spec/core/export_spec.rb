@@ -62,6 +62,16 @@ RSpec.describe Rafelo::Core::Export do
     expect(export.file.attachment).to be_present
   end
 
+  it "issues a short-lived signed download id for one record" do
+    export = described_class.create!(viewer_id: "7", filename: "new.csv", expires_at: 1.hour.from_now)
+    export.file.attach(io: StringIO.new("content"), filename: "new.csv")
+
+    token = export.signed_download_id
+    expect(described_class.find_by_signed_download_id(token)).to eq(export)
+    expect(described_class.find_by_signed_download_id(export.signed_id(purpose: :another_use))).to be_nil
+    expect(described_class.find_by_signed_download_id(export.signed_download_id(expires_in: -1.minute))).to be_nil
+  end
+
   it "only reads rows with the current format version" do
     export = described_class.create!(viewer_id: "7", filename: "new.csv", expires_at: 1.hour.from_now)
     export.update_column(:format_version, 999)

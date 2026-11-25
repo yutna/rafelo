@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   post "core/csp_reports", to: "rafelo/core/csp_reports#create"
   get "core/ready", to: "core/ready#show"
   get "core/metrics", to: "core/metrics#show"
+  get "core/exports/:signed_id", to: "rafelo/core/export_files#show", as: :core_export_file
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
