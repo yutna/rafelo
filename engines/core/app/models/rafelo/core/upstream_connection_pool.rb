@@ -12,10 +12,11 @@ module Rafelo
     # `UpstreamClient` supplies the factory, so only that class names Faraday
     # (ARCH-01).
     #
-    # The size is the smaller of the Puma thread count and the upstream's
-    # bulkhead (`max_concurrent_calls`): a Puma thread makes one synchronous
-    # call at a time, and the bulkhead never admits more calls than that.
-    # Waiting for a connection is bounded by the request deadline (BE-16).
+    # The size is the smaller of the process capacity and the upstream's
+    # bulkhead (`max_concurrent_calls`). The capacity counts every borrower in
+    # one process: the Puma threads, the executor's parallel calls, and the
+    # download streams (BE-21). Waiting for a connection is bounded by the
+    # request deadline (BE-16).
     class UpstreamConnectionPool
       MUTEX = Mutex.new
 
@@ -30,13 +31,19 @@ module Rafelo
         end
 
         def size_for(config)
-          [ puma_threads, config.max_concurrent_calls ].min
+          [ process_capacity, config.max_concurrent_calls ].min
         end
 
         private
 
         def pools
           @pools ||= {}
+        end
+
+        # Puma threads, the executor's parallel calls, and the download streams
+        # can each hold a connection at the same time in one process (BE-21).
+        def process_capacity
+          puma_threads + executor_size + download_cap
         end
 
         def puma_threads
@@ -46,6 +53,14 @@ module Rafelo
           end
 
           threads
+        end
+
+        def executor_size
+          Rails.application.config.x.executor.size
+        end
+
+        def download_cap
+          Rails.application.config.x.downloads.max_concurrent
         end
       end
 

@@ -304,8 +304,10 @@ For each upstream, the client owns:
   opens a new TCP and TLS connection for every call. Each upstream keeps a
   pool of persistent connections no larger than its bulkhead
   (`max_concurrent_calls`), so a call reuses an open connection. The pool size
-  is the smaller of the Puma thread count (`config/core.yml` → `puma_threads`,
-  BE-21) and `max_concurrent_calls`, and a client spec records it; the pool
+  is the smaller of the process capacity — the Puma thread count
+  (`config/core.yml` → `puma_threads`, BE-21), the executor's calls, and the
+  download streams — and `max_concurrent_calls`, and a pool spec records it;
+  the pool
   hands back the connection just returned first, so one client's sequential
   calls reuse one socket. The adapter is pinned (WF-06) and must apply
   BE-16's per-call timeouts to each request

@@ -927,12 +927,14 @@ request, and nothing above it owned a process-wide pool.
 **What changed.** `Rafelo::Core::UpstreamConnectionPool` keeps one bounded
 pool per named upstream for the process. A call borrows a connection for the
 whole request and returns it afterwards; the just-returned connection is
-handed out first, so a client's sequential calls reuse one socket. The size is
-`min(puma_threads, max_concurrent_calls)`: the Puma thread count comes from
-typed configuration (BE-21), and the bulkhead is BE-05's upper bound. A
+handed out first, so a client's sequential calls reuse one socket. The size is the
+smaller of the process capacity (Puma threads, the executor's calls, and the
+download streams, all from typed configuration, BE-21) and
+`max_concurrent_calls`, BE-05's upper bound; the pool spec records it. A
 borrower that finds no free connection waits only until the request deadline
-and then fails as `upstream.timeout` (BE-16). The client spec records the
-size and that sequential calls reuse the pool.
+and then fails as `upstream.timeout` (BE-16); an earlier `min(puma_threads,
+bulkhead)` was smaller than the bulkhead and could time out a healthy
+upstream.
 
 **Spec feedback.** None new; #874's owner answer covers the SHOULD and this
 implements it. Related IDs: BE-05, BE-16, BE-21.
