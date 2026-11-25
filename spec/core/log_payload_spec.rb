@@ -28,6 +28,31 @@ RSpec.describe Rafelo::Core::LogPayload do
     expect(payload.to_json).not_to include("eyJhbGciOiJIUzI1NiJ9")
   end
 
+  it "redacts the export segment under a script name, a double slash and any case" do
+    script = request_for("/core/exports/eyJhbGciOiJIUzI1NiJ9.secret")
+    script.env["SCRIPT_NAME"] = "/app"
+
+    double = request_for("/")
+    double.env["SCRIPT_NAME"] = ""
+    double.env["PATH_INFO"] = "//core/exports/eyJhbGciOiJIUzI1NiJ9.secret"
+
+    paths = {
+      script => "/app/core/exports/[REDACTED]",
+      double => "//core/exports/[REDACTED]",
+      request_for("/CORE/EXPORTS/eyJhbGciOiJIUzI1NiJ9.secret") => "/core/exports/[REDACTED]"
+    }
+
+    paths.each do |request, expected|
+      payload = described_class.new(
+        data: { method: "GET", path: request.path, controller: "Rafelo::Core::ExportFilesController", action: "show", status: 302 },
+        event_payload: { request: request }
+      ).to_h
+
+      expect(payload[:path]).to eq(expected)
+      expect(payload.to_json).not_to include("eyJhbGciOiJIUzI1NiJ9")
+    end
+  end
+
   it "builds exactly the allow-listed keys" do
     request = request_for("/en?token=secret#fragment")
     collector = Rafelo::Core::RequestLog.new

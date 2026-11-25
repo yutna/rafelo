@@ -65,11 +65,11 @@ module Rafelo
         env["rafelo.trace_id"].presence || request_id
       end
 
+      EXPORT_PATH = %r{(?:\A|/)core/exports/[^/?#]+}i
+
       def request_path
         path = request&.path.presence || @data[:path].to_s.split("?", 2).first.to_s
-        return "/core/exports/[REDACTED]" if path.start_with?("/core/exports/")
-
-        path
+        path.gsub(EXPORT_PATH, "/core/exports/[REDACTED]")
       end
 
       def collector
