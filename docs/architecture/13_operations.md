@@ -314,7 +314,7 @@ flowchart LR
   changes configuration only: hosts, the load balancer, the database, the
   Active Storage service, `boot: limit: 1` (BE-22), and the BE-21 numbers.
 
-### OPS-07 — Backups and retention (MUST · ADR-10)
+### OPS-07 — Backups and retention (MUST · ADR-10, ADR-33)
 
 | Data | Value | Policy |
 | --- | --- | --- |
@@ -326,8 +326,8 @@ flowchart LR
 
 - Back up PostgreSQL with point-in-time recovery: continuous WAL archiving
   plus regular base backups, stored off the host. A managed service provides
-  this; for the Kamal accessory, a tool chosen by ADR does (for example
-  pgBackRest or WAL-G). Never copy the data directory of a running database.
+  this; for the Kamal accessory, pgBackRest does (ADR-33). Never copy the data
+  directory of a running database.
 - Run a restore drill on a schedule: restore to a chosen point in time into a
   scratch environment, and write down the recovery point and recovery time you
   actually achieved.
