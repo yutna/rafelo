@@ -12,6 +12,7 @@ gem "faraday", "2.15.1"
 gem "faraday-net_http_persistent", "2.3.1"
 gem "net-http-persistent", "4.0.8"
 gem "stoplight", "6.0.1"
+gem "connection_pool", "3.0.3"
 gem "pg", "1.7.0"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", "8.1.2"

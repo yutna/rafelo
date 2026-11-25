@@ -165,6 +165,15 @@ RSpec.describe Rafelo::Core::UpstreamClient do
       .to raise_error(ArgumentError, /may not set/)
   end
 
+  it "keeps one connection pool per named upstream, sized to the Puma threads" do
+    name = :"pool_#{SecureRandom.hex(4)}"
+    pool = described_class.connection_pool_for(name, config)
+
+    expect(pool.size).to eq(Rails.application.config.x.puma_threads)
+    expect(described_class.connection_pool_for(name, config)).to be(pool)
+    expect(described_class.connection_pool_for(:other_pool, config)).not_to be(pool)
+  end
+
   it "maps each upstream status to its catalog code" do
     {
       401 => "auth.expired",

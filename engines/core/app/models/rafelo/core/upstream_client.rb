@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "connection_pool"
 require "faraday/net_http_persistent"
 require "securerandom"
 require "stoplight"
@@ -49,6 +50,29 @@ module Rafelo
           @bulkhead_mutex ||= Mutex.new
           @bulkhead_mutex.synchronize { @bulkheads[name] ||= Bulkhead.new(limit, name: name) }
         end
+
+        # One process-wide pool per named upstream (BE-05, BE-16, BE-21), sized
+        # to the Puma thread count. Clients borrow a persistent connection for
+        # one request instead of building one per client instance.
+        def connection_pool_for(name, config)
+          key = [ name.to_sym, config.base_url ]
+          @connection_pools ||= {}
+          @connection_pool_mutex ||= Mutex.new
+          @connection_pool_mutex.synchronize do
+            @connection_pools[key] ||= ConnectionPool.new(size: connection_pool_size) do
+              Faraday.new(url: config.base_url) do |faraday|
+                faraday.adapter :net_http_persistent
+                faraday.options.open_timeout = config.open_timeout
+                faraday.options.timeout = config.read_timeout
+                faraday.options.write_timeout = config.write_timeout
+              end
+            end
+          end
+        end
+
+        def connection_pool_size
+          Rails.application.config.x.puma_threads.to_i
+        end
       end
 
       def get(path, params: nil, headers: {}, if_match: nil)
@@ -93,7 +117,7 @@ module Rafelo
         Metrics.circuit_open(@name, @gateway)
         Metrics.record_upstream_error(@name, "upstream.circuit_open", gateway: @gateway)
         raise ApplicationError.new("upstream.circuit_open")
-      rescue Faraday::TimeoutError
+      rescue ConnectionPool::TimeoutError, Faraday::TimeoutError
         Metrics.record_upstream_error(@name, "upstream.timeout", gateway: @gateway)
         raise ApplicationError.new("upstream.timeout")
       rescue Faraday::ConnectionFailed
@@ -123,23 +147,25 @@ module Rafelo
           total = 0
           @bulkhead.call do
             @breaker.run do
-              connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
-                request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-                request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-                request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-                request.options.on_data = proc do |chunk, _size, env|
-                  if first
-                    first = false
-                    map_status!(env, method: method)
-                    expected = env.response_headers["content-length"].to_i
-                    raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+              with_connection do |connection|
+                connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
+                  request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+                  request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+                  request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+                  request.options.on_data = proc do |chunk, _size, env|
+                    if first
+                      first = false
+                      map_status!(env, method: method)
+                      expected = env.response_headers["content-length"].to_i
+                      raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
+                    end
+                    raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+
+                    total += chunk.bytesize
+                    raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
+
+                    block.call(chunk)
                   end
-                  raise ApplicationError.new("upstream.timeout") if @deadline.expired?
-
-                  total += chunk.bytesize
-                  raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if total > limit
-
-                  block.call(chunk)
                 end
               end
             end
@@ -160,7 +186,7 @@ module Rafelo
         Metrics.circuit_open(@name, @gateway)
         Metrics.record_upstream_error(@name, "upstream.circuit_open", gateway: @gateway)
         raise ApplicationError.new("upstream.circuit_open")
-      rescue Faraday::TimeoutError
+      rescue ConnectionPool::TimeoutError, Faraday::TimeoutError
         Metrics.record_upstream_error(@name, "upstream.timeout", gateway: @gateway)
         raise ApplicationError.new("upstream.timeout")
       rescue Faraday::ConnectionFailed
@@ -204,17 +230,19 @@ module Rafelo
 
       def perform_once(method, path, params:, body:, headers:, idempotency_key:, if_match:)
         collected = +""
-        response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
-          request.params.update(params) if params
-          request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-          request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-          request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-          request.options.on_data = proc do |chunk, _size|
-            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+        response = with_connection do |connection|
+          connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
+            request.params.update(params) if params
+            request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+            request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+            request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+            request.options.on_data = proc do |chunk, _size|
+              raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
-            collected << chunk
-            if collected.bytesize > @config.max_response_bytes
-              raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+              collected << chunk
+              if collected.bytesize > @config.max_response_bytes
+                raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
+              end
             end
           end
         end
@@ -232,13 +260,9 @@ module Rafelo
         UpstreamResponse.new(status: response.status, headers: response.headers, body: body)
       end
 
-      def connection
-        @connection ||= Faraday.new(url: @config.base_url) do |faraday|
-          faraday.adapter :net_http_persistent
-          faraday.options.open_timeout = @config.open_timeout
-          faraday.options.timeout = @config.read_timeout
-          faraday.options.write_timeout = @config.write_timeout
-        end
+      def with_connection(&block)
+        timeout = [ @deadline.remaining, 0.001 ].max
+        self.class.connection_pool_for(@name, @config).with(timeout: timeout, &block)
       end
 
       def request_headers(headers, idempotency_key, if_match)
