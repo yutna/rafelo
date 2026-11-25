@@ -54,6 +54,16 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     expect(stub).to have_been_requested.once
   end
 
+  it "borrows from the upstream's shared connection pool for every call" do
+    pool = Rafelo::Core::UpstreamConnectionPool.for(:test_api, config)
+    allow(pool).to receive(:with).and_call_original
+    stub_request(:get, "http://upstream.test/invoices").to_return(status: 200, body: "{}")
+
+    2.times { client.get("invoices") }
+
+    expect(pool).to have_received(:with).twice
+  end
+
   it "passes only the incoming sampled bit and a fresh parent id" do
     sampled = described_class.new(
       name: :sampled, config: config, token_provider: token,

@@ -303,8 +303,12 @@ For each upstream, the client owns:
 - persistent connections (SHOULD): the default `net_http` adapter (3.5.0)
   opens a new TCP and TLS connection for every call. Each upstream keeps a
   pool of persistent connections no larger than its bulkhead
-  (`max_concurrent_calls`), so a call reuses an open connection. The adapter
-  is pinned (WF-06) and must apply BE-16's per-call timeouts to each request
+  (`max_concurrent_calls`), so a call reuses an open connection. The pool size
+  is the smaller of the Puma thread count (`config/core.yml` → `puma_threads`,
+  BE-21) and `max_concurrent_calls`, and a client spec records it; the pool
+  hands back the connection just returned first, so one client's sequential
+  calls reuse one socket. The adapter is pinned (WF-06) and must apply
+  BE-16's per-call timeouts to each request
   without changing state that other threads share (verify when adopting);
   a client spec asserts that sequential calls open one connection;
 - the bearer token, supplied by a token provider passed into its constructor;

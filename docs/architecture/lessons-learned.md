@@ -912,3 +912,27 @@ scrape backend aggregates the series; the app adds no second store.
 private network or a service token), and the aggregation point? The current
 reading is recorded in the "spec: OPS-04 metrics endpoint exposure" question.
 Related IDs: OPS-04, SEC-13, BE-12.
+
+## 2026-11-26 — v0.43.0 — issue #970 (upstream connection pool)
+
+**What happened.** `UpstreamClient` built its Faraday connection in the
+client, so persistent connections were reused only inside one gateway's calls
+and every request opened a new TCP/TLS connection. BE-05's persistent-
+connection bullet is a SHOULD, and #874's answer left sharing the pool or
+retyping the bullet to the owner.
+
+**Root cause.** The client owned the connection because it is built per
+request, and nothing above it owned a process-wide pool.
+
+**What changed.** `Rafelo::Core::UpstreamConnectionPool` keeps one bounded
+pool per named upstream for the process. A call borrows a connection for the
+whole request and returns it afterwards; the just-returned connection is
+handed out first, so a client's sequential calls reuse one socket. The size is
+`min(puma_threads, max_concurrent_calls)`: the Puma thread count comes from
+typed configuration (BE-21), and the bulkhead is BE-05's upper bound. A
+borrower that finds no free connection waits only until the request deadline
+and then fails as `upstream.timeout` (BE-16). The client spec records the
+size and that sequential calls reuse the pool.
+
+**Spec feedback.** None new; #874's owner answer covers the SHOULD and this
+implements it. Related IDs: BE-05, BE-16, BE-21.
