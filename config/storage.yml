@@ -2,6 +2,10 @@
 <% if amazon %>
 <%   region = ENV["AWS_REGION"].presence || raise("AWS_REGION is required when ACTIVE_STORAGE_SERVICE is amazon") %>
 <%   bucket = ENV["AWS_BUCKET"].presence || raise("AWS_BUCKET is required when ACTIVE_STORAGE_SERVICE is amazon") %>
+<%   access_key_id = Rails.application.credentials.dig(:aws, :access_key_id) %>
+<%   secret_access_key = Rails.application.credentials.dig(:aws, :secret_access_key) %>
+<%   raise "aws.access_key_id is required when ACTIVE_STORAGE_SERVICE is amazon" if access_key_id.blank? %>
+<%   raise "aws.secret_access_key is required when ACTIVE_STORAGE_SERVICE is amazon" if secret_access_key.blank? %>
 <% end %>
 test:
   service: Disk
@@ -17,7 +21,7 @@ local:
 # config/deploy.multi.yml, never defaults.
 amazon:
   service: S3
-  access_key_id: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :access_key_id) : nil %>
-  secret_access_key: <%= ENV["ACTIVE_STORAGE_SERVICE"] == "amazon" ? Rails.application.credentials.dig(:aws, :secret_access_key) : nil %>
+  access_key_id: <%= access_key_id if amazon %>
+  secret_access_key: <%= secret_access_key if amazon %>
   region: <%= region if amazon %>
   bucket: <%= bucket if amazon %>
