@@ -60,16 +60,20 @@ RSpec.describe "Home page", type: :request do
     expect(response.body).to include('"message":"Rafelo"')
     expect(response.headers["Cache-Control"]).to include("no-store")
   end
-  it "links a readable module to its engine root and hides it without a read grant" do
-    get "/en", headers: auth_headers(grants: [ "example_orders:orders:read" ])
-    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
-    nav = page.dig("props", "nav")
-    entry = nav.find { |item| item["key"] == "example_orders" }
-    expect(entry["path"]).to eq("/en/example_orders/")
+  # The examples-removable gate deletes the example engines, so this request
+  # proof is defined only while the example module exists.
+  if Dir.exist?(Rails.root.join("engines/example_orders"))
+    it "links a readable module to its engine root and hides it without a read grant" do
+      get "/en", headers: auth_headers(grants: [ "example_orders:order:read" ])
+      page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+      nav = page.dig("props", "nav")
+      entry = nav.find { |item| item["key"] == "example_orders" }
+      expect(entry["path"]).to eq("/en/example_orders/")
 
-    get "/en", headers: auth_headers(grants: [ "billing:invoice:read" ])
-    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
-    expect(page.dig("props", "nav")).to be_empty
+      get "/en", headers: auth_headers(grants: [ "billing:invoice:read" ])
+      page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+      expect(page.dig("props", "nav")).to be_empty
+    end
   end
 
   it "proves the page contract, budgets, URLs and capabilities" do
