@@ -1,6 +1,7 @@
 // Generated from config/errors.yml; do not edit.
 export const errors = {
   "auth.expired": { status: 401, retryable: false },
+  "auth.failed": { status: 401, retryable: false },
   "auth.forbidden": { status: 403, retryable: false },
   "request.csrf_failed": { status: 422, retryable: true },
   "request.entity_too_large": { status: 413, retryable: false },

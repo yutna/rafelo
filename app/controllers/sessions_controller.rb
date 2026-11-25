@@ -58,10 +58,13 @@ class SessionsController < ApplicationController
       outcome: "failure",
       target: "sign_in"
     )
-    Rafelo::Core::ErrorReporter.report(error, handled: true)
-    render_page "sessions/new",
-                props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token, error: error.message),
-                status: error.status
+    failure = error.code == "auth.expired" ? Rafelo::Core::ApplicationError.new("auth.failed") : error
+    Rafelo::Core::ErrorReporter.report(failure, handled: true)
+    target = "/#{I18n.locale}/sign_in"
+    target += "?return_to=#{ERB::Util.url_encode(params[:return_to])}" if params[:return_to].present?
+    redirect_to target,
+                status: :see_other,
+                inertia: { errors: { "base" => failure.message } }
   end
 
   def destroy

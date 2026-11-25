@@ -41,6 +41,18 @@ RSpec.describe "Session flow", type: :request do
     expect(response.location).to end_with("/en/dummy/widgets")
   end
 
+  it "redirects a failed sign-in with a form error" do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/expired.json", status: 401, base_url: "http://localhost:4000")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "wrong" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to include("/en/sign_in")
+    get response.location, headers: { "X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call }
+    expect(JSON.parse(response.body).dig("props", "errors", "base")).to eq("Email or password is incorrect.")
+    expect(Rafelo::Core::AuditEvent.where(event: "sign_in", outcome: "failure").count).to eq(1)
+  end
+
   it "renders the sign-in page with the form" do
     expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
