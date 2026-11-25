@@ -60,36 +60,39 @@ namespace :formats do
     folders = Rails.root.glob("spec/fixtures/formats/v*").select(&:directory?)
     abort "formats: keep at most three fixture folders (SEC-16)" if folders.length > 3
 
-    sessions = read_json!(root.join("sessions.json"))
-    abort "formats: sessions.json is empty" if sessions.empty?
-    sessions.each do |attributes|
-      token = attributes["token"]
-      abort "formats: session fixture has no token" if token.blank?
-      abort "formats: session token_digest does not match" unless attributes["token_digest"] == Rafelo::Core::Session.digest(token)
-      ensure_readable!(Rafelo::Core::Session, attributes)
+    folders.each do |folder|
+      sessions = read_json!(folder.join("sessions.json"))
+      abort "formats: #{folder.basename}/sessions.json is empty" if sessions.empty?
+      sessions.each do |attributes|
+        token = attributes["token"]
+        abort "formats: #{folder.basename} session fixture has no token" if token.blank?
+        abort "formats: #{folder.basename} session token_digest does not match" unless attributes["token_digest"] == Rafelo::Core::Session.digest(token)
+        ensure_readable!(Rafelo::Core::Session, attributes)
+      end
+
+      keys = read_json!(folder.join("idempotency_keys.json"))
+      abort "formats: #{folder.basename}/idempotency_keys.json is empty" if keys.empty?
+      keys.each do |attributes|
+        ensure_readable!(Rafelo::Core::IdempotencyKey, attributes)
+        abort "formats: #{folder.basename} unknown idempotency status" unless Rafelo::Core::IdempotencyKey::STATUSES.include?(attributes["status"])
+      end
+
+      jobs = read_json!(folder.join("jobs.json"))
+      abort "formats: #{folder.basename}/jobs.json is empty" if jobs.empty?
+      jobs.each do |data|
+        klass = data["job_class"].to_s.constantize
+        abort "formats: #{folder.basename} #{klass} is not an Active Job" unless klass <= ActiveJob::Base
+        job = klass.deserialize(data)
+        abort "formats: #{folder.basename} #{klass} lost its trace id" if job.rafelo_trace_id.blank?
+        abort "formats: #{folder.basename} #{klass} lost its request id" unless job.rafelo_request_id == data["rafelo_request_id"]
+      end
     end
 
-    keys = read_json!(root.join("idempotency_keys.json"))
-    abort "formats: idempotency_keys.json is empty" if keys.empty?
-    keys.each do |attributes|
-      ensure_readable!(Rafelo::Core::IdempotencyKey, attributes)
-      abort "formats: unknown idempotency status" unless Rafelo::Core::IdempotencyKey::STATUSES.include?(attributes["status"])
-    end
-
-    jobs = read_json!(root.join("jobs.json"))
-    abort "formats: jobs.json is empty" if jobs.empty?
-    jobs.each do |data|
-      klass = data["job_class"].to_s.constantize
-      abort "formats: #{klass} is not an Active Job" unless klass <= ActiveJob::Base
-      job = klass.deserialize(data)
-      abort "formats: #{klass} lost its trace id" if job.rafelo_trace_id.blank?
-      abort "formats: #{klass} lost its request id" unless job.rafelo_request_id == data["rafelo_request_id"]
-    end
-
-    missing = job_classes.map(&:name) - jobs.map { |data| data["job_class"] }
+    current = read_json!(root.join("jobs.json"))
+    missing = job_classes.map(&:name) - current.map { |data| data["job_class"] }
     abort "formats: missing job fixtures: #{missing.join(", ")}" if missing.any?
 
-    puts "formats: ok for v#{version} (#{sessions.length} sessions, #{keys.length} keys, #{jobs.length} jobs)"
+    puts "formats: ok for #{folders.map { |folder| folder.basename }.join(", ")}"
   end
 
   def read_json!(path)
