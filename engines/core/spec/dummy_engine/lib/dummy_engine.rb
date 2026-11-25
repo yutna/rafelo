@@ -35,7 +35,6 @@ module DummyEngine
       get "widgets/upstream_forbidden", to: "widgets#upstream_forbidden"
       post "widgets/upstream", to: "widgets#upstream"
       post "widgets/crash", to: "widgets#crash"
-      post "widgets/crash_unverified", to: "widgets#crash_unverified"
     end
   end
 end

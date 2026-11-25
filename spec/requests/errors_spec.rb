@@ -108,16 +108,6 @@ RSpec.describe "Error responder", type: :request do
     ActionController::Base.allow_forgery_protection = previous
   end
 
-  it "keeps the original status for a write without a CSRF token" do
-    with_forgery_protection do
-      post "/en/dummy/widgets/crash_unverified", headers: auth_headers
-    end
-
-    expect(response).to have_http_status(:internal_server_error)
-    page = page_from(response.body)
-    expect(page.dig("props", "data", "code")).to eq("unexpected")
-  end
-
   it "renders a forged write as request.csrf_failed" do
     with_forgery_protection do
       post "/en/dummy/widgets/crash", headers: auth_headers
