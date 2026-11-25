@@ -53,6 +53,24 @@ RSpec.describe "Session flow", type: :request do
     expect(Rafelo::Core::AuditEvent.where(event: "sign_in", outcome: "failure").count).to eq(1)
   end
 
+  it "keeps a validated return_to on a failed sign-in" do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/expired.json", status: 401, base_url: "http://localhost:4000")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "wrong", return_to: "/en/dummy/widgets" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/en/sign_in?return_to=%2Fen%2Fdummy%2Fwidgets")
+  end
+
+  it "drops an unsafe return_to on a failed sign-in" do
+    stub_upstream(:post, "/auth/sign_in", fixture: "auth/expired.json", status: 401, base_url: "http://localhost:4000")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "wrong", return_to: "//evil.example" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/en/sign_in")
+  end
+
   it "renders the sign-in page with the form" do
     expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
