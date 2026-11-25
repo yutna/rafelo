@@ -24,7 +24,8 @@ RSpec.describe "Production configuration" do
       unknown_host: request.get("/en", "HTTP_HOST" => "evil.test", "HTTPS" => "on").status,
       health: request.get("/up", "HTTP_HOST" => "example.com", "HTTPS" => "on").status,
       csp: page.headers["Content-Security-Policy"],
-      csp_report_only: page.headers["Content-Security-Policy-Report-Only"]
+      csp_report_only: page.headers["Content-Security-Policy-Report-Only"],
+      devtools: InertiaRails::Devtools.enabled?
     }.to_json)
   RUBY
 
@@ -110,6 +111,12 @@ RSpec.describe "Production configuration" do
       .to raise_error(/aws.secret_access_key is required when ACTIVE_STORAGE_SERVICE is amazon/)
   ensure
     previous.each { |key, value| value.nil? ? ENV.delete(key) : ENV[key] = value }
+  end
+
+  it "never enables Inertia devtools in production, even when the env flag is set" do
+    expect(production_config("INERTIA_DEVTOOLS_ENABLED" => "true")["devtools"]).to be(false)
+    expect(File.read(Rails.root.join("config/production_routes.yml")))
+      .not_to include("/_inertia/devtools")
   end
 
   it "enforces CSP by default and reports only when CSP_REPORT_ONLY is true" do
