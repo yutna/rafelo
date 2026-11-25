@@ -73,27 +73,27 @@ ESLINT_REAL_PATHS = [
 ].freeze
 
 def eslint_rules_at(eslint, root, path)
-  output, _stderr, status = Open3.capture3(eslint, "--print-config", path, chdir: root)
-  return [] unless status.success?
+  output, stderr, status = Open3.capture3(eslint, "--print-config", path, chdir: root)
+  unless status.success?
+    abort "enforcement_canaries: eslint --print-config failed for #{path}: #{stderr.strip}"
+  end
+
   JSON.parse(output).fetch("rules", {}).filter_map do |name, value|
     severity = value.is_a?(Array) ? value.first : value
     next unless severity.is_a?(Integer) && severity.positive?
     name if name.start_with?("rafelo/") || ESLINT_RESTRICTIONS.include?(name)
   end
 rescue JSON::ParserError
-  []
+  abort "enforcement_canaries: eslint --print-config returned invalid JSON for #{path}"
 end
 
 eslint = File.join(root, "node_modules", ".bin", "eslint")
-if File.executable?(eslint)
-  eslint_rules = ESLINT_REAL_PATHS.select { |path| File.exist?(File.join(root, path)) }
-                                 .flat_map { |path| eslint_rules_at(eslint, root, path) }
-                                 .uniq
-  warn "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
-else
-  warn "enforcement_canaries: eslint is not installed at #{eslint}; checked 0 ESLint rules"
-  eslint_rules = []
-end
+abort "enforcement_canaries: eslint is not installed at #{eslint}" unless File.executable?(eslint)
+
+eslint_rules = ESLINT_REAL_PATHS.select { |path| File.exist?(File.join(root, path)) }
+                               .flat_map { |path| eslint_rules_at(eslint, root, path) }
+                               .uniq
+abort "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
 
 canaries = [
   {
