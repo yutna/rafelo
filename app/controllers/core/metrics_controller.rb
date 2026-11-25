@@ -18,7 +18,7 @@ module Core
     # OPS-04: a scrape endpoint for the internal network. A public client gets
     # the same answer as an unknown route, so the endpoint is not discoverable.
     def require_internal_network
-      head :not_found unless Rafelo::Core::InternalNetwork.include?(request.remote_ip)
+      head :not_found unless Rafelo::Core::InternalNetwork.internal?(request.remote_ip)
     end
   end
 end
