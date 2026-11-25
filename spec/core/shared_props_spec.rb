@@ -53,9 +53,13 @@ RSpec.describe Rafelo::Core::SharedProps do
     end
 
     def context_with(grants)
-      Rafelo::Core::PageContextFactory.build(
+      session = double(
         viewer: Struct.new(:id, :name).new(7, "Ada"),
-        permissions: Rafelo::Core::PermissionSet.new(grants),
+        permission_set: Rafelo::Core::PermissionSet.new(grants),
+        id: nil
+      )
+      Rafelo::Core::PageContextFactory.build(
+        session: session,
         flags: {},
         locale: :en,
         request_id: "request-1",

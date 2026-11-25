@@ -19,7 +19,7 @@ module Rafelo
         I18n.with_locale(locale) do
           error = ApplicationError.new(code)
           context = PageContextFactory.build(
-            permissions: PermissionSet.new([]),
+            session: nil,
             flags: Flags.current,
             locale: I18n.locale,
             request_id: request.request_id,
