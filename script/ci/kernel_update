@@ -97,6 +97,7 @@ module KernelUpdate
     lib/tasks
     package-lock.json
     package.json
+    renovate.json5
     script/ops/database_roles.sql
     script/ops/restore_drill
     spec/config

@@ -6,12 +6,16 @@ import {
   aiFiles,
   checkCitations,
   checkGenerated,
+  checkHeldBack,
   checkMatrix,
   checkPackConflicts,
   checkPaths,
   collectDefinitions,
+  heldBackRows,
+  heldBackTable,
   PACK_CONFLICTS,
   rewriteGenerated,
+  rewriteHeldBack,
   type Definition,
   type Finding,
 } from "./lib";
@@ -313,6 +317,64 @@ expectFinding("stale generated table", checkGenerated(stale), /stale; run npm ru
 const fresh = rewriteGenerated(stale);
 expectNone("fresh generated table", checkGenerated(fresh));
 expect("fresh table contains the auth field", fresh.includes("`auth`"));
+
+// Held-back table (WF-06).
+const heldBackPkg = {
+  dependencies: { react: "19.3.1" },
+  devDependencies: { "react-dom": "19.3.1", vite: "8.3.7" },
+};
+const heldBackConfig = {
+  packageRules: [
+    { groupName: "react", matchPackageNames: ["react", "react-dom"] },
+    {
+      description: "React 20 is not supported",
+      matchPackageNames: ["react", "react-dom"],
+      allowedVersions: "<20",
+    },
+  ],
+};
+const heldBack = heldBackRows(heldBackConfig, heldBackPkg);
+expectNone("valid held-back rules", heldBack.findings);
+const heldBackMarkup = `<!-- generated:held-back:start -->\n${heldBackTable(heldBack.rows ?? [])}\n<!-- generated:held-back:end -->\n`;
+expectNone(
+  "fresh held-back table",
+  checkHeldBack(heldBackMarkup, heldBackTable(heldBack.rows ?? [])),
+);
+expectFinding(
+  "stale held-back table",
+  checkHeldBack(
+    heldBackMarkup.replace("React 20 is not supported", "old reason"),
+    heldBackTable(heldBack.rows ?? []),
+  ),
+  /held-back table is stale/,
+);
+expect(
+  "held-back table names the pinned version",
+  heldBackTable(heldBack.rows ?? []).includes("| `react`, `react-dom` | 19.3.1 |"),
+);
+expectFinding(
+  "held-back rule without a description",
+  heldBackRows(
+    { packageRules: [{ matchPackageNames: ["react"], allowedVersions: "<20" }] },
+    heldBackPkg,
+  ).findings,
+  /without a description/,
+);
+expectFinding(
+  "held-back rule without matchPackageNames",
+  heldBackRows({ packageRules: [{ description: "why", allowedVersions: "<20" }] }, heldBackPkg)
+    .findings,
+  /without matchPackageNames/,
+);
+const heldBackRewritten = rewriteHeldBack(
+  heldBackMarkup,
+  "| Package | Pinned | Why |\n| --- | --- | --- |\n| `react` | 19.3.1 | why |",
+);
+expect(
+  "held-back rewrite keeps the markers",
+  heldBackRewritten.includes("<!-- generated:held-back:start -->") &&
+    heldBackRewritten.includes("| `react` | 19.3.1 | why |"),
+);
 
 if (failures > 0) {
   console.error(`docs:canary: checked ${cases} case(s); failures=${failures}`);

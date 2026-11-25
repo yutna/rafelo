@@ -5,13 +5,17 @@ import {
   aiFiles,
   checkCitations,
   checkGenerated,
+  checkHeldBack,
   checkMatrix,
   checkPackConflicts,
   checkPaths,
   collectDefinitions,
+  heldBackTable,
   loadConfig,
+  loadHeldBack,
   readTextFiles,
   rewriteGenerated,
+  rewriteHeldBack,
   topicFiles,
   type Finding,
   type PathSource,
@@ -35,10 +39,21 @@ if (!config) {
   fail(`configuration has ${configFindings.length} finding(s)`);
 }
 
+const readmePath = resolve(root, "docs/architecture/00_README.md");
+
 if (!check) {
   const text = readFileSync(contractsPath, "utf8");
   writeFileSync(contractsPath, rewriteGenerated(text));
-  console.log("docs: generated the envelope table");
+  const heldBack = loadHeldBack(root);
+  if (heldBack.findings.length > 0) {
+    heldBack.findings.forEach((finding) =>
+      console.error(`docs: ${finding.file}: ${finding.message}`),
+    );
+    fail(`the held-back rules have ${heldBack.findings.length} finding(s)`);
+  }
+  const readme = readFileSync(readmePath, "utf8");
+  writeFileSync(readmePath, rewriteHeldBack(readme, heldBackTable(heldBack.rows ?? [])));
+  console.log("docs: generated the envelope and held-back tables");
   process.exit(0);
 }
 
@@ -48,6 +63,12 @@ const { files: instructions, findings: instructionFindings } = aiFiles(root, con
 const topicText = readTextFiles(root, topics);
 const instructionText = readTextFiles(root, instructions);
 const generated = readFileSync(contractsPath, "utf8");
+const readme = readFileSync(readmePath, "utf8");
+const heldBack = loadHeldBack(root);
+const heldBackFindings =
+  heldBack.rows === undefined
+    ? heldBack.findings
+    : [...heldBack.findings, ...checkHeldBack(readme, heldBackTable(heldBack.rows))];
 
 const definitions = collectDefinitions(topicText);
 const matrix = checkMatrix(
@@ -76,6 +97,7 @@ const findings: Finding[] = [
   ...packConflicts,
   ...paths.findings,
   ...checkGenerated(generated),
+  ...heldBackFindings,
 ];
 
 if (findings.length > 0) {

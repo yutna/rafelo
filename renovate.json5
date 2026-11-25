@@ -1,0 +1,46 @@
+{
+  "minimumReleaseAge": "3 days",
+  "automerge": false,
+  "lockFileMaintenance": { "enabled": true },
+  "packageRules": [
+    {
+      "groupName": "typescript",
+      "matchPackageNames": ["typescript", "typescript-eslint"]
+    },
+    {
+      "groupName": "vite",
+      "matchPackageNames": ["vite", "@vitejs/plugin-react", "vite-plugin-ruby", "@rolldown/plugin-babel"]
+    },
+    {
+      "groupName": "react",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom", "eslint-plugin-react-hooks"]
+    },
+    {
+      "groupName": "vitest",
+      "matchPackageNames": ["vitest", "@vitest/coverage-v8"]
+    },
+    {
+      "groupName": "tailwindcss",
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/vite", "prettier-plugin-tailwindcss"]
+    },
+    {
+      "groupName": "eslint",
+      "matchPackageNames": ["eslint", "@eslint/js"]
+    },
+    {
+      "description": "typescript-eslint supports TypeScript below 6.1",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.1.0"
+    },
+    {
+      "description": "eslint-plugin-react and eslint-plugin-jsx-a11y support ESLint 9, not 10",
+      "matchPackageNames": ["eslint", "@eslint/js"],
+      "allowedVersions": "<10.0.0"
+    },
+    {
+      "description": "66.0.0 and newer require ESLint 10.4",
+      "matchPackageNames": ["eslint-plugin-unicorn"],
+      "allowedVersions": "<66.0.0"
+    }
+  ]
+}
