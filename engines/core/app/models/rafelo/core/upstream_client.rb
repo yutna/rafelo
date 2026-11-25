@@ -96,9 +96,11 @@ module Rafelo
         ActiveSupport::Notifications.instrument("upstream.call", name: @name, kind: @kind, gateway: @gateway)
         @calls += 1
         response = @bulkhead.call do
-          @breaker.run do
-            perform(method, path, params: params, body: body, headers: headers,
-                    idempotency_key: idempotency_key, if_match: if_match)
+          @connection_pool.with(deadline: @deadline) do |connection|
+            @breaker.run do
+              perform(method, path, params: params, body: body, headers: headers,
+                      idempotency_key: idempotency_key, if_match: if_match, connection: connection)
+            end
           end
         end
         map_status!(response, method: method)
@@ -136,8 +138,8 @@ module Rafelo
           first = true
           total = 0
           @bulkhead.call do
-            @breaker.run do
-              @connection_pool.with(deadline: @deadline) do |connection|
+            @connection_pool.with(deadline: @deadline) do |connection|
+              @breaker.run do
                 connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
                   request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
                   request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
@@ -189,13 +191,13 @@ module Rafelo
 
       private
 
-      def perform(method, path, params:, body:, headers:, idempotency_key:, if_match:)
+      def perform(method, path, params:, body:, headers:, idempotency_key:, if_match:, connection:)
         attempt = 0
         refreshed = false
         loop do
           attempt += 1
           response = perform_once(method, path, params: params, body: body, headers: headers,
-                                  idempotency_key: idempotency_key, if_match: if_match)
+                                  idempotency_key: idempotency_key, if_match: if_match, connection: connection)
           if response.status == 401 && !refreshed && @token_provider.respond_to?(:refresh!)
             refreshed = true
             @token_provider.refresh!
@@ -218,21 +220,19 @@ module Rafelo
         end
       end
 
-      def perform_once(method, path, params:, body:, headers:, idempotency_key:, if_match:)
+      def perform_once(method, path, params:, body:, headers:, idempotency_key:, if_match:, connection:)
         collected = +""
-        response = @connection_pool.with(deadline: @deadline) do |connection|
-          connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
-            request.params.update(params) if params
-            request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
-            request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
-            request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
-            request.options.on_data = proc do |chunk, _size|
-              raise ApplicationError.new("upstream.timeout") if @deadline.expired?
+        response = connection.run_request(method, path, body, request_headers(headers, idempotency_key, if_match)) do |request|
+          request.params.update(params) if params
+          request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
+          request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
+          request.options.write_timeout = [ @config.write_timeout, @deadline.remaining ].min
+          request.options.on_data = proc do |chunk, _size|
+            raise ApplicationError.new("upstream.timeout") if @deadline.expired?
 
-              collected << chunk
-              if collected.bytesize > @config.max_response_bytes
-                raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
-              end
+            collected << chunk
+            if collected.bytesize > @config.max_response_bytes
+              raise ApplicationError.new("unexpected", "Upstream response exceeded #{@config.max_response_bytes} bytes")
             end
           end
         end

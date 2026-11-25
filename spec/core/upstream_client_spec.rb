@@ -65,6 +65,17 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     expect(pool).to have_received(:with).twice
   end
 
+  it "does not run the breaker when the pool has no connection" do
+    pool = client.instance_variable_get(:@connection_pool)
+    breaker = client.instance_variable_get(:@breaker)
+    allow(pool).to receive(:with).and_raise(Rafelo::Core::ApplicationError.new("upstream.timeout"))
+    allow(breaker).to receive(:run).and_call_original
+
+    expect { client.get("invoices") }
+      .to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.timeout") }
+    expect(breaker).not_to have_received(:run)
+  end
+
   it "passes only the incoming sampled bit and a fresh parent id" do
     sampled = described_class.new(
       name: :sampled, config: config, token_provider: token,
