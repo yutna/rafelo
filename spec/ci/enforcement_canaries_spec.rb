@@ -32,6 +32,24 @@ RSpec.describe "enforcement_canaries" do
       output, status = run_meta(directory, script)
       expect(status.exitstatus).to eq(0), output
 
+      node_modules = File.join(directory, "node_modules")
+      FileUtils.rm_f(node_modules)
+      FileUtils.mkdir_p(node_modules)
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("eslint is not installed")
+
+      fake_eslint = File.join(node_modules, ".bin", "eslint")
+      FileUtils.mkdir_p(File.dirname(fake_eslint))
+      File.write(fake_eslint, "#!/usr/bin/env ruby\nputs '{\"rules\":{}}'\n")
+      FileUtils.chmod(0o755, fake_eslint)
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("exports no rules")
+
+      FileUtils.rm_rf(node_modules)
+      FileUtils.ln_s(File.join(root, "node_modules"), node_modules)
+
       FileUtils.rm_f(File.join(directory, "config", "ci.rb"))
       output, status = run_meta(directory, script)
       expect(status.exitstatus).to eq(1), output
