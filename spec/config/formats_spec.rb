@@ -26,6 +26,21 @@ RSpec.describe "Persisted formats" do
     end
   end
 
+  it "refuses a kept folder whose rows the current code cannot read" do
+    Dir.mktmpdir("rafelo-formats-") do |root|
+      folder = Pathname.new(root).join("v0.0.1")
+      FileUtils.mkdir_p(folder)
+      File.write(
+        folder.join("sessions.json"),
+        JSON.pretty_generate([ { "format_version" => 999, "token" => "fixture", "token_digest" => "x" } ])
+      )
+      allow(PersistedFormatsReader).to receive(:root).and_return(Pathname.new(root))
+
+      reader = PersistedFormatsReader.new(folder)
+      expect { reader.sessions }.to raise_error(PersistedFormatsReader::UnsupportedVersion, /format 999/)
+    end
+  end
+
   it "loads the latest release folder through the current readers" do
     reader = PersistedFormatsReader.new(PersistedFormatsReader.latest)
     expect(reader.folder).to be_directory
