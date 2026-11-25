@@ -62,7 +62,9 @@ describe("SignIn page", () => {
     const { rerender } = render(<SignIn {...props} />);
 
     fireEvent.submit(screen.getByTestId("signin.submit").closest("form") as HTMLFormElement);
-    rerender(<SignIn {...props} data={{ error: "Wrong email or password", formHref: "/en/sign_in" }} />);
+    rerender(
+      <SignIn {...props} data={{ error: "Wrong email or password", formHref: "/en/sign_in" }} />,
+    );
 
     await waitFor(() => expect(screen.getByTestId("signin.error")).toHaveFocus());
   });
