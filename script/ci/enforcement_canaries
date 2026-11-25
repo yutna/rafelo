@@ -85,15 +85,12 @@ rescue JSON::ParserError
 end
 
 eslint = File.join(root, "node_modules", ".bin", "eslint")
-if File.executable?(eslint)
-  eslint_rules = ESLINT_REAL_PATHS.select { |path| File.exist?(File.join(root, path)) }
-                                 .flat_map { |path| eslint_rules_at(eslint, root, path) }
-                                 .uniq
-  warn "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
-else
-  warn "enforcement_canaries: eslint is not installed at #{eslint}; checked 0 ESLint rules"
-  eslint_rules = []
-end
+abort "enforcement_canaries: eslint is not installed at #{eslint}" unless File.executable?(eslint)
+
+eslint_rules = ESLINT_REAL_PATHS.select { |path| File.exist?(File.join(root, path)) }
+                               .flat_map { |path| eslint_rules_at(eslint, root, path) }
+                               .uniq
+abort "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
 
 canaries = [
   {
@@ -353,7 +350,16 @@ end
 
 failures = 0
 canaries.each do |canary|
-  next if canary[:bad].nil?
+  if canary[:bad].nil?
+    output, status = Open3.capture2e(*command(root, canary, [], root))
+    unless status.success?
+      warn "canary #{canary[:name]} failed"
+      warn output
+      failures += 1
+    end
+    next
+  end
+
   bad_root = File.join(root, canary[:bad])
   legal_root = File.join(root, canary[:legal])
   abort "enforcement_canaries: missing bad fixture #{bad_root}" unless Dir.exist?(bad_root)
