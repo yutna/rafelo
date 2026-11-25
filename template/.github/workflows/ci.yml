@@ -437,6 +437,9 @@ jobs:
       - name: Install gems
         run: bundle check || bundle install
 
+      - name: Install npm dependencies
+        run: npm ci
+
       - name: Run enforcement canaries
         run: script/ci/enforcement_canaries
 
