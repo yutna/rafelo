@@ -52,7 +52,7 @@ function signInProps(locale: "en" | "th") {
   return {
     ...shared,
     app: { ...shared.app, locale },
-    data: { error: null },
+    data: { error: null, formHref: "/en/sign_in" },
     meta: { csrfToken: "token" },
     query: {},
     pagination: null,

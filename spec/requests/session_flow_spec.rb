@@ -30,6 +30,17 @@ RSpec.describe "Session flow", type: :request do
     expect(Rafelo::Core::AuditEvent.where(event: "sign_out", outcome: "success").count).to eq(1)
   end
 
+  it "carries a return_to target into the form and back after sign-in" do
+    get "/en/sign_in", params: { return_to: "/en/dummy/widgets" }
+    page = JSON.parse(response.body[/<script[^>]*data-page="app"[^>]*>(.*?)<\/script>/m, 1])
+    expect(page.dig("props", "data", "formHref")).to include("return_to=%2Fen%2Fdummy%2Fwidgets")
+
+    post "/en/sign_in", params: { email: "ada@example.test", password: "secret", return_to: "/en/dummy/widgets" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/en/dummy/widgets")
+  end
+
   it "renders the sign-in page with the form" do
     expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
@@ -87,7 +98,19 @@ RSpec.describe "Session refresh and expiry", type: :request do
     get "/en/dummy/expired", headers: { "Cookie" => cookie }
 
     expect(response).to have_http_status(:see_other)
-    expect(response.location).to end_with("/en/sign_in")
+    expect(response.location).to include("/en/sign_in")
+    expect(response.location).to include("return_to=%2Fen%2Fdummy%2Fexpired")
+    expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
+  end
+
+  it "answers a dead session to a JSON caller with 401 and no redirect" do
+    session, cookie = session_with
+    get "/en/dummy/expired", headers: { "Cookie" => cookie, "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:unauthorized)
+    expect(response.media_type).to eq("application/json")
+    expect(response.location).to be_nil
+    expect(JSON.parse(response.body).dig("error", "code")).to eq("auth.expired")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
   end
 
@@ -98,7 +121,7 @@ RSpec.describe "Session refresh and expiry", type: :request do
     get "/en", headers: { "Cookie" => cookie }
 
     expect(response).to have_http_status(:see_other)
-    expect(response.location).to end_with("/en/sign_in")
+    expect(response.location).to include("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
     expect(Rafelo::Core::AuditEvent.where(event: "session_revoked", outcome: "failure").count).to eq(1)
@@ -111,7 +134,7 @@ RSpec.describe "Session refresh and expiry", type: :request do
     get "/en", headers: { "Cookie" => cookie }
 
     expect(response).to have_http_status(:found)
-    expect(response.location).to end_with("/en/sign_in")
+    expect(response.location).to include("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
   end

@@ -24,6 +24,65 @@ RSpec.describe "Upstream download streaming" do
     expect(chunks.join).to eq("hello world")
   end
 
+  it "refreshes once on a streamed 401 and resends with the new token" do
+    refreshing = Class.new do
+      attr_reader :refreshes
+
+      def initialize
+        @token = "old"
+        @refreshes = 0
+      end
+
+      def token = @token
+      def service? = false
+
+      def refresh!
+        @refreshes += 1
+        @token = "new"
+      end
+    end.new
+    client = Rafelo::Core::UpstreamClient.new(name: :download, config: config, token_provider: refreshing)
+    stub_request(:get, "http://upstream.test/report")
+      .with(headers: { "Authorization" => "Bearer old" })
+      .to_return(status: 401, body: "{}")
+    stub_request(:get, "http://upstream.test/report")
+      .with(headers: { "Authorization" => "Bearer new" })
+      .to_return(status: 200, body: "hello world")
+    chunks = []
+
+    client.stream(:get, "report") { |chunk| chunks << chunk }
+
+    expect(chunks.join).to eq("hello world")
+    expect(refreshing.refreshes).to eq(1)
+  end
+
+  it "raises auth.expired after a second streamed 401" do
+    refreshing = Class.new do
+      attr_reader :refreshes
+
+      def initialize
+        @refreshes = 0
+      end
+
+      def token = "old"
+      def service? = false
+
+      def refresh!
+        @refreshes += 1
+      end
+    end.new
+    client = Rafelo::Core::UpstreamClient.new(name: :download, config: config, token_provider: refreshing)
+    stub_request(:get, "http://upstream.test/report").to_return(status: 401, body: "{}")
+    chunks = []
+
+    expect do
+      client.stream(:get, "report") { |chunk| chunks << chunk }
+    end.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("auth.expired") }
+
+    expect(chunks).to be_empty
+    expect(refreshing.refreshes).to eq(1)
+  end
+
   it "rejects an error status before yielding a byte" do
     stub_request(:get, "http://upstream.test/report").to_return(status: 500, body: "boom")
     chunks = []
