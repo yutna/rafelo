@@ -52,16 +52,24 @@ class SessionsController < ApplicationController
     }
     redirect_to Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s, status: :see_other
   rescue Rafelo::Core::ApplicationError => error
+    # BE-13: only a refused credential is a form error. An upstream outage or
+    # a forbidden answer renders the shared error page.
+    return render_application_error(error) unless error.code == "auth.expired"
+
     Rafelo::Core::AuditRecorder.record(
       controller: self,
       event: "sign_in",
       outcome: "failure",
       target: "sign_in"
     )
-    Rafelo::Core::ErrorReporter.report(error, handled: true)
-    render_page "sessions/new",
-                props: SessionsNewProps.new(context: page_context, csrf_token: form_authenticity_token, error: error.message),
-                status: error.status
+    failure = Rafelo::Core::ApplicationError.new("auth.failed")
+    Rafelo::Core::ErrorReporter.report(failure, handled: true)
+    fallback = "/#{I18n.locale}"
+    return_to = Rafelo::Core::ReturnTo.from(params, locale: I18n.locale).to_s
+    target = return_to == fallback ? "#{fallback}/sign_in" : "#{fallback}/sign_in?return_to=#{ERB::Util.url_encode(return_to)}"
+    redirect_to target,
+                status: :see_other,
+                inertia: { errors: { "base" => failure.message } }
   end
 
   def destroy

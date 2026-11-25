@@ -21,9 +21,10 @@ RSpec.describe "Trace ids on early errors", type: :request do
 
     post "/en/sign_in", params: { email: "a@example.test", password: "wrong" }, headers: headers
 
-    expect(response).to have_http_status(:unauthorized)
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to include("/en/sign_in")
     context = forwarded.last.fetch(:context).stringify_keys
-    expect(context["code"]).to eq("auth.expired")
+    expect(context["code"]).to eq("auth.failed")
     expect(context["request_id"]).to eq("request-early")
     expect(context["trace_id"]).to eq(trace_id)
   end

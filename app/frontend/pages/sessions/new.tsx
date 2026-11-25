@@ -13,7 +13,10 @@ export default function SignIn(props: Record<string, unknown>) {
   return (
     <>
       <Head title={t("app:signin.title")} />
-      <SignInScreen signInHref={page.data.formHref} error={page.data.error} />
+      <SignInScreen
+        signInHref={page.data.formHref}
+        error={page.data.error ?? page.errors.base ?? null}
+      />
     </>
   );
 }
