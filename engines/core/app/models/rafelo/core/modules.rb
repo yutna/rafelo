@@ -10,9 +10,14 @@ module Rafelo
         def route_name = key
 
         # ARCH-06: a navigation entry links to the engine's own root route; a
-        # module whose engine has no root route stays out of navigation.
+        # module whose engine has no root route, or that the app does not
+        # mount, stays out of navigation instead of raising in Urls#route.
         def root_route?
-          engine.respond_to?(:routes) && engine.routes.routes.any? { |route| route.name == "root" }
+          mounted? && engine.respond_to?(:routes) && engine.routes.routes.any? { |route| route.name == "root" }
+        end
+
+        def mounted?
+          Rails.application.routes.routes.any? { |route| route.name == key.to_s }
         end
 
         # The permission keys the module declares in its own manifest, used by

@@ -79,8 +79,16 @@ RSpec.describe Rafelo::Core::Modules do
       def self.routes = Struct.new(:routes).new([])
     end
 
-    expect(described_class.register(key: :ledger, engine: with_root).root_route?).to be(true)
-    expect(described_class.register(key: :payments, engine: without_root, path: "/payments").root_route?).to be(false)
+    fake_route = Struct.new(:name, :path).new("ledger", Struct.new(:spec).new("/:locale/ledger(.:format)"))
+    ledger = described_class.register(key: :ledger, engine: with_root)
+    payments = described_class.register(key: :payments, engine: without_root, path: "/payments")
+    unmounted = described_class.register(key: :reports, engine: with_root, path: "/reports")
+    fake_route = Struct.new(:name, :path).new("ledger", Struct.new(:spec).new("/:locale/ledger(.:format)"))
+    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
+
+    expect(ledger.root_route?).to be(true)
+    expect(payments.root_route?).to be(false)
+    expect(unmounted.root_route?).to be(false)
   end
 
   it "rejects a permission key two modules both declare" do
