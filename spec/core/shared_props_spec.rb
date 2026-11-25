@@ -90,6 +90,22 @@ RSpec.describe Rafelo::Core::SharedProps do
       expect(nav.first[:current]).to be(true)
     end
 
+    it "drops a module the app did not mount" do
+      allow(entry).to receive(:root_route?).and_return(true)
+      context = Rafelo::Core::PageContext.new(
+        viewer: Struct.new(:id, :name).new(7, "Ada"),
+        permissions: Rafelo::Core::PermissionSet.new([ "*" ]),
+        flags: {},
+        locale: :en,
+        request_id: "request-1",
+        trace_id: "trace-1",
+        session_id: nil,
+        urls: Rafelo::Core::Urls.new(locale: :en, router: double)
+      )
+
+      expect(described_class.new(context: context, request_path: "/en").to_h.fetch(:nav)).to be_empty
+    end
+
     it "drops a module whose engine has no root route" do
       allow(entry).to receive(:root_route?).and_return(false)
 

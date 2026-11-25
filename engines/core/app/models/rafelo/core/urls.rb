@@ -30,6 +30,13 @@ module Rafelo
         path
       end
 
+      # ARCH-06: the same helper surface Url#route calls. A registered module
+      # the app did not mount has no helper, so navigation drops it instead of
+      # raising.
+      def mounted?(engine_key)
+        @router.respond_to?(engine_key)
+      end
+
       def route(engine_key, route_name, **params)
         proxy = @router.public_send(engine_key)
         path = proxy.public_send("#{route_name}_path", locale: @locale, **params)

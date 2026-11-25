@@ -55,6 +55,7 @@ module Rafelo
         permissions = @context.permissions || PermissionSet.new([])
         Modules.all.select do |entry|
           next false if entry.flag && !@context.flags.fetch(entry.flag, false)
+          next false unless @context.urls.mounted?(entry.key)
           next false unless entry.root_route?
 
           permissions.reads_any?(entry.permission_prefixes)
