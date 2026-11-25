@@ -112,7 +112,9 @@ RSpec.describe "bin/kernel_update" do
 
   it "keeps app-owned paths behind the --app-owned option" do
     expect(KernelUpdate::APP_OWNED_PATHS).to include(
-      "app/frontend", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
+      "app/controllers/application_controller.rb", "app/controllers/sessions_controller.rb",
+      "app/frontend", "app/models", "app/policies", "app/props",
+      "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
       "config/database.yml", "config/storage.yml", "config/frontend_react.mts", "lib/tasks",
       "package.json", "package-lock.json", ".devcontainer", "Dockerfile",
       "spec/config", "spec/requests", "spec/support", "spec/tasks"
@@ -143,6 +145,44 @@ RSpec.describe "bin/kernel_update" do
           )
           expect(status).to be_success, err
           expect(File.read(File.join(app_root, "config/locales/en.yml"))).to eq(target.fetch("config/locales/en.yml"))
+        end
+      end
+    end
+  end
+
+  it "carries an unchanged app-owned controller and props only with --app-owned" do
+    base = {
+      "app/controllers/sessions_controller.rb" => "class SessionsController\n  def create = 1\nend\n",
+      "app/props/sessions_new_props.rb" => "class SessionsNewProps\n  def form_href = nil\nend\n"
+    }
+    target = {
+      "app/controllers/sessions_controller.rb" => "class SessionsController\n  def create = 2\nend\n",
+      "app/props/sessions_new_props.rb" => "class SessionsNewProps\n  def form_href = \"/\"\nend\n"
+    }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root
+          )
+          expect(status).to be_success, err
+          base.each do |path, content|
+            expect(File.read(File.join(app_root, path))).to eq(content)
+          end
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+          expect(status).to be_success, err
+          target.each do |path, content|
+            expect(File.read(File.join(app_root, path))).to eq(content)
+          end
         end
       end
     end
