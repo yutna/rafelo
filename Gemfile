@@ -41,7 +41,7 @@ gem "kamal", "2.12.0", require: false
 gem "thruster", "0.1.27", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-gem "image_processing", "1.14.0"
+gem "image_processing", "2.2.2"
 
 # Engines are path gems discovered by a glob, so a new module does not edit this file.
 Dir[File.join(__dir__, "engines/*/*.gemspec")].sort.each do |gemspec|
