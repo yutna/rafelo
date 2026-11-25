@@ -24,6 +24,7 @@ RSpec.describe "Error responder", type: :request do
     expect(page.dig("props", "data", "message")).to include(message)
     expect(page.dig("props", "data", "requestId")).to be_present
     expect(page.dig("props", "data", "traceId")).to be_present
+    expect(page.dig("props", "auth", "viewer")).to be_nil
     expect(response.headers["Cache-Control"]).to include("no-store")
     expect(response.headers["Content-Security-Policy"]).to be_present
   end
