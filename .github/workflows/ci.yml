@@ -330,6 +330,15 @@ jobs:
       - name: Run frontend tests
         run: npm test
 
+      - name: Prepare the test database
+        if: needs.affected.outputs.app == 'true' || needs.affected.outputs.engines != ''
+        env:
+          RAILS_ENV: test
+          DB_HOST: postgres
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+        run: bin/rails db:prepare
+
       - name: Run tests
         if: needs.affected.outputs.app == 'true'
         env:
@@ -559,7 +568,7 @@ jobs:
           elif [ "$AFFECTED_APP" = "false" ] && [ -n "$AFFECTED_ENGINES" ]; then
             IFS=',' read -ra names <<< "$AFFECTED_ENGINES"
             for name in "${names[@]}"; do
-              if [ -d "engines/$name/e2e" ]; then
+              if find "engines/$name/e2e" -type f -name '*.spec.ts' -print -quit | grep -q .; then
                 args+=(--project "$name")
               fi
             done

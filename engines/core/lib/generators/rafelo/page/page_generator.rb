@@ -106,7 +106,7 @@ module Rafelo
         (effective_actions & %w[new create edit update]).any?
       end
 
-      def permission_update = "#{permission_prefix}:#{resource_plural}:update"
+      def permission_update = "#{permission_prefix}:#{resource_singular}:update"
 
       def root = destination_root_path
       def destination_root_path = Pathname.new(destination_root || Dir.pwd)
@@ -120,8 +120,8 @@ module Rafelo
       def controller_class = "#{resource_plural.camelize}Controller"
       def page_key_base = "#{mod}/#{resource_plural}"
       def engine_alias = "@#{mod}"
-      def permission_read = "#{permission_prefix}:#{resource_plural}:read"
-      def permission_create = "#{permission_prefix}:#{resource_plural}:create"
+      def permission_read = "#{permission_prefix}:#{resource_singular}:read"
+      def permission_create = "#{permission_prefix}:#{resource_singular}:create"
 
       # A renamed module keeps the manifest's stable route path and permission
       # prefix (GEN-06); new pages must use those, not the engine name.
@@ -316,19 +316,19 @@ module Rafelo
           module #{module_class}
             class #{resource_singular.camelize}Policy < Rafelo::Core::BasePolicy
               def index?
-                permissions.allows?(#{module_class}::Permissions::#{resource_plural.upcase}_READ)
+                permissions.allows?(#{module_class}::Permissions::#{resource_singular.upcase}_READ)
               end
 
               def show? = index?
 
               def new?
-                #{create_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)" : "index?"}
+                #{create_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_singular.upcase}_CREATE)" : "index?"}
               end
 
               def create? = new?
 
               def edit?
-                #{update_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_plural.upcase}_UPDATE)" : "index?"}
+                #{update_perms ? "permissions.allows?(#{module_class}::Permissions::#{resource_singular.upcase}_UPDATE)" : "index?"}
               end
 
               def update? = edit?
@@ -386,14 +386,14 @@ module Rafelo
       def write_props
         if effective_actions.include?("index")
           index_can_hash = if effective_actions.include?("new")
-            "can: capabilities(#{module_class}::Permissions::#{resource_plural.upcase}_CREATE)"
+            "can: capabilities(#{module_class}::Permissions::#{resource_singular.upcase}_CREATE)"
           else
             "can: {}"
           end
 
           policy_decl = if effective_actions.include?("new")
             "      policy_class #{module_class}::#{resource_singular.camelize}Policy\n" \
-            "      capability #{module_class}::Permissions::#{resource_plural.upcase}_CREATE, :create?\n\n"
+            "      capability #{module_class}::Permissions::#{resource_singular.upcase}_CREATE, :create?\n\n"
           else
             ""
           end
@@ -1092,7 +1092,9 @@ module Rafelo
         actions = [ "read" ]
         actions << "create" if effective_actions.include?("create")
         actions << "update" if effective_actions.include?("update")
-        prefix[resource_plural] = actions.uniq
+        # A page may add actions to a resource the manifest already declares
+        # (a later create slice after a read slice); never drop the others.
+        prefix[resource_singular] = (Array(prefix[resource_singular]) | actions).uniq
         data[permission_prefix] = prefix
         write_managed(path, YAML.dump(data))
       end

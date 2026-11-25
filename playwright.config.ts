@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
-import { existsSync, readdirSync } from "node:fs";
+
+import { engineE2eProjects } from "./script/ci/playwright_projects.mts";
 
 const sessionHeaders: Record<string, string> = {};
 if (process.env.E2E_SESSION_COOKIE) {
@@ -8,9 +9,10 @@ if (process.env.E2E_SESSION_COOKIE) {
 
 const suites = [
   { name: "app", testDir: "e2e" },
-  ...readdirSync("engines")
-    .filter((engine) => existsSync(`engines/${engine}/e2e`))
-    .map((engine) => ({ name: engine, testDir: `engines/${engine}/e2e` })),
+  ...engineE2eProjects().map((engine) => ({
+    name: engine,
+    testDir: `engines/${engine}/e2e`,
+  })),
 ];
 
 export default defineConfig({
