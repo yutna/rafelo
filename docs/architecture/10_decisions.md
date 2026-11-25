@@ -370,8 +370,9 @@ Status: Accepted
 
 Production runs one Docker image, built from a production Dockerfile separate
 from the Dev Container, with Kamal and Thruster. There are two profiles.
-Single host (the default): PostgreSQL as a Kamal accessory on a volume, or a
-managed service. Multi-host: several app hosts behind a load balancer, managed
+Single host (the default): PostgreSQL as a Kamal accessory on a volume, backed
+up with pgBackRest to an off-host repository (ADR-33, OPS-07), or a managed
+service. Multi-host: several app hosts behind a load balancer, managed
 PostgreSQL, and an S3-compatible Active Storage service. Moving between them
 needs no code change, because no state lives outside PostgreSQL or the
 Active Storage service (ARCH-13). With more than one host, Kamal boots them
@@ -562,3 +563,28 @@ IDs they cite.
 
 Consequence: the speed of AI without delegating judgement. The cost is that
 every rule must be expressible as a check, or be labelled review honestly.
+
+### ADR-33 — Single-host point-in-time recovery uses pgBackRest
+
+Status: Accepted
+
+ADR-26 runs PostgreSQL as a Kamal accessory on the single host. OPS-07 requires
+continuous WAL archiving and regular base backups stored off the host. A volume
+on the serving host is not a backup, and copying the data directory of a
+running database is unsafe.
+
+Use pgBackRest for the single-host profile, run from a pinned backup container
+or backup host, not from the application image and not from the database
+accessory. It owns the stanza, the off-host repository, the base backups, and
+the WAL archive. The repository is a second host, an S3-compatible bucket, or a
+mounted volume that is not the database volume. Keep at least 14 daily full
+backups and 14 days of WAL. The database runs with `wal_level=replica`,
+`archive_mode=on`, and an `archive_command` that writes the repository. The
+multi-host profile, and a single host on managed PostgreSQL, keep the
+provider's point-in-time recovery instead.
+
+Consequence: the template adds no application dependency. The cost is one more
+scheduled service to pin, monitor, and drill; its image or package version,
+stanza name, repository, and retention are recorded beside the deploy profile
+at adoption. The restore drill in `docs/operations/backup-restore.md` proves
+the recovery point actually achieved.

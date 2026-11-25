@@ -49,33 +49,12 @@ host; a volume on the same host is not a backup.
 recovery, set the same 14-day retention, and record the provider's restore
 procedure in this file. The application-side steps below do not change.
 
-## Decision record: single-host PITR uses pgBackRest
+## Why pgBackRest
 
-Status: accepted.
-
-**Context.** The single-host profile runs PostgreSQL as a Kamal accessory on
-a named volume (OPS-06). A volume on the serving host is not a backup, and
-copying a running data directory is unsafe. The profile therefore needs an
-off-host repository, continuous WAL archiving, and a restore path proven by a
-drill; the specification leaves the tool to a decision record (OPS-07).
-
-**Decision.** Use pgBackRest for the single-host profile. Run it from a
-pinned backup container or a backup host, not from the application image and
-not from the database accessory: it owns the stanza, the off-host repository,
-the base backups, and the WAL archive. The repository is a second host, an
-S3-compatible bucket, or a mounted volume that is not the database volume.
-The database runs with `wal_level=replica`, `archive_mode=on`, and an
-`archive_command` that writes the repository; keep 14 daily full backups and
-14 days of WAL. The multi-host profile keeps the managed provider's PITR
-instead.
-
-**Consequences.** The template adds no application dependency, and the
-single-host profile gets the same recovery point objective shape as the
-managed one. The cost is one more scheduled service to pin, monitor, and drill;
-its image or package version, stanza name, repository, and retention are
-recorded beside the deploy profile at adoption. Verification is the drill
-below, which restores a base backup, replays WAL to a chosen point, and runs
-`script/ops/restore_drill` against the scratch database.
+ADR-33 chooses pgBackRest for the single-host profile: run from a pinned backup
+container or backup host, an off-host repository, 14 daily full backups and 14
+days of WAL. Record its image or package version, stanza name, repository, and
+retention beside the deploy profile at adoption. The drill below verifies it.
 
 ## Restore procedure
 
