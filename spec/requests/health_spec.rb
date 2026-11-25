@@ -40,6 +40,16 @@ RSpec.describe "Health endpoints", type: :request do
     ActiveSupport::Notifications.unsubscribe(subscriber) if subscriber
   end
 
+  it "throttles readiness before the database probe" do
+    30.times { get "/core/ready" }
+    expect(response).to have_http_status(:ok)
+
+    allow(ActiveRecord::Base).to receive(:connection).and_raise(ActiveRecord::ConnectionNotEstablished.new("down"))
+    get "/core/ready"
+
+    expect(response).to have_http_status(:too_many_requests)
+  end
+
   it "fails readiness when PostgreSQL is unavailable" do
     allow(ActiveRecord::Base).to receive(:connection).and_raise(ActiveRecord::ConnectionNotEstablished.new("down"))
 
