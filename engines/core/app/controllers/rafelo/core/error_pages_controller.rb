@@ -8,7 +8,8 @@ module Rafelo
     # come from the request and the locale from the original path.
     class ErrorPagesController < ActionController::Base
       layout "application"
-      skip_forgery_protection
+      protect_from_forgery with: :exception
+      rescue_from ActionController::InvalidAuthenticityToken, with: :render_forgery_error
 
       def show
         status = request.env.fetch("rafelo.exceptions.status", 500)
@@ -39,6 +40,12 @@ module Rafelo
       end
 
       private
+
+      def render_forgery_error
+        request.env["rafelo.exceptions.status"] = 422
+        request.env["rafelo.exceptions.code"] = "request.csrf_failed"
+        show
+      end
 
       def original_path
         request.env["action_dispatch.original_path"] || request.path
