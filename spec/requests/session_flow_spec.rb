@@ -82,6 +82,13 @@ RSpec.describe "Session flow", type: :request do
     expect(Rafelo::Core::AuditEvent.where(event: "sign_in", outcome: "failure").count).to eq(0)
   end
 
+  it "builds the sign-in form href through Urls" do
+    get "/en/sign_in", params: { return_to: "/en/dummy/widgets" }
+
+    expect(response).to have_http_status(:ok)
+    expect(response).to have_resolvable_hrefs("sessions/new")
+  end
+
   it "renders the sign-in page with the form" do
     expect { get "/en/sign_in" }.to within_budgets("sessions/new")
 
@@ -178,6 +185,38 @@ RSpec.describe "Session refresh and expiry", type: :request do
     expect(response.location).to include("/en/sign_in")
     expect(Rafelo::Core::Session.exists?(session.id)).to be(false)
     expect(Array(response.headers["Set-Cookie"]).join("\n")).to include("session_token=;")
+  end
+
+  it "keeps a dead session's target under the request locale" do
+    session, cookie = session_with
+    session.update_column(:last_seen_at, 31.minutes.ago)
+
+    get "/th/dummy/widgets", headers: { "Cookie" => cookie }
+
+    expect(response).to have_http_status(:found)
+    expect(response.location).to end_with("/th/sign_in?return_to=%2Fth%2Fdummy%2Fwidgets")
+  end
+
+  it "answers a write without a session with 303 and the form target" do
+    post "/th/dummy/widgets", headers: { "Referer" => "http://www.example.com/th/dummy/widgets/new" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/th/sign_in?return_to=%2Fth%2Fdummy%2Fwidgets%2Fnew")
+  end
+
+  it "drops a foreign referer on a write without a session" do
+    post "/th/dummy/widgets", headers: { "Referer" => "https://evil.example/th/dummy/widgets/new" }
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to end_with("/th/sign_in")
+  end
+
+  it "answers a write without a session to a JSON caller with 401" do
+    post "/th/dummy/widgets", headers: { "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:unauthorized)
+    expect(response.media_type).to eq("application/json")
+    expect(JSON.parse(response.body).dig("error", "code")).to eq("auth.expired")
   end
 
   it "forgets an expired session and clears its cookie" do

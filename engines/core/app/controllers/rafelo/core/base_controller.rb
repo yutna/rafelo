@@ -207,7 +207,19 @@ module Rafelo
       end
 
       def require_viewer
-        redirect_to "/#{params[:locale] || Locales.default}/sign_in" unless Current.viewer
+        return if Current.viewer
+
+        fallback = "/#{I18n.locale}"
+        target = ReturnTo.from({ return_to: return_target }, locale: I18n.locale).to_s
+        sign_in = "#{fallback}/sign_in"
+        location = target == fallback ? sign_in : "#{sign_in}?return_to=#{ERB::Util.url_encode(target)}"
+
+        if json_request?
+          response.headers["Cache-Control"] = "no-store"
+          return render json: error_payload(ApplicationError.new("auth.expired")), status: :unauthorized
+        end
+
+        redirect_to location, status: request.get? || request.head? ? :found : :see_other
       end
 
       def page_context
@@ -275,8 +287,20 @@ module Rafelo
       def return_target
         configured = ReturnTo.from(params, locale: I18n.locale).to_s
         return configured unless configured == "/#{I18n.locale}"
+        return request.fullpath if request.get? || request.head?
 
-        request.get? || request.head? ? request.fullpath : request.referer
+        referer_path
+      end
+
+      # SEC-04: a write returns to the form page only when the referer is the
+      # same origin; ReturnTo checks the path and query that remain.
+      def referer_path
+        uri = URI.parse(request.referer.to_s)
+        return "/#{I18n.locale}" unless uri.host == request.host && uri.port == request.port
+
+        uri.request_uri
+      rescue URI::InvalidURIError
+        "/#{I18n.locale}"
       end
 
       def render_application_error(error)        ErrorReporter.report(error, handled: true)
