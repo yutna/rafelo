@@ -265,7 +265,7 @@ date_bad, date_bad_status = stdin_run(
   "Rafelo/DateFormatterOnly", "engines/example_orders/app/models/date_canary.rb",
   "date.strftime(\"%Y\")\nI18n.l(date)\nl(date)\ndate.to_fs\ndate.to_formatted_s\n"
 )
-unless date_bad_status.exitstatus == 1 && date_bad.scan("Rafelo/DateFormatterOnly").length >= 5
+unless date_bad_status.exitstatus == 1 && date_bad.scan(/"cop_name":"Rafelo\/DateFormatterOnly"/).length == 5
   warn "cops_canary: DateFormatterOnly did not report the engine app fixture"
   warn date_bad
   exit 1
