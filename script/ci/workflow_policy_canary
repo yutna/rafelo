@@ -72,6 +72,70 @@ Dir.mktmpdir("rafelo-workflow-canary-") do |dir|
   end
   FileUtils.rm_f(publish)
 
+  # WF-07: a privileged job-level reusable workflow must be pinned to a SHA.
+  privileged = File.join(workflows, "privileged.yml")
+  pinned = "yutna/oss-kit/.github/workflows/pr-check.yml@11a95f398a14797d99cfdcb1ffef2c2c8ea355ba"
+  File.write(privileged, <<~YAML)
+    name: privileged
+    on:
+      pull_request_target:
+    permissions:
+      contents: read
+    jobs:
+      tagged:
+        uses: yutna/oss-kit/.github/workflows/pr-check.yml@main
+      pinned:
+        uses: #{pinned}
+  YAML
+
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("calls a reusable workflow without a full commit SHA")
+    failures += 1
+    warn "workflow_policy_canary: mutable reusable workflow: #{output}"
+  end
+
+  File.write(privileged, <<~YAML)
+    name: privileged
+    on:
+      pull_request_target:
+    permissions:
+      contents: read
+    jobs:
+      pinned:
+        uses: #{pinned}
+  YAML
+
+  cases += 1
+  output, status = run(script, dir)
+  unless status.success?
+    failures += 1
+    warn "workflow_policy_canary: pinned reusable workflow: #{output}"
+  end
+
+  # WF-07: a privileged run: must not fetch a pull request head.
+  File.write(privileged, <<~YAML)
+    name: privileged
+    on:
+      pull_request_target:
+    permissions:
+      contents: read
+    jobs:
+      fetch:
+        runs-on: ubuntu-latest
+        timeout-minutes: 1
+        steps:
+          - run: git fetch origin ${{ github.event.pull_request.head.sha }}
+  YAML
+
+  cases += 1
+  output, status = run(script, dir)
+  if status.success? || !output.include?("fetches a pull request head")
+    failures += 1
+    warn "workflow_policy_canary: privileged head fetch: #{output}"
+  end
+  FileUtils.rm_f(privileged)
+
   # A job the aggregator does not need is a missing gate step.
   ci = File.join(workflows, "ci.yml")
   FileUtils.cp(File.join(root, ".github", "workflows", "ci.yml"), ci)
