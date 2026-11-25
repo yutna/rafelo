@@ -75,6 +75,12 @@ system contain no domain classes.
   during render replaces the whole page with the error boundary (FE-15).
 - So `fromPlain` accepts every value its plain type allows, invalid input
   included, and throws only when code has broken an invariant.
+- A date a person types is kept as its raw `YYYY-MM-DD` string. A string
+  that is not such a date, or names a day the calendar does not have
+  (`2026-02-30`), is an `issues()` code, never a throw. The code is
+  `<class>.<field>_invalid` (for `DateRange`, `date_range.start_invalid` and
+  `date_range.end_invalid`); a range whose end precedes its start is
+  `date_range.end_before_start`, reported only when both dates are valid.
 - A plain type can carry an invariant that its TypeScript type cannot
   express. `MoneyPlain.minor` is an integer by wire contract (CT-02), so a non-integer reaching
   `Money.fromPlain` is a programmer error, and `Money.of` may throw. An amount
@@ -110,6 +116,11 @@ in `@core/domain` works on ISO calendar-date strings (`YYYY-MM-DD`, CT-02).
 Props, React state, context values, and Inertia form data hold plain objects
 and arrays only. Convert with `toPlain()` before data enters React and rebuild
 with `fromPlain()` when logic is needed.
+
+`fromPlain` copies every array and object it keeps, and `toPlain()` returns
+a new plain value each time, so a class and React never share a mutable
+reference. A round-trip test changes the input after `fromPlain` and the
+output after `toPlain()` and asserts the instance is unchanged.
 
 Plain data is `null`, `undefined`, a string, a number, a boolean, a bigint,
 an array (`Array.prototype`, not a subclass), or an object whose prototype is

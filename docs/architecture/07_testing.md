@@ -90,13 +90,23 @@ Each Inertia page has a request spec that asserts:
   guarding flag off), `can[key].allowed` equals the answer of the policy
   method the capability names (BE-04).
 
+The matchers read what the request built, not a copy: `render_page` in the
+core base controller stores the page key, the serialized props size, the
+props object, and `urls.built` in the request env (`rafelo.page`,
+`rafelo.props_bytes`, `rafelo.page_props`, `rafelo.urls_built`), and the
+matchers read those keys from the spec's last request. A failure message
+names the matcher, the page key, and each failing item (a JSON pointer, an
+href, a capability key with the expected and actual `allowed`), never the
+whole props.
+
 Shared props are not part of the page's budget; they have their own, measured
 once in their own spec (CT-13).
 
-The props budget is measured on the largest page a viewer can request. For a
-list page, `be_within_props_budget` fails unless `pagination.perPage` equals
-the `ListQuery` maximum (BE-07) and the list holds that many items, so the spec
-needs a fixture that supplies them. A page declared with `paginated: false`
+The props budget is measured on the largest page a viewer can request. A
+paginated page holds its list in `data.items`. For such a page,
+`be_within_props_budget` fails unless `pagination.perPage` equals the
+`ListQuery` maximum (BE-07) and `data.items` holds that many entries, so the
+spec needs a fixture that supplies them. A page declared with `paginated: false`
 (`definePage`, CT-03), whose generated schema allows only `null` for
 `pagination`, has no list to page through and is exempt from that rule.
 
@@ -195,7 +205,12 @@ ratchet.
 - In RSpec, WebMock routes each upstream host to its fake app in-process.
 - Playwright drives a real server process, where WebMock does not apply. There
   each fake app is mounted at a development-only path (SEC-12) and that
-  upstream's base URL points at it.
+  upstream's base URL points at it. A flow that needs a stateful fake (a
+  write that a later read sees, a `409` after a stale edit) may instead run
+  the fake as a separate Rack process on a loopback port, started by
+  `script/ci/e2e` from `script/ci/e2e_upstream.ru` and serving the same
+  recorded fixtures. That is the only process boundary a fake may cross; it
+  never reaches the network.
 - That server runs in the `test` environment, started by Playwright with
   `E2E_SERVER=1`. `config/environments/test.rb` sets
   `config.action_controller.allow_forgery_protection = true` when
@@ -330,7 +345,10 @@ is why it does not run on every pull request.
 
 A lint or architecture rule with a wrong path pattern passes forever while
 checking nothing. Each custom rule has a canary fixture under
-`spec/enforcement/fixtures/` that deliberately breaks it. A CI step
+`spec/enforcement/fixtures/` that deliberately breaks it. A check that
+enforces several conditions (a `script/ci/` check, a cop with several
+offences) has a canary for each condition, not one per script, so a broken
+branch cannot hide behind a passing sibling. A CI step
 (`script/ci/enforcement_canaries`) runs the tool on each fixture and fails
 unless every expected rule reports its error. Fixtures are excluded from the
 normal runs. Canary fixtures are guard files: changing one needs a person's
@@ -474,6 +492,8 @@ tree:
 | Each reserved app name (`core`, `design_system`, `rafelo`, `engines`, `app`, `example_orders`, `example_customers`) and a name that is already a constant | the application template refuses it before writing anything (GEN-07) |
 | A fixture that only fails to parse, one at an ignored path, one outside every ESLint `files:` glob, a broken configuration, a Packwerk run with every file excluded | `script/ci/enforcement_canaries` itself fails (its own spec) |
 | Each `script/ci/` check and each `npm run` generator or check script on an empty `--root`; a check whose `git ls-files` fails | that check fails and prints a count of 0 |
+| `script/ci/fan_in` on a root with only kernel `package.yml` files | passes and prints `checked 0 product modules` |
+| `script/ci/fan_in` on a root with one engine that has `config/module.rb` | prints `checked 1 product modules` |
 | A module path in the central fake upstream | the fake-upstream check (TS-03) |
 | Every other custom check (`i18n:check` namespaces, `errors:check` prefixes, `aliases:check`, `script/ci/ratchet`, growth budgets) | that check |
 

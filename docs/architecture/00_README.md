@@ -164,7 +164,7 @@ with the rest of the stack (OPS-09).
 ### Gems
 
 ```ruby
-# Gemfile (excerpt)
+# Gemfile (excerpt; the versions show the 2026-11-09 resolution. The template's Gemfile is the source, and a later security release may differ)
 ruby file: ".ruby-version" # one source for the Ruby version; Bundler strips the "ruby-" prefix Rails writes
 
 gem "rails", "8.1.4.1"

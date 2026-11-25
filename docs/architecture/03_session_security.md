@@ -309,8 +309,17 @@ raises when it is set.
   unrelated pull requests on them would stall everyone. A scheduled daily job
   therefore runs the same audits on `main` and opens an issue for each new
   advisory, with a fix deadline (for example one week for high and critical).
-- Audits are never disabled. Every finding is fixed, or triaged with a linked
-  issue and its deadline.
+- Audits are never disabled. Every finding is fixed, or triaged with a
+  linked issue and its deadline. When an advisory has no patched release,
+  the triage is an entry in `config/audit_exceptions.yml` that an owner
+  approves: the advisory id, the affected packages, the reason, the
+  tracking issue, and an expiry. The audit keeps running and prints every
+  active entry; it fails on any advisory no entry covers, on an expired
+  entry, and on an entry missing a field. Only an owner approves or extends
+  an entry. The pull request that pins a patched release, or removes the
+  affected packages, removes the entry. Canaries (TS-07): an uncovered high
+  advisory, an expired entry, an entry without an issue or expiry, and an
+  active entry that passes.
 - Log only fields from the OPS-01 allow-list. Never log props, tokens, or
   upstream bodies.
 
@@ -484,6 +493,13 @@ image build (BE-08), until it gets a dummy value in one of them.
   error pages from the responder and the exceptions app (CT-06) carry it
   too; never set it from a controller after-callback (SEC-05). A header spec
   asserts it on a page, a `403`, and a router `404`.
+- A response that a Rack middleware answers itself, before Rails' own
+  header middleware runs (the body limit's `413`, OPS-03), carries the same
+  headers as a controller response: `Content-Type`, `Cache-Control:
+  no-store`, `Permissions-Policy`, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, and `Referrer-Policy`, and its JSON error body
+  carries the request id and trace id (OPS-02). A spec asserts each header
+  on that response.
 - Fonts and images are served from the app itself, so the CSP needs no
   third-party origins and offline installs keep working.
 - Request bodies are capped at the proxy (kamal-proxy request buffering
@@ -505,9 +521,13 @@ image build (BE-08), until it gets a dummy value in one of them.
   Escaping leaves dots alone (`ERB::Util.url_encode("..")` is `..`, and
   Faraday resolves `invoices/..` to the base path), so a segment value that is
   empty, `.`, or `..` names no resource: the client refuses it before any call
-  with `resource.not_found` (`404`). Client specs have one row per refused
+  with `resource.not_found` (`404`). The client never decodes a path before
+  checking it: a segment that holds a percent-encoded dot, slash, backslash,
+  or NUL (`%2e`, `%2f`, `%5c`, `%00`, in any letter case) is refused the same
+  way, so an upstream that decodes cannot be walked out of the base path. Client specs have one row per refused
   class: a leading `/`, `//`, a scheme, `?`, `#`, `\`, and a control
   character each raise; `..`, `.`, and an empty segment each answer `404`
+  with no request made; `%2e%2e`, `%2F`, `%5c`, and `%00` each answer `404`
   with no request made; and a kept base path.
 - `UpstreamClient` follows no redirects (BE-05) and never disables TLS
   verification.
@@ -515,7 +535,11 @@ image build (BE-08), until it gets a dummy value in one of them.
   (`config/upstreams.yml`, BE-05) in the same `on_data` callback that
   enforces the deadline (BE-16): against the status and `Content-Length` in
   the first callback, and against the running total in every callback, so an
-  oversized body is never buffered whole. A body over the limit is
+  oversized body is never buffered whole. A response that ends with fewer bytes than
+  its `Content-Length` is `upstream.unavailable` (the connection closed
+  early). That check skips the responses that carry no body by definition: a
+  `HEAD` response, any `1xx`, `204`, and `304`; and it skips a response with a
+  `Content-Encoding`, whose `Content-Length` counts the encoded bytes. A body over the limit is
   `unexpected` (`500`, reported, BE-05). Downloads apply the same checks
   against `downloads.max_bytes` before their first byte (BE-18).
 - The size specs use a chunking fake that hands the body to the client in
@@ -559,12 +583,18 @@ therefore be readable by two consecutive releases.
   bumps `VERSION` (WF-05), `bin/rails formats:dump` writes synthetic rows for
   every versioned format to `spec/fixtures/formats/v<VERSION>/`: sessions,
   idempotency outcomes, and one job of each job class defined under `app/`
-  and `engines/*/app/`, serialized through
+  and `engines/*/app/` except the example engines (`engines/example_*`,
+  GEN-08: they are removable, and a fixture that names their classes would
+  fail once they are deleted), serialized through
   Active Job's `serialize`. It also prunes folders older than N-2. That pull
   request commits the result; no workflow commits after the merge, and the
-  release workflow fails while the folder for `VERSION` is missing. A
-  compatibility spec loads the previous tag's folder and asserts that the
-  current code reads every row. The fixtures hold synthetic values only
+  release workflow fails while the folder for `VERSION` is missing. The compatibility spec loads every kept
+  folder (the one the base branch's `VERSION` names and up to two before it)
+  and asserts that the current code reads every row; on the release pull
+  request it also reads the new folder. A new adopted app has no release of
+  its own yet: the template writes one bootstrap folder,
+  `spec/fixtures/formats/v0.1.0/`, for the app's starting `VERSION`, and the
+  app's first release pull request dumps its own. The fixtures hold synthetic values only
   (SEC-07) and are never written by hand.
 - The same rule covers every other stored format that code reads back: job
   arguments and the request id and trace id keys that core's job base class

@@ -163,7 +163,10 @@ any placeholder remains (CT-08, WF-05).
 Templates never hardcode what a contract or a configuration file already says:
 
 - the namespace comes from `Rails.application.class.module_parent_name`
-  (`Acme` in Rafelo);
+  (`Acme` in Rafelo); a new engine's Ruby namespace is `Acme::<Engine>`,
+  its gem `acme_<engine>` (`<app>_<engine>`, underscored), and its paths
+  `acme/<engine>`. Kernel engines keep `rafelo_core` and
+  `rafelo_design_system` (GEN-07);
 - the locale list comes from `config/locales.yml`, and the URL prefix in
   generated specs from `I18n.default_locale`;
 - the envelope comes from core helpers: page props build on
@@ -183,7 +186,10 @@ page, checks them, then moves the page and renames a module and checks again.
 CI runs it on the triggers in TS-06: pull requests that touch generator
 templates, core contract helpers, the registry code, or routing, and nightly.
 It is a `bin/ci` step (`09_enforcement.md`) that CI runs as its own job,
-whose `if:` declares the skip on every other pull request (WF-03).
+whose `if:` declares the skip on every other pull request (WF-03). The
+`if:` may read the output of an earlier, cheap job that decides and prints
+its reason; the decision never lives in a step inside the smoke job, which
+would report success without running the smoke.
 
 ```sh
 #!/usr/bin/env bash
@@ -358,6 +364,11 @@ when adopting.
   is rendered with the app's name, documentation and `.github/` included, so
   no `acme` remains in any letter case (`Acme`, `acme_`, `acme/`,
   `@acme/`, `ACME_`).
+  The template repository's own `.github/` belongs to the template's own
+  process and is never copied: the adopter's `.github/` (workflows, rulesets,
+  CODEOWNERS, issue templates) comes from a separate payload folder in the
+  template repository, and a manifest names every payload path and how it is
+  rendered.
 - Before it writes anything, the template refuses an app name whose
   namespace collides with Rafelo's own: one whose camelized form is `Core`,
   `DesignSystem`, `Rafelo`, `Engines`, `App`, `ExampleOrders`, or
@@ -385,7 +396,10 @@ when adopting.
   file it updates: the adopter's copy, the base release named in
   `KERNEL_VERSION`, and the new release, both releases rendered with the
   adopter's namespace first.
-  It applies clean merges, leaves conflicts marked for a person to resolve,
+  It applies clean merges, leaves conflicts marked for a person to resolve
+  (a file still holds a conflict while a line starts with `<<<<<<<` or
+  `>>>>>>>`; a line of `=======` alone is not one, because Markdown and
+  fixtures use it),
   and updates `KERNEL_VERSION`. The result is an ordinary pull request that
   must pass `bin/ci`.
 - By default it updates core, the generators, `script/ci/`, `bin/check`,
@@ -397,14 +411,29 @@ when adopting.
   folder, on request
   (`bin/kernel_update <version> --include design_system/<folder>`), because
   adopters restyle it.
+  A folder generated from another is requested together with its source:
+  `--include design_system/app/frontend` also needs
+  `--include design_system/config/locales` whenever the release changes
+  design_system's translation keys, or `i18n:check` reports the generated JSON
+  as stale. The updater does not add the source by itself; the release's
+  upgrade note names both folders.
 - The template's own CI adopts the commit under test: it packs `HEAD` with
   `git archive`, runs `rails new` with the application template from that
   archive under a two-word app name that is not `acme` (for example
   `smoke_shop`, so the camel-case and underscore forms are both exercised),
   then `bin/setup --skip-server` and `bin/ci` in the new app, and fails when
   any tracked path or file of the new app still contains `acme` in any letter
-  case. It also adopts release N-1, updates it to N with `bin/kernel_update`,
-  and runs `bin/ci`, so every release is reachable from the one before.
+  case. It also adopts release N-1, updates it to N, and runs `bin/ci`, so every
+  release is reachable from the one before. The update is what an adopter does
+  and nothing more, in this order: install release N's updater
+  (`bin/kernel_update` and `script/ci/kernel_update`, as the upgrade note
+  says, because N-1's updater cannot know N's payload); run
+  `bin/kernel_update <N>` with the `--include` folders the upgrade note names;
+  run it again with `--app-owned`; apply the upgrade note's migration steps;
+  and resolve the dependency pins again by taking release N's `Gemfile` and
+  `Gemfile.lock` (`00_README.md`, adoption step 5). Every one of these steps
+  is in the release's upgrade note; the harness makes no other edit, and a
+  step the note does not name is a finding.
   Template specs refuse each reserved app name above.
 - The template repository has a `SECURITY.md` for reporting vulnerabilities
   in the template. Fixes reach adopters through `bin/kernel_update`.
@@ -419,8 +448,9 @@ The template ships two complete engines to learn from, for people and for AI
 | `engines/example_orders` | product module | a list with filters and pagination, a show page, new and edit with the form token and a conflict, a deferred chart, an export job |
 | `engines/example_customers` | domain engine | a gateway, value objects, a public presentational component |
 
-- They are deep and complete: every layer, every test level, every guard
-  green. Each has a README saying it is an example to learn from, not a
+- They are deep and complete: every layer, every test level (including a
+  Playwright flow in each engine's own `e2e/` folder and Playwright project,
+  beside design_system's), every guard green. Each has a README saying it is an example to learn from, not a
   feature to keep.
 - Nothing outside `example_*` may depend on them, in Ruby or TypeScript. A
   canary proves the check fires (TS-07).
@@ -451,6 +481,9 @@ runs the same post-write steps, in this order:
 8. the formatter, `prettier --write` on the files it wrote.
 
 A step with nothing to change leaves the tree as it is. If any step fails, the
-generator restores every file it created or changed, removes what it added,
-and names the failed step. A generator spec injects a failure into each step
+generator restores the tree to its state before the first write: every file
+it or a post-write step created, changed, or deleted, wherever it lies
+(`Gemfile.lock`, the generated tsconfig files and dependency-cruiser rules,
+alias, permission, error, locale, and contract outputs included), and removes
+the directories it added. It then exits non-zero and names the failed step. A generator spec injects a failure into each step
 and asserts a clean `git status` afterwards.

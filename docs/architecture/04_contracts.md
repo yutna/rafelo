@@ -27,7 +27,8 @@ and locale files, and each gets its own generated outputs.
 Every generator and check in this file (`contracts:*`, `errors:*`,
 `locales:*`, `i18n:*`, `docs:*`, `pages:check`) takes `--root DIR`, prints
 how many inputs it read, and fails on an empty input set or a failing
-subprocess (TS-07). Each generator owns its whole output set: it deletes an
+subprocess (TS-07). Reading inputs of which none applies is a pass with a count of 0
+(`09_enforcement.md`). Each generator owns its whole output set: it deletes an
 output it no longer produces, and its `--check` fails on an output that has
 no source, such as the JSON Schema of a moved or deleted page, the locale
 JSON of a dropped locale, or the `errors.generated.ts` of an engine whose
@@ -41,7 +42,6 @@ Every Inertia page receives the same top-level keys. Shared props are merged in
 by the core base controller. Flash is not a prop: it travels as Inertia's
 page-level `flash`, beside `props` (CT-07).
 
-<!-- generated:envelope:start -->
 | Key | Type | Purpose |
 | --- | --- | --- |
 | `data` | object | The page's content. Shape defined per page. |
@@ -51,10 +51,9 @@ page-level `flash`, beside `props` (CT-07).
 | `can` | object | Server-owned capabilities for exactly the keys the page declares: `{ "<resource>.<action>": { allowed, reason } }` (CT-03). |
 | `auth` | object | Shared: `viewer` (`id`, `name`) or `null`. |
 | `trace` | object | Shared, always sent: `requestId` and `traceId` of the response that carried these props (OPS-02), the support reference an error state shows (FE-15). |
-| `app` | object | Shared: app `name`, current `locale`, available `locales` (both from `config/locales.yml`), `localeHrefs` (the current page in every configured locale, CT-02), display `timeZone`. |
+| `app` | object | Shared: app `name`, current `locale`, available `locales` (both from `config/locales.yml`), `localeHrefs` (the current page in every configured locale, CT-02), display `timeZone`, and `signInHref` (the sign-in page for the current locale, built by core with `Urls`). |
 | `nav` | array | Shared: navigation entries built from the module registry, each with a `label` Rails translated; `current` marks the module that served the request (ARCH-06). |
 | `errors` | object | Shared: form errors from the last submission, camelCase field key to a message translated by Rails (CT-07). |
-<!-- generated:envelope:end -->
 
 - **Page keys and shared keys.** A page's props object returns exactly the
   five page keys, `data`, `meta`, `query`, `pagination`, and `can`; every
@@ -139,7 +138,7 @@ set in the same file.
   list page requested with `?page=2` marks exactly its own module current.
 - Any URL a page needs, "back to list" included, comes from its props object:
   Rails builds it and it arrives in props. A row's link is `href`
-  (`data.invoices[].href`); an action URL sits in `data` or `meta` under a key
+  (`data.items[].href`); an action URL sits in `data` or `meta` under a key
   ending in `Href` (`data.newInvoiceHref`), and the UI offers it only when the
   matching `can` entry allows it. Props objects build each one with
   `context.urls.route(<engine key>, <route name>, params)` (BE-04), links into
@@ -270,6 +269,7 @@ export const sharedPropsSchema = z.object({
     locales: z.array(localeSchema),
     // the current page in every configured locale, built by core with Urls (CT-02); the locale switcher uses it
     localeHrefs: z.array(z.object({ locale: localeSchema, href: appPathSchema })),
+    signInHref: appPathSchema,
     timeZone: z.string(),
   }),
   // Rails translates label and sets current from the route that matched; TypeScript never compares URLs (FE-18)
@@ -315,7 +315,7 @@ import { isSafeUrl } from "@design_system/safe_url";
 
 export const pageSchema = definePage({
   data: z.object({
-    invoices: z.array(
+    items: z.array(
       z.object({
         id: z.string(),
         number: z.string(),
@@ -495,7 +495,11 @@ billing.invoice_already_paid: { status: 409, i18n_key: billing.errors.invoice_al
   user-facing string, server and UI. Each engine owns its copy in
   `engines/<engine>/config/locales/<locale>.yml`, with its keys under the
   engine's name; that name is its i18next namespace. Core and design_system
-  have the namespaces `core` and `design_system`. A module uses only its own
+  have the namespaces `core` and `design_system`. Every engine has one file per configured
+  locale, even an engine with no copy yet; such a file holds only its locale
+  key and the engine's empty namespace (`th: { billing: {} }`). `i18n:check`
+  fails on a missing file, so a new locale cannot be configured while an
+  engine lacks it. A module uses only its own
   namespace plus those two (ARCH-10, `npm run i18n:check`). Copy for
   app-level pages and layouts stays in the root `config/locales/`, under the
   `app` namespace. Code in `app/` may use every namespace, because the app
@@ -552,10 +556,15 @@ billing.invoice_already_paid: { status: 409, i18n_key: billing.errors.invoice_al
 
 ### CT-09 — Documentation tables are generated (SHOULD · ADR-06)
 
-Tables that restate a contract, such as the envelope table in CT-01, sit
-between `generated:` markers and are rewritten from the Zod schema by
-`npm run docs:generate`. CI runs it with `--check`, so the documentation cannot
-claim a different envelope from the code. The same check fails when a topic
+Tables that restate a contract sit between `generated:` markers in the
+project's own documentation (the envelope table in `docs/contracts.md`) and
+are rewritten from the Zod schema by `npm run docs:generate`. CI runs it with
+`--check`, so the documentation cannot claim a different envelope from the
+code. The CT-01 table in this file is descriptive and not generated, so it
+can say what each key is for; `docs:check` fails when the set of shared keys
+it names (top level, and one level down in `app`, `auth`, and `trace`)
+differs from the schema's. Canary (TS-07): a shared key missing from the
+CT-01 table. The same check fails when a topic
 file or an AI instruction file cites a rule or ADR ID that does not exist, or
 a superseded ADR, and when such a file names, in backticks, a repository path
 under `script/`, `bin/`, `spec/`, `engines/`, `config/`, `app/`, or

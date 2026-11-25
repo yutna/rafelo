@@ -222,6 +222,12 @@ end
   (`auth`, `upstream`, `resource`, `validation`, `request`, and `unexpected`,
   the one kernel code without a dot; CT-06). The module generator refuses the
   same names before it writes anything (GEN-01).
+- The reserved-route part needs the app's routes, which Rails draws after
+  the engine initializers and, in development and test, may load lazily.
+  So boot validation runs in an `after_initialize` hook and again before
+  the first request is served (core's locale middleware), and reads the
+  route set at that moment. A spec boots with a module whose key equals an
+  app route name and asserts the raise.
 - `legacy_paths:` maps each old path prefix to a path under the declaring
   module: `{ "/invoicing" => "" }` in `billing` above, whose path was
   `/invoicing`; `{ "/billing/refunds" => "/refunds" }` in a `payments` module
@@ -491,6 +497,9 @@ them, so their size budgets apply instead. Many dependents on a product module
 mean part of it is a shared concept that belongs in a domain engine. Domain
 engines exist to be depended on, so they are budgeted on the size of their
 public surface, not on dependents.
+
+With no product module, `script/ci/fan_in` passes with a count of 0
+(`09_enforcement.md`).
 
 Raising any growth budget needs an ADR. CODEOWNERS covers `engines/core`,
 `engines/design_system`, and every guard file except the ratchet files

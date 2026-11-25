@@ -176,7 +176,19 @@ The pack (`yutna/object-oriented-design-skills`, MIT) is copied in unmodified
 at one release; the template's third-party notices record its license,
 release, and commit. It is general advice, level 5 in "How to decide": a rule
 or an ADR wins over it, and an AI that finds them disagreeing follows the rule
-and says so. The root guide maps the template's layers to the pack's entry
+and says so.
+
+A general pack assumes a local domain model that owns its rules and stores
+aggregates through repositories. A Rafelo app is a BFF: the upstreams own
+the business data and rules, the controller action is the use case
+(BE-01), and there is no repository or unit-of-work layer (ADR-05). So the
+root guide has a "Pack versus project" section: one row per place where
+pack advice and a rule or ADR disagree, with the rule IDs and how the
+project resolves it. `docs:check` fails when the section is missing, so an
+agent never reads the pack's aggregate and repository examples as the
+target architecture.
+
+The root guide maps the template's layers to the pack's entry
 points:
 
 | Work | Load |

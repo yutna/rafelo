@@ -38,8 +38,8 @@ controller. The core base controller provides two helpers:
 
 - `page_context`, built by the core factory `Rafelo::Core::PageContextFactory`
   from the session, the evaluated feature flags (BE-25), the locale, the
-  request id, and an `Rafelo::Core::Urls` object that the base controller builds
-  for the request's locale (BE-04). The factory is the only way to obtain a
+  request id and trace id (OPS-02), and an `Rafelo::Core::Urls` object that
+  the base controller builds for the request's locale (BE-04). The factory is the only way to obtain a
   `PageContext` (BE-04). A cop forbids `PageContext.new` (and
   `PageContext[...]`) outside core, so adding a member breaks exactly one
   place. Specs build contexts through a core
@@ -53,17 +53,21 @@ controller. The core base controller provides two helpers:
   declares (BE-06).
 
 ```ruby
-# engines/core/lib/rafelo/core/page_context_factory.rb
+# engines/core/app/models/rafelo/core/page_context_factory.rb
 module Rafelo::Core
   # The only code that builds a PageContext (BE-01).
   class PageContextFactory
-    def self.build(session:, flags:, locale:, request_id:, urls:)
+    # viewer, permissions, and session_id all come from the one session, so they cannot disagree;
+    # without a session (sign-in, error pages) they are nil, an empty PermissionSet, and nil.
+    def self.build(session:, flags:, locale:, request_id:, trace_id:, urls:)
       PageContext.new(
-        viewer: session.viewer,
-        permissions: session.permission_set, # grants mapped through config/permission_mapping.yml (BE-03)
+        viewer: session&.viewer,
+        permissions: session ? session.permission_set : PermissionSet.new([]), # grants mapped through config/permission_mapping.yml (BE-03)
         flags: flags,
         locale: locale,
         request_id: request_id,
+        trace_id: trace_id,
+        session_id: session&.id, # for the form token (BE-15)
         urls: urls, # Rafelo::Core::Urls for the request's locale (BE-04)
       )
     end
@@ -201,10 +205,10 @@ returns a hash from `to_inertia`. It does not read `Current`, the session,
 `params`, flags, or the environment.
 
 ```ruby
-# engines/core/lib/rafelo/core/page_context.rb
+# engines/core/app/models/rafelo/core/page_context.rb
 module Rafelo::Core
   # Built only by PageContextFactory (BE-01).
-  PageContext = Data.define(:viewer, :permissions, :flags, :locale, :request_id, :urls)
+  PageContext = Data.define(:viewer, :permissions, :flags, :locale, :request_id, :trace_id, :session_id, :urls)
 end
 ```
 
@@ -220,7 +224,7 @@ module Acme::Billing
     def to_inertia
       {
         data: {
-          invoices: @result.items.map { |invoice| row(invoice) },
+          items: @result.items.map { |invoice| row(invoice) },
           # always sent; the page offers it only while can["invoice.create"] allows it (CT-02)
           new_invoice_href: context.urls.route(:billing, :new_invoice),
         },
@@ -285,7 +289,14 @@ The BFF may call more than one upstream. Each has a name and an entry in
 upstream. `Rafelo::Core::UpstreamClient.for(:api)` returns the client for one
 named upstream; the gateway passes in the token provider, the request's
 budget, and the request id and trace id that the base controller gave it
-(BE-01). For each upstream, the client owns:
+(BE-01).
+
+`gateway(klass)` builds a new gateway for each use in a request, and the
+gateway builds its client once, on first use, so a client lives no longer
+than its gateway and carries only that request's token provider, budget, and
+ids. Only the bulkhead is shared, per upstream and per process.
+
+For each upstream, the client owns:
 
 - the Faraday connection, base URL, and open, read, and write timeouts from
   typed configuration (BE-08);
@@ -1091,6 +1102,13 @@ connections:
   headroom: 10                  # consoles, migrations (the migration role, OPS-08), backups, monitoring
 ```
 
+- **Where the counts come from.** Puma threads and workers are the
+  `RAILS_MAX_THREADS` and `WEB_CONCURRENCY` values in `config/deploy.yml`'s
+  `env.clear`, which `config/puma.rb` reads; the spec fails when either is
+  missing there rather than falling back to the default in `config/puma.rb`.
+  Solid Queue's counts come from `config/queue.yml` (with `JOB_CONCURRENCY`
+  from the same `env.clear`).
+
 - **Two meanings of `max_connections`.** In Rails 8.1, `max_connections` in
   `config/database.yml` is the per-process pool (`pool` is its deprecated
   alias). The budget key for PostgreSQL's server-wide limit is therefore
@@ -1214,8 +1232,12 @@ interrupted `CREATE INDEX CONCURRENTLY` leaves an INVALID index behind
   `disable_ddl_transaction!`). Constraints are added `NOT VALID` and validated
   in a separate migration.
 - Migrations run with a short lock timeout, so a migration queued behind a
-  long query fails instead of blocking every request (`strong_migrations` can
-  set it; verify when adopting).
+  long query fails instead of blocking every request, and with a statement
+  timeout below `deploy_timeout`, so a boot-time statement that would
+  outlast the deploy fails and rolls back before Kamal stops the container
+  (`strong_migrations` sets both; verify when adopting). A spec reads both
+  values and `deploy_timeout` from `config/deploy.yml` and fails unless the
+  statement timeout is strictly lower.
 
 Stored formats follow the same principle (SEC-16), as do contracts (CT-12).
 

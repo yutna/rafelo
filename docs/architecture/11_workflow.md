@@ -17,7 +17,9 @@ template and the adoption run that GEN-07 describes.
 ### WF-01 — Issues describe one deliverable outcome (SHOULD · ADR-19)
 
 An issue states the outcome a user or developer will see, the acceptance
-checks, and anything explicitly out of scope. Size is a judgement call, not a
+checks, and anything explicitly out of scope. An issue that names rule IDs also names the
+evidence that will prove each one (a test, a canary, a guard, or a document);
+the payload's issue form requires the field. Size is a judgement call, not a
 formula:
 
 - aim for a change that can be reviewed in one sitting;
@@ -348,6 +350,9 @@ run object on 2026-11-12).
 
 ### WF-06 — Dependencies are exact and upgraded deliberately (MUST · ADR-18)
 
+This rule governs the adopted app. The template repository's own dependency
+updates follow its own process and are not part of the payload.
+
 - Pin exact versions (see `00_README.md`); commit `Gemfile.lock` and
   `package-lock.json`. CI installs with `npm ci`, and with `bundle install`
   under `BUNDLE_FROZEN=true`.
@@ -453,7 +458,10 @@ run object on 2026-11-12).
   out `github.event.workflow_run.head_sha`, which the check accepts only in a
   job whose `if:` requires both `github.event.workflow_run.event == 'push'`
   and `github.event.workflow_run.head_repository.full_name == github.repository`,
-  so the commit is one that `main` of this repository already holds. The
+  so the commit is one that `main` of this repository already holds. The check
+  compares the parsed `if:` value, so YAML quoting (plain, single- or
+  double-quoted, or a block scalar) and the order of the two `&&` operands do
+  not matter; a third operand, an `||`, or a different comparison does. The
   canaries are listed in TS-07.
 - Deployment secrets live in protected environments.
 - Lockfiles are authoritative: `npm ci`, and `bundle install` with
