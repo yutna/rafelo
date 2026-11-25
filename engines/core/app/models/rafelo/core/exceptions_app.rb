@@ -3,8 +3,8 @@
 module Rafelo
   module Core
     # Renders the exceptions Rails catches outside a controller (router 404,
-    # missing parameter, forgery failure, unhandled StandardError) with the same
-    # ids and `no-store` as the in-controller responder.
+    # missing parameter, forgery failure, unhandled StandardError) through the
+    # same error page and JSON responder as the in-controller path (CT-06).
     class ExceptionsApp
       def self.call(env)
         request = ActionDispatch::Request.new(env)
@@ -12,29 +12,23 @@ module Rafelo
         status = 500 unless status.between?(400, 599)
         code = code_for(status)
         locale = locale_for(env, request)
-        request_id = request.request_id
-        trace_id = request.get_header("rafelo.trace_id").presence ||
-                   env["rafelo.trace_id"].presence ||
-                   SecureRandom.hex(16)
+        request_id = request.request_id.to_s
+        trace_id = (request.get_header("rafelo.trace_id").presence ||
+                    env["rafelo.trace_id"].presence ||
+                    request_id.presence ||
+                    SecureRandom.hex(16)).to_s
+
         unless env["rafelo.error_reported"]
           error = env["action_dispatch.exception"] || ApplicationError.new(code)
           ErrorReporter.report(error, handled: true, code: code, request_id: request_id, trace_id: trace_id)
           env["rafelo.error_reported"] = true
         end
 
-        payload = I18n.with_locale(locale) do
-          {
-            error: {
-              code: code,
-              message: I18n.t(ErrorCatalog.fetch(code).fetch("i18n_key")),
-              requestId: request_id,
-              traceId: trace_id,
-              retryable: ErrorCatalog.fetch(code).fetch("retryable")
-            }
-          }
-        end
-
-        [ status, { "Content-Type" => "application/json", "Cache-Control" => "no-store" }, [ payload.to_json ] ]
+        env["rafelo.exceptions.status"] = status
+        env["rafelo.exceptions.code"] = code
+        env["rafelo.exceptions.locale"] = locale
+        env["rafelo.trace_id"] = trace_id
+        ErrorPagesController.action(:show).call(env)
       end
 
       def self.code_for(status)

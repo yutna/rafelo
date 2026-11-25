@@ -30,6 +30,7 @@ module DummyEngine
       post "widgets/conflict", to: "widgets#conflict"
       post "widgets/boom", to: "widgets#boom"
       get "widgets/not_found", to: "widgets#not_found"
+      get "widgets/parameter_missing", to: ->(_env) { raise ActionController::ParameterMissing, :widget }
       get "widgets/upstream_forbidden", to: "widgets#upstream_forbidden"
       post "widgets/upstream", to: "widgets#upstream"
       post "widgets/crash", to: "widgets#crash"
