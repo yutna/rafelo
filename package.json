@@ -91,7 +91,7 @@
     "eslint-plugin-perfectionist": "5.14.0",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
-    "eslint-plugin-unicorn": "65.0.0",
+    "eslint-plugin-unicorn": "80.0.0",
     "globals": "17.14.0",
     "jscpd": "5.4.3",
     "jsdom": "31.0.0",
