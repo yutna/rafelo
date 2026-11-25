@@ -100,6 +100,45 @@ RSpec.describe "Error responder", type: :request do
     expect(response.headers["Content-Security-Policy"]).to be_present
   end
 
+  def with_forgery_protection
+    previous = ActionController::Base.allow_forgery_protection
+    ActionController::Base.allow_forgery_protection = true
+    yield
+  ensure
+    ActionController::Base.allow_forgery_protection = previous
+  end
+
+  it "renders a forged write as request.csrf_failed" do
+    with_forgery_protection do
+      post "/en/dummy/widgets/crash", headers: auth_headers
+    end
+
+    expect(response).to have_http_status(422)
+    page = page_from(response.body)
+    expect(page.dig("props", "data", "code")).to eq("request.csrf_failed")
+  end
+
+  it "renders an unhandled failure for an Inertia visit" do
+    post "/th/dummy/widgets/crash",
+         headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call)
+
+    expect(response).to have_http_status(:internal_server_error)
+    body = JSON.parse(response.body)
+    expect(body["component"]).to eq("errors/show")
+    expect(body.dig("props", "data", "code")).to eq("unexpected")
+    expect(response.headers["Cache-Control"]).to include("no-store")
+  end
+
+  it "renders an unhandled failure as JSON for a non-Inertia caller" do
+    post "/th/dummy/widgets/crash", headers: auth_headers.merge("Accept" => "application/json")
+
+    expect(response).to have_http_status(:internal_server_error)
+    body = JSON.parse(response.body).fetch("error")
+    expect(body["code"]).to eq("unexpected")
+    expect(body["requestId"]).to be_present
+    expect(response.headers["Cache-Control"]).to include("no-store")
+  end
+
   it "proves the error page contract" do
     expect { get "/en/dummy/widgets/not_found", headers: auth_headers.merge("X-Inertia" => "true", "X-Inertia-Version" => Rafelo::Core::AssetVersion.call) }.to within_budgets("errors/show")
 

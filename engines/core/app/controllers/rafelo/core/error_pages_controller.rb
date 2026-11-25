@@ -41,9 +41,11 @@ module Rafelo
 
       private
 
+      # The re-dispatched request already carries the original status and code
+      # in the env (ExceptionsApp). A tokenless write must not be rewritten to
+      # 422 when the original error was a 500; a genuine forgery already
+      # arrives as 422 request.csrf_failed.
       def render_forgery_error
-        request.env["rafelo.exceptions.status"] = 422
-        request.env["rafelo.exceptions.code"] = "request.csrf_failed"
         show
       end
 
