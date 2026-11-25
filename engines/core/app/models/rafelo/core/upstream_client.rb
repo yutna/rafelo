@@ -87,7 +87,7 @@ module Rafelo
                     idempotency_key: idempotency_key, if_match: if_match)
           end
         end
-        map_status!(response)
+        map_status!(response, method: method)
         response
       rescue Stoplight::Error::RedLight
         Metrics.circuit_open(@name, @gateway)
@@ -128,7 +128,7 @@ module Rafelo
               request.options.on_data = proc do |chunk, _size, env|
                 if first
                   first = false
-                  map_status!(env)
+                  map_status!(env, method: :get)
                   expected = env.response_headers["content-length"].to_i
                   raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if expected.positive? && expected > limit
                 end
@@ -295,7 +295,7 @@ module Rafelo
         { "base" => :invalid }
       end
 
-      def map_status!(response)
+      def map_status!(response, method: :get)
         code = case response.status
         when 200..299, 304 then return response
         when 401 then "auth.expired"
@@ -304,7 +304,14 @@ module Rafelo
           "auth.forbidden"
         when 404, 410 then "resource.not_found"
         when 409, 412 then "resource.conflict"
-        when 413 then "unexpected"
+        when 413
+          # A write's payload is too large for the upstream: the form gets the
+          # message in errors.base (BE-05). A read has no form to return to.
+          if %i[get head].include?(method)
+            "unexpected"
+          else
+            raise ValidationFailed.new("base" => :invalid)
+          end
         when 422
           raise ValidationFailed.new(validation_field_codes(response))
         when 429 then "upstream.unavailable"
