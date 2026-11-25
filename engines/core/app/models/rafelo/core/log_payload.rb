@@ -66,7 +66,10 @@ module Rafelo
       end
 
       def request_path
-        request&.path.presence || @data[:path].to_s.split("?", 2).first.to_s
+        path = request&.path.presence || @data[:path].to_s.split("?", 2).first.to_s
+        return "/core/exports/[REDACTED]" if path.start_with?("/core/exports/")
+
+        path
       end
 
       def collector

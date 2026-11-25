@@ -17,6 +17,17 @@ RSpec.describe Rafelo::Core::LogPayload do
     expect(described_class.opaque_viewer("8")).not_to eq(opaque)
   end
 
+  it "redacts a signed export path" do
+    request = request_for("/core/exports/eyJhbGciOiJIUzI1NiJ9.secret")
+    payload = described_class.new(
+      data: { method: "GET", path: "/core/exports/eyJhbGciOiJIUzI1NiJ9.secret", controller: "Rafelo::Core::ExportFilesController", action: "show", status: 302 },
+      event_payload: { request: request }
+    ).to_h
+
+    expect(payload[:path]).to eq("/core/exports/[REDACTED]")
+    expect(payload.to_json).not_to include("eyJhbGciOiJIUzI1NiJ9")
+  end
+
   it "builds exactly the allow-listed keys" do
     request = request_for("/en?token=secret#fragment")
     collector = Rafelo::Core::RequestLog.new
