@@ -10,6 +10,13 @@ RSpec.describe Rafelo::RedactStorageRedirects do
     subscriber.redirect_to(event)
   end
 
+  it "does not log a signed export redirect" do
+    event = Struct.new(:payload).new({ location: "https://app.test/core/exports/abc.def" })
+
+    expect(subscriber).not_to receive(:info)
+    subscriber.redirect_to(event)
+  end
+
   it "still logs an ordinary redirect" do
     event = Struct.new(:payload).new({ location: "https://app.test/en" })
 
