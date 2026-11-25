@@ -23,7 +23,13 @@ RSpec.describe "enforcement_canaries" do
     FileUtils.ln_s(File.join(root, "spec"), File.join(destination, "spec"))
     FileUtils.ln_s(File.join(root, "node_modules"), File.join(destination, "node_modules"))
     FileUtils.ln_s(File.join(root, "eslint.config.mjs"), File.join(destination, "eslint.config.mjs"))
+    %w[package.json tsconfig.base.json tsconfig.json tsconfig.tooling.json].each do |file|
+      FileUtils.ln_s(File.join(root, file), File.join(destination, file))
+    end
+    FileUtils.ln_s(File.join(root, "app"), File.join(destination, "app"))
     FileUtils.mkdir_p(File.join(destination, "engines"))
+    FileUtils.ln_s(File.join(root, "engines", "core"), File.join(destination, "engines", "core"))
+    FileUtils.ln_s(File.join(root, "engines", "design_system"), File.join(destination, "engines", "design_system"))
     FileUtils.ln_s(File.join(root, "engines", "example_orders"), File.join(destination, "engines", "example_orders"))
   end
 

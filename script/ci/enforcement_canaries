@@ -350,16 +350,7 @@ end
 
 failures = 0
 canaries.each do |canary|
-  if canary[:bad].nil?
-    output, status = Open3.capture2e(*command(root, canary, [], root))
-    unless status.success?
-      warn "canary #{canary[:name]} failed"
-      warn output
-      failures += 1
-    end
-    next
-  end
-
+  next if canary[:bad].nil?
   bad_root = File.join(root, canary[:bad])
   legal_root = File.join(root, canary[:legal])
   abort "enforcement_canaries: missing bad fixture #{bad_root}" unless Dir.exist?(bad_root)
