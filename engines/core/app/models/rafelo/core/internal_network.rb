@@ -12,7 +12,10 @@ module Rafelo
       module_function
 
       def internal?(value)
-        address = IPAddr.new(value.to_s)
+        text = value.to_s
+        return false if text.include?("/")
+
+        address = IPAddr.new(text)
         address = address.native if address.ipv4_mapped?
         address.loopback? || address.private? || address.link_local?
       rescue IPAddr::Error

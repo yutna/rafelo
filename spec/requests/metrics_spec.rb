@@ -96,6 +96,20 @@ RSpec.describe "Metrics endpoint", type: :request do
     expect(response).to have_http_status(:not_found)
   end
 
+  it "answers an internal client behind the trusted proxy" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "127.0.0.1", "HTTP_X_FORWARDED_FOR" => "10.0.0.5" }
+
+    expect(response).to have_http_status(:ok)
+  end
+
+  it "fails closed when the forwarded address does not resolve to a client" do
+    %w[10.0.0.0/8 unknown].each do |forwarded|
+      get "/core/metrics", env: { "REMOTE_ADDR" => "127.0.0.1", "HTTP_X_FORWARDED_FOR" => forwarded }
+
+      expect(response).to have_http_status(:not_found), forwarded
+    end
+  end
+
   it "throttles scrapes per IP" do
     12.times do
       get "/core/metrics"

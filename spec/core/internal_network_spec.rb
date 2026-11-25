@@ -10,7 +10,7 @@ RSpec.describe Rafelo::Core::InternalNetwork do
   end
 
   it "refuses public addresses and values that are not addresses" do
-    %w[203.0.113.9 8.8.8.8 2001:db8::1 example.test ""].each do |address|
+    %w[203.0.113.9 8.8.8.8 2001:db8::1 10.0.0.0/8 ::1/128 example.test ""].each do |address|
       expect(described_class.internal?(address)).to be(false), address
     end
   end
