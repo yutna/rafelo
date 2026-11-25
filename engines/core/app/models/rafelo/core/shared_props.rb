@@ -52,7 +52,13 @@ module Rafelo
       end
 
       def nav
-        Modules.all.reject { |entry| entry.flag && !@context.flags.fetch(entry.flag, false) }.map do |entry|
+        permissions = @context.permissions || PermissionSet.new([])
+        Modules.all.select do |entry|
+          next false if entry.flag && !@context.flags.fetch(entry.flag, false)
+          next false unless entry.root_route?
+
+          permissions.reads_any?(entry.permission_prefixes)
+        end.map do |entry|
           {
             key: entry.key.to_s,
             label: I18n.t(entry.nav[:label_key], default: entry.key.to_s),
@@ -64,11 +70,12 @@ module Rafelo
       end
 
       def nav_path(entry)
-        @context.urls.app_path("/#{@context.locale}#{entry.path}")
+        @context.urls.route(entry.key, :root)
       end
 
       def current_module?(entry)
-        @request_path == nav_path(entry) || @request_path.start_with?("#{nav_path(entry)}/")
+        path = nav_path(entry)
+        @request_path == path || @request_path.start_with?("#{path.chomp('/')}/")
       end
     end
   end

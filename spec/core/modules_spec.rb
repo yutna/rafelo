@@ -71,6 +71,36 @@ RSpec.describe Rafelo::Core::Modules do
     expect { described_class.validate! }.to raise_error(ArgumentError, /navigation order/)
   end
 
+  it "knows when an engine has a root route" do
+    with_root = Class.new do
+      def self.routes = Struct.new(:routes).new([ Struct.new(:name).new("root") ])
+    end
+    without_root = Class.new do
+      def self.routes = Struct.new(:routes).new([])
+    end
+
+    expect(described_class.register(key: :ledger, engine: with_root).root_route?).to be(true)
+    expect(described_class.register(key: :payments, engine: without_root, path: "/payments").root_route?).to be(false)
+  end
+
+  it "rejects a permission key two modules both declare" do
+    Dir.mktmpdir("rafelo-module-a-") do |first|
+      Dir.mktmpdir("rafelo-module-b-") do |second|
+        [ first, second ].each do |root|
+          FileUtils.mkdir_p(File.join(root, "config"))
+          File.write(File.join(root, "config", "permissions.yml"), "billing:\n  invoice: [read]\n")
+        end
+        first_engine = Struct.new(:root).new(Pathname.new(first))
+        second_engine = Struct.new(:root).new(Pathname.new(second))
+
+        described_class.register(key: :ledger, engine: first_engine)
+        described_class.register(key: :payments, engine: second_engine, path: "/payments")
+
+        expect { described_class.validate! }.to raise_error(ArgumentError, /permission key billing:invoice:read/)
+      end
+    end
+  end
+
   it "maps every module icon to a design-system icon name" do
     icon_map = Rails.root.join("engines/design_system/app/frontend/icon.tsx").read.scan(/^  ([a-z_]+):/).flatten
     module_icons = Dir[Rails.root.join("engines/*/config/module.rb")].flat_map do |path|

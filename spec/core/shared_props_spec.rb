@@ -39,4 +39,61 @@ RSpec.describe Rafelo::Core::SharedProps do
   it "keeps shared props inside their byte budget" do
     expect(props.to_h.to_json.bytesize).to be <= 8_192
   end
+
+  describe "navigation" do
+    let(:entry) do
+      double(
+        key: :example_orders,
+        permission_prefixes: [ "example_orders" ],
+        flag: nil,
+        root_route?: true,
+        nav: { label_key: "example_orders.nav.title", icon: "receipt" },
+        path: "/example_orders"
+      )
+    end
+
+    def context_with(grants)
+      Rafelo::Core::PageContextFactory.build(
+        viewer: Struct.new(:id, :name).new(7, "Ada"),
+        permissions: Rafelo::Core::PermissionSet.new(grants),
+        flags: {},
+        locale: :en,
+        request_id: "request-1",
+        trace_id: "trace-1",
+        urls: Rafelo::Core::Urls.new(
+          locale: :en,
+          router: double(example_orders: double(root_path: "/en/example_orders"))
+        )
+      )
+    end
+
+    before { allow(Rafelo::Core::Modules).to receive(:all).and_return([ entry ]) }
+
+    it "keeps a module only when the viewer may read one of its prefixes" do
+      expect(described_class.new(context: context_with([]), request_path: "/en").to_h.fetch(:nav)).to be_empty
+
+      nav = described_class.new(
+        context: context_with([ "example_orders:order:read" ]), request_path: "/en"
+      ).to_h.fetch(:nav)
+
+      expect(nav.map { |item| item[:key] }).to eq([ "example_orders" ])
+      expect(nav.first[:path]).to eq("/en/example_orders")
+      expect(nav.first[:current]).to be(false)
+    end
+
+    it "marks the module that served the request current" do
+      nav = described_class.new(
+        context: context_with([ "example_orders:order:read" ]),
+        request_path: "/en/example_orders/orders"
+      ).to_h.fetch(:nav)
+
+      expect(nav.first[:current]).to be(true)
+    end
+
+    it "drops a module whose engine has no root route" do
+      allow(entry).to receive(:root_route?).and_return(false)
+
+      expect(described_class.new(context: context_with([ "*" ]), request_path: "/en").to_h.fetch(:nav)).to be_empty
+    end
+  end
 end
