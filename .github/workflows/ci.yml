@@ -836,7 +836,9 @@ jobs:
       - name: Write throwaway production credentials
         # The final image is booted with real (throwaway) credentials, not the
         # dummy-boot flag. The key and values are generated here, never printed
-        # or committed (BE-08, SEC-07).
+        # or committed (BE-08, SEC-07). The file lives outside the workspace so
+        # the tracked config/credentials/production.yml.enc is never overwritten
+        # (#432); the boot steps mount it into the container.
         run: |
           set -euo pipefail
           key="$(bundle exec ruby -rsecurerandom -e 'puts SecureRandom.hex(16)')"
@@ -844,7 +846,7 @@ jobs:
           printf '%s' "$key" > /tmp/rafelo-production.key
           bundle exec ruby -ractive_support -ractive_support/encrypted_configuration -rsecurerandom -ryaml -e '
             config = ActiveSupport::EncryptedConfiguration.new(
-              config_path: "config/credentials/production.yml.enc",
+              config_path: "/tmp/rafelo-production.yml.enc",
               key_path: "/tmp/rafelo-production.key",
               env_key: "RAILS_MASTER_KEY",
               raise_if_missing_key: true
@@ -860,9 +862,18 @@ jobs:
               "aws" => { "access_key_id" => "dummy", "secret_access_key" => "dummy" }
             }.to_yaml)
           '
+          chmod 0644 /tmp/rafelo-production.yml.enc
 
       - name: Build the production image
         run: docker build -t rafelo-ci .
+
+      - name: Verify the tracked production credentials are untouched
+        # The boot credentials stay in /tmp; the repository's placeholder file
+        # must come out of the job exactly as it went in (#432, BE-08).
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain -- config/credentials)"
+          git diff --exit-code -- config/credentials/production.yml.enc
 
       - name: Check psql in the image
         # schema_format :sql loads structure.sql with psql at boot and restore (C2, OPS-06).
@@ -875,6 +886,7 @@ jobs:
           set -euo pipefail
           key="$(cat /tmp/rafelo-production.key)"
           docker run --rm --network host \
+            -v /tmp/rafelo-production.yml.enc:/rails/config/credentials/production.yml.enc:ro \
             -e RAILS_ENV=production \
             -e RAILS_MASTER_KEY="$key" \
             -e RAILS_HOSTS=localhost \
@@ -895,6 +907,7 @@ jobs:
           set -euo pipefail
           key="$(cat /tmp/rafelo-production.key)"
           docker run -d --name rafelo-boot --network host \
+            -v /tmp/rafelo-production.yml.enc:/rails/config/credentials/production.yml.enc:ro \
             -e RAILS_ENV=production \
             -e RAILS_MASTER_KEY="$key" \
             -e RAILS_HOSTS=localhost \
