@@ -70,6 +70,19 @@ RSpec.describe "Metrics endpoint", type: :request do
     expect(response.body).not_to include("\r")
   end
 
+  it "hides the endpoint from a public address" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "203.0.113.9" }
+
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).to be_empty
+  end
+
+  it "serves a private address on the internal network" do
+    get "/core/metrics", env: { "REMOTE_ADDR" => "10.1.2.3" }
+
+    expect(response).to have_http_status(:ok)
+  end
+
   it "throttles scrapes per IP" do
     12.times do
       get "/core/metrics"
