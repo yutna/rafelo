@@ -319,9 +319,20 @@ RSpec.describe Rafelo::Core::UpstreamClient do
     expect(plain).to have_been_requested.once
     expect(keyed).to have_been_requested.once
   end
-  it "maps an upstream 413 to the error page rather than a form validation" do
+  it "maps an upstream 413 on a write to a form validation in errors.base" do
     stub_request(:post, "http://upstream.test/invoices").to_return(status: 413, body: "{}")
 
-    expect { client.post("invoices", body: "{}") }.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("unexpected") }
+    expect { client.post("invoices", body: "{}") }.to raise_error(Rafelo::Core::ValidationFailed) do |error|
+      expect(error.code).to eq("validation.failed")
+      expect(error.field_codes).to eq("base" => :invalid)
+    end
+  end
+
+  it "maps an upstream 413 on a read to the error page" do
+    stub_request(:get, "http://upstream.test/invoices").to_return(status: 413, body: "{}")
+
+    expect { client.get("invoices") }.to raise_error(Rafelo::Core::ApplicationError) do |error|
+      expect(error.code).to eq("unexpected")
+    end
   end
 end
