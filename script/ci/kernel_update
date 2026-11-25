@@ -74,6 +74,7 @@ module KernelUpdate
     app/props
     bin/docker-entrypoint
     config/application.rb
+    config/contracts/pages
     config/core.yml
     config/database.yml
     config/deploy.multi.yml
