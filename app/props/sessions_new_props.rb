@@ -15,7 +15,7 @@ class SessionsNewProps < Rafelo::Core::PageProps
   private
 
   def form_href
-    path = "/#{@context.locale}/sign_in"
+    path = @context.urls.app_path("/#{@context.locale}/sign_in")
     return path if @return_to.blank?
 
     "#{path}?return_to=#{ERB::Util.url_encode(@return_to)}"

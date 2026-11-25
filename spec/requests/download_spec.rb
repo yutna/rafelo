@@ -54,6 +54,34 @@ RSpec.describe "Downloads", type: :request do
     expect(request_audit_rows.count).to eq(1)
   end
 
+  it "refreshes once after a streamed 401 and streams the body" do
+    stub_request(:get, "http://localhost:4000/downloads/1").to_return(
+      { status: 401, body: '{"error":"auth.expired"}' },
+      { status: 200, body: "hello stream", headers: { "Content-Type" => "text/plain" } }
+    )
+    stub_upstream(:post, "/auth/refresh", fixture: "auth/refresh.json", base_url: "http://localhost:4000")
+
+    get "/en/dummy/download_streamed", headers: auth_headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("hello stream")
+    expect(audit_rows("download", "success").count).to eq(1)
+  end
+
+  it "revokes and redirects after a second streamed 401" do
+    stub_request(:get, "http://localhost:4000/downloads/1").to_return(
+      { status: 401, body: '{"error":"auth.expired"}' },
+      { status: 401, body: '{"error":"auth.expired"}' }
+    )
+    stub_upstream(:post, "/auth/refresh", fixture: "auth/refresh.json", base_url: "http://localhost:4000")
+
+    get "/en/dummy/download_streamed", headers: auth_headers
+
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to include("/en/sign_in")
+    expect(audit_rows("download", "failure").count).to eq(1)
+  end
+
   it "answers unavailable when the per-process download cap is full" do
     allow(Rafelo::Core::DownloadLimiter).to receive(:acquire).and_return(false)
 

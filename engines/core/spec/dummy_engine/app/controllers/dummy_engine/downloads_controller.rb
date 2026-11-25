@@ -43,5 +43,21 @@ module DummyEngine
         source: ->(&block) { 20.times { |index| block.call("chunk-#{index}\n") } }
       )
     end
+
+    def streamed
+      authorize :home, :show?
+      send_download(
+        filename: "stream.txt",
+        type: "text/plain",
+        source: lambda do |&block|
+          Rafelo::Core::UpstreamClient.for(
+            :api,
+            config: Rails.application.config.x.upstreams.fetch(:api),
+            token_provider: Rafelo::Core::Current.token_provider,
+            budget: Rafelo::Core::Current.call_budget
+          ).stream(:get, "downloads/1") { |chunk| block.call(chunk) }
+        end
+      )
+    end
   end
 end
