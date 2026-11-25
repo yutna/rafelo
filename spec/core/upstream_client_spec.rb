@@ -55,7 +55,8 @@ RSpec.describe Rafelo::Core::UpstreamClient do
   end
 
   it "borrows from the upstream's shared connection pool for every call" do
-    pool = Rafelo::Core::UpstreamConnectionPool.for(:test_api, config)
+    client
+    pool = Rafelo::Core::UpstreamConnectionPool.for(:test_api, config) { raise "the client already built the pool" }
     allow(pool).to receive(:with).and_call_original
     stub_request(:get, "http://upstream.test/invoices").to_return(status: 200, body: "{}")
 

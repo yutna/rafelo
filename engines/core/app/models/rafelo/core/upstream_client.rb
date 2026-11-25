@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "faraday/net_http_persistent"
 require "securerandom"
 require "stoplight"
 
@@ -38,7 +39,7 @@ module Rafelo
         @breaker = Stoplight(name, threshold: config.breaker.fetch(:failure_threshold),
                                     cool_off_time: config.breaker.fetch(:cool_off))
         @bulkhead = self.class.bulkhead_for(@name, config.max_concurrent_calls)
-        @connection_pool = UpstreamConnectionPool.for(@name, @config)
+        @connection_pool = self.class.connection_pool_for(@name, @config)
         @calls = 0
         @retries = 0
       end
@@ -48,6 +49,19 @@ module Rafelo
           @bulkheads ||= {}
           @bulkhead_mutex ||= Mutex.new
           @bulkhead_mutex.synchronize { @bulkheads[name] ||= Bulkhead.new(limit, name: name) }
+        end
+
+        # Only this class names Faraday (ARCH-01); the pool stores whatever
+        # factory it is handed.
+        def connection_pool_for(name, config)
+          UpstreamConnectionPool.for(name, config) do
+            Faraday.new(url: config.base_url) do |faraday|
+              faraday.adapter :net_http_persistent
+              faraday.options.open_timeout = config.open_timeout
+              faraday.options.timeout = config.read_timeout
+              faraday.options.write_timeout = config.write_timeout
+            end
+          end
         end
       end
 

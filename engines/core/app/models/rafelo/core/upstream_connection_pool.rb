@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "faraday/net_http_persistent"
-
 module Rafelo
   module Core
     # One bounded pool of persistent connections per named upstream for the
@@ -11,6 +9,9 @@ module Rafelo
     # connection just returned first, so one client's sequential calls reuse
     # one socket.
     #
+    # `UpstreamClient` supplies the factory, so only that class names Faraday
+    # (ARCH-01).
+    #
     # The size is the smaller of the Puma thread count and the upstream's
     # bulkhead (`max_concurrent_calls`): a Puma thread makes one synchronous
     # call at a time, and the bulkhead never admits more calls than that.
@@ -19,12 +20,12 @@ module Rafelo
       MUTEX = Mutex.new
 
       class << self
-        def for(name, config)
+        def for(name, config, &factory)
           size = size_for(config)
           key = [ name.to_sym, config.base_url, config.open_timeout, config.read_timeout,
                   config.write_timeout, size ]
           MUTEX.synchronize do
-            pools[key] ||= new(size: size) { build(config) }
+            pools[key] ||= new(size: size, &factory)
           end
         end
 
@@ -45,15 +46,6 @@ module Rafelo
           end
 
           threads
-        end
-
-        def build(config)
-          Faraday.new(url: config.base_url) do |faraday|
-            faraday.adapter :net_http_persistent
-            faraday.options.open_timeout = config.open_timeout
-            faraday.options.timeout = config.read_timeout
-            faraday.options.write_timeout = config.write_timeout
-          end
         end
       end
 

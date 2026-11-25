@@ -18,20 +18,23 @@ RSpec.describe Rafelo::Core::UpstreamConnectionPool do
     )
   end
 
-  it "keeps one pool per named upstream and configuration" do
-    first = described_class.for(:pool_api, config)
+  def pool_for(name, settings = config)
+    described_class.for(name, settings) { Object.new }
+  end
 
-    expect(described_class.for(:pool_api, config)).to be(first)
-    expect(described_class.for(:pool_other, config)).not_to be(first)
-    expect(described_class.for(:pool_api, config(base_url: "http://other.test"))).not_to be(first)
+  it "keeps one pool per named upstream and configuration" do
+    first = pool_for(:pool_api)
+
+    expect(pool_for(:pool_api)).to be(first)
+    expect(pool_for(:pool_other)).not_to be(first)
+    expect(pool_for(:pool_api, config(base_url: "http://other.test"))).not_to be(first)
   end
 
   it "sizes the pool from the Puma thread count and the bulkhead" do
     threads = Rails.application.config.x.puma_threads
 
-    expect(described_class.for(:pool_large, config(max_concurrent_calls: 8)).size)
-      .to eq([ threads, 8 ].min)
-    expect(described_class.for(:pool_small, config(max_concurrent_calls: 1)).size).to eq(1)
+    expect(pool_for(:pool_large, config(max_concurrent_calls: 8)).size).to eq([ threads, 8 ].min)
+    expect(pool_for(:pool_small, config(max_concurrent_calls: 1)).size).to eq(1)
   end
 
   it "reuses a borrowed connection after the call returns" do
