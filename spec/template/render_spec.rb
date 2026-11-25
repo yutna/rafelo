@@ -65,6 +65,10 @@ RSpec.describe RafeloTemplate, "payload rendering" do
   describe "a rendered fixture app" do
     it "copies the payload, renders the namespace, writes KERNEL_VERSION and commits a clean tree" do
       Dir.mktmpdir("rafelo-template-app-") do |destination|
+        # `rails new` writes this before the template runs; Renovate replaces it.
+        FileUtils.mkdir_p(File.join(destination, ".github"))
+        File.write(File.join(destination, ".github", "dependabot.yml"), "version: 2\n")
+
         written = described_class.render!(
           source_root: source_root,
           destination: destination,
@@ -189,6 +193,8 @@ RSpec.describe RafeloTemplate, "payload rendering" do
         expect(File).to exist(File.join(destination, ".github", "workflows", "ci.yml"))
         expect(File).not_to exist(File.join(destination, ".github", "workflows", "pr-check.yml"))
         expect(File).not_to exist(File.join(destination, ".github", "workflows", "issue-check.yml"))
+        expect(File).not_to exist(File.join(destination, ".github", "dependabot.yml"))
+        expect(File).to exist(File.join(destination, "renovate.json5"))
         expect(File.read(File.join(destination, ".github", "CODEOWNERS"))).to include("@OWNER")
 
         %w[
