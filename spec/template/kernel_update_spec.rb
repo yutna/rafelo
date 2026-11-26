@@ -42,6 +42,38 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  # #1059: a payload folder ships the dotfiles inside it. The pins canary's
+  # peer-set fixture needs its .ruby-version and .npmrc, and the scheduled
+  # N-1 update failed without them.
+  it "carries the dotfiles a payload folder ships" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          base = {
+            "spec/enforcement/fixtures/pins/legal/Gemfile" => "source \"https://rubygems.org\"\n",
+            "spec/enforcement/fixtures/pins/peer_set_bad/.npmrc" => "save-exact=false\n"
+          }
+          target = base.merge(
+            "spec/enforcement/fixtures/pins/peer_set_bad/.npmrc" => "save-exact=true\n",
+            "spec/enforcement/fixtures/pins/peer_set_bad/.ruby-version" => "ruby-4.0.9\n",
+            "spec/enforcement/fixtures/pins/peer_set_bad/renovate.json5" => "{}\n"
+          )
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "spec/enforcement/fixtures/pins/peer_set_bad/.ruby-version")))
+            .to eq("ruby-4.0.9\n")
+          expect(File.read(File.join(app_root, "spec/enforcement/fixtures/pins/peer_set_bad/.npmrc")))
+            .to eq("save-exact=true\n")
+        end
+      end
+    end
+  end
+
   it "refreshes the core controllers, the deploy secrets example, and the operations docs" do
     base = {
       "app/controllers/core/metrics_controller.rb" => "module Rafelo::Core\n  class MetricsController\n  end\nend\n",

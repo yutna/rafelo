@@ -142,7 +142,7 @@ module KernelUpdate
       files = if File.file?(full)
         [ relative ]
       elsif Dir.exist?(full)
-        Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
+        Dir.glob(File.join(full, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }
           .map { |path| File.join(relative, path.delete_prefix("#{full}/")) }
       else
         []
@@ -229,7 +229,7 @@ module KernelUpdate
         files = if File.file?(full)
           [ source ]
         elsif Dir.exist?(full)
-          Dir.glob(File.join(full, "**", "*")).select { |path| File.file?(path) }
+          Dir.glob(File.join(full, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }
             .map { |path| File.join(source, path.delete_prefix("#{full}/")) }
         else
           []
