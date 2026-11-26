@@ -126,15 +126,19 @@ module Approvals
   end
 
   # An approval counts only when its author is not the pull request author
-  # (WF-03): an agent or owner cannot approve its own change.
+  # (WF-03): an agent or owner cannot approve its own change. The merge_group
+  # payload has no pull request user, so the author is resolved from the PR
+  # number; a missing gh fails closed with nil instead of reaching the network.
   def pull_request_author(repository:, number:)
     return if repository.to_s.empty? || number.to_s.empty?
 
-    value = api_get("/repos/#{repository}/pulls/#{number}") do |path|
-      output, status = Open3.capture2("gh", "api", path, "--jq", ".user.login", err: File::NULL)
-      output.strip if status.success?
-    end
-    value.is_a?(Hash) ? value.dig("user", "login") : value
+    output, status = Open3.capture2(
+      "gh", "api", "repos/#{repository}/pulls/#{number}", "--jq", ".user.login", err: File::NULL
+    )
+    login = output.strip
+    status.success? && !login.empty? ? login : nil
+  rescue Errno::ENOENT
+    nil
   end
 
   # CI has no pull-request permission by default. Use the authenticated gh
