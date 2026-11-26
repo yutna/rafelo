@@ -143,6 +143,10 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     { "user" => { "login" => "owner" }, "state" => "APPROVED" },
     { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
   ])
+  outsider_rejected = reviews(dir, "outsider-rejected", [
+    { "user" => { "login" => "owner" }, "state" => "APPROVED" },
+    { "user" => { "login" => "someone" }, "state" => "CHANGES_REQUESTED" }
+  ])
   empty = reviews(dir, "empty", [])
 
   # A recorded ceiling rise needs an owner who did not author the pull request.
@@ -169,6 +173,10 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   cases += 1
   status, output = run_case(script, dir, base, rejected, author: "outsider")
   failures = check(failures, "rise with a later change request", 1, status, output)
+  cases += 1
+  status, output = run_case(script, dir, base, outsider_rejected, author: "outsider")
+  failures = check(failures, "rise with an outsider change request", 1, status, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
 
   # An engine-only rise fails; the engine file is aggregated, not just the root.
   write_root(dir)
