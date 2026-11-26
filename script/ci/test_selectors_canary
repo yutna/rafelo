@@ -24,7 +24,19 @@ cases = [
   [ "role query with a name on another line", "engines/sample/app/frontend/thing.test.tsx",
     "screen.getByRole('button', {\n  name: 'Save',\n});\n", 0 ],
   [ "role query with a shorthand name", "engines/sample/app/frontend/thing.test.tsx",
-    "screen.getByRole('button', { name });\n", 0 ]
+    "screen.getByRole('button', { name });\n", 0 ],
+  [ "name text inside a string is not a name", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { description: 'name: optional' });\n", 1 ],
+  [ "unbalanced parenthesis in a string", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { description: '(' });\nscreen.getByRole('checkbox', { name: 'x' });\n", 1 ],
+  [ "shorthand name with an inline comment", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { name /* the label */ });\n", 0 ],
+  [ "quoted name key is not a name", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { \"name\": 'x' });\n", 1 ],
+  [ "role query inside a comment", "engines/sample/app/frontend/thing.test.tsx",
+    "// screen.getByRole('button');\n", 0 ],
+  [ "role query with an options variable", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', options);\n", 1 ]
 ]
 
 failures = 0
