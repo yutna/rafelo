@@ -936,7 +936,9 @@ download streams, all from typed configuration, BE-21) and
 borrower that finds no free connection waits only until the request deadline
 and then fails as `upstream.timeout` (BE-16); an earlier `min(puma_threads,
 bulkhead)` was smaller than the bulkhead and could time out a healthy
-upstream.
+upstream. The borrow runs outside the circuit breaker, so a local pool
+shortage is not recorded as an upstream failure and cannot open the circuit
+for a healthy upstream.
 
 **Spec feedback.** None new; #874's owner answer covers the SHOULD and this
 implements it. Related IDs: BE-05, BE-16, BE-21.
