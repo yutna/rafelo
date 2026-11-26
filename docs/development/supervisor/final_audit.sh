@@ -18,17 +18,17 @@ test -z "$(git status --porcelain)" || fail "working tree is dirty"
 timeout 60 git fetch --tags --quiet origin || fail "git fetch failed"
 timeout 30 gh auth status >/dev/null 2>&1 || fail "gh is not authenticated"
 
-for n in $(seq 24 43); do
+for n in $(seq 24 44); do
   state_json="$(timeout 30 gh api "repos/$repository/milestones/$n" --jq '[.state,(.open_issues|tostring)] | @tsv')"
   test "$state_json" = $'closed\t0' || fail "milestone $n is not closed with zero open issues: $state_json"
 done
 
-for version in 0.23.0 0.24.0 0.25.0 0.26.0 0.27.0 0.28.0 0.29.0 0.30.0 0.31.0 0.32.0 0.33.0 0.34.0 0.35.0 0.36.0 0.37.0 0.38.0 0.39.0 0.40.0 0.41.0 0.42.0; do
+for version in 0.23.0 0.24.0 0.25.0 0.26.0 0.27.0 0.28.0 0.29.0 0.30.0 0.31.0 0.32.0 0.33.0 0.34.0 0.35.0 0.36.0 0.37.0 0.38.0 0.39.0 0.40.0 0.41.0 0.42.0 0.43.0; do
   timeout 30 gh release view "v$version" -R "$repository" >/dev/null 2>&1 || fail "release v$version is missing"
 done
 
-test "$(cat VERSION)" = "0.42.0" || fail "VERSION is not 0.42.0"
-test -d "spec/fixtures/formats/v0.42.0" || fail "formats fixture v0.42.0 is missing"
+test "$(cat VERSION)" = "0.43.0" || fail "VERSION is not 0.43.0"
+test -d "spec/fixtures/formats/v0.43.0" || fail "formats fixture v0.43.0 is missing"
 
 open_gates="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --search 'audit: feature gate in:title' --json number --jq length)"
 test "$open_gates" = "0" || fail "an audit gate issue is still open"
