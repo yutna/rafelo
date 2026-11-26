@@ -26,7 +26,59 @@ abort "test_selectors: no test files found under #{root}" if files.empty?
 # TS-04: select by role with an accessible name, or by test id.
 forbidden = /\.(?:get|query|find)(?:All)?By(?:Text|LabelText|PlaceholderText|DisplayValue|Title|AltText)\b|\.(?:getByLabel|getByPlaceholder|getByAltText|getByTitle|locator|querySelector(?:All)?)\b/
 role_query = /\b(?:get|query|find)(?:All)?ByRole\s*\(/
-role_name = /\bname\s*:|(?:\{|,)\s*name\s*[,}]/
+
+# Strings, templates, and comments are blanked so a `name:` in prose is not an
+# options key and a `(` in a message does not unbalance the call (TS-04). The
+# mask keeps the byte length and every newline, so line numbers stay exact.
+def mask_literals(text)
+  masked = text.dup
+  index = 0
+  while index < masked.length
+    case masked[index]
+    when "'", "\"", "`"
+      quote = masked[index]
+      index += 1
+      while index < masked.length
+        if masked[index] == "\\"
+          masked[index] = " "
+          masked[index + 1] = " " if masked[index + 1]
+          index += 2
+        elsif masked[index] == quote
+          index += 1
+          break
+        else
+          masked[index] = masked[index] == "\n" ? "\n" : " "
+          index += 1
+        end
+      end
+    when "/"
+      if masked[index + 1] == "/"
+        while index < masked.length && masked[index] != "\n"
+          masked[index] = " "
+          index += 1
+        end
+      elsif masked[index + 1] == "*"
+        masked[index] = " "
+        masked[index + 1] = " "
+        index += 2
+        while index < masked.length && !(masked[index] == "*" && masked[index + 1] == "/")
+          masked[index] = masked[index] == "\n" ? "\n" : " "
+          index += 1
+        end
+        if index < masked.length
+          masked[index] = " "
+          masked[index + 1] = " " if masked[index + 1]
+          index += 2
+        end
+      else
+        index += 1
+      end
+    else
+      index += 1
+    end
+  end
+  masked
+end
 
 # The arguments of a call, from the opening parenthesis to its matching close.
 def call_arguments(text, open_index)
@@ -39,24 +91,80 @@ def call_arguments(text, open_index)
     end
     index += 1
   end
+  return if depth.positive?
+
   text[open_index...(index - 1)]
+end
+
+# Split a string on commas at its own nesting depth.
+def split_top_level(text)
+  parts = []
+  start = 0
+  depth = 0
+  text.each_char.with_index do |character, index|
+    case character
+    when "(", "[", "{" then depth += 1
+    when ")", "]", "}" then depth -= 1
+    when ","
+      if depth.zero?
+        parts << text[start...index]
+        start = index + 1
+      end
+    end
+  end
+  parts << text[start..]
+  parts
+end
+
+# The options object's own properties, with an inline comment masked.
+def object_properties(text)
+  return [] unless text.start_with?("{")
+
+  depth = 0
+  close = nil
+  text.each_char.with_index do |character, index|
+    case character
+    when "{" then depth += 1
+    when "}"
+      depth -= 1
+      if depth.zero?
+        close = index
+        break
+      end
+    end
+  end
+  return [] if close.nil?
+
+  split_top_level(text[1...close])
+end
+
+# A `name` key or the `{ name }` shorthand in the options object.
+def named_option?(arguments)
+  parts = split_top_level(arguments)
+  return false if parts.length < 2
+
+  options = parts[1].strip
+  object_properties(options).any? do |property|
+    property.strip.match?(/\Aname\s*(?::|\z)/)
+  end
 end
 
 findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  text = File.read(path)
+  masked = mask_literals(File.read(path))
 
-  text.to_enum(:scan, role_query).each do
+  masked.to_enum(:scan, role_query).each do
     match = Regexp.last_match
-    next if call_arguments(text, match.end(0)).match?(role_name)
+    arguments = call_arguments(masked, match.end(0))
+    next if arguments && named_option?(arguments)
 
-    line = text[0...match.begin(0)].count("\n") + 1
+    line = masked[0...match.begin(0)].count("\n") + 1
     puts "#{relative}:#{line}: bad-selector: select by role with an accessible name, or by test id"
     findings += 1
   end
 
-  text.each_line.with_index(1) do |line, index|
+  masked.each_line.with_index(1) do |line, index|
     next unless line.match?(forbidden)
 
     puts "#{relative}:#{index}: bad-selector: select by role with an accessible name, or by test id"
