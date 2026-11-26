@@ -16,16 +16,17 @@ module Rafelo
         raise ApplicationError.new("upstream.unavailable") unless permit
 
         queue = SizedQueue.new(8)
+        deadline = request_deadline
         context = Current.attributes
         producer = Thread.new do
           Current.set(**context) do
-            source.call { |chunk| queue << [ :chunk, chunk ] }
-            queue << [ :done ]
+            source.call { |chunk| enqueue(queue, deadline, [ :chunk, chunk ]) }
+            enqueue(queue, deadline, [ :done ])
           end
         rescue StandardError => error
-          queue << [ :error, error ]
+          deliver_error(queue, deadline, error)
         end
-        first = wait_for_first_chunk(queue)
+        first = wait_for_first_chunk(queue, deadline)
         limit = max_bytes || Rails.application.config.x.downloads.max_bytes
         written = 0
 
@@ -39,7 +40,7 @@ module Rafelo
             stream.write(first)
           end
           loop do
-            kind, value = queue.pop
+            kind, value = dequeue(queue, deadline)
             break if kind == :done
             raise value if kind == :error
 
@@ -66,13 +67,49 @@ module Rafelo
         raise ApplicationError.new("unexpected", "authorize before send_download")
       end
 
-      def wait_for_first_chunk(queue)
+      def wait_for_first_chunk(queue, deadline)
         loop do
-          kind, value = queue.pop
+          kind, value = dequeue(queue, deadline)
           return value if kind == :chunk
           return nil if kind == :done
           raise value if kind == :error
         end
+      end
+
+      # A slow client stops the consumer inside stream.write; the producer must
+      # not hold a pooled upstream connection past the request deadline waiting
+      # for room (BE-16, BE-18).
+      def enqueue(queue, deadline, message)
+        remaining = deadline.remaining
+        raise ApplicationError.new("upstream.timeout") if remaining.zero?
+
+        raise ApplicationError.new("upstream.timeout") if queue.push(message, timeout: remaining).nil?
+      end
+
+      # The error handoff is best effort: a full queue means the consumer is
+      # past the deadline anyway, and its own bounded dequeue reports the
+      # timeout.
+      def deliver_error(queue, deadline, error)
+        queue.push([ :error, error ], true)
+      rescue ThreadError
+        remaining = deadline.remaining
+        return if remaining.zero?
+
+        begin
+          queue.push([ :error, error ], timeout: remaining)
+        rescue ThreadError
+          nil
+        end
+      end
+
+      def dequeue(queue, deadline)
+        remaining = deadline.remaining
+        raise ApplicationError.new("upstream.timeout") if remaining.zero?
+
+        message = queue.pop(timeout: remaining)
+        raise ApplicationError.new("upstream.timeout") if message.nil?
+
+        message
       end
 
       def sanitized_filename(filename)
