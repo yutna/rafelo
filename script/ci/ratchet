@@ -147,13 +147,15 @@ files.each do |file|
 end
 
 # Count the real values in check mode: a value above its committed ceiling
-# fails even when the YAML file was not edited. A new key required by the
-# check set is recorded at its real value, not treated as a rise.
+# fails even when the YAML file was not edited. A key absent at base must be
+# recorded at its real value; a higher value is headroom and needs approval.
+actual = {}
 over = 0
 files.each do |file|
   path = File.join(root, file)
   committed = YAML.safe_load_file(path) || {}
   RatchetCounts.for(root, file, clones: clones).each do |key, value|
+    actual["#{file}:#{key}"] = value
     ceiling = committed[key]
     next unless ceiling.is_a?(Integer) && value.is_a?(Integer)
     next unless value > ceiling
@@ -169,9 +171,11 @@ end
 
 rises = current.filter_map do |key, value|
   previous = base_counts[key]
-  next unless previous.is_a?(Integer)
-
-  [ key, previous, value ] if value > previous
+  if previous.is_a?(Integer)
+    [ key, previous, value ] if value > previous
+  elsif actual[key].is_a?(Integer) && value > actual[key]
+    [ key, actual[key], value ]
+  end
 end
 falls = current.filter_map do |key, value|
   next unless base_counts[key].is_a?(Integer)

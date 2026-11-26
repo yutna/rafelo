@@ -342,10 +342,21 @@ Dir.mktmpdir("rafelo-ratchet-new-key-") do |dir|
 
   write_engine(dir)
   commit(dir, "record the new key")
+  owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
   outsider = reviews(dir, "outsider", [ { "user" => { "login" => "someone" }, "state" => "APPROVED" } ])
   cases += 1
   status, output = run_case(script, dir, base, outsider)
   failures = check(failures, "new key at its real value", 0, status, output)
+
+  # A new key with headroom above its real count needs an owner approval.
+  write_engine(dir, "legacy_constants" => 999)
+  commit(dir, "new key with headroom")
+  cases += 1
+  status, output = run_case(script, dir, base, outsider, author: "outsider")
+  failures = check(failures, "new key with headroom", 1, status, output, "legacy_constants")
+  cases += 1
+  status, output = run_case(script, dir, base, owner, author: "outsider")
+  failures = check(failures, "new key headroom with an owner approval", 0, status, output)
 end
 
 # A missing key in an engine file fails.
