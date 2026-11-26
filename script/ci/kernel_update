@@ -91,6 +91,9 @@ module KernelUpdate
     config/routes.rb
     config/storage.yml
     config/upstreams.yml
+    # The CT-01 table names every shared prop key; a new key must reach the
+    # adopter's spec copy or docs:check fails (CT-01, CT-09).
+    docs/architecture/04_contracts.md
     .devcontainer
     Dockerfile
     e2e

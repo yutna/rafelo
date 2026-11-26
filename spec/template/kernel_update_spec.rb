@@ -227,7 +227,8 @@ RSpec.describe "bin/kernel_update" do
       "config/contracts/pages", "config/locales", "e2e", "engines/design_system/e2e", "AGENTS.md", "config/application.rb",
       "config/database.yml", "config/storage.yml", "config/frontend_react.mts", "lib/tasks",
       "package.json", "package-lock.json", "renovate.json5", ".devcontainer", "Dockerfile",
-      "spec/config", "spec/requests", "spec/support", "spec/tasks"
+      "spec/config", "spec/requests", "spec/support", "spec/tasks",
+      "docs/architecture/04_contracts.md"
     )
     expect(KernelUpdate::DEFAULT_PATHS).not_to include(*KernelUpdate::APP_OWNED_PATHS)
   end
@@ -293,6 +294,62 @@ RSpec.describe "bin/kernel_update" do
           target.each do |path, content|
             expect(File.read(File.join(app_root, path))).to eq(content)
           end
+        end
+      end
+    end
+  end
+
+  # #1079: the CT-01 topic table names every shared prop key. When the kernel
+  # adds one, the update must carry the table or docs:check fails.
+  it "carries an unchanged CT-01 topic table only with --app-owned" do
+    base = { "docs/architecture/04_contracts.md" => "| `app` | object | Shared: `name` |\n" }
+    target = { "docs/architecture/04_contracts.md" => "| `app` | object | Shared: `name`, `signInHref` |\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: base)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root
+          )
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "docs/architecture/04_contracts.md")))
+            .to eq(base.fetch("docs/architecture/04_contracts.md"))
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "docs/architecture/04_contracts.md")))
+            .to eq(target.fetch("docs/architecture/04_contracts.md"))
+        end
+      end
+    end
+  end
+
+  it "leaves a customized CT-01 topic table alone even when --app-owned is given" do
+    base = { "docs/architecture/04_contracts.md" => "| `app` | object | Shared: `name` |\n" }
+    target = { "docs/architecture/04_contracts.md" => "| `app` | object | Shared: `name`, `signInHref` |\n" }
+    local = { "docs/architecture/04_contracts.md" => "| `app` | object | Shared: `name` (our note) |\n" }
+
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: base)
+          write_release(target_root, version: "0.2.0", files: target)
+          write_app(app_root, version: "0.1.0", files: local)
+
+          _out, err, status = run_update(
+            "0.2.0", "--root", app_root, "--base-version", "0.1.0",
+            "--base-source", base_root, "--source", target_root, "--app-owned"
+          )
+          expect(status).to be_success, err
+          expect(File.read(File.join(app_root, "docs/architecture/04_contracts.md")))
+            .to eq(local.fetch("docs/architecture/04_contracts.md"))
         end
       end
     end
