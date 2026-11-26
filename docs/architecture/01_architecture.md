@@ -222,12 +222,18 @@ end
   (`auth`, `upstream`, `resource`, `validation`, `request`, and `unexpected`,
   the one kernel code without a dot; CT-06). The module generator refuses the
   same names before it writes anything (GEN-01).
-- The reserved-route part needs the app's routes, which Rails draws after
-  the engine initializers and, in development and test, may load lazily.
-  So boot validation runs in an `after_initialize` hook and again before
-  the first request is served (core's locale middleware), and reads the
-  route set at that moment. A spec boots with a module whose key equals an
-  app route name and asserts the raise.
+- The reserved-route and mount checks need the app's routes, which Rails
+  draws after the engine initializers and, in development and test, may load
+  lazily. So they run in core's `config.after_routes_loaded` hook, which
+  railties 8.1.4.1 runs each time the route set is loaded or reloaded, never
+  in `after_initialize` or `to_prepare`, which run before the routes are
+  drawn. Besides the reserved names, the hook raises when a registered module
+  is not mounted in the app's routes, naming the module, so a forgotten
+  `mount` fails boot instead of leaving the module silently out of the
+  navigation. Navigation still skips a module whose route does not resolve,
+  as a second line of defence. Specs load the routes with a module whose key
+  equals an app route name, and with a registered module the app does not
+  mount, and assert each raise.
 - `legacy_paths:` maps each old path prefix to a path under the declaring
   module: `{ "/invoicing" => "" }` in `billing` above, whose path was
   `/invoicing`; `{ "/billing/refunds" => "/refunds" }` in a `payments` module
