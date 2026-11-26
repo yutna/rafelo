@@ -130,7 +130,8 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     warn "guard_approval_canary: author-only approval: exited #{status}: #{output}"
   end
 
-  # A renamed guard file is still a guard: the old path is in the diff.
+  # A renamed guard file is still a guard: the old path is in the diff, and
+  # the approval decision follows the rename.
   FileUtils.mkdir_p(File.join(dir, "docs"))
   git(dir, "mv", "script/ci/guard", "docs/guard")
   git(dir, "commit", "-q", "-m", "rename the guard")
@@ -140,6 +141,40 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     failures += 1
     warn "guard_approval_canary: renamed guard: exited #{status}: #{output}"
   end
+
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", owner, "pull_request", "owner")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: renamed guard with the author's approval: exited #{status}: #{output}"
+  end
+
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", second, "pull_request", "outsider")
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: renamed guard with another owner's approval: exited #{status}: #{output}"
+  end
+
+  # Renaming CODEOWNERS itself is a guard change.
+  git(dir, "mv", ".github/CODEOWNERS", ".github/CODEOWNERS.backup")
+  git(dir, "commit", "-q", "-m", "rename CODEOWNERS")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "outsider")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: renamed CODEOWNERS: exited #{status}: #{output}"
+  end
+
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", second, "pull_request", "outsider")
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: renamed CODEOWNERS with another owner's approval: exited #{status}: #{output}"
+  end
+
+  git(dir, "mv", ".github/CODEOWNERS.backup", ".github/CODEOWNERS")
+  git(dir, "commit", "-q", "-m", "restore CODEOWNERS")
 
   # Removing a guard path from CODEOWNERS in the pull request does not remove
   # the guard: the owners are read from the merge base.
