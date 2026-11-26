@@ -36,7 +36,19 @@ cases = [
   [ "role query inside a comment", "engines/sample/app/frontend/thing.test.tsx",
     "// screen.getByRole('button');\n", 0 ],
   [ "role query with an options variable", "engines/sample/app/frontend/thing.test.tsx",
-    "screen.getByRole('button', options);\n", 1 ]
+    "screen.getByRole('button', options);\n", 1 ],
+  [ "unnamed role after JSX prose with an apostrophe", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  render(<p>Don't save</p>);\n  screen.getByRole('button');\n});\n", 1 ],
+  [ "unnamed role after a regex literal", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  expect(value).toMatch(/https:\\/\\//);\n  screen.getByRole('button');\n});\n", 1 ],
+  [ "unnamed role after JSX prose with an odd quote", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  render(<p>Say \"hi</p>);\n  screen.getByRole('button');\n});\n", 1 ],
+  [ "named role after JSX prose with an apostrophe", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  render(<p>Don't save</p>);\n  screen.getByRole('button', { name: 'Save' });\n});\n", 0 ],
+  [ "destructured role query without a name", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  const { getByRole } = render(<Button />);\n  getByRole('button');\n});\n", 1 ],
+  [ "destructured role query with a name", "engines/sample/app/frontend/thing.test.tsx",
+    "it('x', () => {\n  const { getByRole } = render(<Button />);\n  getByRole('button', { name: 'Save' });\n});\n", 0 ]
 ]
 
 failures = 0
