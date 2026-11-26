@@ -53,8 +53,8 @@ open version milestone's open issues, open high-priority and blocked issues,
 the latest release and main CI, and a `STUCK` flag when a run has been active
 for more than seven hours.
 
-The final audit independently verifies milestones 24–43 and releases
-v0.23.0–v0.42.0, the absence of gate issues, the absence of open high-priority
+The final audit independently verifies milestones 24–44 and releases
+v0.23.0–v0.43.0, the absence of gate issues, the absence of open high-priority
 issues except ones named by an unexpired audit exception, exception expiries,
 the last push and scheduled CI runs, the trials record against later AI or
 generator changes (including every `engines/*/AGENTS.md`), `VERSION`, a clean
