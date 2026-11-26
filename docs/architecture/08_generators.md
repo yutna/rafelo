@@ -410,8 +410,11 @@ when adopting.
   are updated only with `--app-owned` and only while they still match the base
   release; a file the payload does not ship is never added, and every file a
   shipped folder contains travels with it, dotfiles included (the pins
-  canary's `peer_set_bad/.ruby-version` is one). An engine's `AGENTS.md` is
-  never overwritten. design_system is updated only folder by
+  canary's `peer_set_bad/.ruby-version` is one). The CT-01 topic table
+  (`docs/architecture/04_contracts.md`) is app-owned too: it names every
+  shared prop key, so the update carries it while it still matches the base
+  release and leaves a customized copy alone (CT-01). An engine's `AGENTS.md`
+  is never overwritten. design_system is updated only folder by
   folder, on request
   (`bin/kernel_update <version> --include design_system/<folder>`), because
   adopters restyle it.
