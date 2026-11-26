@@ -102,20 +102,21 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     { "user" => { "login" => "owner" }, "state" => "APPROVED" },
     { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
   ])
+  empty = reviews(dir, "empty", [])
 
   [
-    [ "guard without approval", nil, 1, "pull_request", "outsider" ],
+    [ "guard without approval", empty, 1, "pull_request", "outsider", "without an approval" ],
     [ "guard with an owner approval", owner, 0, "pull_request", "outsider" ],
-    [ "guard with a non-owner approval", outsider, 1, "pull_request", "outsider" ],
-    [ "guard with a later change request", rejected, 1, "pull_request", "outsider" ],
+    [ "guard with a non-owner approval", outsider, 1, "pull_request", "outsider", "without an approval" ],
+    [ "guard with a later change request", rejected, 1, "pull_request", "outsider", "without an approval" ],
     [ "merge queue", nil, 0, "merge_group" ],
-    [ "single-owner author", nil, 1, "pull_request", "owner" ],
-    [ "author-only approval", owner, 1, "pull_request", "owner" ],
-    [ "empty author fails closed", owner, 1, "pull_request", "" ]
-  ].each do |name, file, expected, event, author|
+    [ "single-owner author", owner, 1, "pull_request", "owner", "without an approval" ],
+    [ "author-only approval", owner, 1, "pull_request", "owner", "without an approval" ],
+    [ "empty author fails closed", owner, 1, "pull_request", "", "without an approval" ]
+  ].each do |name, file, expected, event, author, needle|
     cases += 1
     status, output = run_case(script, dir, base, file, event || "pull_request", author)
-    next if status == expected
+    next if status == expected && (needle.nil? || output.include?(needle))
 
     failures += 1
     warn "guard_approval_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
