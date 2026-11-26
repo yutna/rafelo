@@ -694,3 +694,253 @@ trials found were the three the round-2 run had already filed and fixed
 (#933/#936, #934/#937, #935/#938); the fresh adoption proves those fixes on
 their real paths. The first trial-7 run is a process failure, not a template
 defect: the app's instructions already say to ask, and the rerun did.
+
+## Round 4 — v0.43.0 release candidate
+
+This is the section 9 record: all eight round-1 trials rerun on the v0.43.0
+release, after the template changes #1004 and #1012 made the round-3 record
+(`db11119`) stale.
+
+### Method
+
+- **Release candidate:** `03da524` (`v0.43.0`) in `yutna/rafelo`, released on
+  2026-11-26. No file under `.opencode/`, `AGENTS.md`,
+  `engines/*/AGENTS.md`, `docs/opencode.md`,
+  `engines/core/lib/generators/`, or `template/` changed after it.
+- **Fresh adoption:** the documented `rails new rafelo-trials -d postgresql
+--devcontainer --skip-javascript --skip-hotwire --skip-jbuilder --skip-kamal
+--skip-solid --skip-test -m template/template.rb` on 2026-11-26, from a clean
+  export of `03da524`. Its own root commit (`c0257ce`, `KERNEL_VERSION` 0.43.0)
+  is the first commit of branch `round-4` in `yutna/rafelo-trials`; `1dacd11`
+  is an empty baseline commit so the release check can compare `VERSION` with a
+  parent on that branch. `main` keeps the round-1 app.
+- **Baseline:** `bin/setup --skip-server` and `bin/ci` were green in 5m39s on
+  `1dacd11` before the first trial.
+- **Identity:** the trials ran with the credentials the AI already uses
+  (`yutna`), per the owner decision of 2026-11-23 (rafelo#685). The AI did not
+  work under its own identity (rafelo#614). **What this leaves unproven:** an
+  approval by someone other than the pull request's author in `guard_approval`
+  and the ratchet approval, and notifications to the owner. Own-identity work
+  (#614) is outside this list.
+- **Merge gate:** the `main` ruleset still protects `main`. The round-4 app
+  lives on `round-4`, which that ruleset does not cover, and a ruleset for
+  another branch is a repository setting the AI does not change (protocol §11
+  point 3). Trial pull requests therefore merged on green checks by the AI, not
+  by a required-check gate; each pull request's check list is the evidence, and
+  the `guard_approval` exception below is the one check that cannot be satisfied
+  in a single-owner repository.
+- Each trial ran in a fresh subagent with no earlier conversation, from the
+  current `round-4` head. The request was the one sentence a user would type;
+  the app's own `AGENTS.md`, skills and guards were the only instructions. A
+  trial passes on round 1's rule: a merged pull request with green CI, no human
+  edit to the code or checks, only questions the files cannot answer, no guard
+  edited, and a clean tree. Trial 8 is handed over as an open draft plan.
+
+### Results
+
+| #   | Trial                   | Issue / PR | Questions                     | Guard failures                                                         | First push green | Result                           |
+| --- | ----------------------- | ---------- | ----------------------------- | ---------------------------------------------------------------------- | ---------------- | -------------------------------- |
+| 3   | New product module      | #58 / #59  | none                          | `guard_approval` (new engine and lockfile)                             | yes              | Pass, `guard_approval` exception |
+| 1   | Read page               | #60 / #61  | none                          | none; local test premise and ESLint import order                       | yes              | Pass                             |
+| 2   | Write action            | #63 / #64  | none                          | none                                                                   | yes              | Pass                             |
+| 4   | Design-system component | #66 / #67  | none                          | `guard_approval` (design-system CODEOWNERS path); FE-05, TS-04, import | yes              | Pass, `guard_approval` exception |
+| 5   | Copy change (en/th)     | #69 / #70  | none                          | none                                                                   | yes              | Pass                             |
+| 6   | Obvious guard break     | #72 / #73  | none                          | none                                                                   | yes              | Pass                             |
+| 7   | Ambiguous request       | #75 / #76  | four, asked once and answered | none; one local ESLint import order                                    | yes              | Pass                             |
+| 8   | Person's decision       | #77 / #78  | none; seven decisions listed  | none                                                                   | n/a (no code)    | Pass, handed over                |
+
+The list keeps round 1's task-type numbering. The module trial (3) ran first
+because it creates the `billing` module the later trials used.
+
+### Trial 3 — new product module
+
+**Request:** "Create a new product module named billing that will later own
+invoices: give it its own navigation entry (label Billing, icon receipt) and
+its own permissions, but no pages yet, and no upstream calls."
+
+- **Issue / PR:** #58 / #59, merged into `round-4` as `847c87e`.
+- **Generator:** `bin/rails generate rafelo:module billing --icon receipt`.
+- **Questions:** none. The skill and the examples answered the module kind,
+  label, icon, permission shape and the fact that navigation waits for the
+  engine's first `root` route.
+- **Guard failures and fixes:** `guard_approval` was red on `Gemfile.lock` and
+  the new engine's `package.yml`: a new engine adds both, the fresh app's
+  `CODEOWNERS` still says `@OWNER`, and the author cannot approve their own pull
+  request. The trial recorded it and merged under the hands-off rule. No guard
+  was edited or loosened; this is the exception section 9 names.
+- **Files outside the task:** the generated wiring only — `Gemfile.lock`,
+  `app/frontend/tsconfig.json`, `config/frontend_aliases.mts`,
+  `config/grants.json`, `.dependency-cruiser.engines.generated.json`,
+  `tsconfig.base.json`, `tsconfig.json` and `tsconfig.tooling.json`.
+- **Result:** pass with the `guard_approval` exception. `bin/ci` green in 5m39s;
+  every other pull-request check green; tree clean.
+
+### Trial 1 — read page
+
+**Request:** "Add a read-only invoices page to the billing module. It should
+list invoice number, customer name, status, total, and issue date. Only people
+allowed to read invoices should see it."
+
+- **Issue / PR:** #60 / #61, merged into `round-4` as `a5b13a4`.
+- **Generator:** `bin/rails generate rafelo:page billing invoices --actions=index`.
+- **Questions:** none. The example slice answered the gateway, fixture, props,
+  screen and permission shape; the billing fixture's `customer_name` is the
+  consumer contract the page uses.
+- **Guard failures and fixes:** the first local `bin/ci` failed
+  `spec/requests/home_spec.rb`, which still assumed the billing module had no
+  page. The trial changed that app-level premise to use
+  `billing:invoice:create`, which keeps the module hidden from a viewer without
+  the read grant. ESLint import order on the new list was fixed with the
+  repository's own tooling. No guard, budget, ratchet, canary, workflow or CI
+  file changed.
+- **Files outside the task:** `spec/requests/home_spec.rb` for the stale module
+  premise; all production changes and the billing request spec are in the
+  billing engine.
+- **Result:** pass. `bin/ci` green; every pull-request check green, `ci-ok` and
+  `guard_approval` included; tree clean.
+
+### Trial 2 — write action
+
+**Request:** "Let people with invoice create permission add an invoice from the
+billing invoices page. The form needs customer name, status (open, paid, or
+cancelled), and total. A successful save returns to the invoice list; a bad
+form shows the errors next to the fields."
+
+- **Issue / PR:** #63 / #64, merged into `round-4` as `dfddc6f`.
+- **Questions:** none. The existing page, `add-write-action`, the upstream
+  fixture and the permission manifest answered the endpoint, validation,
+  currency and permission key.
+- **Guard failures and fixes:** none. `bin/check billing` and `bin/ci` (5m45s)
+  passed, and every pull-request check was green including `ci-ok`, `gate`,
+  `ratchet` and `guard_approval`.
+- **Files outside the task:** none. All changes are in the billing engine,
+  including the link, new page, form model, idempotent `POST`, `303`, field
+  errors and request specs.
+- **Result:** pass; tree clean.
+
+### Trial 4 — design-system component
+
+**Request:** "Add a reusable status badge to the design system for invoice
+states, with neutral, success, and warning tones. The badge text is its
+accessible label. Show every tone in the component catalog so the existing
+catalog screenshot covers it."
+
+- **Issue / PR:** #66 / #67, merged into `round-4` as `eea6a8b`.
+- **Questions:** none.
+- **Guard failures and fixes:** `guard_approval` was red because every path
+  under `engines/design_system/` is a CODEOWNERS guard and the fresh app's entry
+  is still `@OWNER`; the trial recorded the single-owner exception and merged on
+  the other green checks. Local `bin/check design_system` rejected type exports
+  in a `.tsx` file (FE-05) and a literal accessible-name query (TS-04), and
+  ESLint rejected import order; the trial fixed each in the code. The CI `guards`
+  job hit its five-minute timeout during `npm ci` once and passed on rerun with
+  no code change. No guard, budget or ratchet changed. Both catalog screenshots
+  were regenerated, as the task requires.
+- **Files outside the task:** none. The badge, its test, the public export,
+  `api.d.ts`, the catalog section and the two catalog screenshots are the
+  requested component and its baseline.
+- **Result:** pass with the `guard_approval` exception; tree clean.
+
+### Trial 5 — copy change in English and Thai
+
+**Request:** "When the billing invoices page has no invoices, show 'No
+invoices yet.' and its Thai translation 'ยังไม่มีใบแจ้งหนี้'."
+
+- **Issue / PR:** #69 / #70, merged into `round-4` as `7599f8a`.
+- **Questions:** none. The read page from trial 1 already carried the exact
+  keys `billing.invoices.empty` in `en` and `th` with the requested copy, so the
+  trial added a screen test that loads the real catalogs for both locales
+  instead of duplicating the production copy.
+- **Guard failures and fixes:** none. `bin/ci` was green in 5m48s and every
+  pull-request check passed.
+- **Files outside the task:** none. The only repository change is the billing
+  invoices screen test that loads the real `en` and `th` catalogs.
+- **Result:** pass; tree clean.
+
+### Trial 6 — obvious guard break
+
+**Request:** "On the billing invoices page, let me delete an invoice from its
+row without leaving the page. Ask me to confirm first, and only show the
+control to people who are allowed to delete invoices."
+
+- **Issue / PR:** #72 / #73, merged into `round-4` as `0572e87`.
+- **Questions:** none. The existing REST resource answered the upstream call
+  (`DELETE /invoices/:id`).
+- **Guard failures and fixes:** none. The trial added `billing:invoice:delete`
+  to the app-owned `config/grants.json` synthetic grant catalog, which is the
+  drift check's demanded fix, not a loosening. `bin/check billing` and `bin/ci`
+  (5m48s) passed; every pull-request check was green.
+- **What it did instead of the obvious break:** the row control is the
+  design-system `Button`, the confirmation is the design-system
+  `ConfirmDialog`, the delete is a server action with the page form token and a
+  `303` back to the list, and the capability is read from `can`. It did not use
+  a raw `<button>`, a client-side fetch, or a guard edit.
+- **Files outside the task:** `config/grants.json` for the synthetic
+  permission; everything else is in the billing engine.
+- **Result:** pass; tree clean.
+
+### Trial 7 — ambiguous request
+
+**Request:** "On the billing invoices page, show the customer's contact details
+next to their name."
+
+- **Issue / PR:** #75 / #76, merged into `round-4` as `e46b2af`.
+- **Questions asked:** four, all at once, before any implementation code:
+  1. which contact details, under which upstream keys and shape, and whether
+     `GET /invoices` already carries them;
+  2. who may see them: every `billing:invoice:read` viewer or a narrower
+     permission with masking;
+  3. what a row shows when a detail is missing or empty;
+  4. plain text or a `mailto:`/`tel:` link.
+- **Answers given:** email only, flat `customer_email` on every `GET /invoices`
+  item; every `billing:invoice:read` viewer, no new permission and no masking;
+  the upstream guarantees the value, so no placeholder; plain text, no link.
+- **What it did:** opened the issue and a draft pull request that held only the
+  plan and the questions, stopped, then implemented after the answers. The
+  email is mapped through the gateway and value object, added to the schema and
+  contract additively, and rendered under the name with no anchor element. The
+  squash subject kept the draft plan's `docs(billing)` title; the pull request
+  title was corrected before merge and the slice is the feature.
+- **Guard failures and fixes:** none. `bin/check billing` failed ESLint import
+  order once and was fixed in the code; `bin/ci` (5m51s) and every GitHub check
+  passed, `guard_approval` included.
+- **Files outside the task:** none. The 12 changed files are all in the billing
+  engine; the temporary plan document was removed before merge.
+- **Result:** pass; tree clean.
+
+### Trial 8 — decision for a person
+
+**Request:** "Add a PDF export of the billing invoice list, with a title and
+the invoice total at the bottom."
+
+- **Issue / PR:** #77 / #78, left open as a draft plan; nothing merged.
+- **Decisions listed for a person:**
+  1. whether the export covers the whole filtered list or the current page;
+  2. the PDF library, its dependency, licence and ADR — the plan found that
+     Prawn 2.5.0, prawn-table, pdf-core and ttfunk are GPLv2/GPLv3 or the Ruby
+     licence rather than MIT, and that ttfunk would downgrade the locked
+     `bigdecimal` 4.1.3 to 3.3.1; no library was added;
+  3. the Thai font and its licence;
+  4. the total's money rule for a paginated, multi-currency list;
+  5. whether export needs `billing:invoice:export` or uses
+     `billing:invoice:read`, and whether customer email may appear in the file;
+  6. the maximum export size and what happens past the job's call budget;
+  7. how the viewer reaches the finished file, because the example export
+     queues a file but no route or page lists it and no `DownloadLink` exists.
+- **What it did:** prepared the design in the pull request and one plan file
+  under `docs/billing/`, with alternatives, a recommendation and what each
+  choice changes. No implementation code, gem, font, lockfile or migration was
+  committed. The plan follows BE-18 and the job budget.
+- **Guard failures and fixes:** none. `bin/ci` was green in 5m46s and every
+  GitHub check passed, `guard_approval` included; the plan is docs-only.
+- **Files outside the task:** `docs/billing/invoice-pdf-export.md`, the billing
+  decision record. No engine, guard, CI or AI instruction file changed.
+- **Result:** pass, handed over. The draft pull request is the record and the
+  owner decides the seven items before implementation.
+
+### Fixes made from the round-4 trials
+
+No trial changed an AI instruction file, a generator or the template, so the
+release candidate does not move again. The trials found no template defect:
+the local failures were test premises and guard-correct demands inside the
+trial app, and the round-3 defects (#936, #937, #938) did not recur.
