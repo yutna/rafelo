@@ -13,21 +13,43 @@ module Approvals
 
   # CODEOWNERS is read from the merge base when one is given, so a pull
   # request cannot remove its own guard path or add an owner to approve
-  # itself (WF-03).
-  def codeowners(root, base: nil)
-    if base && !base.to_s.empty?
-      %w[.github/CODEOWNERS CODEOWNERS].each do |candidate|
-        output, status = Open3.capture2("git", "-C", root, "show", "#{base}:#{candidate}", err: File::NULL)
-        return parse_codeowners(output) if status.success?
+  # itself (WF-03). The value loads the file once for a whole diff.
+  class Codeowners
+    def self.load(root, base: nil)
+      if base && !base.to_s.empty?
+        %w[.github/CODEOWNERS CODEOWNERS].each do |candidate|
+          output, status = Open3.capture2("git", "-C", root, "show", "#{base}:#{candidate}", err: File::NULL)
+          return new(Approvals.parse_codeowners(output)) if status.success?
+        end
+        return new([])
       end
-      return []
+
+      path = File.join(root, ".github", "CODEOWNERS")
+      path = File.join(root, "CODEOWNERS") unless File.file?(path)
+      return new([]) unless File.file?(path)
+
+      new(Approvals.parse_codeowners(File.read(path)))
     end
 
-    path = File.join(root, ".github", "CODEOWNERS")
-    path = File.join(root, "CODEOWNERS") unless File.file?(path)
-    return [] unless File.file?(path)
+    def initialize(entries)
+      @entries = entries.freeze
+    end
 
-    parse_codeowners(File.read(path))
+    attr_reader :entries
+
+    def owner_logins
+      entries.flat_map { |entry| entry[:owners] }.uniq
+    end
+
+    def guard_entry?(path)
+      return false if Approvals.ratchet_file?(path)
+
+      entries.any? { |entry| Approvals.match?(entry[:pattern], path) }
+    end
+  end
+
+  def codeowners(root, base: nil)
+    Codeowners.load(root, base: base)
   end
 
   def parse_codeowners(text)
@@ -42,8 +64,8 @@ module Approvals
     end
   end
 
-  def owner_logins(root, base: nil)
-    codeowners(root, base: base).flat_map { |entry| entry[:owners] }.uniq
+  def owner_logins(codeowners)
+    codeowners.owner_logins
   end
 
   def normalize(pattern)
@@ -52,18 +74,18 @@ module Approvals
     pattern
   end
 
+  # GitHub CODEOWNERS follows gitignore: a pattern without a slash matches at
+  # any depth, and a leading slash anchors it to the repository root.
   def match?(pattern, path)
     normalized = normalize(pattern)
-    return true if File.fnmatch?(normalized, path, File::FNM_PATHNAME | File::FNM_EXTGLOB)
-    return true if normalized.end_with?("**/*") && path.start_with?(normalized.delete_suffix("**/*"))
+    anchored = pattern.start_with?("/") || normalized.include?("/")
+    candidate = anchored ? normalized : "**/#{normalized}"
 
-    File.fnmatch?(normalized, path, File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH)
+    File.fnmatch?(candidate, path, File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH)
   end
 
-  def guard_entry?(root, path, base: nil)
-    return false if ratchet_file?(path)
-
-    codeowners(root, base: base).any? { |entry| match?(entry[:pattern], path) }
+  def guard_entry?(codeowners, path)
+    codeowners.guard_entry?(path)
   end
 
   def ratchet_file?(path)
@@ -156,8 +178,8 @@ module Approvals
     results
   end
 
-  def approved_by_owner?(root, reviews, base: nil, author: nil)
-    owners = owner_logins(root, base: base)
+  def approved_by_owner?(codeowners, reviews, author: nil)
+    owners = codeowners.owner_logins
     states = latest_states(reviews)
     return false if states.values.include?("CHANGES_REQUESTED")
 

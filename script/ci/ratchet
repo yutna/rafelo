@@ -177,7 +177,7 @@ if author.to_s.strip.empty? && number
   author = Approvals.pull_request_author(repository: repository, number: number)
 end
 reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
-unless Approvals.approved_by_owner?(root, reviews, base: base, author: author)
+unless Approvals.approved_by_owner?(Approvals.codeowners(root, base: base), reviews, author: author)
   rises.each { |key, previous, value| warn "ratchet: #{key} rose from #{previous} to #{value}" }
   warn "ratchet: a rise needs an approval from a CODEOWNERS owner other than the pull request author"
   exit 1
