@@ -139,7 +139,7 @@ module Rafelo
           total = 0
           @bulkhead.call do
             @connection_pool.with(deadline: @deadline) do |connection|
-              @breaker.run do
+              @breaker.run(skipped_errors: [ DownloadStalled ]) do
                 connection.run_request(method, path, nil, request_headers(headers, nil, nil)) do |request|
                   request.options.timeout = [ @config.read_timeout, @deadline.remaining ].min
                   request.options.open_timeout = [ @config.open_timeout, @deadline.remaining ].min
@@ -185,7 +185,7 @@ module Rafelo
         Metrics.record_upstream_error(@name, "upstream.unavailable", gateway: @gateway)
         raise ApplicationError.new("upstream.unavailable")
       rescue ApplicationError => error
-        Metrics.record_upstream_error(@name, error.code, gateway: @gateway)
+        Metrics.record_upstream_error(@name, error.code, gateway: @gateway) unless error.is_a?(DownloadStalled)
         raise
       end
 

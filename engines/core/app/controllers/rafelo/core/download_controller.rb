@@ -81,9 +81,9 @@ module Rafelo
       # for room (BE-16, BE-18).
       def enqueue(queue, deadline, message)
         remaining = deadline.remaining
-        raise ApplicationError.new("upstream.timeout") if remaining.zero?
+        raise DownloadStalled.new if remaining.zero?
 
-        raise ApplicationError.new("upstream.timeout") if queue.push(message, timeout: remaining).nil?
+        raise DownloadStalled.new if queue.push(message, timeout: remaining).nil?
       end
 
       # The error handoff is best effort: a full queue means the consumer is
@@ -104,10 +104,10 @@ module Rafelo
 
       def dequeue(queue, deadline)
         remaining = deadline.remaining
-        raise ApplicationError.new("upstream.timeout") if remaining.zero?
+        raise DownloadStalled.new if remaining.zero?
 
         message = queue.pop(timeout: remaining)
-        raise ApplicationError.new("upstream.timeout") if message.nil?
+        raise DownloadStalled.new if message.nil?
 
         message
       end

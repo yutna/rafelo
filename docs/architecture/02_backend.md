@@ -1003,6 +1003,11 @@ converts keys inside nested hashes and inside arrays of hashes
   `failure` (OPS-08). Download specs cover an upstream `500` before the first
   byte (an error page without `Content-Disposition`) and an overflow after it
   (a `failure` audit).
+- A viewer that stops reading is a local condition, not an upstream failure.
+  Core's queue deadline raises `DownloadStalled` (same `upstream.timeout`
+  code); the client's breaker skips it and the upstream metrics do not count
+  it, so a slow viewer cannot open a healthy upstream's circuit (BE-05). A
+  download spec stalls the stream and proves the next call still runs.
 - `send_stream` runs its block on a thread of its own, which leases its own
   database connection for any query inside the block, so concurrent downloads
   are capped per process (`downloads.max_concurrent` in typed configuration;
