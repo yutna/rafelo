@@ -82,15 +82,21 @@ describe("resolvePage", () => {
     const EnglishPage = await resolvePage("sessions/new", {
       props: { app: { locale: "en" } },
     });
+    const englishHeading = "Sign in";
     const { rerender } = render(<EnglishPage {...signInProps("en")} />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sign in");
+    expect(screen.getByRole("heading", { level: 1, name: englishHeading })).toHaveTextContent(
+      englishHeading,
+    );
 
     const ThaiPage = await resolvePage("sessions/new", {
       props: { app: { locale: "th" } },
     });
     rerender(<ThaiPage key="th" {...signInProps("th")} />);
 
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("เข้าสู่ระบบ");
+    const thaiHeading = "เข้าสู่ระบบ";
+    expect(screen.getByRole("heading", { level: 1, name: thaiHeading })).toHaveTextContent(
+      thaiHeading,
+    );
   });
 
   it("fails when the page's locale has no catalog", async () => {

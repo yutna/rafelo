@@ -16,7 +16,15 @@ cases = [
   [ "engine e2e locator", "engines/sample/e2e/thing.spec.ts",
     "page.locator('.error');\n", 1 ],
   [ "engine e2e role", "engines/sample/e2e/thing.spec.ts",
-    "page.getByRole('alert', { name: 'Error' });\n", 0 ]
+    "page.getByRole('alert', { name: 'Error' });\n", 0 ],
+  [ "role query without a name", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button');\n", 1 ],
+  [ "role query with a name", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { name: 'Save' });\n", 0 ],
+  [ "role query with a name on another line", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', {\n  name: 'Save',\n});\n", 0 ],
+  [ "role query with a shorthand name", "engines/sample/app/frontend/thing.test.tsx",
+    "screen.getByRole('button', { name });\n", 0 ]
 ]
 
 failures = 0
@@ -29,10 +37,22 @@ cases.each do |name, path, contents, expected|
     File.write(File.join(tmp, path), contents)
 
     output, status = Open3.capture2e(script, "--root", tmp)
-    next if status.exitstatus == expected && (expected.zero? || output.include?(path))
+    next if status.exitstatus == expected &&
+            (expected.zero? || (output.include?("bad-selector") && output.include?(path)))
 
     failures += 1
     warn "test_selectors_canary: #{name} exited #{status.exitstatus}, expected #{expected}"
+    warn output
+  end
+end
+
+# An empty root fails closed instead of passing with nothing to check.
+Dir.mktmpdir("rafelo-selectors-empty-") do |tmp|
+  output, status = Open3.capture2e(script, "--root", tmp)
+  cases.append([ "empty root", "no test files", "", 1 ])
+  unless status.exitstatus == 1 && output.include?("no test files found")
+    failures += 1
+    warn "test_selectors_canary: empty root exited #{status.exitstatus}, expected 1"
     warn output
   end
 end

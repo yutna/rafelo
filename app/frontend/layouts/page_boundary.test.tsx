@@ -16,12 +16,14 @@ vi.mock("@/lib/report_client_error", async (importOriginal) => {
 
 import { PageBoundary } from "./page_boundary";
 
+const recordHeading = "Invoice 2";
+
 function Broken(): never {
   throw new Error("boom");
 }
 
 function Good() {
-  return <h1>Invoice 2</h1>;
+  return <h1>{recordHeading}</h1>;
 }
 
 describe("PageBoundary", () => {
@@ -40,10 +42,10 @@ describe("PageBoundary", () => {
       </PageBoundary>,
     );
 
-    expect(screen.getByRole("alert")).toHaveTextContent("request-1");
+    expect(screen.getByTestId("page.error")).toHaveTextContent("request-1");
     expect(screen.getByTestId("page.error.retry")).toBeVisible();
     expect(screen.getByTestId("page.error.home")).toHaveAttribute("href", "/");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(screen.getByTestId("page.error.title")).toHaveFocus();
     expect(reporter).toHaveBeenCalledTimes(1);
     expect(reporter).toHaveBeenCalledWith(expect.any(Error), expect.anything(), {
       requestId: "request-1",
@@ -58,7 +60,9 @@ describe("PageBoundary", () => {
     );
 
     expect(screen.queryByTestId("page.error")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Invoice 2");
+    expect(screen.getByRole("heading", { level: 1, name: recordHeading })).toHaveTextContent(
+      recordHeading,
+    );
   });
 
   it("clears the error and renders the page again after a retry", async () => {
@@ -81,6 +85,8 @@ describe("PageBoundary", () => {
     await userEvent.click(screen.getByTestId("page.error.retry"));
 
     expect(screen.queryByTestId("page.error")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Invoice 2");
+    expect(screen.getByRole("heading", { level: 1, name: recordHeading })).toHaveTextContent(
+      recordHeading,
+    );
   });
 });

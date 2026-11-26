@@ -49,14 +49,17 @@ files.each do |path|
   next if relative.match?(%r{\Aengines/[^/]+/spec/[^/]+/app/})
 
   File.readlines(path, chomp: true).each_with_index do |line, index|
-    code = line.split(/\s+#\s*/, 2).first || ""
+    # Strip string literals before both the code and the comment checks: a
+    # "#123" inside a description is not an issue reference (TS-04).
+    without_strings = line.gsub(/(["']).*?\1/, '""')
+    comment = without_strings[/\s+(#.*)\z/, 1]
+    code = without_strings.sub(/\s+#.*\z/, "")
     next if code.lstrip.start_with?("#")
 
-    code = code.gsub(/(["']).*?\1/, '""')
     next unless SKIP_FORMS.any? { |form| code.match?(form) }
 
-    next if line.match?(ISSUE_REFERENCE)
-    next if relative.start_with?("spec/enforcement/") && line.match?(/prosopite:\s*false|Prosopite\.pause/)
+    next if comment&.match?(ISSUE_REFERENCE)
+    next if relative.start_with?("spec/enforcement/") && code.match?(/prosopite:\s*false|Prosopite\.pause/)
 
     puts "#{relative}:#{index + 1}: skip-needs-issue: add #<number> or an issue URL on the same line"
     findings += 1

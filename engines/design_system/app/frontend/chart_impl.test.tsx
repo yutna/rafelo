@@ -160,11 +160,17 @@ describe("ChartImpl", () => {
 
     const table = screen.getByTestId("orders.chart.table");
     expect(toggle).toHaveTextContent("Hide table");
-    expect(
-      within(table)
-        .getAllByRole("cell")
-        .map((cell) => cell.textContent),
-    ).toEqual(["Orders", "Open", "", "1,200", "Orders", "Paid", "", "300"]);
+    for (const [value, count] of [
+      ["Orders", 2],
+      ["Open", 1],
+      ["1,200", 1],
+      ["Paid", 1],
+      ["300", 1],
+    ] as const) {
+      expect(within(table).getAllByRole("cell", { name: value })).toHaveLength(count);
+    }
+    const emptyCell = "";
+    expect(within(table).getAllByRole("cell", { name: emptyCell })).toHaveLength(2);
   });
 
   it("formats the hovered point for the live tooltip", () => {

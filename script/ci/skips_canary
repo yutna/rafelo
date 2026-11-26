@@ -24,8 +24,14 @@ cases = [
     "xdescribe 'flow' do\nend\n", 1 ],
   [ "ruby group skip metadata", "engines/sample/spec/thing_spec.rb",
     "describe 'works', :skip do\nend\n", 1 ],
+  [ "ruby example skip metadata", "engines/sample/spec/thing_spec.rb",
+    "it 'works', :skip do\nend\n", 1 ],
+  [ "ruby example skip metadata with issue", "engines/sample/spec/thing_spec.rb",
+    "it 'works', :skip do #123\nend\n", 0 ],
   [ "ruby group skip with issue", "engines/sample/spec/thing_spec.rb",
     "describe 'works', :skip do #123\nend\n", 0 ],
+  [ "issue reference inside a string is not a reference", "engines/sample/spec/thing_spec.rb",
+    "it 'works #123', :skip do\nend\n", 1 ],
   [ "ruby context skip metadata", "engines/sample/spec/thing_spec.rb",
     "context 'works', :skip do\nend\n", 1 ],
   [ "ruby pending metadata", "engines/sample/spec/thing_spec.rb",
@@ -63,10 +69,22 @@ cases.each do |name, path, contents, expected|
     File.write(File.join(tmp, path), contents)
 
     output, status = Open3.capture2e(script, "--root", tmp)
-    next if status.exitstatus == expected && (expected.zero? || output.include?(path))
+    next if status.exitstatus == expected &&
+            (expected.zero? || (output.include?("skip-needs-issue") && output.include?(path)))
 
     failures += 1
     warn "skips_canary: #{name} exited #{status.exitstatus}, expected #{expected}"
+    warn output
+  end
+end
+
+# An empty root fails closed instead of passing with nothing to check.
+Dir.mktmpdir("rafelo-skips-empty-") do |tmp|
+  output, status = Open3.capture2e(script, "--root", tmp)
+  cases.append([ "empty root", "no test files", "", 1 ])
+  unless status.exitstatus == 1 && output.include?("no test files found")
+    failures += 1
+    warn "skips_canary: empty root exited #{status.exitstatus}, expected 1"
     warn output
   end
 end

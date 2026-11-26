@@ -56,6 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
               this.heading = node;
             }}
             tabIndex={-1}
+            data-testid={`${this.props.testId}.title`}
             className="text-2xl font-semibold"
           >
             {this.props.title}

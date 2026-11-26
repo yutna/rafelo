@@ -71,16 +71,17 @@ describe("LayoutRoot", () => {
 
   it("parses the shared props and renders the shell", () => {
     inertia.props = shared;
+    const heading = "Orders";
 
     render(
       <LayoutRoot>
-        <h1>Orders</h1>
+        <h1>{heading}</h1>
       </LayoutRoot>,
     );
 
     expect(screen.getByTestId("app-root")).toHaveAttribute("lang", "en");
     expect(screen.getByTestId("app-root")).toHaveAttribute("data-time-zone", "Asia/Bangkok");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Orders");
+    expect(screen.getByRole("heading", { level: 1, name: heading })).toHaveTextContent(heading);
   });
 
   it("renders the module nav and locale switcher with their current markers", () => {
@@ -122,7 +123,7 @@ describe("LayoutRoot", () => {
       expect(link).toHaveFocus();
       expect(link).toHaveAttribute("href", "#main-content");
 
-      const main = screen.getByRole("main");
+      const main = screen.getByTestId("app.main");
       expect(main).toHaveAttribute("id", "main-content");
       expect(main).toHaveAttribute("tabindex", "-1");
 
@@ -187,7 +188,7 @@ describe("LayoutRoot", () => {
       </LayoutRoot>,
     );
     expect(screen.getByTestId("page.announcer")).toBe(announcer);
-    expect(screen.getByRole("main")).toBeVisible();
+    expect(screen.getByTestId("app.main")).toBeVisible();
     expect(screen.getByTestId("app.main-link")).toBeVisible();
 
     rerender(
@@ -198,7 +199,7 @@ describe("LayoutRoot", () => {
       </LayoutRoot>,
     );
     expect(screen.getByTestId("page.announcer")).toBe(announcer);
-    expect(screen.getByRole("main")).toBeVisible();
+    expect(screen.getByTestId("app.main")).toBeVisible();
   });
 
   it("hands the Thai Buddhist calendar to shell widgets", () => {
@@ -226,8 +227,8 @@ describe("LayoutRoot", () => {
     );
 
     expect(screen.getByTestId("app.root_error")).toBeVisible();
-    expect(screen.getByRole("alert")).toHaveTextContent("request-1");
-    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(screen.getByTestId("app.root_error")).toHaveTextContent("request-1");
+    expect(screen.getByTestId("app.root_error.title")).toHaveFocus();
     expect(reporter).toHaveBeenCalledTimes(1);
   });
 

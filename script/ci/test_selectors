@@ -23,14 +23,43 @@ patterns = %w[
 files = patterns.flat_map { |pattern| Dir[File.join(root, pattern)] }.uniq.select { |path| File.file?(path) }
 abort "test_selectors: no test files found under #{root}" if files.empty?
 
+# TS-04: select by role with an accessible name, or by test id.
 forbidden = /\.(?:get|query|find)(?:All)?By(?:Text|LabelText|PlaceholderText|DisplayValue|Title|AltText)\b|\.(?:getByLabel|getByPlaceholder|getByAltText|getByTitle|locator|querySelector(?:All)?)\b/
+role_query = /\b(?:get|query|find)(?:All)?ByRole\s*\(/
+role_name = /\bname\s*:|(?:\{|,)\s*name\s*[,}]/
+
+# The arguments of a call, from the opening parenthesis to its matching close.
+def call_arguments(text, open_index)
+  depth = 1
+  index = open_index
+  while depth.positive? && index < text.length
+    case text[index]
+    when "(" then depth += 1
+    when ")" then depth -= 1
+    end
+    index += 1
+  end
+  text[open_index...(index - 1)]
+end
+
 findings = 0
 files.each do |path|
   relative = path.delete_prefix("#{root}/")
-  File.readlines(path, chomp: true).each_with_index do |line, index|
+  text = File.read(path)
+
+  text.to_enum(:scan, role_query).each do
+    match = Regexp.last_match
+    next if call_arguments(text, match.end(0)).match?(role_name)
+
+    line = text[0...match.begin(0)].count("\n") + 1
+    puts "#{relative}:#{line}: bad-selector: select by role with an accessible name, or by test id"
+    findings += 1
+  end
+
+  text.each_line.with_index(1) do |line, index|
     next unless line.match?(forbidden)
 
-    puts "#{relative}:#{index + 1}: bad-selector: select by role with an accessible name, or by test id"
+    puts "#{relative}:#{index}: bad-selector: select by role with an accessible name, or by test id"
     findings += 1
   end
 end
