@@ -942,3 +942,23 @@ for a healthy upstream.
 
 **Spec feedback.** None new; #874's owner answer covers the SHOULD and this
 implements it. Related IDs: BE-05, BE-16, BE-21.
+
+## 2026-11-26 — v0.43.0 — issue #1032 (download queue deadline)
+
+**What happened.** The download producer pushed chunks into a bounded queue
+with a blocking push. A slow client stopped the consumer inside
+`stream.write`; the queue filled and the producer kept a pooled upstream
+connection borrowed past the request deadline.
+
+**Root cause.** The queue handoff had no deadline, so the producer's only
+bound was the consumer's pace, which the client controls.
+
+**What changed.** The producer's push and the consumer's pop both wait at most
+the request deadline and fail as `upstream.timeout`; the producer's error
+handoff is best effort because the consumer's own bounded pop reports the same
+timeout. A controller spec stalls the consumer and asserts the source
+unwinds at the deadline with `upstream.timeout`, which releases the pooled
+connection.
+
+**Spec feedback.** None new; BE-18 already aborts a stream whose deadline
+passes. Related IDs: BE-16, BE-18.
