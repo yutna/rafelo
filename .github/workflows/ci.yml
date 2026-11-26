@@ -8,9 +8,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 2 * * *"
-    # Temporary, removed by #1095: prove the scheduled gate on the current
-    # main without waiting for the next daily run.
-    - cron: "*/15 * * * *"
 
 concurrency:
   group: ci-${{ github.ref }}
