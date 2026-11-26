@@ -47,7 +47,7 @@ module Rafelo
             nav: nav || {},
             flag: flag
           )
-          validate_entry!(entry, ignore: entries)
+          validate_entry!(entry)
           entries << entry
           entry
         end
@@ -93,39 +93,87 @@ module Rafelo
               raise ArgumentError, "permission key #{key} is declared by #{modules.join(', ')}"
             end
           end
-          entries.each { |entry| validate_entry!(entry, ignore: entries) }
+          entries.each { |entry| validate_entry!(entry) }
+        end
+
+        # ARCH-06: the app's routes are drawn after the engine initializers, so
+        # the reserved-route and mount checks run from config.after_routes_loaded
+        # on every load or reload.
+        def validate_routes!
+          validate!
+          names = app_route_names(ignore: entries)
+          entries.each do |entry|
+            validate_route_entry!(entry, names)
+            validate_mount!(entry)
+          end
         end
 
         private
+
+        def validate_route_entry!(entry, names)
+          key = entry.key.to_s
+          segment = entry.path.split("/")[1].to_s
+
+          [ [ "key", key ], [ "path", segment ] ].each do |label, name|
+            raise ArgumentError, "module #{label} is reserved: #{name}" if names.include?(name)
+          end
+        end
+
+        def validate_mount!(entry)
+          return if mounted?(entry)
+
+          raise ArgumentError,
+                "module #{entry.key} is not mounted in the app's routes; " \
+                "add `mount #{entry.engine} => \"#{entry.path}\", as: :#{entry.route_name}`"
+        end
+
+        def mounted?(entry)
+          app_routes.any? do |route|
+            route.name.to_s == entry.route_name.to_s && route_app(route) == entry.engine
+          end
+        end
+
+        def route_app(route)
+          return unless route.respond_to?(:app)
+
+          app = route.app
+          # A mounted engine is wrapped in Mapper::Constraints; every other
+          # endpoint answers `app` with itself (Routing::Endpoint#app).
+          app = app.app while app.is_a?(ActionDispatch::Routing::Mapper::Constraints)
+          app
+        end
 
         def entries
           @entries ||= []
         end
 
-        def validate_entry!(entry, ignore: [])
+        def validate_entry!(entry)
           key = entry.key.to_s
           segment = entry.path.split("/")[1].to_s
           raise ArgumentError, "module path must start with /: #{entry.path}" unless entry.path.start_with?("/")
 
           [ [ "key", key ], [ "path", segment ] ].each do |label, name|
-            raise ArgumentError, "module #{label} is reserved: #{name}" if reserved?(name, ignore: ignore)
+            raise ArgumentError, "module #{label} is reserved: #{name}" if reserved?(name)
           end
         end
 
-        def reserved?(name, ignore: [])
+        def reserved?(name)
           RESERVED.include?(name) ||
             KERNEL_ERROR_PREFIXES.include?(name) ||
-            Locales.locale_segment?(name) ||
-            app_route_names(ignore: ignore).include?(name)
+            Locales.locale_segment?(name)
+        end
+
+        def app_routes
+          return [] unless defined?(Rails) && Rails.respond_to?(:application) && Rails.application
+
+          Rails.application.routes.routes
         end
 
         def app_route_names(ignore: [])
-          return [] unless defined?(Rails) && Rails.respond_to?(:application) && Rails.application
+          engines = ignore.map(&:engine)
 
-          module_names = ignore.map { |item| item.key.to_s }
-
-          routes = Rails.application.routes.routes
-          names = routes.filter_map(&:name).map(&:to_s) - module_names
+          routes = app_routes.reject { |route| engines.include?(route_app(route)) }
+          names = routes.filter_map(&:name).map(&:to_s)
           segments = routes.filter_map { |route| route.path.spec.to_s[/\A\/([a-z][a-z0-9_]*)/, 1] }
           (names + segments).uniq
         end
