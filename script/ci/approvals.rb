@@ -15,20 +15,41 @@ module Approvals
   # request cannot remove its own guard path or add an owner to approve
   # itself (WF-03). The value loads the file once for a whole diff.
   class Codeowners
+    # GitHub's search order: .github/, the root, then docs/.
+    LOCATIONS = %w[.github/CODEOWNERS CODEOWNERS docs/CODEOWNERS].freeze
+
     def self.load(root, base: nil)
       if base && !base.to_s.empty?
-        %w[.github/CODEOWNERS CODEOWNERS].each do |candidate|
-          output, status = Open3.capture2("git", "-C", root, "show", "#{base}:#{candidate}", err: File::NULL)
-          return new(Approvals.parse_codeowners(output)) if status.success?
+        validate_base!(root, base)
+        LOCATIONS.each do |candidate|
+          listing, status = Open3.capture2(
+            "git", "-C", root, "ls-tree", "--name-only", base, "--", candidate, err: File::NULL
+          )
+          abort "approvals: cannot list #{candidate} at #{base}" unless status.success?
+          next if listing.strip.empty?
+
+          output, show_status = Open3.capture2(
+            "git", "-C", root, "show", "#{base}:#{candidate}", err: File::NULL
+          )
+          abort "approvals: cannot read #{candidate} at #{base}" unless show_status.success?
+
+          return new(Approvals.parse_codeowners(output))
         end
         return new([])
       end
 
-      path = File.join(root, ".github", "CODEOWNERS")
-      path = File.join(root, "CODEOWNERS") unless File.file?(path)
-      return new([]) unless File.file?(path)
+      LOCATIONS.each do |candidate|
+        path = File.join(root, candidate)
+        return new(Approvals.parse_codeowners(File.read(path))) if File.file?(path)
+      end
+      new([])
+    end
 
-      new(Approvals.parse_codeowners(File.read(path)))
+    def self.validate_base!(root, base)
+      _output, status = Open3.capture2(
+        "git", "-C", root, "rev-parse", "--verify", "#{base}^{commit}", err: File::NULL
+      )
+      abort "approvals: invalid base #{base}" unless status.success?
     end
 
     def initialize(entries)
