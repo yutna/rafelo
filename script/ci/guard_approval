@@ -35,7 +35,8 @@ end
 abort "guard_approval: --base or BASE_SHA is required" if base.to_s.empty?
 
 changed = Approvals.changed_files(root, base)
-guards = changed.select { |path| Approvals.guard_entry?(root, path, base: base) }
+codeowners = Approvals.codeowners(root, base: base)
+guards = changed.select { |path| Approvals.guard_entry?(codeowners, path) }
 if guards.empty?
   puts "guard_approval: checked #{changed.size} changed file(s); guard files=0"
   exit 0
@@ -43,7 +44,7 @@ end
 
 number = Approvals.pull_request_number(pr, head_ref)
 reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
-unless Approvals.approved_by_owner?(root, reviews, base: base, author: author)
+unless Approvals.approved_by_owner?(codeowners, reviews, author: author)
   guards.each { |path| warn "guard_approval: guard file changed without an approval from an owner other than the author: #{path}" }
   exit 1
 end

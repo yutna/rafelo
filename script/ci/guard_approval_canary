@@ -24,12 +24,33 @@ def reviews(dir, name, entries)
   path
 end
 
-def run_case(script, dir, base, reviews_file, event = "pull_request", author = nil)
+def run_case(script, dir, base, reviews_file, event = "pull_request", author = nil, env = {})
   args = [ script, "--root", dir, "--base", base, "--event", event ]
   args += [ "--reviews", reviews_file ] if reviews_file
   args += [ "--author", author ] if author
-  output, status = Open3.capture2e(*args)
+  output, status = Open3.capture2e(env, *args)
   [ status.exitstatus, output ]
+end
+
+# A git wrapper that counts the "show" calls made by the script under test, so
+# a canary can prove CODEOWNERS is loaded once for a whole diff (WF-03).
+def git_shim(dir)
+  bin = File.join(dir, "bin")
+  FileUtils.mkdir_p(bin)
+  real_git = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+    .map { |entry| File.join(entry, "git") }
+    .find { |path| File.executable?(path) }
+  abort "guard_approval_canary: git is not on PATH" if real_git.nil?
+
+  File.write(File.join(bin, "git"), <<~BASH)
+    #!/usr/bin/env bash
+    for arg in "$@"; do
+      if [ "$arg" = "show" ]; then printf '%s\\n' "$*" >> "$GIT_SHOW_CALLS"; fi
+    done
+    exec #{real_git} "$@"
+  BASH
+  File.chmod(0o755, File.join(bin, "git"))
+  { "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}" }
 end
 
 Dir.mktmpdir("rafelo-guard-canary-") do |dir|
@@ -166,6 +187,68 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   if status != 1
     failures += 1
     warn "guard_approval_canary: canary fixture: exited #{status}: #{output}"
+  end
+
+  # GitHub matches a pattern without a slash at any depth: *.rb guards a file
+  # in a nested directory, and it still leaves a non-.rb file unguarded.
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "*.rb @owner\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "extension pattern")
+  FileUtils.mkdir_p(File.join(dir, "nested", "deep"))
+  File.write(File.join(dir, "nested", "deep", "file.rb"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "nested ruby")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: nested *.rb pattern: exited #{status}: #{output}"
+  end
+
+  File.write(File.join(dir, "nested", "deep", "file.txt"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "nested text")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: *.rb leaves a nested .txt unguarded: exited #{status}: #{output}"
+  end
+
+  # A lone * matches a whole path, nested directories included.
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "* @owner\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "every path")
+  FileUtils.mkdir_p(File.join(dir, "nested", "deeper"))
+  File.write(File.join(dir, "nested", "deeper", "plain.txt"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "nested plain")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: nested * pattern: exited #{status}: #{output}"
+  end
+
+  # A diff of many guard files loads the merge-base CODEOWNERS once, not once
+  # per changed path.
+  FileUtils.mkdir_p(File.join(dir, "many"))
+  20.times { |index| File.write(File.join(dir, "many", "guard_#{index}.txt"), "one\n") }
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "many guards")
+  show_calls = File.join(dir, "git-show-calls")
+  FileUtils.rm_f(show_calls)
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "outsider",
+                            git_shim(dir).merge("GIT_SHOW_CALLS" => show_calls))
+  shows = File.exist?(show_calls) ? File.readlines(show_calls, chomp: true).size : 0
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: many guard files: exited #{status}: #{output}"
+  end
+  if shows != 1
+    failures += 1
+    warn "guard_approval_canary: many guard files loaded CODEOWNERS #{shows} times, expected 1"
   end
 end
 
