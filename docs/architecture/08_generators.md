@@ -401,7 +401,9 @@ when adopting.
   `>>>>>>>`; a line of `=======` alone is not one, because Markdown and
   fixtures use it),
   and updates `KERNEL_VERSION`. The result is an ordinary pull request that
-  must pass `bin/ci`.
+  must pass `bin/ci`. After a clean merge, and again after `--continue`, it
+  runs the app's own `npm run docs:generate`, because the generated tables in
+  `docs/architecture` are app-owned and would otherwise fail `docs:check`.
 - By default it updates core, the generators, `script/ci/`, `bin/check`,
   `bin/kernel_update`, `spec/fixtures/hostile_urls.json` (FE-18), and the guard
   configurations. App-owned files the template renders with the app's namespace
