@@ -365,6 +365,14 @@ Dir.mktmpdir("rafelo-ratchet-skip-count-") do |dir|
   cases += 1
   status, output = run_case(script, dir, base, nil)
   failures = check(failures, "real skip above the ceiling", 1, status, output, "skipped_tests")
+
+  # RSpec :skip metadata is a skipped test too, not just the bare keyword.
+  File.write(File.join(dir, "spec", "metadata_spec.rb"),
+             "it 'skips with metadata', :skip do #123\nend\n")
+  commit(dir, "metadata skip")
+  cases += 1
+  status, output = run_case(script, dir, base, nil)
+  failures = check(failures, "metadata skip is counted", 1, status, output, "skipped_tests is 2")
 end
 
 
