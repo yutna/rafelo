@@ -958,12 +958,16 @@ the request deadline and fail as `upstream.timeout`; the producer's error
 handoff is best effort because the consumer's own bounded pop reports the same
 timeout. A controller spec stalls the consumer and asserts the source
 unwinds at the deadline with `upstream.timeout`, which releases the pooled
-connection. The timeout is `DownloadStalled`, which the client's breaker skips
-and its upstream metrics do not count: a viewer's pace is a local condition,
+connection. The producer throws out of the upstream call at the deadline, so
+the client's breaker records no outcome at all: a `skipped_errors` entry is
+recorded by Stoplight as a success and resets the failure streak, which could
+close a half-open circuit without a successful response. The controller then
+raises `DownloadStalled` (same `upstream.timeout` code) to the consumer; the
+upstream error metric does not count it. A viewer's pace is a local condition,
 not an upstream failure (the #1058 reading applied to the queue), so five
-stalled viewers cannot open a healthy upstream's circuit. A download spec
-raises it inside a streaming call with a threshold-1 breaker and proves the
-next call still runs.
+stalled viewers cannot open a healthy upstream's circuit. Download specs
+stall between two failures and as a half-open probe and assert the circuit
+state.
 
 **Spec feedback.** None new; BE-18 already aborts a stream whose deadline
 passes. Related IDs: BE-05, BE-16, BE-18.

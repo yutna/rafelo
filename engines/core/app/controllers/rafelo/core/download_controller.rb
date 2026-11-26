@@ -10,6 +10,12 @@ module Rafelo
 
       layout "application"
 
+      # The producer throws this out of the upstream call when a viewer stops
+      # draining the queue. A throw, unlike an exception, is not seen by the
+      # client's breaker: a stalled viewer is neither a failure nor a success
+      # (BE-05, BE-16, BE-18).
+      DOWNLOAD_STALLED = :rafelo_download_stalled
+
       def send_download(filename:, source:, type: nil, max_bytes: nil, event: "download")
         authorize_download!
         permit = DownloadLimiter.acquire
@@ -20,8 +26,14 @@ module Rafelo
         context = Current.attributes
         producer = Thread.new do
           Current.set(**context) do
-            source.call { |chunk| enqueue(queue, deadline, [ :chunk, chunk ]) }
-            enqueue(queue, deadline, [ :done ])
+            stalled = catch(DOWNLOAD_STALLED) do
+              source.call do |chunk|
+                throw DOWNLOAD_STALLED, true unless enqueue(queue, deadline, [ :chunk, chunk ])
+              end
+              enqueue(queue, deadline, [ :done ])
+              false
+            end
+            deliver_error(queue, deadline, DownloadStalled.new) if stalled
           end
         rescue StandardError => error
           deliver_error(queue, deadline, error)
@@ -78,12 +90,13 @@ module Rafelo
 
       # A slow client stops the consumer inside stream.write; the producer must
       # not hold a pooled upstream connection past the request deadline waiting
-      # for room (BE-16, BE-18).
+      # for room (BE-16, BE-18). Returns false on the deadline; the caller
+      # throws out of the upstream call so the breaker records no outcome.
       def enqueue(queue, deadline, message)
         remaining = deadline.remaining
-        raise DownloadStalled.new if remaining.zero?
+        return false if remaining.zero?
 
-        raise DownloadStalled.new if queue.push(message, timeout: remaining).nil?
+        !queue.push(message, timeout: remaining).nil?
       end
 
       # The error handoff is best effort: a full queue means the consumer is
