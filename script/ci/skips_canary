@@ -78,6 +78,16 @@ cases.each do |name, path, contents, expected|
   end
 end
 
+# A missing root is a configuration error, not a crash.
+missing = File.join(Dir.tmpdir, "rafelo-skips-missing-#{Process.pid}")
+output, status = Open3.capture2e(script, "--root", missing)
+cases.append([ "missing root", "no root", "", 1 ])
+unless status.exitstatus == 1 && output.include?("root does not exist")
+  failures += 1
+  warn "skips_canary: missing root exited #{status.exitstatus}, expected 1"
+  warn output
+end
+
 # An empty root fails closed instead of passing with nothing to check.
 Dir.mktmpdir("rafelo-skips-empty-") do |tmp|
   output, status = Open3.capture2e(script, "--root", tmp)

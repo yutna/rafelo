@@ -221,6 +221,39 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   failures = check(failures, "non-integer ceiling", 1, status, output, "non-integer")
 end
 
+# --update counts the clone baseline from script/ci/clones when it exists and
+# never raises a ceiling; check mode compares it with the committed ceiling.
+Dir.mktmpdir("rafelo-ratchet-clones-") do |dir|
+  init_repo(dir)
+  write_root(dir, "clone_baseline_entries" => 10)
+  write_engine(dir)
+  FileUtils.mkdir_p(File.join(dir, "script", "ci"))
+  File.write(File.join(dir, "script", "ci", "clones"), <<~'BASH')
+    #!/usr/bin/env bash
+    printf 'flay cross_engine=3\n'
+    printf 'jscpd files=1 cross_engine=7\n'
+  BASH
+  File.chmod(0o755, File.join(dir, "script", "ci", "clones"))
+  base = commit(dir, "base")
+
+  cases += 1
+  output, status = Open3.capture2e(script, "--root", dir, "--update")
+  updated = YAML.load_file(File.join(dir, "config", "ratchets.yml"))
+  cases += 1
+  if status != 0 || updated["clone_baseline_entries"] != 7 ||
+     !output.include?("clone_baseline_entries 10 -> 7")
+    failures += 1
+    warn "ratchet_canary: clone baseline update: exited #{status}: #{output}"
+  end
+
+  write_root(dir, "clone_baseline_entries" => 5)
+  commit(dir, "lower the clone ceiling")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil)
+  failures = check(failures, "clone baseline above the ceiling", 1, status, output,
+                   "clone_baseline_entries is 7, above its ceiling 5")
+end
+
 # The merge_group payload has no pull request user: the author is resolved
 # from the PR number, and a missing gh fails closed with the approval message
 # and no network fallback (WF-03).

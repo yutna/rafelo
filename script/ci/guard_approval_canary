@@ -287,6 +287,31 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   end
 end
 
+# The pull request workflow runs the merge base's checker and CODEOWNERS, not
+# the pull request's copies (WF-03). An adopted app keeps it at .github/; this
+# repository keeps the payload copy under template/.
+workflow = [
+  File.join(root, ".github", "workflows", "pull_request.yml"),
+  File.join(root, "template", ".github", "workflows", "pull_request.yml")
+].find { |path| File.file?(path) }
+cases += 1
+if workflow
+  text = File.read(workflow)
+  required = [
+    'git show "$BASE_SHA:script/ci/guard_approval"',
+    'git show "$BASE_SHA:script/ci/approvals.rb"',
+    'ruby "$lib/guard_approval" --root "$PWD" --base "$BASE_SHA"'
+  ]
+  missing = required.reject { |line| text.include?(line) }
+  unless missing.empty?
+    failures += 1
+    warn "guard_approval_canary: the workflow does not run the merge-base checker: #{missing.join(", ")}"
+  end
+else
+  failures += 1
+  warn "guard_approval_canary: the pull request workflow is missing"
+end
+
 if failures.positive?
   warn "guard_approval_canary: checked #{cases} cases; failures=#{failures}"
   exit 1
