@@ -56,9 +56,22 @@ def ratchet_files(root)
   end
 end
 
+def validate_base!(root, base)
+  _output, status = Open3.capture2(
+    "git", "-C", root, "rev-parse", "--verify", "#{base}^{commit}", err: File::NULL
+  )
+  abort "ratchet: invalid base #{base}" unless status.success?
+end
+
 def load_ratchets(root, revision, file)
+  listing, listing_status = Open3.capture2(
+    "git", "-C", root, "ls-tree", "--name-only", revision, "--", file, err: File::NULL
+  )
+  abort "ratchet: cannot list #{file} at #{revision}" unless listing_status.success?
+  return {} if listing.strip.empty?
+
   output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:#{file}", err: File::NULL)
-  return {} unless status.success?
+  abort "ratchet: cannot read #{file} at #{revision}" unless status.success?
 
   YAML.safe_load(output) || {}
 end
@@ -118,6 +131,7 @@ if update
 end
 
 abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
+validate_base!(root, base)
 
 current = {}
 base_counts = {}
@@ -133,13 +147,15 @@ files.each do |file|
 end
 
 # Count the real values in check mode: a value above its committed ceiling
-# fails even when the YAML file was not edited. A new key required by the
-# check set is recorded at its real value, not treated as a rise.
+# fails even when the YAML file was not edited. A key absent at base must be
+# recorded at its real value; a higher value is headroom and needs approval.
+actual = {}
 over = 0
 files.each do |file|
   path = File.join(root, file)
   committed = YAML.safe_load_file(path) || {}
   RatchetCounts.for(root, file, clones: clones).each do |key, value|
+    actual["#{file}:#{key}"] = value
     ceiling = committed[key]
     next unless ceiling.is_a?(Integer) && value.is_a?(Integer)
     next unless value > ceiling
@@ -155,9 +171,11 @@ end
 
 rises = current.filter_map do |key, value|
   previous = base_counts[key]
-  next unless previous.is_a?(Integer)
-
-  [ key, previous, value ] if value > previous
+  if previous.is_a?(Integer)
+    [ key, previous, value ] if value > previous
+  elsif actual[key].is_a?(Integer) && value > actual[key]
+    [ key, actual[key], value ]
+  end
 end
 falls = current.filter_map do |key, value|
   next unless base_counts[key].is_a?(Integer)
