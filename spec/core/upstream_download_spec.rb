@@ -94,27 +94,72 @@ RSpec.describe "Upstream download streaming" do
     expect(chunks).to be_empty
   end
 
-  it "keeps a viewer-stalled stream out of the breaker and the upstream metrics" do
-    stalled_config = Rafelo::Core::UpstreamConfig.new(
+  def stalled_config(threshold:, cool_off: 30)
+    Rafelo::Core::UpstreamConfig.new(
       base_url: "http://upstream.test",
       open_timeout: 1, read_timeout: 2, write_timeout: 1,
       max_concurrent_calls: 2, max_response_bytes: 100,
       retry_budget: 0, idempotency_keys: false,
-      service_token_gateways: [], breaker: { failure_threshold: 1, cool_off: 30 }
+      service_token_gateways: [], breaker: { failure_threshold: threshold, cool_off: cool_off }
     )
-    client = Rafelo::Core::UpstreamClient.new(name: :stalled_download, config: stalled_config, token_provider: token)
+  end
+
+  it "does not record an outcome when the viewer stalls inside the call" do
+    config = stalled_config(threshold: 1)
+    client = Rafelo::Core::UpstreamClient.new(name: :stalled_download, config: config, token_provider: token)
     stub_request(:get, "http://upstream.test/report").to_return(status: 200, body: "hello world")
     allow(Rafelo::Core::Metrics).to receive(:record_upstream_error)
 
-    expect do
-      client.stream(:get, "report") { raise Rafelo::Core::DownloadStalled.new }
-    end.to raise_error(Rafelo::Core::DownloadStalled)
+    result = catch(:rafelo_download_stalled) do
+      client.stream(:get, "report") { throw :rafelo_download_stalled, :stalled }
+      :finished
+    end
 
+    expect(result).to eq(:stalled)
     chunks = []
     client.stream(:get, "report") { |chunk| chunks << chunk }
 
     expect(chunks.join).to eq("hello world")
     expect(Rafelo::Core::Metrics).not_to have_received(:record_upstream_error)
+  end
+
+  it "keeps a stall from resetting the upstream failure streak" do
+    config = stalled_config(threshold: 2)
+    client = Rafelo::Core::UpstreamClient.new(name: :stalled_streak, config: config, token_provider: token)
+    stub_request(:get, "http://upstream.test/report").to_return(status: 500, body: "boom")
+    stub_request(:get, "http://upstream.test/stall").to_return(status: 200, body: "hello")
+
+    expect { client.stream(:get, "report") { } }.to raise_error(Rafelo::Core::ApplicationError)
+    expect do
+      catch(:rafelo_download_stalled) do
+        client.stream(:get, "stall") { throw :rafelo_download_stalled }
+      end
+    end.not_to raise_error
+    expect { client.stream(:get, "report") { } }.to raise_error(Rafelo::Core::ApplicationError)
+
+    expect do
+      client.stream(:get, "report") { }
+    end.to raise_error(Rafelo::Core::ApplicationError) { |error| expect(error.code).to eq("upstream.circuit_open") }
+  end
+
+  it "leaves a half-open circuit open when the viewer stalls" do
+    config = stalled_config(threshold: 1, cool_off: 1)
+    client = Rafelo::Core::UpstreamClient.new(name: :stalled_probe, config: config, token_provider: token)
+    stub_request(:get, "http://upstream.test/report").to_return(status: 500, body: "boom")
+    stub_request(:get, "http://upstream.test/stall").to_return(status: 200, body: "hello")
+    breaker = client.instance_variable_get(:@breaker)
+
+    expect { client.stream(:get, "report") { } }.to raise_error(Rafelo::Core::ApplicationError)
+    expect(breaker.color).to eq(:red)
+
+    sleep 1.1
+    expect(breaker.color).to eq(:yellow)
+
+    catch(:rafelo_download_stalled) do
+      client.stream(:get, "stall") { throw :rafelo_download_stalled }
+    end
+
+    expect(breaker.color).to eq(:yellow)
   end
 
   it "rejects a body over the download cap before yielding a byte" do
