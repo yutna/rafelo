@@ -3,6 +3,7 @@
 
 require "active_support/inflector"
 require "fileutils"
+require "json"
 require "open-uri"
 require "open3"
 require "optparse"
@@ -789,6 +790,27 @@ module KernelUpdate
     namespace.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
   end
 
+
+  # The generated docs are app-owned; a kernel update that changes their source
+  # must regenerate them or the updated copy fails docs:check (CT-01, CT-09,
+  # GEN-08).
+  def regenerate_docs(root, version)
+    package_path = File.join(root, "package.json")
+    return unless File.file?(package_path)
+
+    scripts = JSON.parse(File.read(package_path)).fetch("scripts", {})
+    return unless scripts.is_a?(Hash) && scripts["docs:generate"].is_a?(String)
+
+    output, status = Open3.capture2e("npm", "run", "--silent", "docs:generate", chdir: root)
+    return puts("kernel_update: regenerated the app-owned generated docs") if status.success?
+
+    raise Error, "docs:generate failed; fix the toolchain and run bin/kernel_update #{version} --continue:\n#{output.strip}"
+  rescue Errno::ENOENT
+    raise Error, "npm is required to regenerate the app-owned generated docs"
+  rescue JSON::ParserError => error
+    raise Error, "cannot read package.json: #{error.message}"
+  end
+
   def conflict_markers?(root)
     ignored = %w[.git node_modules tmp public/vite public/vite-dev public/vite-test test-results]
     Dir.glob(File.join(root, "**", "*"), File::FNM_DOTMATCH).select { |path| File.file?(path) }.any? do |file|
@@ -858,6 +880,7 @@ module KernelUpdate
         return 1
       end
 
+      KernelUpdate.regenerate_docs(root, @version)
       write_version(root, @version)
       puts "kernel_update: updated KERNEL_VERSION to #{@version}"
       0
@@ -926,6 +949,7 @@ module KernelUpdate
         return
       end
 
+      KernelUpdate.regenerate_docs(root, @version)
       write_version(root, @version)
       puts "kernel_update: resolved conflicts; updated KERNEL_VERSION to #{@version}"
     end

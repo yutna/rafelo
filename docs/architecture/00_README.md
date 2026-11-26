@@ -406,8 +406,9 @@ included.
   guard configurations; design_system only
   folder by folder on request (`--include design_system/<folder>`), because
   you restyle it. After the
-  merge, `KERNEL_VERSION` names the new release; run `bin/ci` before
-  merging the pull request.
+  merge it regenerates the app-owned generated docs with the app's own
+  `npm run docs:generate`, `KERNEL_VERSION` names the new release, and you run
+  `bin/ci` before merging the pull request.
 - The template's own CI proves the update path on every release: it adopts
   release N-1, updates it to N, and runs `bin/ci`.
 - Report a vulnerability in the template through its `SECURITY.md`. Template

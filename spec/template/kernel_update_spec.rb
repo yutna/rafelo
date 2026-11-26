@@ -74,6 +74,83 @@ RSpec.describe "bin/kernel_update" do
     end
   end
 
+  def docs_generator_files(script)
+    {
+      "package.json" => JSON.generate("scripts" => { "docs:generate" => script }),
+      "script/docs/generate.js" => <<~JS
+        const fs = require("node:fs");
+        fs.mkdirSync("docs/architecture", { recursive: true });
+        fs.writeFileSync("docs/architecture/00_README.md", "generated\\n");
+      JS
+    }
+  end
+
+  # #1060: the generated docs are app-owned, so the update runs the app's own
+  # generator; otherwise the updated copy fails docs:check.
+  it "regenerates the app-owned generated docs after a clean update" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "engines/core/app/models/core_file.rb" => "base\n" })
+          write_release(target_root, version: "0.2.0", files: { "engines/core/app/models/core_file.rb" => "target\n" })
+          write_app(app_root, version: "0.1.0", files: docs_generator_files("node script/docs/generate.js")
+            .merge("engines/core/app/models/core_file.rb" => "base\n"))
+
+          out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status).to be_success, err
+          expect(out).to include("regenerated the app-owned generated docs")
+          expect(File.read(File.join(app_root, "docs/architecture/00_README.md"))).to eq("generated\n")
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
+  it "refuses to finish an update when the docs generator fails" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "engines/core/app/models/core_file.rb" => "base\n" })
+          write_release(target_root, version: "0.2.0", files: { "engines/core/app/models/core_file.rb" => "target\n" })
+          files = docs_generator_files("node script/docs/fail.js")
+            .merge("script/docs/fail.js" => "process.exit(1)\n", "engines/core/app/models/core_file.rb" => "base\n")
+          write_app(app_root, version: "0.1.0", files: files)
+
+          _out, err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+
+          expect(status.exitstatus).to eq(2)
+          expect(err).to include("docs:generate failed")
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.1.0\n")
+        end
+      end
+    end
+  end
+
+  it "regenerates the app-owned generated docs after --continue" do
+    Dir.mktmpdir("rafelo-kernel-base-") do |base_root|
+      Dir.mktmpdir("rafelo-kernel-target-") do |target_root|
+        Dir.mktmpdir("rafelo-kernel-app-") do |app_root|
+          write_release(base_root, version: "0.1.0", files: { "config/errors.yml" => "one: 1\n" })
+          write_release(target_root, version: "0.2.0", files: { "config/errors.yml" => "one: 2\n" })
+          files = { "config/errors.yml" => "one: 3\n" }.merge(docs_generator_files("node script/docs/generate.js"))
+          write_app(app_root, version: "0.1.0", files: files)
+
+          _out, _err, status = run_update("0.2.0", "--root", app_root, "--base-source", base_root, "--source", target_root)
+          expect(status.exitstatus).to eq(1)
+
+          File.write(File.join(app_root, "config/errors.yml"), "one: 3\n")
+          out, err, status = run_update("0.2.0", "--root", app_root, "--continue")
+
+          expect(status).to be_success, err
+          expect(out).to include("regenerated the app-owned generated docs")
+          expect(File.read(File.join(app_root, "docs/architecture/00_README.md"))).to eq("generated\n")
+          expect(File.read(File.join(app_root, "KERNEL_VERSION"))).to eq("0.2.0\n")
+        end
+      end
+    end
+  end
+
   it "refreshes the core controllers, the deploy secrets example, and the operations docs" do
     base = {
       "app/controllers/core/metrics_controller.rb" => "module Rafelo::Core\n  class MetricsController\n  end\nend\n",
