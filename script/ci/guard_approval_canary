@@ -309,6 +309,41 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     warn "guard_approval_canary: quoted guard path: exited #{status}: #{output}"
   end
 
+  # The GitHub CODEOWNERS documentation examples: a trailing slash matches a
+  # directory anywhere, a leading slash anchors it, and `docs/*` does not
+  # reach a further nested file.
+  File.write(File.join(dir, ".github", "CODEOWNERS"), <<~CODEOWNERS)
+    /build/logs/ @owner
+    apps/ @owner
+    **/logs @owner
+    docs/* @owner
+    /scripts/** @owner
+    script/ci @owner
+  CODEOWNERS
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "documentation patterns")
+
+  [
+    [ "build/logs/sub/app.log", 1, "trailing-slash root directory" ],
+    [ "vendor/apps/shop/file.rb", 1, "unanchored directory anywhere" ],
+    [ "nested/logs/guard.rb", 1, "double-star directory" ],
+    [ "docs/getting-started.md", 1, "single-level docs pattern" ],
+    [ "docs/build-app/troubleshooting.md", 0, "docs/* does not reach a nested file" ],
+    [ "scripts/ci/guard", 1, "directory/** contents" ],
+    [ "script/ci/nested/file", 1, "directory without a trailing slash" ]
+  ].each do |path, expected, name|
+    FileUtils.mkdir_p(File.dirname(File.join(dir, path)))
+    File.write(File.join(dir, path), "one\n")
+    git(dir, "add", ".")
+    git(dir, "commit", "-q", "-m", name)
+    cases += 1
+    status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "outsider")
+    next if status == expected
+
+    failures += 1
+    warn "guard_approval_canary: #{name}: exited #{status}, expected #{expected}: #{output}"
+  end
+
   # Restore the every-path pattern for the load-count case below.
   File.write(File.join(dir, ".github", "CODEOWNERS"), "* @owner\n")
   git(dir, "add", ".")
