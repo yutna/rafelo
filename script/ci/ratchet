@@ -56,9 +56,22 @@ def ratchet_files(root)
   end
 end
 
+def validate_base!(root, base)
+  _output, status = Open3.capture2(
+    "git", "-C", root, "rev-parse", "--verify", "#{base}^{commit}", err: File::NULL
+  )
+  abort "ratchet: invalid base #{base}" unless status.success?
+end
+
 def load_ratchets(root, revision, file)
+  listing, listing_status = Open3.capture2(
+    "git", "-C", root, "ls-tree", "--name-only", revision, "--", file, err: File::NULL
+  )
+  abort "ratchet: cannot list #{file} at #{revision}" unless listing_status.success?
+  return {} if listing.strip.empty?
+
   output, status = Open3.capture2("git", "-C", root, "show", "#{revision}:#{file}", err: File::NULL)
-  return {} unless status.success?
+  abort "ratchet: cannot read #{file} at #{revision}" unless status.success?
 
   YAML.safe_load(output) || {}
 end
@@ -118,6 +131,7 @@ if update
 end
 
 abort "ratchet: --base or BASE_SHA is required" if base.to_s.empty?
+validate_base!(root, base)
 
 current = {}
 base_counts = {}

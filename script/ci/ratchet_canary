@@ -94,6 +94,25 @@ def run_update(script, dir)
   [ status.exitstatus, output ]
 end
 
+def git_show_failure(dir)
+  bin = File.join(dir, "broken-bin")
+  FileUtils.mkdir_p(bin)
+  real_git = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+    .map { |entry| File.join(entry, "git") }
+    .find { |path| File.executable?(path) }
+  abort "ratchet_canary: git is not on PATH" if real_git.nil?
+
+  File.write(File.join(bin, "git"), <<~BASH)
+    #!/usr/bin/env bash
+    for arg in "$@"; do
+      if [ "$arg" = "show" ]; then exit 1; fi
+    done
+    exec #{real_git} "$@"
+  BASH
+  File.chmod(0o755, File.join(bin, "git"))
+  { "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}" }
+end
+
 def check(failures, name, expected, status, output, needle = nil)
   ok = status == expected && (needle.nil? || output.include?(needle))
   return failures if ok
@@ -107,6 +126,15 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   write_root(dir)
   write_engine(dir)
   base = commit(dir, "base")
+
+  # An invalid base and a failed read fail closed instead of hiding every rise.
+  cases += 1
+  status, output = run_case(script, dir, "deadbeef", nil)
+  failures = check(failures, "invalid base", 1, status, output, "invalid base")
+
+  cases += 1
+  output, status = Open3.capture2e(git_show_failure(dir), script, "--root", dir, "--base", base)
+  failures = check(failures, "failed ratchet read", 1, status.exitstatus, output, "cannot read")
 
   owner = reviews(dir, "owner", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
   second = reviews(dir, "second", [ { "user" => { "login" => "second" }, "state" => "APPROVED" } ])
