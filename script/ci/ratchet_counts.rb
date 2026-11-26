@@ -17,6 +17,7 @@ module RatchetCounts
     /\.skip\b/,
     /\bpending(?!\s*:)\b/,
     /\b(?:skip|pending):/,
+    /\b(?:it|specify|example|describe|context|feature|scenario)\b.*(?<![\w:]):skip\b/,
     /\bprosopite:\s*false\b/,
     /\bProsopite\.pause\b/,
     /\b(?:it|test|describe)\.(?:todo|skipIf|fixme)\b/,
