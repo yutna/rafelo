@@ -4,6 +4,7 @@
 require "fileutils"
 require "json"
 require "open3"
+require "rbconfig"
 require "tmpdir"
 require "yaml"
 
@@ -32,6 +33,12 @@ ENGINE_KEYS = {
   "legacy_table_prefixes" => 0,
   "legacy_constants" => 0
 }.freeze
+
+def executable(name)
+  ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+    .map { |entry| File.join(entry, name) }
+    .find { |path| File.executable?(path) }
+end
 
 def git(dir, *args)
   output, error, status = Open3.capture3("git", "-C", dir, *args)
@@ -212,6 +219,56 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
   cases += 1
   status, output = run_case(script, dir, base, nil)
   failures = check(failures, "non-integer ceiling", 1, status, output, "non-integer")
+end
+
+# The merge_group payload has no pull request user: the author is resolved
+# from the PR number, and a missing gh fails closed with the approval message
+# and no network fallback (WF-03).
+Dir.mktmpdir("rafelo-ratchet-merge-group-") do |dir|
+  init_repo(dir)
+  write_root(dir)
+  write_engine(dir)
+  base = commit(dir, "base")
+
+  bin = File.join(dir, "bin")
+  FileUtils.mkdir_p(bin)
+  File.write(File.join(bin, "gh"), <<~'BASH')
+    #!/usr/bin/env bash
+    if [ "$1" = "api" ] && [ "$2" = "repos/canary/repo/pulls/7" ]; then echo owner; fi
+  BASH
+  File.chmod(0o755, File.join(bin, "gh"))
+
+  write_root(dir, "eslint_disable" => 1)
+  commit(dir, "rise")
+
+  self_review = reviews(dir, "self", [ { "user" => { "login" => "owner" }, "state" => "APPROVED" } ])
+  other_review = reviews(dir, "other", [ { "user" => { "login" => "second" }, "state" => "APPROVED" } ])
+  env = {
+    "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}",
+    "GITHUB_REPOSITORY" => "canary/repo",
+    "PR_NUMBER" => "7",
+    "HEAD_REF" => "refs/heads/pr-7-merge",
+    "PR_AUTHOR" => ""
+  }
+
+  cases += 1
+  output, status = Open3.capture2e(env, script, "--root", dir, "--base", base, "--reviews", self_review)
+  failures = check(failures, "resolved author cannot approve", 1, status.exitstatus, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
+
+  cases += 1
+  output, status = Open3.capture2e(env, script, "--root", dir, "--base", base, "--reviews", other_review)
+  failures = check(failures, "resolved author with another owner", 0, status.exitstatus, output)
+
+  no_gh = File.join(dir, "no-gh")
+  FileUtils.mkdir_p(no_gh)
+  FileUtils.ln_s(executable("git"), File.join(no_gh, "git"))
+  FileUtils.ln_s(RbConfig.ruby, File.join(no_gh, "ruby"))
+  cases += 1
+  output, status = Open3.capture2e(env.merge("PATH" => no_gh.to_s), script, "--root", dir, "--base", base,
+                                   "--reviews", other_review)
+  failures = check(failures, "missing gh fails closed", 1, status.exitstatus, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
 end
 
 # A new key is recorded at its real value; it is not a rise.
