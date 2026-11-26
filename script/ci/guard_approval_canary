@@ -102,6 +102,10 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     { "user" => { "login" => "owner" }, "state" => "APPROVED" },
     { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
   ])
+  outsider_rejected = reviews(dir, "outsider-rejected", [
+    { "user" => { "login" => "owner" }, "state" => "APPROVED" },
+    { "user" => { "login" => "someone" }, "state" => "CHANGES_REQUESTED" }
+  ])
   empty = reviews(dir, "empty", [])
 
   [
@@ -109,6 +113,7 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     [ "guard with an owner approval", owner, 0, "pull_request", "outsider" ],
     [ "guard with a non-owner approval", outsider, 1, "pull_request", "outsider", "without an approval" ],
     [ "guard with a later change request", rejected, 1, "pull_request", "outsider", "without an approval" ],
+    [ "guard with an outsider change request", outsider_rejected, 1, "pull_request", "outsider", "without an approval" ],
     [ "merge queue", nil, 0, "merge_group" ],
     [ "single-owner author", owner, 1, "pull_request", "owner", "without an approval" ],
     [ "author-only approval", owner, 1, "pull_request", "owner", "without an approval" ],
