@@ -288,10 +288,14 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
 end
 
 # The pull request workflow runs the merge base's checker and CODEOWNERS, not
-# the pull request's copies (WF-03).
-workflow = File.join(root, "template", ".github", "workflows", "pull_request.yml")
+# the pull request's copies (WF-03). An adopted app keeps it at .github/; this
+# repository keeps the payload copy under template/.
+workflow = [
+  File.join(root, ".github", "workflows", "pull_request.yml"),
+  File.join(root, "template", ".github", "workflows", "pull_request.yml")
+].find { |path| File.file?(path) }
 cases += 1
-if File.file?(workflow)
+if workflow
   text = File.read(workflow)
   required = [
     'git show "$BASE_SHA:script/ci/guard_approval"',
