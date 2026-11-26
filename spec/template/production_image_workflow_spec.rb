@@ -5,39 +5,65 @@ require "yaml"
 
 # The production-image job boots the final image with throwaway credentials.
 # They must never touch the tracked config/credentials/production.yml.enc
-# (#432, BE-08, SEC-07).
+# (BE-08, SEC-07). The repository and the payload run the same proof.
 RSpec.describe "Production image workflow" do
-  let(:jobs) { YAML.safe_load_file(Rails.root.join(".github/workflows/ci.yml"), aliases: true).fetch("jobs") }
-  let(:steps) { jobs.fetch("production-image").fetch("steps") }
+  %w[.github/workflows/ci.yml template/.github/workflows/ci.yml].each do |path|
+    describe path do
+      let(:jobs) { YAML.safe_load_file(Rails.root.join(path), aliases: true).fetch("jobs") }
+      let(:job) { jobs.fetch("production-image") }
+      let(:steps) { job.fetch("steps") }
 
-  def step(name)
-    steps.find { |candidate| candidate["name"] == name }
-  end
+      def step(name)
+        steps.find { |candidate| candidate["name"] == name }
+      end
 
-  it "encrypts the throwaway credentials outside the workspace" do
-    writer = step("Write throwaway production credentials")
+      def step_names
+        steps.map { |candidate| candidate["name"] }
+      end
 
-    expect(writer).not_to be_nil
-    expect(writer.fetch("run")).to include('config_path: "/tmp/rafelo-production.yml.enc"')
-    expect(writer.fetch("run")).not_to include('config_path: "config/credentials/')
-  end
+      it "runs against a real Postgres for the boot" do
+        expect(job.dig("services", "postgres", "image")).to include("postgres")
+        expect(job.dig("services", "postgres", "ports")).to include("5432:5432")
+      end
 
-  it "mounts the temporary credentials into both database and boot containers" do
-    mount = "-v /tmp/rafelo-production.yml.enc:/rails/config/credentials/production.yml.enc:ro"
+      it "encrypts the throwaway credentials outside the workspace" do
+        writer = step("Write throwaway production credentials")
 
-    [ "Prepare the image database", "Boot the production image and check /up" ].each do |name|
-      expect(step(name).fetch("run")).to include(mount)
+        expect(writer).not_to be_nil
+        expect(writer.fetch("run")).to match(%r{config_path: "/tmp/[a-z_]+-production\.yml\.enc"})
+        expect(writer.fetch("run")).not_to include('config_path: "config/credentials/')
+      end
+
+      it "mounts the temporary credentials into both database and boot containers" do
+        writer = step("Write throwaway production credentials").fetch("run")
+        encrypted = writer[/config_path: "([^"]+)"/, 1]
+        mount = "-v #{encrypted}:/rails/config/credentials/production.yml.enc:ro"
+
+        [ "Prepare the image database", "Boot the production image and check /up" ].each do |name|
+          expect(step(name).fetch("run")).to include(mount)
+        end
+      end
+
+      it "prepares the image database and boots the server to answer /up" do
+        prepare = step("Prepare the image database").fetch("run")
+        boot = step("Boot the production image and check /up").fetch("run")
+
+        expect(prepare).to include("./bin/rails db:prepare")
+        expect(prepare).to include("ACME_DATABASE_ROLE=migration")
+        expect(step("Check psql in the image").fetch("run")).to include("psql --version")
+        expect(boot).to include("./bin/rails server")
+        expect(boot).to include("http://127.0.0.1:8080/up")
+        expect(step("Remove the boot container").fetch("if")).to eq("always()")
+      end
+
+      it "proves the tracked credentials file is unchanged after the build" do
+        expect(step("Verify the tracked production credentials are untouched").fetch("run"))
+          .to include("git diff --exit-code -- config/credentials/production.yml.enc")
+        expect(step_names.index("Write throwaway production credentials"))
+          .to be < step_names.index("Build the production image")
+        expect(step_names.index("Verify the tracked production credentials are untouched"))
+          .to be > step_names.index("Build the production image")
+      end
     end
-  end
-
-  it "proves the tracked credentials file is unchanged after the build" do
-    names = steps.map { |candidate| candidate["name"] }
-
-    expect(step("Verify the tracked production credentials are untouched").fetch("run"))
-      .to include("git diff --exit-code -- config/credentials/production.yml.enc")
-    expect(names.index("Write throwaway production credentials"))
-      .to be < names.index("Build the production image")
-    expect(names.index("Verify the tracked production credentials are untouched"))
-      .to be > names.index("Build the production image")
   end
 end
