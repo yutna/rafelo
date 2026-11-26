@@ -76,6 +76,7 @@ RSpec.describe "bin/kernel_update" do
 
   def docs_generator_files(script)
     {
+      "mise.toml" => File.read(Rails.root.join("mise.toml")),
       "package.json" => JSON.generate("scripts" => { "docs:generate" => script }),
       "script/docs/generate.js" => <<~JS
         const fs = require("node:fs");
