@@ -143,25 +143,29 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     { "user" => { "login" => "owner" }, "state" => "APPROVED" },
     { "user" => { "login" => "owner" }, "state" => "CHANGES_REQUESTED" }
   ])
+  empty = reviews(dir, "empty", [])
 
   # A recorded ceiling rise needs an owner who did not author the pull request.
   write_root(dir, "rubocop_disable" => 2)
   commit(dir, "root rise")
   cases += 1
-  status, output = run_case(script, dir, base, nil, author: "outsider")
-  failures = check(failures, "rise without approval", 1, status, output)
+  status, output = run_case(script, dir, base, empty, author: "outsider")
+  failures = check(failures, "rise without approval", 1, status, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
   cases += 1
   status, output = run_case(script, dir, base, owner, author: "outsider")
   failures = check(failures, "rise with an owner approval", 0, status, output)
   cases += 1
   status, output = run_case(script, dir, base, owner, author: "owner")
-  failures = check(failures, "rise with the author's approval", 1, status, output)
+  failures = check(failures, "rise with the author's approval", 1, status, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
   cases += 1
   status, output = run_case(script, dir, base, second, author: "owner")
   failures = check(failures, "rise with another owner's approval", 0, status, output)
   cases += 1
   status, output = run_case(script, dir, base, outsider, author: "outsider")
-  failures = check(failures, "rise with a non-owner approval", 1, status, output)
+  failures = check(failures, "rise with a non-owner approval", 1, status, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
   cases += 1
   status, output = run_case(script, dir, base, rejected, author: "outsider")
   failures = check(failures, "rise with a later change request", 1, status, output)
