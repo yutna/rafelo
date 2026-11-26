@@ -53,6 +53,7 @@ module Rafelo
         app.config.middleware.insert_after Rafelo::Core::LogContextMiddleware, Rafelo::Core::BodyLimit
         app.config.middleware.insert_before ActionDispatch::ShowExceptions, Rafelo::Core::PermissionsPolicy
         app.config.after_initialize { Rafelo::Core::Modules.validate! }
+        app.config.after_routes_loaded { Rafelo::Core::Modules.validate_routes! }
         app.config.exceptions_app = ->(env) { Rafelo::Core::ExceptionsApp.call(env) }
       end
     end

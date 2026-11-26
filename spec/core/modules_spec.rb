@@ -1,7 +1,17 @@
 require "rails_helper"
 
 RSpec.describe Rafelo::Core::Modules do
+  before { Rails.application.routes.routes }
   after { described_class.reset! }
+
+  def stub_routes(app_route: nil, mounted: {})
+    extra = ActionDispatch::Routing::RouteSet.new
+    extra.draw do
+      get app_route, to: ->(_env) { [ 200, {}, [ "ok" ] ] } if app_route
+      mounted.each { |name, engine| mount engine => "/#{name}", as: name }
+    end
+    allow(Rails.application.routes).to receive(:routes).and_return(Rails.application.routes.routes.to_a + extra.routes.to_a)
+  end
 
   it "registers a module with defaults" do
     entry = described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
@@ -39,29 +49,49 @@ RSpec.describe Rafelo::Core::Modules do
   end
 
   it "rejects a key or first segment added by the app routes" do
-    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/reports(.:format)"))
-    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
-
     engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
-    expect { described_class.register(key: :reports, engine: engine) }.to raise_error(ArgumentError, /reserved/)
-    expect { described_class.register(key: :safe, engine: engine, path: "/reports/extra") }.to raise_error(ArgumentError, /reserved/)
+    described_class.register(key: :reports, engine: engine)
+    stub_routes(app_route: "reports")
+
+    expect { described_class.validate_routes! }.to raise_error(ArgumentError, /key is reserved: reports/)
   end
 
-  it "does not reject a module because its own mounted route exists" do
-    described_class.register(key: :ledger, engine: ->(_env) { [ 200, {}, [ "ok" ] ] })
-    fake_route = Struct.new(:name, :path).new("ledger", Struct.new(:spec).new("/:locale/ledger(.:format)"))
-    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
-
-    expect { described_class.validate! }.not_to raise_error
-  end
-
-  it "checks a boot-registered module against an app route with the same first segment" do
+  it "rejects a first path segment added by the app routes" do
     engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
     described_class.register(key: :safe, engine: engine, path: "/reports/extra")
-    fake_route = Struct.new(:name, :path).new(nil, Struct.new(:spec).new("/reports(.:format)"))
-    allow(Rails.application.routes).to receive(:routes).and_return([ fake_route ])
+    stub_routes(app_route: "reports")
 
-    expect { described_class.validate! }.to raise_error(ArgumentError, /path is reserved: reports/)
+    expect { described_class.validate_routes! }.to raise_error(ArgumentError, /path is reserved: reports/)
+  end
+
+  it "accepts a module the app mounts under its route name" do
+    engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
+    described_class.register(key: :ledger, engine: engine)
+    stub_routes(mounted: { ledger: engine })
+
+    expect { described_class.validate_routes! }.not_to raise_error
+  end
+
+  it "raises when a registered module is not mounted in the app's routes" do
+    engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
+    described_class.register(key: :ledger, engine: engine)
+    stub_routes(app_route: "reports")
+
+    expect { described_class.validate_routes! }
+      .to raise_error(ArgumentError, /module ledger is not mounted/)
+  end
+
+  it "runs the reserved-route and mount checks from the after_routes_loaded hook" do
+    engine = ->(_env) { [ 200, {}, [ "ok" ] ] }
+    described_class.register(key: :ledger, engine: engine)
+    stub_routes(app_route: "reports")
+
+    expect { ActiveSupport.run_load_hooks(:after_routes_loaded, Rails.application) }
+      .to raise_error(ArgumentError, /module ledger is not mounted/)
+  end
+
+  it "boots the real modules mounted in the app's routes" do
+    expect { described_class.validate_routes! }.not_to raise_error
   end
 
   it "rejects a duplicate navigation order" do
