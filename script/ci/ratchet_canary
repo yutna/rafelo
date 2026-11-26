@@ -190,13 +190,21 @@ Dir.mktmpdir("rafelo-ratchet-canary-") do |dir|
     warn "ratchet_canary: update rise: exited #{status}: #{output}"
   end
 
-  # An unknown author cannot approve a YAML rise.
+  # An unknown author cannot approve a YAML rise. Both real-count files are
+  # removed so only the approval check can fail the case: a real-count failure
+  # would hide the approval path (WF-03).
   FileUtils.rm_f(File.join(dir, "app", "rise.rb"))
+  FileUtils.rm_f(File.join(dir, "app", "thing.rb"))
   write_root(dir, "eslint_disable" => 3)
   commit(dir, "empty author rise")
   cases += 1
   status, output = run_case(script, dir, "HEAD~1", owner, author: "")
-  failures = check(failures, "empty author fails closed", 1, status, output)
+  failures = check(failures, "empty author fails closed", 1, status, output,
+                   "a rise needs an approval from a CODEOWNERS owner other than the pull request author")
+  if output.include?("above its ceiling")
+    failures += 1
+    warn "ratchet_canary: empty author was decided by a real-count failure, not the approval"
+  end
 
   # A string ceiling cannot hide a rise.
   write_root(dir, "rubocop_disable" => "99")
