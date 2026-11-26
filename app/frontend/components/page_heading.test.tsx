@@ -6,9 +6,10 @@ import { PageHeading } from "./page_heading";
 
 describe("PageHeading", () => {
   it("renders the title as the page heading", () => {
-    render(<PageHeading title="Rafelo" />);
+    const title = "Rafelo";
+    render(<PageHeading title={title} />);
 
-    const heading = screen.getByRole("heading", { level: 1 });
+    const heading = screen.getByRole("heading", { level: 1, name: title });
     expect(heading).toHaveTextContent("Rafelo");
   });
 });

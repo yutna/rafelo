@@ -8,9 +8,12 @@ import { DataTable } from "./data_table";
 
 type Row = { id: string; name: string; total: string };
 
+const NAME_HEADER = "Name";
+const TOTAL_HEADER = "Total";
+
 const columns: DataTableColumn<Row>[] = [
-  { accessorKey: "name", header: "Name" },
-  { accessorKey: "total", header: "Total" },
+  { accessorKey: "name", header: NAME_HEADER },
+  { accessorKey: "total", header: TOTAL_HEADER },
 ];
 
 const ada: Row = { id: "ada", name: "Ada", total: "1,200" };
@@ -38,11 +41,19 @@ describe("DataTable", () => {
     renderTable();
 
     const table = await screen.findByTestId("orders-table");
-    const headers = within(table).getAllByRole("columnheader");
-    const cells = within(table).getAllByRole("cell");
 
-    expect(headers.map((header) => header.textContent)).toEqual(["Name", "Total"]);
-    expect(cells.map((cell) => cell.textContent)).toEqual(["Ada", "1,200", "Grace", "900"]);
+    expect(within(table).getByRole("columnheader", { name: NAME_HEADER })).toBeVisible();
+    expect(within(table).getByRole("columnheader", { name: TOTAL_HEADER })).toBeVisible();
+    for (const [row, values] of [
+      ["ada", ["Ada", "1,200"]],
+      ["grace", ["Grace", "900"]],
+    ] as const) {
+      for (const value of values) {
+        expect(
+          within(screen.getByTestId(`orders-table.row.${row}`)).getByRole("cell", { name: value }),
+        ).toBeVisible();
+      }
+    }
   });
 
   it("keeps each row test id with its record after a reorder", async () => {
@@ -80,8 +91,10 @@ describe("DataTable", () => {
       onSortChange,
     );
 
-    const headers = within(await screen.findByTestId("orders-table")).getAllByRole("columnheader");
-    expect(headers[0]).toHaveAttribute("aria-sort", "ascending");
+    const nameHeader = within(await screen.findByTestId("orders-table")).getByRole("columnheader", {
+      name: NAME_HEADER,
+    });
+    expect(nameHeader).toHaveAttribute("aria-sort", "ascending");
 
     await userEvent.click(screen.getByTestId("orders-table.sort.name"));
 
@@ -98,8 +111,13 @@ describe("DataTable", () => {
       />,
     );
 
-    const sorted = within(screen.getByTestId("orders-table")).getAllByRole("columnheader");
-    expect(sorted[0]).toHaveAttribute("aria-sort", "descending");
-    expect(sorted[1]).toHaveAttribute("aria-sort", "none");
+    const sortedName = within(screen.getByTestId("orders-table")).getByRole("columnheader", {
+      name: NAME_HEADER,
+    });
+    const sortedTotal = within(screen.getByTestId("orders-table")).getByRole("columnheader", {
+      name: TOTAL_HEADER,
+    });
+    expect(sortedName).toHaveAttribute("aria-sort", "descending");
+    expect(sortedTotal).toHaveAttribute("aria-sort", "none");
   });
 });

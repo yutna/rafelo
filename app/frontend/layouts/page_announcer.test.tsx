@@ -4,12 +4,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { PageAnnouncer } from "./page_announcer";
 
 function loadPage(path: string, heading: string) {
-  document.body.innerHTML = `<main><h1>${heading}</h1></main>`;
+  document.body.innerHTML = `<main><h1 data-testid="page.heading">${heading}</h1></main>`;
   window.history.replaceState({}, "", path);
 }
 
 function setHeading(heading: string) {
-  screen.getByRole("heading", { level: 1 }).textContent = heading;
+  screen.getByTestId("page.heading").textContent = heading;
+}
+
+function pageHeading(name: string) {
+  return screen.getByRole("heading", { level: 1, name });
 }
 
 function navigate(url: string, type = "visit") {
@@ -43,7 +47,7 @@ describe("PageAnnouncer", () => {
 
     expect(screen.getByTestId("page.announcer")).toHaveClass("sr-only");
     expect(screen.getByTestId("page.announcer")).toHaveTextContent("");
-    const heading = screen.getByRole("heading", { level: 1 });
+    const heading = pageHeading("Invoice 1");
     expect(heading).not.toHaveFocus();
   });
 
@@ -59,7 +63,7 @@ describe("PageAnnouncer", () => {
     await waitFor(() =>
       expect(screen.getByTestId("page.announcer")).toHaveTextContent("Invoice 2"),
     );
-    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(pageHeading("Invoice 2")).toHaveFocus();
     expect(document.title).toBe("Invoice 1");
   });
 
@@ -73,7 +77,7 @@ describe("PageAnnouncer", () => {
     await waitFor(() =>
       expect(screen.getByTestId("page.announcer")).toHaveTextContent("Invoice 1"),
     );
-    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(pageHeading("Invoice 1")).toHaveFocus();
   });
 
   it("announces the show page after a create redirect", async () => {
@@ -85,7 +89,7 @@ describe("PageAnnouncer", () => {
     navigate("/en/orders/42");
 
     await waitFor(() => expect(screen.getByTestId("page.announcer")).toHaveTextContent("Order 42"));
-    expect(screen.getByRole("heading", { level: 1 })).toHaveFocus();
+    expect(pageHeading("Order 42")).toHaveFocus();
   });
 
   it("does not announce or focus when a filter keeps the same path", async () => {
@@ -99,7 +103,7 @@ describe("PageAnnouncer", () => {
     await flushAnimationFrame();
 
     expect(screen.getByTestId("page.announcer")).toHaveTextContent("");
-    expect(screen.getByRole("heading", { level: 1 })).not.toHaveFocus();
+    expect(pageHeading("Paid orders")).not.toHaveFocus();
   });
 
   it("falls back to the document title when the page has no heading", async () => {
@@ -107,7 +111,7 @@ describe("PageAnnouncer", () => {
     document.title = "Invoice 1";
     render(<PageAnnouncer />);
 
-    screen.getByRole("heading", { level: 1 }).remove();
+    screen.getByTestId("page.heading").remove();
     document.title = "Invoice 2";
     navigate("/en/invoices/2");
 

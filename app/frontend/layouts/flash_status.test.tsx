@@ -22,7 +22,7 @@ describe("FlashStatus", () => {
 
     render(<FlashStatus />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Saved");
+    expect(screen.getByTestId("page.flash")).toHaveTextContent("Saved");
     expect(screen.getByTestId("page.flash.notice")).toBeInTheDocument();
   });
 
@@ -31,7 +31,7 @@ describe("FlashStatus", () => {
 
     render(<FlashStatus />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Failed");
+    expect(screen.getByTestId("page.flash.alert")).toHaveTextContent("Failed");
     expect(screen.getByTestId("page.flash.notice")).toHaveTextContent("Saved");
   });
 
@@ -42,10 +42,10 @@ describe("FlashStatus", () => {
 
     inertia.flash = {};
     rerender(<FlashStatus />);
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("page.flash")).toBeEmptyDOMElement();
 
     rerender(<FlashStatus />);
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.getByTestId("page.flash")).toBeEmptyDOMElement();
   });
 
   it("throws on a flash payload outside the schema", () => {

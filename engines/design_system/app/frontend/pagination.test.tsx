@@ -16,10 +16,11 @@ beforeAll(async () => {
 
 describe("Pagination", () => {
   it("renders the label and the offset status from the first render", () => {
+    const label = "Orders pages";
     render(
       <Pagination
         testId="orders.pagination"
-        label="Orders pages"
+        label={label}
         previousLabel="Previous"
         nextLabel="Next"
         page={2}
@@ -29,7 +30,7 @@ describe("Pagination", () => {
       />,
     );
 
-    expect(screen.getByRole("navigation")).toHaveAccessibleName("Orders pages");
+    expect(screen.getByRole("navigation", { name: label })).toBeVisible();
     expect(screen.getByTestId("orders.pagination.status")).toHaveTextContent("Page 2 of 5");
   });
 
