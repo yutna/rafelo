@@ -21,6 +21,24 @@ RSpec.describe "Production image workflow" do
         steps.map { |candidate| candidate["name"] }
       end
 
+      it "runs on a change to every production-boot input" do
+        trigger = jobs.fetch("production-image-needed").fetch("steps")
+          .find { |candidate| candidate["name"] == "Decide whether the production image build runs" }
+          .fetch("run")
+
+        %w[
+          config/application\.rb
+          config/environments/production\.rb
+          config/database\.yml
+          config/storage\.yml
+          config/initializers/active_record_encryption\.rb
+          package(-lock)?\.json
+          \.github/workflows/ci\.yml
+        ].each do |input|
+          expect(trigger).to include(input)
+        end
+      end
+
       it "runs against a real Postgres for the boot" do
         expect(job.dig("services", "postgres", "image")).to include("postgres")
         expect(job.dig("services", "postgres", "ports")).to include("5432:5432")
