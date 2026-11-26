@@ -53,6 +53,27 @@ def git_shim(dir)
   { "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}" }
 end
 
+# A git wrapper whose `show` fails, to prove a failed merge-base read aborts
+# instead of becoming an empty owner list (WF-03).
+def git_show_failure(dir)
+  bin = File.join(dir, "broken-bin")
+  FileUtils.mkdir_p(bin)
+  real_git = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR)
+    .map { |entry| File.join(entry, "git") }
+    .find { |path| File.executable?(path) }
+  abort "guard_approval_canary: git is not on PATH" if real_git.nil?
+
+  File.write(File.join(bin, "git"), <<~BASH)
+    #!/usr/bin/env bash
+    for arg in "$@"; do
+      if [ "$arg" = "show" ]; then exit 1; fi
+    done
+    exec #{real_git} "$@"
+  BASH
+  File.chmod(0o755, File.join(bin, "git"))
+  { "PATH" => "#{bin}:#{ENV.fetch("PATH", "")}" }
+end
+
 Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   git(dir, "init", "-q")
   git(dir, "config", "user.email", "canary@rafelo.invalid")
@@ -368,6 +389,38 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
   if shows != 1
     failures += 1
     warn "guard_approval_canary: many guard files loaded CODEOWNERS #{shows} times, expected 1"
+  end
+end
+
+# GitHub also accepts docs/CODEOWNERS, and a failed read must fail closed.
+Dir.mktmpdir("rafelo-guard-docs-") do |docs_dir|
+  git(docs_dir, "init", "-q")
+  git(docs_dir, "config", "user.email", "canary@rafelo.invalid")
+  git(docs_dir, "config", "user.name", "Canary")
+  FileUtils.mkdir_p(File.join(docs_dir, "docs"))
+  FileUtils.mkdir_p(File.join(docs_dir, "script", "ci"))
+  File.write(File.join(docs_dir, "docs", "CODEOWNERS"), "/script/ci/ @owner\n")
+  File.write(File.join(docs_dir, "script", "ci", "guard"), "one\n")
+  File.write(File.join(docs_dir, "README.md"), "one\n")
+  git(docs_dir, "add", ".")
+  git(docs_dir, "commit", "-q", "-m", "base")
+
+  File.write(File.join(docs_dir, "script", "ci", "guard"), "two\n")
+  git(docs_dir, "add", ".")
+  git(docs_dir, "commit", "-q", "-m", "guard")
+  cases += 1
+  status, output = run_case(script, docs_dir, "HEAD~1", nil, "pull_request", "outsider")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: docs/CODEOWNERS: exited #{status}: #{output}"
+  end
+
+  cases += 1
+  status, output = run_case(script, docs_dir, "HEAD", nil, "pull_request", "outsider",
+                            git_show_failure(docs_dir))
+  if status != 1 || !output.include?("cannot read")
+    failures += 1
+    warn "guard_approval_canary: failed CODEOWNERS read: exited #{status}: #{output}"
   end
 end
 
