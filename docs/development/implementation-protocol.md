@@ -325,6 +325,13 @@ E7 S2 Plural permission keys; the drift catalog lives in engines/core (every
   `priority: high` issue remains, except one named by an unexpired entry in
   `config/audit_exceptions.yml` that the owner approved (#535);
   final_audit.sh checks both.
+- Round 3 (owner decision 2026-11-26, #1098): the Backlog is cleared. Every
+  open issue is closed by a merged pull request, or as not planned with the
+  reason in a comment, except issues labelled "blocked" (person-only: #535,
+  #614) and the report thread #611. Plan the Backlog into version milestones as
+  section 4 says (current and next only), release each one, and keep `VERSION`
+  and its formats fixture on the latest release. final_audit.sh checks that no
+  version milestone is open and no other issue is open.
 
 อ่านแล้ววางแผนทำตามได้เลย
 

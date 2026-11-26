@@ -57,6 +57,8 @@ The final audit independently verifies milestones 24–44 and releases
 v0.23.0–v0.43.0, the absence of gate issues, the absence of open high-priority
 issues except ones named by an unexpired audit exception, exception expiries,
 the last push and scheduled CI runs, the trials record against later AI or
-generator changes (including every `engines/*/AGENTS.md`), `VERSION`, a clean
+generator changes (including every `engines/*/AGENTS.md`), `VERSION` and its
+formats fixture against the latest release, no open version milestone, no
+open issue except `blocked` ones and #611 (round 3), a clean
 tree on `main`, `bin/ci`, and the DONE marker before the supervisor removes its
 cron entries and exits. A premature DONE is deleted and the loop continues.
