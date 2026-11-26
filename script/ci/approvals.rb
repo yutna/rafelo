@@ -95,10 +95,14 @@ module Approvals
 
   def changed_files(root, base)
     # Rename detection would hide a guard file moved to an unguarded path.
-    output, status = Open3.capture2("git", "-C", root, "diff", "--name-only", "--no-renames", "#{base}...HEAD")
+    # NUL separation keeps git from quoting a non-ASCII, spaced, or quoted
+    # path, which would otherwise hide a guard file from the matcher (WF-03).
+    output, status = Open3.capture2(
+      "git", "-C", root, "diff", "--name-only", "-z", "--no-renames", "#{base}...HEAD"
+    )
     abort "approvals: git diff failed for base #{base}" unless status.success?
 
-    output.lines.map(&:strip).reject(&:empty?)
+    output.split("\0").reject(&:empty?)
   end
 
   def reviews(file: nil, pr: nil, repository: nil)

@@ -265,6 +265,55 @@ Dir.mktmpdir("rafelo-guard-canary-") do |dir|
     warn "guard_approval_canary: nested * pattern: exited #{status}: #{output}"
   end
 
+  # A path git would quote (non-ASCII, spaces, quotes) is still a guard: the
+  # diff is read NUL-separated and never parsed as display text (WF-03).
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "/script/ci/ @owner\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "guarded script directory")
+  base_quoted = git(dir, "rev-parse", "HEAD").strip
+  File.write(File.join(dir, "script", "ci", "évil.rb"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "non-ascii guard")
+  cases += 1
+  status, output = run_case(script, dir, base_quoted, nil, "pull_request", "outsider")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: non-ASCII guard path: exited #{status}: #{output}"
+  end
+
+  cases += 1
+  status, output = run_case(script, dir, base_quoted, owner, "pull_request", "outsider")
+  if status != 0
+    failures += 1
+    warn "guard_approval_canary: non-ASCII guard path with an owner approval: exited #{status}: #{output}"
+  end
+
+  FileUtils.mkdir_p(File.join(dir, "script", "ci", "dir with space"))
+  File.write(File.join(dir, "script", "ci", "dir with space", "guard file.rb"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "spaced guard")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "outsider")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: spaced guard path: exited #{status}: #{output}"
+  end
+
+  File.write(File.join(dir, "script", "ci", "quo\"te.rb"), "one\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "quoted guard")
+  cases += 1
+  status, output = run_case(script, dir, "HEAD~1", nil, "pull_request", "outsider")
+  if status != 1
+    failures += 1
+    warn "guard_approval_canary: quoted guard path: exited #{status}: #{output}"
+  end
+
+  # Restore the every-path pattern for the load-count case below.
+  File.write(File.join(dir, ".github", "CODEOWNERS"), "* @owner\n")
+  git(dir, "add", ".")
+  git(dir, "commit", "-q", "-m", "restore the every-path pattern")
+
   # A diff of many guard files loads the merge-base CODEOWNERS once, not once
   # per changed path.
   FileUtils.mkdir_p(File.join(dir, "many"))
