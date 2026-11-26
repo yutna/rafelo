@@ -27,8 +27,18 @@ for version in 0.23.0 0.24.0 0.25.0 0.26.0 0.27.0 0.28.0 0.29.0 0.30.0 0.31.0 0.
   timeout 30 gh release view "v$version" -R "$repository" >/dev/null 2>&1 || fail "release v$version is missing"
 done
 
-test "$(cat VERSION)" = "0.43.0" || fail "VERSION is not 0.43.0"
-test -d "spec/fixtures/formats/v0.43.0" || fail "formats fixture v0.43.0 is missing"
+# Round 3 (protocol section 9): VERSION follows the latest release, no version
+# milestone stays open, and the Backlog is cleared.
+latest="$(timeout 30 gh release view -R "$repository" --json tagName --jq .tagName)" || fail "could not read the latest release"
+latest_version="${latest#v}"
+test "$(cat VERSION)" = "$latest_version" || fail "VERSION is not $latest_version (the latest release)"
+test -d "spec/fixtures/formats/v$latest_version" || fail "formats fixture v$latest_version is missing"
+open_versions="$(timeout 30 gh api "repos/$repository/milestones?state=open&per_page=100" --jq '.[] | select(.title | test("^v[0-9]")) | .title' | tr '\n' ' ')" || fail "could not list open milestones"
+test -z "${open_versions// /}" || fail "version milestones are still open: $open_versions"
+unblocked="$(timeout 60 gh issue list -R "$repository" --state open --limit 1000 --json number,labels \
+  --jq '.[] | select((.labels | map(.name) | index("blocked")) | not) | .number')" || fail "could not list open issues"
+leftover="$(printf '%s\n' "$unblocked" | grep -vxE '611|' | tr '\n' ' ' || true)"
+test -z "${leftover// /}" || fail "open issues that are not blocked remain: $leftover"
 
 open_gates="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --search 'audit: feature gate in:title' --json number --jq length)"
 test "$open_gates" = "0" || fail "an audit gate issue is still open"
