@@ -68,20 +68,33 @@ module Approvals
     codeowners.owner_logins
   end
 
+  # GitHub CODEOWNERS follows gitignore: a leading slash anchors the pattern,
+  # a pattern without a slash matches at any depth, and a pattern that names a
+  # directory owns everything below it (github.com docs, "CODEOWNERS syntax").
   def normalize(pattern)
-    pattern = pattern.delete_prefix("/")
-    pattern = "#{pattern}**/*" if pattern.end_with?("/")
-    pattern
+    body = pattern.delete_prefix("/")
+    body = body.delete_suffix("/**") if body.end_with?("/**")
+    body = body.delete_suffix("/") if body.end_with?("/")
+    [ body, pattern.end_with?("/") || pattern.end_with?("/**") ]
   end
 
-  # GitHub CODEOWNERS follows gitignore: a pattern without a slash matches at
-  # any depth, and a leading slash anchors it to the repository root.
-  def match?(pattern, path)
-    normalized = normalize(pattern)
-    anchored = pattern.start_with?("/") || normalized.include?("/")
-    candidate = anchored ? normalized : "**/#{normalized}"
+  def anchored?(pattern)
+    pattern.start_with?("/") || pattern.delete_prefix("/").delete_suffix("/").include?("/")
+  end
 
-    File.fnmatch?(candidate, path, File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH)
+  def match?(pattern, path)
+    normalized, directory = normalize(pattern)
+    return false if normalized.empty?
+
+    base = anchored?(pattern) ? normalized : "**/#{normalized}"
+    last = normalized.split("/").last.to_s
+    directory ||= !last.match?(/[*?\[\]{}]/)
+    candidates = [ base ]
+    candidates << "#{base}/**/*" if directory
+
+    candidates.any? do |candidate|
+      File.fnmatch?(candidate, path, File::FNM_PATHNAME | File::FNM_EXTGLOB | File::FNM_DOTMATCH)
+    end
   end
 
   def guard_entry?(codeowners, path)
