@@ -45,7 +45,9 @@ end
 number = Approvals.pull_request_number(pr, head_ref)
 reviews = Approvals.reviews(file: reviews_file, pr: number, repository: repository)
 unless Approvals.approved_by_owner?(codeowners, reviews, author: author)
-  guards.each { |path| warn "guard_approval: guard file changed without an approval from an owner other than the author: #{path}" }
+  guards.each do |path|
+    warn "guard_approval: guard file changed without an approval from an owner other than the author: #{path.inspect}"
+  end
   exit 1
 end
 
