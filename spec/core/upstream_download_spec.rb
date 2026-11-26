@@ -94,6 +94,29 @@ RSpec.describe "Upstream download streaming" do
     expect(chunks).to be_empty
   end
 
+  it "keeps a viewer-stalled stream out of the breaker and the upstream metrics" do
+    stalled_config = Rafelo::Core::UpstreamConfig.new(
+      base_url: "http://upstream.test",
+      open_timeout: 1, read_timeout: 2, write_timeout: 1,
+      max_concurrent_calls: 2, max_response_bytes: 100,
+      retry_budget: 0, idempotency_keys: false,
+      service_token_gateways: [], breaker: { failure_threshold: 1, cool_off: 30 }
+    )
+    client = Rafelo::Core::UpstreamClient.new(name: :stalled_download, config: stalled_config, token_provider: token)
+    stub_request(:get, "http://upstream.test/report").to_return(status: 200, body: "hello world")
+    allow(Rafelo::Core::Metrics).to receive(:record_upstream_error)
+
+    expect do
+      client.stream(:get, "report") { raise Rafelo::Core::DownloadStalled.new }
+    end.to raise_error(Rafelo::Core::DownloadStalled)
+
+    chunks = []
+    client.stream(:get, "report") { |chunk| chunks << chunk }
+
+    expect(chunks.join).to eq("hello world")
+    expect(Rafelo::Core::Metrics).not_to have_received(:record_upstream_error)
+  end
+
   it "rejects a body over the download cap before yielding a byte" do
     stub_request(:get, "http://upstream.test/report").to_return(status: 200, body: "x" * 200)
     chunks = []
