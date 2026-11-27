@@ -35,6 +35,21 @@ RSpec.describe "Lint caches in CI" do
         )
       end
 
+      it "keys the cache on the Tailwind CSS the lint rules read" do
+        step = lint_steps(path).find { |candidate| candidate["name"] == CACHE_STEP }
+
+        expect(step.dig("env", "LINT_HASH")).to include(
+          "app/frontend/styles/application.css",
+          "engines/design_system/app/frontend/theme.css"
+        )
+      end
+
+      it "keys the cache on the TypeScript projects the rules read" do
+        step = lint_steps(path).find { |candidate| candidate["name"] == CACHE_STEP }
+
+        expect(step.dig("env", "LINT_HASH")).to include("tsconfig*.json", "engines/*/tsconfig.json")
+      end
+
       it "restores the cache before the lint steps" do
         names = lint_steps(path).map { |step| step["name"] }
 
