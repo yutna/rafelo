@@ -366,6 +366,27 @@ SECRETS
 expect_fail_with "an inline comment as the RAILS_MASTER_KEY value" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
 
 reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY="holder # $(cat config/master.key)"
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "a quoted RAILS_MASTER_KEY reading config/master.key after #" "never config/master.key"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY="" # comment
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an empty double-quoted RAILS_MASTER_KEY with a comment" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY='' # comment
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an empty single-quoted RAILS_MASTER_KEY with a comment" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
+
+reset
 cat > "$tmp/.kamal/secrets" <<'SECRETS'
 RAILS_MASTER_KEY=
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
@@ -727,4 +748,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 63 cases"
+echo "deploy_preflight_canary: checked 66 cases"
