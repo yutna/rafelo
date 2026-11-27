@@ -18,9 +18,6 @@ root = File.expand_path(root)
 abort "enforcement_canaries: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
-# The workflow-decision canary runs in ci.yml, where its output is consumed;
-# every other canary runs as a step of config/ci.rb (TS-07).
-WORKFLOW_CANARIES = %w[adoption_needed_canary].freeze
 
 config_path = File.join(root, "config", "ci.rb")
 abort "enforcement_canaries: config/ci.rb is missing; checked 0" unless File.file?(config_path)
@@ -37,16 +34,9 @@ end
 
 canary_scripts = Dir[File.join(root, "script", "ci", "*_canary")]
                  .map { |path| File.basename(path) }.sort
-missing_wiring = (canary_scripts - WORKFLOW_CANARIES) - step_scripts
+missing_wiring = canary_scripts - step_scripts
 unless missing_wiring.empty?
   abort "enforcement_canaries: canary script not wired into config/ci.rb: #{missing_wiring.join(', ')}"
-end
-workflow_path = File.join(root, ".github", "workflows", "ci.yml")
-workflow = File.file?(workflow_path) ? File.read(workflow_path) : ""
-WORKFLOW_CANARIES.each do |name|
-  unless workflow.include?("script/ci/#{name}")
-    abort "enforcement_canaries: #{name} is not wired into .github/workflows/ci.yml"
-  end
 end
 
 # Rafelo cops: discovered from the cops directory.

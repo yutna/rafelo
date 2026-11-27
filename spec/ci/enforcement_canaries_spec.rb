@@ -17,7 +17,7 @@ RSpec.describe "enforcement_canaries" do
   # node_modules stay symlinked so ESLint resolves the same paths as in the
   # repository without copying the tree.
   def prepare(root, destination)
-    %w[config script spec .github].each do |directory|
+    %w[config script spec].each do |directory|
       FileUtils.cp_r(File.join(root, directory), destination)
     end
     %w[
