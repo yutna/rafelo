@@ -47,6 +47,10 @@ Rails.application.configure do
     )
   end
 
+  # The signing secret also comes from the credentials, never ENV (BE-08):
+  # Rails would otherwise prefer a SECRET_KEY_BASE environment value.
+  config.secret_key_base = Rails.application.credentials.secret_key_base
+
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
   config.force_ssl = true
 
