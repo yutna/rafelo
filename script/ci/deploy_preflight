@@ -90,7 +90,10 @@ end
 fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 
 def secret_line?(path, name)
-  File.readlines(path, chomp: true).any? { |line| line.start_with?("#{name}=") }
+  File.readlines(path, chomp: true).any? do |line|
+    key, value = line.split("=", 2)
+    key == name && !value.to_s.strip.empty?
+  end
 end
 
 secrets = ".kamal/secrets"
