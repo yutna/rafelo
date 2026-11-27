@@ -215,6 +215,26 @@ expect_fail "secrets without RAILS_MASTER_KEY"
 
 reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+# RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail "secrets example with a commented RAILS_MASTER_KEY"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+NOT_RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+SECRETS
+expect_fail "secrets example with a RAILS_MASTER_KEY substring"
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+# RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail "secrets with a commented RAILS_MASTER_KEY"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
 RAILS_MASTER_KEY=$(cat config/master.key)
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
