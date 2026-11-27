@@ -31,7 +31,8 @@ RSpec.describe "Lint caches in CI" do
         step = lint_steps(path).find { |candidate| candidate["name"] == CACHE_STEP }
 
         expect(step.dig("env", "LINT_HASH")).to include(
-          "package-lock.json", "eslint.config.mjs", ".prettierrc.json", ".prettierignore"
+          "package-lock.json", "package.json", "eslint.config.mjs",
+          "script/ci/eslint/rafelo.mjs", ".prettierrc.json", ".prettierignore"
         )
       end
 
@@ -47,7 +48,9 @@ RSpec.describe "Lint caches in CI" do
       it "keys the cache on the TypeScript projects the rules read" do
         step = lint_steps(path).find { |candidate| candidate["name"] == CACHE_STEP }
 
-        expect(step.dig("env", "LINT_HASH")).to include("tsconfig*.json", "engines/*/tsconfig.json")
+        expect(step.dig("env", "LINT_HASH")).to include(
+          "tsconfig*.json", "engines/*/tsconfig.json", "app/frontend/tsconfig.json"
+        )
       end
 
       it "restores the cache before the lint steps" do
