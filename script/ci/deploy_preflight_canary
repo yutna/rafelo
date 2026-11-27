@@ -224,6 +224,19 @@ expect_pass_with_deploy_custom_path() {
   fi
 }
 
+expect_fail_with_destination() {
+  local name="$1" destination="$2" expected="$3" output
+  if output=$(KAMAL_DESTINATION="$destination" "$root/script/ci/deploy_preflight" "$tmp" 2>&1); then
+    echo "deploy_preflight_canary: $name passed" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not name $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
 expect_pass_with_destination() {
   local name="$1" destination="$2"
   if ! KAMAL_DESTINATION="$destination" "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
@@ -512,11 +525,26 @@ expect_pass_with_destination "a destination secrets file" "production"
 
 reset
 edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
 cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
 RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
-expect_pass "a custom secrets_path"
+expect_pass "a custom secrets_path on both profiles"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+expect_fail_with "a custom secrets_path only on the single-host profile" "profiles must use one secrets_path"
+
+reset
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+expect_fail_with "a custom secrets_path only on the multi-host profile" "profiles must use one secrets_path"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/multi-secrets"'
+expect_fail_with "an explicit different secrets_path per profile" "profiles must use one secrets_path; found"
+
 
 reset
 echo "EXTRA_KEY=1" >> "$tmp/.env.ci.production"
@@ -651,6 +679,40 @@ dummy_credentials_yaml() {
 }
 
 reset
+cat > "$tmp/config/deploy.production.yml" <<'YAML'
+secrets_path: .kamal/app-secrets
+YAML
+cat > "$tmp/config/deploy.multi.production.yml" <<'YAML'
+secrets_path: .kamal/app-secrets
+YAML
+cat > "$tmp/.kamal/app-secrets.production" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+write_production_credentials "$(cat <<'YAML'
+secret_key_base: fixture-secret-key-base
+active_record_encryption:
+  primary_key: fixture-primary-key
+  deterministic_key: fixture-deterministic-key
+  key_derivation_salt: fixture-salt
+database:
+  password: fixture-db-password
+  migration_password: fixture-migration-password
+aws:
+  access_key_id: fixture-access-key
+  secret_access_key: fixture-secret-access-key
+YAML
+)"
+rm -f "$tmp/.kamal/secrets"
+expect_pass_with_deploy_destination "a destination overlay secrets_path" "production"
+
+reset
+cat > "$tmp/config/deploy.production.yml" <<'YAML'
+secrets_path: .kamal/app-secrets
+YAML
+expect_fail_with_destination "a destination overlay secrets_path on one profile" "production" "profiles must use one secrets_path"
+
+reset
 write_production_credentials "--- {}\n"
 expect_pass "empty production credentials outside a deploy"
 expect_fail_with_deploy "empty production credentials at deploy" "production credentials are empty"
@@ -728,6 +790,7 @@ expect_pass_with_deploy_destination "a destination secrets file at deploy" "prod
 
 reset
 edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
 cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
 RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
@@ -770,4 +833,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 69 cases"
+echo "deploy_preflight_canary: checked 76 cases"

@@ -157,30 +157,56 @@ def secret_leak?(path)
   end
 end
 
-# Kamal reads `<secrets_path>-common` and, without a destination,
-# `<secrets_path>`; with a destination it reads `<secrets_path>.<destination>`
-# instead of `<secrets_path>` (Kamal::Secrets#secrets_filenames).
-def deploy_secrets_path(errors)
-  paths = [ "config/deploy.yml", "config/deploy.multi.yml" ].filter_map do |path|
-    next unless File.file?(path)
-
-    begin
-      config = YAML.safe_load_file(path, aliases: true)
-    rescue StandardError
-      next
-    end
-    value = config.is_a?(Hash) ? config["secrets_path"].to_s : ""
-    value unless value.empty?
-  end.uniq
-  if paths.length > 1
-    errors << "OPS-06/SEC-07: profiles must use one secrets_path; found #{paths.join(", ")}"
+# Kamal merges `config/deploy.<destination>.yml` over the file given with -c
+# (Kamal::Configuration.load_raw_config), and a profile without `secrets_path`
+# keeps the default. Resolve each profile on its own, then require one answer
+# so the preflight never applies one profile's path to the other.
+def deep_merge(base, overlay)
+  base.merge(overlay) do |_key, old, new|
+    old.is_a?(Hash) && new.is_a?(Hash) ? deep_merge(old, new) : new
   end
-  paths.first || ".kamal/secrets"
 end
 
-secrets_path = deploy_secrets_path(errors)
-secrets_example = ".kamal/secrets.example"
+def profile_config(path, destination)
+  return {} unless File.file?(path)
+
+  begin
+    config = YAML.safe_load_file(path, aliases: true)
+  rescue StandardError
+    return {}
+  end
+  return {} unless config.is_a?(Hash)
+
+  overlay_path = destination.empty? ? nil : path.sub(/\.yml\z/, ".#{destination}.yml")
+  return config unless overlay_path && File.file?(overlay_path)
+
+  begin
+    overlay = YAML.safe_load_file(overlay_path, aliases: true)
+  rescue StandardError
+    overlay = nil
+  end
+  overlay.is_a?(Hash) ? deep_merge(config, overlay) : config
+end
+
+def profile_secrets_path(path, destination)
+  value = profile_config(path, destination)["secrets_path"]
+  value.is_a?(String) && !value.strip.empty? ? value : ".kamal/secrets"
+end
+
+def deploy_secrets_path(errors, destination)
+  profiles = [ "config/deploy.yml", "config/deploy.multi.yml" ]
+    .select { |path| File.file?(path) }
+    .to_h { |path| [ path, profile_secrets_path(path, destination) ] }
+  resolved = profiles.values.uniq
+  if resolved.length > 1
+    errors << "OPS-06/SEC-07: profiles must use one secrets_path; found #{profiles.map { |path, value| "#{path}=#{value}" }.join(", ")}"
+  end
+  resolved.first || ".kamal/secrets"
+end
+
 destination = ENV["KAMAL_DESTINATION"].to_s.strip
+secrets_path = deploy_secrets_path(errors, destination)
+secrets_example = ".kamal/secrets.example"
 secret_paths = [
   "#{secrets_path}-common",
   destination.empty? ? secrets_path : "#{secrets_path}.#{destination}"
