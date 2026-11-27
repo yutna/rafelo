@@ -129,7 +129,9 @@ def css_escape(source, index)
       hex << source[cursor]
       cursor += 1
     end
-    cursor += 1 if cursor < source.length && source[cursor] =~ /\s/
+    if cursor < source.length && source[cursor] =~ /\s/
+      cursor += source[cursor] == "\r" && source[cursor + 1] == "\n" ? 2 : 1
+    end
     value = hex.to_i(16)
     valid = value.positive? && value <= 0x10FFFF && !(0xD800..0xDFFF).cover?(value)
     decoded = valid ? [ value ].pack("U") : "\uFFFD"
