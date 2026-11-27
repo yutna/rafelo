@@ -206,6 +206,33 @@ expect_pass_with_deploy() {
   fi
 }
 
+expect_pass_with_deploy_destination() {
+  local name="$1" destination="$2"
+  if ! KAMAL_DESTINATION="$destination" RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name failed" >&2
+    KAMAL_DESTINATION="$destination" RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >&2 || true
+    exit 1
+  fi
+}
+
+expect_pass_with_deploy_custom_path() {
+  local name="$1"
+  if ! RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name failed" >&2
+    RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >&2 || true
+    exit 1
+  fi
+}
+
+expect_pass_with_destination() {
+  local name="$1" destination="$2"
+  if ! KAMAL_DESTINATION="$destination" "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name failed" >&2
+    KAMAL_DESTINATION="$destination" "$root/script/ci/deploy_preflight" "$tmp" >&2 || true
+    exit 1
+  fi
+}
+
 expect_fail_with_deploy_env() {
   local name="$1" expected="$2" output
   if output=$(env -u RAILS_MASTER_KEY "$root/script/ci/deploy_preflight" "$tmp" --deploy 2>&1); then
@@ -434,6 +461,21 @@ SECRETS
 expect_pass "an untracked .kamal/secrets-common with the key"
 
 reset
+cat > "$tmp/.kamal/secrets.production" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass_with_destination "a destination secrets file" "production"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass "a custom secrets_path"
+
+reset
 echo "EXTRA_KEY=1" >> "$tmp/.env.ci.production"
 expect_fail ".env.ci.production key missing from env.clear"
 
@@ -617,6 +659,72 @@ reset
 expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environment" "RAILS_MASTER_KEY must be set for a deploy"
 
 reset
-expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
+expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets-common or .kamal/secrets"
 
-echo "deploy_preflight_canary: checked 59 cases"
+reset
+cat > "$tmp/.kamal/secrets.production" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+write_production_credentials "$(cat <<'YAML'
+secret_key_base: fixture-secret-key-base
+active_record_encryption:
+  primary_key: fixture-primary-key
+  deterministic_key: fixture-deterministic-key
+  key_derivation_salt: fixture-salt
+database:
+  password: fixture-db-password
+  migration_password: fixture-migration-password
+aws:
+  access_key_id: fixture-access-key
+  secret_access_key: fixture-secret-access-key
+YAML
+)"
+rm -f "$tmp/.kamal/secrets"
+expect_pass_with_deploy_destination "a destination secrets file at deploy" "production"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+write_production_credentials "$(cat <<'YAML'
+secret_key_base: fixture-secret-key-base
+active_record_encryption:
+  primary_key: fixture-primary-key
+  deterministic_key: fixture-deterministic-key
+  key_derivation_salt: fixture-salt
+database:
+  password: fixture-db-password
+  migration_password: fixture-migration-password
+aws:
+  access_key_id: fixture-access-key
+  secret_access_key: fixture-secret-access-key
+YAML
+)"
+rm -f "$tmp/.kamal/secrets"
+expect_pass_with_deploy_custom_path "a custom secrets_path at deploy"
+
+reset
+write_production_credentials "$(cat <<'YAML'
+secret_key_base: fixture-secret-key-base
+active_record_encryption:
+  primary_key: fixture-primary-key
+  deterministic_key: fixture-deterministic-key
+  key_derivation_salt: fixture-salt
+database:
+  password: fixture-db-password
+  migration_password: fixture-migration-password
+aws:
+  access_key_id: fixture-access-key
+  secret_access_key: fixture-secret-access-key
+YAML
+)"
+rm -f "$tmp/.kamal/secrets"
+if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >/dev/null 2>&1; then
+  echo "deploy_preflight_canary: a deploy without its destination source passed" >&2
+  exit 1
+fi
+
+echo "deploy_preflight_canary: checked 63 cases"
