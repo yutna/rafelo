@@ -2,21 +2,15 @@
 // rules may run only through projectService, so lint stays affected-only
 // (09_enforcement.md, TS-07). `npm run lint` runs this before ESLint.
 //
-// One config is checked per scope (root, app, each engine, script, e2e, and a
-// test file), with every directory traversed in byte order, so a path-scoped
-// override cannot hide behind whatever `readdir` returned first. A file the
-// config ignores answers no config and the scope moves to its next file.
-import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+// Every TypeScript file in every scope (root, app, each engine, script, e2e)
+// is resolved through ESLint's own configuration loader, in byte order, so a
+// path-scoped override or an ignored prefix cannot hide one. A file or scope
+// the check cannot resolve fails closed; it is never left out silently.
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
-const scriptRoot = resolve(import.meta.dirname, "../../..");
-const CONFIG_NAMES = [
-  "eslint.config.mjs",
-  "eslint.config.js",
-  "eslint.config.cjs",
-  "eslint.config.mts",
-];
+import { ESLint } from "eslint";
+
 const SKIP_DIRECTORIES = new Set([
   ".git",
   "node_modules",
@@ -28,10 +22,16 @@ const SKIP_DIRECTORIES = new Set([
   "playwright-report",
 ]);
 const SOURCE_FILE = /\.(?:ts|tsx|mts|cts)$/;
-const TEST_FILE = /\.test\.(?:ts|tsx|mts|cts)$/;
-// A config that ignores a whole scope would otherwise cost one ESLint start
-// per file; five candidates prove a scope is lintable or leave it out.
-const SCOPE_ATTEMPTS = 5;
+// ESLint's flat-config file names. The check only proves one exists; ESLint's
+// own loader decides which one wins, so the check cannot disagree with it.
+const CONFIG_NAMES = [
+  "eslint.config.js",
+  "eslint.config.mjs",
+  "eslint.config.cjs",
+  "eslint.config.ts",
+  "eslint.config.mts",
+  "eslint.config.cts",
+];
 
 function fail(message) {
   console.error(`eslint_config: ${message}`);
@@ -53,6 +53,9 @@ for (let index = 0; index < args.length; index += 1) {
 
 root = resolve(root);
 if (!existsSync(root)) fail(`root does not exist: ${root}; checked 0`);
+if (!configPath && !CONFIG_NAMES.some((name) => existsSync(join(root, name)))) {
+  fail(`no ESLint configuration under ${root}; checked 0`);
+}
 
 function sortedEntries(directory) {
   return readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
@@ -60,14 +63,14 @@ function sortedEntries(directory) {
   );
 }
 
-function sourceFiles(directory, predicate = () => true) {
+function sourceFiles(directory) {
   const files = [];
   if (!existsSync(directory)) return files;
   for (const entry of sortedEntries(directory)) {
     if (entry.isDirectory()) {
       if (SKIP_DIRECTORIES.has(entry.name)) continue;
-      files.push(...sourceFiles(join(directory, entry.name), predicate));
-    } else if (SOURCE_FILE.test(entry.name) && predicate(entry.name)) {
+      files.push(...sourceFiles(join(directory, entry.name)));
+    } else if (SOURCE_FILE.test(entry.name)) {
       files.push(join(directory, entry.name));
     }
   }
@@ -76,95 +79,95 @@ function sourceFiles(directory, predicate = () => true) {
 
 function configScopes() {
   const scopes = [];
-  const addScope = (files) => {
-    if (files.length > 0) scopes.push(files);
+  const addScope = (name, files) => {
+    if (files.length > 0) scopes.push({ name, files });
   };
 
   addScope(
+    "root",
     sortedEntries(root)
       .filter((entry) => entry.isFile() && SOURCE_FILE.test(entry.name))
       .map((entry) => join(root, entry.name)),
   );
   for (const directory of ["app", "e2e", "script"]) {
-    addScope(sourceFiles(join(root, directory)));
+    addScope(directory, sourceFiles(join(root, directory)));
   }
 
   const engines = join(root, "engines");
   if (existsSync(engines)) {
     for (const engine of sortedEntries(engines)) {
-      if (engine.isDirectory()) addScope(sourceFiles(join(engines, engine.name)));
+      if (engine.isDirectory())
+        addScope(`engines/${engine.name}`, sourceFiles(join(engines, engine.name)));
     }
   }
-
-  const tests = [join(root, "app"), engines]
-    .filter(existsSync)
-    .flatMap((base) => sourceFiles(base, (name) => TEST_FILE.test(name)))
-    .sort();
-  if (tests.length > 0) scopes.push(tests);
 
   return scopes;
 }
 
+const eslintOptions = { cwd: root };
 if (configPath) {
   configPath = resolve(configPath);
-} else {
-  configPath =
-    CONFIG_NAMES.map((name) => join(root, name)).find((path) => existsSync(path)) ?? null;
+  if (!existsSync(configPath)) fail(`config does not exist: ${configPath}; checked 0`);
+  eslintOptions.overrideConfigFile = configPath;
 }
-if (!configPath) fail(`no ESLint configuration under ${root}; checked 0`);
 
-const scopes = filePath ? [[resolve(filePath)]] : configScopes();
+let scopes;
+if (filePath) {
+  const file = resolve(root, filePath);
+  if (!existsSync(file) || !statSync(file).isFile()) {
+    fail(`file does not exist: ${file}; checked 0`);
+  }
+  scopes = [{ name: relative(root, file), files: [file] }];
+} else {
+  scopes = configScopes();
+}
 if (scopes.length === 0) fail(`no TypeScript file under ${root}; checked 0`);
-const missing = scopes.flat().find((file) => !existsSync(file));
-if (missing) fail(`file does not exist: ${missing}; checked 0`);
 
-const eslint = existsSync(join(scriptRoot, "node_modules", ".bin", "eslint"))
-  ? join(scriptRoot, "node_modules", ".bin", "eslint")
-  : "npx";
-const eslintArgs = eslint === "npx" ? ["eslint"] : [];
-let checked = 0;
+const eslint = new ESLint(eslintOptions);
+let checkedFiles = 0;
+let checkedScopes = 0;
 
 for (const scope of scopes) {
-  let resolved = false;
-  for (const file of scope.slice(0, SCOPE_ATTEMPTS)) {
-    const result = spawnSync(
-      eslint,
-      [...eslintArgs, "--config", configPath, "--print-config", file],
-      { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    );
-    if (result.error) fail(`cannot run ESLint: ${result.error.message}; checked 0`);
-    if (result.status !== 0) {
-      fail(`eslint --print-config failed for ${relative(root, file)}: ${result.stderr.trim()}`);
+  let resolved = 0;
+  for (const file of scope.files) {
+    let ignored;
+    try {
+      ignored = await eslint.isPathIgnored(file);
+    } catch (error) {
+      if (/could not find config file/i.test(error.message)) {
+        fail(`no ESLint configuration under ${root}; checked 0`);
+      }
+      fail(`${relative(root, file)}: ${error.message}; checked 0`);
     }
-
-    const output = result.stdout.trim();
-    if (output === "" || output === "undefined") continue;
+    if (ignored) continue;
 
     let config;
     try {
-      config = JSON.parse(output);
+      config = await eslint.calculateConfigForFile(file);
     } catch (error) {
-      fail(
-        `eslint --print-config returned invalid JSON for ${relative(root, file)}: ${error.message}`,
-      );
+      if (/could not find config file/i.test(error.message)) {
+        fail(`no ESLint configuration under ${root}; checked 0`);
+      }
+      fail(`${relative(root, file)}: ${error.message}; checked 0`);
     }
 
     const parserOptions = config?.languageOptions?.parserOptions ?? {};
     if (parserOptions.project !== undefined) {
       fail(
-        `${relative(root, file)} sets parserOptions.project; use projectService so lint stays affected-only (09_enforcement.md)`,
+        `${relative(root, file)} sets parserOptions.project; use projectService so lint stays affected-only (09_enforcement.md, TS-07)`,
       );
     }
 
-    checked += 1;
-    resolved = true;
-    break;
+    resolved += 1;
+    checkedFiles += 1;
   }
-  if (!resolved) continue;
+  if (resolved > 0) checkedScopes += 1;
 }
 
-if (checked === 0) fail(`no lintable TypeScript file under ${root}; checked 0`);
+if (checkedFiles === 0) {
+  fail(`no lintable TypeScript file under ${root}; checked 0`);
+}
 
 console.log(
-  `eslint_config: checked ${checked} config${checked === 1 ? "" : "s"} across ${scopes.length} scope${scopes.length === 1 ? "" : "s"}; parserOptions.project absent`,
+  `eslint_config: checked ${checkedFiles} file${checkedFiles === 1 ? "" : "s"} across ${checkedScopes} scope${checkedScopes === 1 ? "" : "s"}; parserOptions.project absent`,
 );

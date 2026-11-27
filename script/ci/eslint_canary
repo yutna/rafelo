@@ -187,16 +187,28 @@ end
 
 node = ENV.fetch("NODE_BIN", "node")
 check_config_fixtures = File.join(FIXTURES, "check_config")
-[ [ "check_config legal", [], 0, nil ],
-  [ "check_config project", [ "--root", File.join(check_config_fixtures, "project") ], 1, nil ],
+[ [ "check_config legal", [], 0, nil, nil ],
+  [ "check_config project", [ "--root", File.join(check_config_fixtures, "project") ], 1, nil, nil ],
   [ "check_config scoped engine", [ "--root", File.join(check_config_fixtures, "scoped") ], 1,
-    "engines/aaa/app/frontend/pages/one.tsx" ],
+    "engines/aaa/app/frontend/pages/one.tsx", nil ],
   [ "check_config scoped test", [ "--root", File.join(check_config_fixtures, "scoped_test") ], 1,
-    "gamma.test.tsx" ] ].each do |name, args, expected, mention|
+    "gamma.test.tsx", nil ],
+  [ "check_config ignored prefix", [ "--root", File.join(check_config_fixtures, "ignored_scope") ], 1,
+    "engines/aaa/app/frontend/z.tsx", nil ],
+  [ "check_config nested override", [ "--root", File.join(check_config_fixtures, "nested") ], 1,
+    "app/frontend/legacy/zzz.tsx", nil ],
+  [ "check_config config priority", [ "--root", File.join(check_config_fixtures, "priority") ], 1,
+    "a.ts", nil ],
+  [ "check_config missing config", [ "--root", File.join(check_config_fixtures, "missing_config") ], 1,
+    nil, "no ESLint configuration" ],
+  [ "check_config file under root",
+    [ "--root", File.join(check_config_fixtures, "nested"), "--file", "app/frontend/legacy/zzz.tsx" ], 1,
+    "app/frontend/legacy/zzz.tsx", nil ] ].each do |name, args, expected, mention, reason|
   checks += 1
+  reason ||= "parserOptions.project"
   output, status = Open3.capture2e(node, File.join(root, "script", "ci", "eslint", "check_config.mjs"), *args, chdir: root)
   next if status.exitstatus == expected &&
-          (expected.zero? || output.include?("parserOptions.project")) &&
+          (expected.zero? || output.include?(reason)) &&
           (mention.nil? || output.include?(mention))
 
   failures += 1
