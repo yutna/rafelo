@@ -374,6 +374,14 @@ expect_fail_with "a quoted RAILS_MASTER_KEY reading config/master.key after #" "
 
 reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=$(cat config/master.key)
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an overridden RAILS_MASTER_KEY reading config/master.key" "never config/master.key"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
 RAILS_MASTER_KEY="" # comment
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
@@ -748,4 +756,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 66 cases"
+echo "deploy_preflight_canary: checked 67 cases"

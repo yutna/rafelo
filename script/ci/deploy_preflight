@@ -150,6 +150,28 @@ def secret_line?(path, name)
   !value.to_s.strip.empty?
 end
 
+# Every assignment, not only the effective one: Dotenv still executes command
+# substitution in an overwritten line.
+def secret_values(text, name)
+  text.each_line.filter_map do |line|
+    stripped = line.strip
+    next if stripped.empty? || stripped.start_with?("#")
+
+    stripped = stripped.sub(/\Aexport\s+/, "")
+    key, value = stripped.split(/\s*[=:]\s*/, 2)
+    next unless key == name
+
+    value = value.to_s
+    if (value.start_with?('"') && value.rindex('"')&.positive?) || (value.start_with?("'") && value.rindex("'")&.positive?)
+      quote = value[0]
+      value[1...value.rindex(quote)]
+    else
+      value = "" if value.lstrip.start_with?("#")
+      value.sub(/\s+#.*\z/, "")
+    end
+  end
+end
+
 def names_secret?(path, name = "RAILS_MASTER_KEY")
   File.file?(path) && secret_line?(path, name)
 end
@@ -204,8 +226,8 @@ end
 [ *secret_sources, secrets_example ].each do |path|
   next unless File.file?(path)
 
-  value = secret_assignments(File.read(path))["RAILS_MASTER_KEY"].to_s
-  if value.match?(%r{config/(?:master\.key|credentials/production\.key)})
+  values = secret_values(File.read(path), "RAILS_MASTER_KEY")
+  if values.any? { |value| value.match?(%r{config/(?:master\.key|credentials/production\.key)}) }
     fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key or a production key")
   end
 end
