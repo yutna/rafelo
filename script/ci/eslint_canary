@@ -21,6 +21,11 @@ cases = Rafelo::ESLintCanary.cases(root)
 legal_cases = Rafelo::ESLintCanary.legal_cases(root)
 print_config = Rafelo::ESLintCanary.print_config(root)
 
+missing_fixtures = (cases + legal_cases)
+                   .map { |test| File.join(FIXTURES, test[:fixture]) }
+                   .reject { |fixture| File.file?(fixture) }
+abort "eslint_canary: missing fixture #{missing_fixtures.first}; checked 0" if missing_fixtures.any?
+
 failures = 0
 checks = 0
 
