@@ -82,6 +82,13 @@ then connect as the runtime role. The production image installs
 `postgresql-client`, because `db:prepare` loads `structure.sql` with `psql`
 on the first deploy and on every restore (C2, OPS-06).
 
+The base image is Debian trixie, so the image's `psql` is the 17.x client
+while the accessory runs PostgreSQL 18.6. `psql` 17 is used only to load
+`structure.sql`; that path works against an 18 server. Do not run `pg_dump` or
+`pg_restore` from the application image: a 17 client cannot read a newer
+server. Backups and point-in-time restores use pgBackRest 18 on the backup
+host, as [operations/backup-restore.md](operations/backup-restore.md) says.
+
 ## Single host
 
 1. Edit `config/deploy.yml`: the host, registry, `RAILS_HOSTS`, upstream base
