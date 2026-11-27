@@ -80,8 +80,8 @@ keeps its title and its description (scope, finding numbers, rule IDs) and gets
 issues only when it becomes the next one; issues already filed for later
 milestones stay where they are. Findings still get one issue each (sections 3
 and 5): an S1 in the current milestone, an S2 carry-over in the next one, an S3
-or any other finding in Backlog. Never pause issue creation: a finding that is
-not filed is lost.
+or any other finding in Backlog. Never pause issue creation: a finding that
+passes section 5 admission and is not filed is lost.
 
 ## 5. The gate (stricter than round 1)
 
@@ -104,6 +104,9 @@ security), plus:
 - Finding admission (owner decision 2026-11-28, #1250). These rules decide
   what a finding is and how hard it counts; they never relax the S1 and S2
   rules above.
+  - They apply to findings filed after #1250. An open S1 or S2 keeps its
+    severity. Lowering one needs its failure scenario written in a comment,
+    and never takes an issue out of the round-3 plan (section 9).
   - Every finding states a failure scenario: the actor, the input or action,
     the wrong result, and who is hurt (an adopter's app in production, an
     adopter's developer or AI agent, or this repository's CI). A finding with
