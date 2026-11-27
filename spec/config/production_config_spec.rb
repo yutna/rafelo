@@ -11,7 +11,14 @@ RSpec.describe "Production configuration" do
     "RAILS_SEAM_GEMFILE" => Rails.root.join("Gemfile").to_s,
     "ACME_API_BASE_URL" => "http://localhost:4000",
     "RAILS_HOSTS" => "example.com",
-    "DB_USER" => "acme_runtime"
+    "DB_USER" => "acme_runtime",
+    # Sentinels: a production secret read from one of these names shows up in
+    # the boot below and fails the credential-source example (BE-08, SEC-07).
+    "DB_PASSWORD" => "sentinel-env-db-password",
+    "DB_MIGRATION_PASSWORD" => "sentinel-env-migration-password",
+    "AWS_ACCESS_KEY_ID" => "sentinel-env-access-key",
+    "AWS_SECRET_ACCESS_KEY" => "sentinel-env-secret-key",
+    "SECRET_KEY_BASE" => "sentinel-env-secret-key-base"
   }.freeze
 
   SCRIPT = <<~'RUBY'
@@ -30,7 +37,18 @@ RSpec.describe "Production configuration" do
       health: request.get("/up", "HTTP_HOST" => "example.com", "HTTPS" => "on").status,
       csp: page.headers["Content-Security-Policy"],
       csp_report_only: page.headers["Content-Security-Policy-Report-Only"],
-      devtools: InertiaRails::Devtools.enabled?
+      devtools: InertiaRails::Devtools.enabled?,
+      database_password: app.config.database_configuration.dig("production", "primary", "password"),
+      migration_database_password: app.config.database_configuration.dig("production", "migration", "password"),
+      credentials_database_password: Rails.application.credentials.dig(:database, :password),
+      credentials_migration_password: Rails.application.credentials.dig(:database, :migration_password),
+      secret_key_base: app.secret_key_base,
+      credentials_secret_key_base: Rails.application.credentials.secret_key_base,
+      encryption_primary_key: app.config.active_record.encryption.primary_key,
+      credentials_encryption_primary_key: Rails.application.credentials.dig(:active_record_encryption, :primary_key),
+      amazon_access_key_id: app.config.active_storage.service_configurations&.dig("amazon", "access_key_id"),
+      amazon_secret_access_key: app.config.active_storage.service_configurations&.dig("amazon", "secret_access_key"),
+      credentials_amazon_access_key_id: Rails.application.credentials.dig(:aws, :access_key_id)
     }.to_json)
   RUBY
 
@@ -138,6 +156,31 @@ RSpec.describe "Production configuration" do
     expect(File.read(Rails.root.join("config/storage.yml"))).not_to include('ENV["AWS_ACCESS_KEY_ID"]')
     expect(File.read(Rails.root.join("config/storage.yml"))).not_to include('ENV["AWS_SECRET_ACCESS_KEY"]')
     expect(File.read(Rails.root.join("config/environments/production.rb"))).not_to match(/^\s*config\.require_master_key\s*=/)
+  end
+
+  # The fallback strings above cannot see a new secret path; this example boots
+  # with sentinel ENV values and proves the boot's secret values still come
+  # from the credentials (BE-08, SEC-07).
+  it "reads every production secret from the credentials while sentinel ENV values are set" do
+    config = production_config
+
+    expect(config["database_password"]).to be_present
+    expect(config["database_password"]).to eq(config["credentials_database_password"])
+    expect(config["migration_database_password"]).to eq(config["credentials_migration_password"])
+    expect(config["secret_key_base"]).to eq(config["credentials_secret_key_base"])
+    expect(config["encryption_primary_key"]).to eq(config["credentials_encryption_primary_key"])
+  end
+
+  it "reads the amazon storage secrets from the credentials while sentinel ENV values are set" do
+    config = production_config(
+      "ACTIVE_STORAGE_SERVICE" => "amazon",
+      "AWS_REGION" => "us-east-1",
+      "AWS_BUCKET" => "acme-production"
+    )
+
+    expect(config["amazon_access_key_id"]).to be_present
+    expect(config["amazon_access_key_id"]).to eq(config["credentials_amazon_access_key_id"])
+    expect(config["amazon_secret_access_key"]).to be_present
   end
 
   it "deletes the production cookie with Secure and Path=/" do
