@@ -112,10 +112,7 @@ forbidden = tracked_paths.select do |path|
   env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
   # A backup or a sibling of a secrets file is a secrets file; a backup of a
   # key is the key (SEC-07).
-  kamal_secret = path.start_with?(".kamal/secrets") &&
-    path != ".kamal/secrets.example" &&
-    path != ".kamal/secrets" &&
-    path != ".kamal/secrets-common"
+  kamal_secret = path.start_with?(".kamal/secrets") && path != ".kamal/secrets.example"
   master_key = path.start_with?("config/master.key")
   credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key}) &&
     path != "config/credentials/dummy.key"
@@ -152,10 +149,37 @@ def names_secret?(path, name = "RAILS_MASTER_KEY")
   File.file?(path) && secret_line?(path, name)
 end
 
+# Kamal reads `<secrets_path>-common` and, without a destination,
+# `<secrets_path>`; with a destination it reads `<secrets_path>.<destination>`
+# instead of `<secrets_path>` (Kamal::Secrets#secrets_filenames).
+def deploy_secrets_path(errors)
+  paths = [ "config/deploy.yml", "config/deploy.multi.yml" ].filter_map do |path|
+    next unless File.file?(path)
+
+    begin
+      config = YAML.safe_load_file(path, aliases: true)
+    rescue StandardError
+      next
+    end
+    value = config.is_a?(Hash) ? config["secrets_path"].to_s : ""
+    value unless value.empty?
+  end.uniq
+  if paths.length > 1
+    errors << "OPS-06/SEC-07: profiles must use one secrets_path; found #{paths.join(", ")}"
+  end
+  paths.first || ".kamal/secrets"
+end
+
+secrets_path = deploy_secrets_path(errors)
 secrets_example = ".kamal/secrets.example"
-secret_sources = [ ".kamal/secrets-common", ".kamal/secrets" ].select { |path| File.file?(path) }
+destination = ENV["KAMAL_DESTINATION"].to_s.strip
+secret_paths = [
+  "#{secrets_path}-common",
+  destination.empty? ? secrets_path : "#{secrets_path}.#{destination}"
+]
+secret_sources = secret_paths.select { |path| File.file?(path) }
 # A tracked source is a secret even when it is deleted from the worktree.
-[ ".kamal/secrets-common", ".kamal/secrets" ].each do |path|
+secret_paths.each do |path|
   if tracked_paths.include?(path)
     fail_with(errors, "OPS-06/SEC-07: #{path} must not be tracked; remove it from git and keep it in the deploy secret store")
   end
@@ -163,11 +187,11 @@ end
 if secret_sources.any? && secret_sources.none? { |path| names_secret?(path) }
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY")
 end
-unless names_secret?(secrets_example)
+if secrets_path == ".kamal/secrets" && !names_secret?(secrets_example)
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
 end
 if deploy && secret_sources.empty?
-  fail_with(errors, "OPS-06/SEC-07: a deploy needs .kamal/secrets or .kamal/secrets-common; Kamal reads the secret names from them")
+  fail_with(errors, "OPS-06/SEC-07: a deploy needs #{secret_paths.join(' or ')}; Kamal reads the secret names from them")
 end
 if deploy && ENV["RAILS_MASTER_KEY"].to_s.strip.empty?
   fail_with(errors, "OPS-06/SEC-07: RAILS_MASTER_KEY must be set for a deploy; Kamal passes the resolved value to this hook")
@@ -319,12 +343,16 @@ elsif root_user?(effective_user(dockerfile))
   fail_with(errors, "the final image stage must run as a non-root user")
 end
 
-if File.file?(".kamal/secrets") || File.file?(".kamal/secrets.example")
-  secrets_text = File.file?(".kamal/secrets") ? File.read(".kamal/secrets") : File.read(".kamal/secrets.example")
-  accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
-  missing = accessory_secrets - secret_assignments(secrets_text).keys
-  fail_with(errors, "database accessory secrets are missing from .kamal/secrets: #{missing.join(", ")}") if missing.any?
+accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
+available_secrets = if secret_sources.any?
+  secret_sources.map { |path| secret_assignments(File.read(path)) }.reduce({}) { |all, one| all.merge(one) }
+elsif File.file?(secrets_example)
+  secret_assignments(File.read(secrets_example))
+else
+  {}
 end
+missing = accessory_secrets - available_secrets.keys
+fail_with(errors, "database accessory secrets are missing from the secrets sources: #{missing.join(", ")}") if missing.any?
 
 production_key_available = if deploy
   ENV["RAILS_MASTER_KEY"].to_s.strip != ""
