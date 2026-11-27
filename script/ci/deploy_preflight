@@ -89,16 +89,20 @@ forbidden = tracked_paths.select do |path|
 end
 fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 
+def secret_line?(path, name)
+  File.readlines(path, chomp: true).any? { |line| line.start_with?("#{name}=") }
+end
+
 secrets = ".kamal/secrets"
 secrets_example = ".kamal/secrets.example"
 if File.file?(secrets)
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must not be tracked; remove it from git and keep it in the deploy secret store") if tracked_paths.include?(".kamal/secrets")
-  fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless File.read(secrets).include?("RAILS_MASTER_KEY")
-  unless File.file?(secrets_example) && File.read(secrets_example).include?("RAILS_MASTER_KEY")
+  fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless secret_line?(secrets, "RAILS_MASTER_KEY")
+  unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
     fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 else
-  unless File.file?(secrets_example) && File.read(secrets_example).include?("RAILS_MASTER_KEY")
+  unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
     fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 end
