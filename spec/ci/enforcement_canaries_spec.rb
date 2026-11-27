@@ -93,6 +93,13 @@ RSpec.describe "enforcement_canaries" do
       expect(output).to include("no canary for fake-rule")
       FileUtils.cp(File.join(root, ".dependency-cruiser.cjs"), config)
 
+      graph = File.join(directory, "script", "ci", "graph_canaries")
+      File.write(graph, File.read(graph).sub(/^\s*"pages-render-screens" => .*\n/, ""))
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("no canary for pages-render-screens")
+      FileUtils.cp(File.join(root, "script", "ci", "graph_canaries"), graph)
+
       ci_config = File.join(directory, "config", "ci.rb")
       File.write(ci_config, File.read(ci_config).sub(
         /^\s*step .*?"script\/ci\/apply_check_canary"\n/, ""
