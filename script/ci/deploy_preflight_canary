@@ -334,6 +334,20 @@ git -C "$tmp" add -f .kamal/secrets.bak
 expect_fail_with "tracked .kamal/secrets.bak" "OPS-06/SEC-07"
 
 reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -f .kamal/secrets
+rm "$tmp/.kamal/secrets"
+expect_fail_with "a tracked .kamal/secrets deleted from the worktree" "OPS-06/SEC-07: .kamal/secrets must not be tracked"
+
+reset
+cp "$tmp/.kamal/secrets.example" "$tmp/.kamal/secrets_old"
+git -C "$tmp" add -f .kamal/secrets_old
+expect_fail_with "tracked .kamal/secrets_old" "OPS-06/SEC-07"
+
+reset
 echo "dummy" > "$tmp/config/master.key.bak"
 git -C "$tmp" add -f config/master.key.bak
 expect_fail_with "tracked config/master.key.bak" "OPS-06/SEC-07"
@@ -555,4 +569,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 50 cases"
+echo "deploy_preflight_canary: checked 52 cases"
