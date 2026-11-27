@@ -17,21 +17,21 @@ module Rafelo
       {
         engine_page: existing_path(root, "engines/example_orders/app/frontend/pages/orders/index.tsx",
                                     "app/frontend/pages/home/index.tsx"),
-        engine_test: "app/frontend/components/page_heading.test.tsx",
+        engine_test: existing_path(root, "app/frontend/components/page_heading.test.tsx"),
         engine_e2e: existing_path(root, "engines/example_orders/e2e/orders.spec.ts",
                                   "engines/design_system/e2e/catalog.spec.ts"),
-        design_system: "engines/design_system/app/frontend/button.tsx",
-        design_system_test: "engines/design_system/app/frontend/date_field.test.tsx",
-        error_boundary: "engines/design_system/app/frontend/error_boundary.tsx",
-        formatters: "engines/design_system/app/frontend/formatters.ts",
-        page_resolver: "app/frontend/lib/page_resolver.tsx",
-        layout: "app/frontend/layouts/layout_root.tsx",
-        unit_test: "app/frontend/components/page_heading.test.tsx",
-        core_domain: "engines/core/app/frontend/domain/money.ts",
-        core_domain_test: "engines/core/app/frontend/domain/money.test.ts",
-        use_ui_state: "engines/core/app/frontend/lib/use_ui_state.ts",
-        icon_map: "engines/design_system/app/frontend/icon.tsx",
-        home_page: "app/frontend/pages/home/index.tsx"
+        design_system: existing_path(root, "engines/design_system/app/frontend/button.tsx"),
+        design_system_test: existing_path(root, "engines/design_system/app/frontend/date_field.test.tsx"),
+        error_boundary: existing_path(root, "engines/design_system/app/frontend/error_boundary.tsx"),
+        formatters: existing_path(root, "engines/design_system/app/frontend/formatters.ts"),
+        page_resolver: existing_path(root, "app/frontend/lib/page_resolver.tsx"),
+        layout: existing_path(root, "app/frontend/layouts/layout_root.tsx"),
+        unit_test: existing_path(root, "app/frontend/components/page_heading.test.tsx"),
+        core_domain: existing_path(root, "engines/core/app/frontend/domain/money.ts"),
+        core_domain_test: existing_path(root, "engines/core/app/frontend/domain/money.test.ts"),
+        use_ui_state: existing_path(root, "engines/core/app/frontend/lib/use_ui_state.ts"),
+        icon_map: existing_path(root, "engines/design_system/app/frontend/icon.tsx"),
+        home_page: existing_path(root, "app/frontend/pages/home/index.tsx")
       }
     end
 
