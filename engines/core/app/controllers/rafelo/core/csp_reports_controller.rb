@@ -14,6 +14,13 @@ module Rafelo
       skip_before_action :verify_authenticity_token, only: :create
       throttle to: 60, within: 1.minute, only: :create, name: "csp_reports/ip"
 
+      # A browser report sink has no page to render; a throttled report gets an
+      # empty 429 and the audit row from the throttle handler (BE-12, SEC-05).
+      def render_throttled
+        response.headers["Cache-Control"] = "no-store"
+        head :too_many_requests
+      end
+
       def create
         CspReport.from(request.raw_post).each do |report|
           log = report.to_log
