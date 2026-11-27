@@ -179,8 +179,8 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
-# `myurl(` is another function, so a /* inside it still opens a comment and
-# swallows the @apply; no finding is correct here.
+# `myurl(` is another function, but an unclosed /* is not a comment to
+# Tailwind, so a real @apply after it must still be reported.
 Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "init", "-q")
   FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
@@ -189,9 +189,25 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "add", "-A")
   cases += 1
   output, status = run(script, dir)
-  unless status.success? && output.include?("checked 1 CSS files; findings=0")
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
     failures += 1
-    warn "apply_check_canary: myurl comment: #{status.exitstatus}: #{output}"
+    warn "apply_check_canary: myurl unclosed comment: #{status.exitstatus}: #{output}"
+  end
+end
+
+# The same for a top-level /* with no closing */.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             "/* unclosed\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: top-level unclosed comment: #{status.exitstatus}: #{output}"
   end
 end
 
