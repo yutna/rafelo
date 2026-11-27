@@ -5,168 +5,21 @@ require "json"
 require "open3"
 require "tmpdir"
 
+require_relative "eslint/canary_cases"
+require_relative "eslint/support"
+
 root = File.expand_path("../..", __dir__)
-eslint = File.join(root, "node_modules", ".bin", "eslint")
+eslint = Rafelo::ESLint.binary(root)
 abort "eslint_canary: ESLint is not installed at #{eslint}; checked 0" unless File.executable?(eslint)
 
 FIXTURES = File.join(root, "spec", "enforcement", "fixtures", "eslint")
 
-def existing_path(root, *paths)
-  paths.find { |path| File.exist?(File.join(root, path)) } ||
-    abort("eslint_canary: none of #{paths.join(', ')} exists; checked 0")
-end
-
-# The examples are removable (GEN-08); use them when present and fall back to
-# kernel/app paths the template always ships.
-ENGINE_PAGE = existing_path(root, "engines/example_orders/app/frontend/pages/orders/index.tsx",
-                            "app/frontend/pages/home/index.tsx")
-ENGINE_TEST = "app/frontend/components/page_heading.test.tsx"
-ENGINE_E2E = existing_path(root, "engines/example_orders/e2e/orders.spec.ts",
-                           "engines/design_system/e2e/catalog.spec.ts")
-DESIGN_SYSTEM = "engines/design_system/app/frontend/button.tsx"
-DESIGN_SYSTEM_TEST = "engines/design_system/app/frontend/date_field.test.tsx"
-ERROR_BOUNDARY = "engines/design_system/app/frontend/error_boundary.tsx"
-FORMATTERS = "engines/design_system/app/frontend/formatters.ts"
-PAGE_RESOLVER = "app/frontend/lib/page_resolver.tsx"
-LAYOUT = "app/frontend/layouts/layout_root.tsx"
-UNIT_TEST = "app/frontend/components/page_heading.test.tsx"
-CORE_DOMAIN = "engines/core/app/frontend/domain/money.ts"
-CORE_DOMAIN_TEST = "engines/core/app/frontend/domain/money.test.ts"
-
-CASES = [
-  { name: "imports", fixture: "imports/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-imports" ] },
-  { name: "state hooks", fixture: "state/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-imports", "no-restricted-properties" ] },
-  { name: "usePage", fixture: "use_page/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-imports" ] },
-  { name: "design_system Inertia imports", fixture: "design_system_inertia/bad.tsx", path: DESIGN_SYSTEM,
-    rules: [ "no-restricted-imports" ] },
-  { name: "formatting APIs", fixture: "formatting/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "date getters", fixture: "dates/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "import.meta.glob", fixture: "glob/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "URL building", fixture: "urls/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "type exports", fixture: "type_exports/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "readonly fields", fixture: "prefer_readonly/bad.ts", path: CORE_DOMAIN,
-    rules: [ "@typescript-eslint/prefer-readonly" ] },
-  { name: "class components", fixture: "class_components/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "test selectors", fixture: "selectors/bad.tsx", path: UNIT_TEST,
-    rules: [ "no-restricted-syntax" ] },
-  { name: "raw elements", fixture: "elements/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "react/forbid-elements" ] },
-  { name: "Tailwind classes", fixture: "tailwind/bad.tsx", path: ENGINE_PAGE,
-    rules: [ "better-tailwindcss/no-unknown-classes" ] },
-  { name: "skipped tests", fixture: "skip/bad.tsx", path: ENGINE_TEST,
-    rules: [ "rafelo/skip-needs-issue" ], count: 16 }
-].freeze
-
-LEGAL_CASES = [
-  { name: "engine imports", fixture: "imports/legal.tsx", path: ENGINE_PAGE },
-  { name: "design_system state", fixture: "state/legal.tsx", path: DESIGN_SYSTEM_TEST },
-  { name: "layout usePage", fixture: "use_page/legal.tsx", path: LAYOUT },
-  { name: "design_system Inertia allow-list", fixture: "design_system_inertia/legal.tsx", path: DESIGN_SYSTEM },
-  { name: "formatters", fixture: "formatting/legal.ts", path: FORMATTERS },
-  { name: "domain date getters", fixture: "dates/legal.ts", path: CORE_DOMAIN },
-  { name: "page resolver glob", fixture: "glob/legal.ts", path: PAGE_RESOLVER },
-  { name: "test URLs", fixture: "urls/legal.ts", path: ENGINE_E2E },
-  { name: "error boundary class", fixture: "class_components/legal.tsx", path: ERROR_BOUNDARY },
-  { name: "readonly fields legal", fixture: "prefer_readonly/legal.ts", path: CORE_DOMAIN },
-  { name: "role and test id selectors", fixture: "selectors/legal.tsx", path: UNIT_TEST },
-  { name: "design_system raw elements", fixture: "elements/legal.tsx", path: DESIGN_SYSTEM },
-  { name: "known Tailwind classes", fixture: "tailwind/legal.tsx", path: ENGINE_PAGE },
-  { name: "skips with issues", fixture: "skip/legal.tsx", path: ENGINE_TEST }
-].freeze
-
-PRINT_CONFIG = [
-  {
-    path: ENGINE_PAGE,
-    imports: { names: [ "react", "@inertiajs/react" ],
-               groups: [ "../*", "react-router*", "@engines/*", "lucide-react", "react-aria-components" ] },
-    import_names: { "react" => %w[useState useReducer useActionState useOptimistic] },
-    properties: :on,
-    syntax: { include: [ "Intl", "toFixed", "getFullYear", "property.name='glob'",
-                         "TemplateLiteral", "BinaryExpression", "ExportDefaultDeclaration",
-                         "superClass.name", "superClass.property.name" ] },
-    forbid_elements: :on
-  },
-  {
-    path: DESIGN_SYSTEM,
-    imports: { names: [ "@inertiajs/react" ], absent_names: [ "react" ],
-               groups: [ "@engines/*", "lucide-react" ], absent_groups: [ "react-aria-components" ] },
-    properties: :off,
-    syntax: { include: [ "Intl", "TemplateLiteral", "ExportDefaultDeclaration", "superClass.name" ] },
-    forbid_elements: :off
-  },
-  {
-    path: "engines/core/app/frontend/lib/use_ui_state.ts",
-    imports: { names: [ "@inertiajs/react" ], absent_names: [ "react" ] },
-    properties: :off
-  },
-  {
-    path: LAYOUT,
-    imports: { names: [ "react" ], absent_names: [ "@inertiajs/react" ] }
-  },
-  {
-    path: PAGE_RESOLVER,
-    imports: { names: [ "react" ], absent_names: [ "@inertiajs/react" ], absent_groups: [ "@engines/*" ] },
-    syntax: { include: [ "ExportDefaultDeclaration", "getFullYear" ],
-              exclude: [ "TemplateLiteral", "property.name='glob'" ] }
-  },
-  {
-    path: CORE_DOMAIN,
-    syntax: { include: [ "Intl", "TemplateLiteral", "property.name='glob'" ], exclude: [ "getFullYear" ] },
-    prefer_readonly: :on
-  },
-  {
-    path: FORMATTERS,
-    syntax: { include: [ "property.name='glob'" ],
-              exclude: [ "Intl", "toFixed", "TemplateLiteral", "getFullYear" ] }
-  },
-  {
-    path: ERROR_BOUNDARY,
-    syntax: { include: [ "Intl", "ExportDefaultDeclaration" ], exclude: [ "superClass.name" ] }
-  },
-  {
-    path: "engines/design_system/app/frontend/icon.tsx",
-    imports: { names: [ "@inertiajs/react" ], absent_groups: [ "lucide-react" ] }
-  },
-  {
-    path: UNIT_TEST,
-    imports: { names: [ "react" ] },
-    syntax: { include: [ "ByRole", "Property[key.name='name']", "ExportDefaultDeclaration" ],
-              exclude: [ "TemplateLiteral" ] },
-    skip_rule: :on
-  },
-  {
-    path: ENGINE_E2E,
-    syntax: { include: [ "ByRole" ], exclude: [ "TemplateLiteral" ] },
-    skip_rule: :on
-  },
-  {
-    path: CORE_DOMAIN_TEST,
-    syntax: { include: [ "ByRole" ], exclude: [ "getFullYear" ] },
-    skip_rule: :on
-  },
-  {
-    path: DESIGN_SYSTEM_TEST,
-    imports: { absent_names: [ "react" ] },
-    properties: :off,
-    syntax: { include: [ "ByRole" ] },
-    skip_rule: :on
-  },
-  {
-    path: "app/frontend/pages/home/index.tsx",
-    imports: { names: [ "react", "@inertiajs/react" ], groups: [ "@engines/*" ] },
-    syntax: { include: [ "TemplateLiteral", "ExportDefaultDeclaration" ] },
-    forbid_elements: :on
-  }
-].freeze
+# The examples are removable (GEN-08); the table falls back to kernel/app paths
+# the template always ships. script/ci/enforcement_canaries reads the same
+# table's rules, so no comment in this file can satisfy the meta-check (TS-07).
+cases = Rafelo::ESLintCanary.cases(root)
+legal_cases = Rafelo::ESLintCanary.legal_cases(root)
+print_config = Rafelo::ESLintCanary.print_config(root)
 
 failures = 0
 checks = 0
@@ -178,7 +31,7 @@ def lint(eslint, root, path, content)
   )
 end
 
-CASES.each do |test|
+cases.each do |test|
   checks += 1
   content = File.read(File.join(FIXTURES, test[:fixture]))
   output, error, status = lint(eslint, root, test[:path], content)
@@ -208,7 +61,7 @@ CASES.each do |test|
   end
 end
 
-LEGAL_CASES.each do |test|
+legal_cases.each do |test|
   checks += 1
   content = File.read(File.join(FIXTURES, test[:fixture]))
   output, error, status = lint(eslint, root, test[:path], content)
@@ -266,7 +119,7 @@ def selector?(config, fragment)
   syntax_selectors(config).any? { |selector| selector.include?(fragment) }
 end
 
-PRINT_CONFIG.each do |test|
+print_config.each do |test|
   checks += 1
   output, error, status = Open3.capture3(eslint, "--print-config", test[:path], chdir: root)
   unless status.success?
@@ -309,28 +162,16 @@ PRINT_CONFIG.each do |test|
   warn "eslint_canary: print-config for #{test[:path]}: #{problems.join('; ')}"
 end
 
-def eslint_rules_at(eslint, root, path)
-  output, _stderr, status = Open3.capture3(eslint, "--print-config", path, chdir: root)
-  return [] unless status.success?
-  JSON.parse(output).fetch("rules", {}).filter_map do |name, value|
-    severity = value.is_a?(Array) ? value.first : value
-    next unless severity.is_a?(Integer) && severity.positive?
-    name if name.start_with?("rafelo/")
-  end
-rescue JSON::ParserError
-  []
-end
-
 # The local plugin rules are enumerated from the config printed at real paths,
 # and every discovered rule needs a canary case: a case with a bad fixture, a
 # legal counterpart and the expected rule in `rules`.
-local_rules = PRINT_CONFIG.flat_map { |test| eslint_rules_at(eslint, root, test[:path]) }.uniq
+local_rules = Rafelo::ESLint.local_rule_names(root, print_config.map { |test| test[:path] }.uniq)
 if local_rules.empty?
   failures += 1
   warn "eslint_canary: the local plugin exports no rules"
 else
   checks += local_rules.length
-  covered = CASES.flat_map { |test| Array(test[:rules]) }.uniq
+  covered = cases.flat_map { |test| Array(test[:rules]) }.uniq
   local_rules.each do |name|
     next if covered.include?(name)
 

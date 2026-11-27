@@ -91,6 +91,20 @@ RSpec.describe "enforcement_canaries" do
       output, status = run_meta(directory, script)
       expect(status.exitstatus).to eq(0), output
       expect(output).to include("fake-rule")
+
+      plugin = File.join(directory, "script", "ci", "eslint", "rafelo.mjs")
+      File.write(plugin, File.read(plugin).sub(
+        '"skip-needs-issue": skipNeedsIssue }',
+        '"skip-needs-issue": skipNeedsIssue, "fake-rule": skipNeedsIssue }'
+      ))
+      eslint_config = File.join(directory, "eslint.config.mjs")
+      File.write(eslint_config, File.read(eslint_config).sub(
+        %("rafelo/skip-needs-issue": "error",),
+        %("rafelo/skip-needs-issue": "error",\n      "rafelo/fake-rule": "error",)
+      ))
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("no canary for rafelo/fake-rule")
     end
   end
 end
