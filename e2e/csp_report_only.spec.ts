@@ -26,6 +26,26 @@ async function violations(page: Page): Promise<Violation[]> {
   );
 }
 
+const NOT_REPORT_ONLY =
+  "the running server does not send Content-Security-Policy-Report-Only; start it with CSP_REPORT_ONLY=true";
+// Locally Playwright reuses an already-running bin/dev. One started without
+// CSP_REPORT_ONLY enforces the policy instead of reporting it, so these
+// assertions would test nothing: skip with a notice. CI always runs the smoke
+// against its own Report-Only server (script/ci/e2e).
+let warnedNotReportOnly = false;
+
+test.beforeEach(async ({ request }) => {
+  if (process.env.CI) return;
+  const response = await request.get("/en/sign_in");
+  const reportOnly = response.headers()["content-security-policy-report-only"];
+  if (reportOnly === undefined && !warnedNotReportOnly) {
+    warnedNotReportOnly = true;
+    console.warn(`csp_report_only: skipped: ${NOT_REPORT_ONLY}`);
+  }
+
+  test.skip(reportOnly === undefined, NOT_REPORT_ONLY); // #496
+});
+
 test("the smoke server runs under CSP Report-Only", async ({ page }) => {
   const response = await page.goto("/en/sign_in");
 
