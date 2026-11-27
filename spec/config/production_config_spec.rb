@@ -18,6 +18,8 @@ RSpec.describe "Production configuration" do
     "DB_MIGRATION_PASSWORD" => "sentinel-env-migration-password",
     "AWS_ACCESS_KEY_ID" => "sentinel-env-access-key",
     "AWS_SECRET_ACCESS_KEY" => "sentinel-env-secret-key",
+    "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" => "sentinel-env-deterministic-key",
+    "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT" => "sentinel-env-key-derivation-salt",
     "SECRET_KEY_BASE" => "sentinel-env-secret-key-base"
   }.freeze
 
@@ -46,9 +48,14 @@ RSpec.describe "Production configuration" do
       credentials_secret_key_base: Rails.application.credentials.secret_key_base,
       encryption_primary_key: app.config.active_record.encryption.primary_key,
       credentials_encryption_primary_key: Rails.application.credentials.dig(:active_record_encryption, :primary_key),
+      encryption_deterministic_key: app.config.active_record.encryption.deterministic_key,
+      credentials_encryption_deterministic_key: Rails.application.credentials.dig(:active_record_encryption, :deterministic_key),
+      encryption_key_derivation_salt: app.config.active_record.encryption.key_derivation_salt,
+      credentials_encryption_key_derivation_salt: Rails.application.credentials.dig(:active_record_encryption, :key_derivation_salt),
       amazon_access_key_id: app.config.active_storage.service_configurations&.dig("amazon", "access_key_id"),
       amazon_secret_access_key: app.config.active_storage.service_configurations&.dig("amazon", "secret_access_key"),
-      credentials_amazon_access_key_id: Rails.application.credentials.dig(:aws, :access_key_id)
+      credentials_amazon_access_key_id: Rails.application.credentials.dig(:aws, :access_key_id),
+      credentials_amazon_secret_access_key: Rails.application.credentials.dig(:aws, :secret_access_key)
     }.to_json)
   RUBY
 
@@ -169,6 +176,21 @@ RSpec.describe "Production configuration" do
     expect(config["migration_database_password"]).to eq(config["credentials_migration_password"])
     expect(config["secret_key_base"]).to eq(config["credentials_secret_key_base"])
     expect(config["encryption_primary_key"]).to eq(config["credentials_encryption_primary_key"])
+    expect(config["encryption_deterministic_key"]).to eq(config["credentials_encryption_deterministic_key"])
+    expect(config["encryption_key_derivation_salt"]).to eq(config["credentials_encryption_key_derivation_salt"])
+  end
+
+  it "never boots a production secret from a sentinel ENV value" do
+    config = production_config(
+      "ACTIVE_STORAGE_SERVICE" => "amazon",
+      "AWS_REGION" => "us-east-1",
+      "AWS_BUCKET" => "acme-production"
+    )
+
+    %w[encryption_deterministic_key encryption_key_derivation_salt amazon_secret_access_key].each do |key|
+      expect(config[key]).to be_present
+      expect(config[key]).not_to start_with("sentinel-env-")
+    end
   end
 
   it "reads the amazon storage secrets from the credentials while sentinel ENV values are set" do
@@ -181,6 +203,7 @@ RSpec.describe "Production configuration" do
     expect(config["amazon_access_key_id"]).to be_present
     expect(config["amazon_access_key_id"]).to eq(config["credentials_amazon_access_key_id"])
     expect(config["amazon_secret_access_key"]).to be_present
+    expect(config["amazon_secret_access_key"]).to eq(config["credentials_amazon_secret_access_key"])
   end
 
   it "deletes the production cookie with Secure and Path=/" do
