@@ -39,8 +39,20 @@ rescue Psych::SyntaxError => error
   {}
 end
 
-def host_count(role)
-  Array(role.is_a?(Hash) ? role["hosts"] : role).length
+def server_hosts(role, errors, name)
+  case role
+  when Array
+    role
+  when Hash
+    hosts = role["hosts"]
+    return hosts if hosts.is_a?(Array)
+
+    errors << "#{name} must list hosts as an array"
+    []
+  else
+    errors << "#{name} must be a list of hosts or a hash with hosts"
+    []
+  end
 end
 
 def effective_user(dockerfile)
@@ -202,9 +214,9 @@ deploys.each do |name, deploy|
   unless deploy.dig("proxy", "buffering", "max_request_body").to_i.positive?
     fail_with(errors, "#{name}: proxy.buffering.max_request_body is missing")
   end
-  secret = Array(deploy.dig("env", "secret"))
-  unless secret == [ "RAILS_MASTER_KEY" ]
-    fail_with(errors, "#{name}: env.secret must be exactly RAILS_MASTER_KEY")
+  secret = deploy.dig("env", "secret")
+  unless secret.is_a?(Array) && secret == [ "RAILS_MASTER_KEY" ]
+    fail_with(errors, "#{name}: env.secret must be the list [RAILS_MASTER_KEY]")
   end
   clear = deploy.dig("env", "clear")
   unless clear.is_a?(Hash)
@@ -217,7 +229,12 @@ deploys.each do |name, deploy|
     fail_with(errors, "#{name}: SOLID_QUEUE_IN_PUMA must be absent when a job role runs")
   end
 
-  hosts = deploy.fetch("servers", {}).values.sum { |role| host_count(role) }
+  servers = deploy["servers"]
+  unless servers.is_a?(Hash)
+    fail_with(errors, "#{name}: servers must be a hash of roles")
+    servers = {}
+  end
+  hosts = servers.sum { |role_name, role| server_hosts(role, errors, "#{name}: servers.#{role_name}").length }
   if hosts > 1 && deploy.dig("boot", "limit") != 1
     fail_with(errors, "#{name}: more than one host needs boot.limit: 1")
   end
@@ -241,7 +258,8 @@ deploys.each do |name, deploy|
     fail_with(errors, "#{name}: ACTIVE_STORAGE_SERVICE must be amazon") unless storage == "amazon"
     fail_with(errors, "#{name}: managed Active Storage must not mount a host volume") if deploy.key?("volumes")
     fail_with(errors, "#{name}: managed PostgreSQL must not use an accessory") if deploy.key?("accessories")
-    unless deploy.dig("servers", "job", "cmd") == "bin/jobs"
+    job = servers["job"]
+    unless job.is_a?(Hash) && job["cmd"] == "bin/jobs"
       fail_with(errors, "#{name}: the job role must run bin/jobs")
     end
   end
