@@ -263,6 +263,26 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
+# A long run of line continuations is one scan too: the identifier decodes to
+# nothing, so the "not a url prefix" early return never fires (TS-07).
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  continuations = 16_000
+  File.binwrite(File.join(dir, "app", "frontend", "styles", "application.css"),
+                "." + ("\\\n" * continuations) + "x { color: red; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run_with_timeout(script, dir, 30)
+  if status.nil?
+    failures += 1
+    warn "apply_check_canary: line continuations timed out"
+  elsif !status.success? || !output.include?("checked 1 CSS files; findings=0")
+    failures += 1
+    warn "apply_check_canary: line continuations: #{status.exitstatus}: #{output}"
+  end
+end
+
 if failures.positive?
   warn "apply_check_canary: checked #{cases} cases; failures=#{failures}"
   exit 1
