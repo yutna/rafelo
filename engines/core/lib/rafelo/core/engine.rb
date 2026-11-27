@@ -35,6 +35,34 @@ module Rafelo
         app.config.x.sessions.touch_interval_seconds = 5 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800
+        report_only = core_config.dig(:csp, :report_only)
+        unless report_only == true || report_only == false
+          raise "CSP_REPORT_ONLY must be true or false"
+        end
+        app.config.x.csp = ActiveSupport::OrderedOptions.new
+        app.config.x.csp.report_only = report_only
+      end
+
+      initializer "rafelo_core.content_security_policy" do |app|
+        app.config.content_security_policy do |policy|
+          policy.default_src :self
+          policy.font_src :self, :data
+          policy.img_src :self, :data
+          policy.object_src :none
+          policy.script_src :self
+          policy.style_src :self
+          policy.connect_src :self
+          policy.base_uri :self
+          policy.form_action :self
+          policy.frame_ancestors :none
+          # Reports go to the tokenless core endpoint; the smoke job runs with
+          # Report-Only and fails when one arrives (SEC-05).
+          policy.report_uri "/core/csp_reports"
+        end
+
+        app.config.content_security_policy_nonce_generator = ->(_request) { SecureRandom.urlsafe_base64(16) }
+        app.config.content_security_policy_nonce_directives = %w[script-src style-src]
+        app.config.content_security_policy_report_only = app.config.x.csp.report_only
       end
 
       initializer "rafelo_core.upstreams" do |app|
