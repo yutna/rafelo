@@ -345,6 +345,24 @@ git -C "$tmp" add -f config/credentials/production.key.bak
 expect_fail_with "tracked production key backup" "OPS-06/SEC-07"
 
 reset
+mkdir -p "$tmp/config/credentials"
+echo "dummy" > "$tmp/config/credentials/production.key_old"
+git -C "$tmp" add -f config/credentials/production.key_old
+expect_fail_with "tracked production key with an underscore suffix" "OPS-06/SEC-07"
+
+reset
+mkdir -p "$tmp/config/credentials"
+echo "dummy" > "$tmp/config/credentials/production.key-old"
+git -C "$tmp" add -f config/credentials/production.key-old
+expect_fail_with "tracked production key with a dash suffix" "OPS-06/SEC-07"
+
+reset
+mkdir -p "$tmp/config/credentials"
+echo "dummy" > "$tmp/config/credentials/production.keys"
+git -C "$tmp" add -f config/credentials/production.keys
+expect_fail_with "tracked production keys file" "OPS-06/SEC-07"
+
+reset
 cat > "$tmp/.kamal/secrets-common" <<'SECRETS'
 RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
@@ -537,4 +555,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 47 cases"
+echo "deploy_preflight_canary: checked 50 cases"
