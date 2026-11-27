@@ -205,7 +205,7 @@ check_config_fixtures = File.join(FIXTURES, "check_config")
   [ "check_config scoped test", [ "--root", File.join(check_config_fixtures, "scoped_test") ], 1,
     "gamma.test.tsx", nil ],
   [ "check_config ignored prefix", [ "--root", File.join(check_config_fixtures, "ignored_scope") ], 1,
-    "engines/aaa/app/frontend/z.tsx", nil ],
+    "engines/aaa/zzz/z.tsx", nil ],
   [ "check_config nested override", [ "--root", File.join(check_config_fixtures, "nested") ], 1,
     "app/frontend/legacy/zzz.tsx", nil ],
   [ "check_config config priority", [ "--root", File.join(check_config_fixtures, "priority") ], 1,
