@@ -439,6 +439,16 @@ SECRETS
     ' "$tmp/config/credentials/production.yml.enc" "$tmp/config/credentials/production.key" "$content"
 }
 
+dummy_credentials_yaml() {
+  BUNDLE_GEMFILE="$root/Gemfile" bundle exec ruby -ractive_support \
+    -ractive_support/encrypted_configuration -ryaml -e '
+      config = ActiveSupport::EncryptedConfiguration.new(
+        config_path: ARGV[0], key_path: ARGV[1], env_key: "RAILS_MASTER_KEY", raise_if_missing_key: true
+      )
+      print config.config.to_yaml
+    ' "$root/config/credentials/dummy.yml.enc" "$root/config/credentials/dummy.key"
+}
+
 reset
 write_production_credentials "--- {}\n"
 expect_pass "empty production credentials outside a deploy"
@@ -447,6 +457,32 @@ expect_fail_with_deploy "empty production credentials at deploy" "production cre
 reset
 write_production_credentials "secret_key_base: fixture\n"
 expect_fail_with_deploy "partial production credentials at deploy" "missing=active_record_encryption.primary_key"
+
+reset
+mkdir -p "$tmp/config/credentials"
+cp "$root/config/credentials/dummy.key" "$tmp/config/credentials/dummy.key"
+cp "$root/config/credentials/dummy.yml.enc" "$tmp/config/credentials/dummy.yml.enc"
+cp "$root/config/credentials/dummy.yml.enc" "$tmp/config/credentials/production.yml.enc"
+cp "$root/config/credentials/dummy.key" "$tmp/config/credentials/production.key"
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+PRODUCTION_KEY="$(cat "$root/config/credentials/dummy.key")"
+expect_fail_with_deploy "the committed dummy key at deploy" "must not run on config/credentials/dummy.key"
+
+reset
+write_production_credentials "$(dummy_credentials_yaml)"
+expect_fail_with_deploy "the committed dummy values with a fresh key" "reuse the dummy values"
+
+reset
+write_production_credentials "$(cat <<'YAML'
+secret_key_base: fixture
+database:
+  password: ""
+YAML
+)"
+expect_fail_with_deploy "a blank production credential" "blank values: database.password"
 
 reset
 rm -f "$tmp/.github/workflows/audits.yml"
@@ -463,4 +499,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 40 cases"
+echo "deploy_preflight_canary: checked 43 cases"
