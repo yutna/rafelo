@@ -2,9 +2,13 @@ require "rails_helper"
 require "open3"
 
 RSpec.describe "Production configuration" do
+  SEAM = Rails.root.join("spec/config/production_credentials_seam.rb")
+
   DUMMY_ENV = {
     "RAILS_ENV" => "production",
     "RAILS_MASTER_KEY" => File.read(Rails.root.join("config/credentials/dummy.key")).strip,
+    "RUBYOPT" => [ ENV["RUBYOPT"], "-r#{SEAM}" ].compact.join(" "),
+    "RAILS_SEAM_GEMFILE" => Rails.root.join("Gemfile").to_s,
     "ACME_API_BASE_URL" => "http://localhost:4000",
     "RAILS_HOSTS" => "example.com",
     "DB_USER" => "acme_runtime"
@@ -31,28 +35,14 @@ RSpec.describe "Production configuration" do
   RUBY
 
   # The production boot reads every secret from the encrypted production
-  # credentials. The specs use the committed dummy credentials, encrypted with
-  # the committed dummy key, so they hold no real secret (BE-08, SEC-07).
-  def with_dummy_production_credentials
-    CredentialsLock.synchronize do
-      path = Rails.root.join("config/credentials/production.yml.enc")
-      original = File.binread(path)
-      FileUtils.cp(Rails.root.join("config/credentials/dummy.yml.enc"), path)
-      begin
-        yield
-      ensure
-        File.binwrite(path, original) if original
-      end
-    end
-  end
-
+  # credentials. The specs point that path at the committed dummy credentials
+  # with a RUBYOPT seam, encrypted with the committed dummy key, so they hold
+  # no real secret and never write the tracked production file (BE-08, SEC-07).
   def production_config(env = {})
-    with_dummy_production_credentials do
-      output, error, status = Open3.capture3(DUMMY_ENV.merge(env), "bin/rails", "runner", SCRIPT, chdir: Rails.root.to_s)
-      raise "production boot failed: #{error}" unless status.success?
+    output, error, status = Open3.capture3(DUMMY_ENV.merge(env), "bin/rails", "runner", SCRIPT, chdir: Rails.root.to_s)
+    raise "production boot failed: #{error}" unless status.success?
 
-      JSON.parse(output.lines.last)
-    end
+    JSON.parse(output.lines.last)
   end
 
   it "forces SSL, allows only configured hosts, excludes /up and rejects an unknown host" do
