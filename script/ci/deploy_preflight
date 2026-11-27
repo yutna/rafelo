@@ -97,13 +97,13 @@ secrets = ".kamal/secrets"
 secrets_example = ".kamal/secrets.example"
 if File.file?(secrets)
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must not be tracked; remove it from git and keep it in the deploy secret store") if tracked_paths.include?(".kamal/secrets")
-  fail_with(errors, ".kamal/secrets must name RAILS_MASTER_KEY") unless secret_line?(secrets, "RAILS_MASTER_KEY")
+  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY") unless secret_line?(secrets, "RAILS_MASTER_KEY")
   unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
-    fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
+    fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 else
   unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
-    fail_with(errors, ".kamal/secrets.example must name RAILS_MASTER_KEY")
+    fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
   end
 end
 [ secrets, secrets_example ].each do |path|

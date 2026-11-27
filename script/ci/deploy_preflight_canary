@@ -211,27 +211,27 @@ reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
-expect_fail "secrets without RAILS_MASTER_KEY"
+expect_fail_with "secrets without RAILS_MASTER_KEY" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
 
 reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
 # RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
-expect_fail "secrets example with a commented RAILS_MASTER_KEY"
+expect_fail_with "secrets example with a commented RAILS_MASTER_KEY" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
 
 reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
 NOT_RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 SECRETS
-expect_fail "secrets example with a RAILS_MASTER_KEY substring"
+expect_fail_with "secrets example with a RAILS_MASTER_KEY substring" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
 
 reset
 cat > "$tmp/.kamal/secrets" <<'SECRETS'
 # RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
-expect_fail "secrets with a commented RAILS_MASTER_KEY"
+expect_fail_with "secrets with a commented RAILS_MASTER_KEY" "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY"
 
 reset
 cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
@@ -337,7 +337,7 @@ RAILS_MASTER_KEY=$RAILS_MASTER_KEY
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRETS
 git -C "$tmp" add -f .kamal/secrets
-expect_fail_with "tracked .kamal/secrets" "OPS-06/SEC-07"
+expect_fail_with "tracked .kamal/secrets" "OPS-06/SEC-07: .kamal/secrets must not be tracked"
 
 write_production_credentials() {
   local content="$1" key
