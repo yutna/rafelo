@@ -3,6 +3,7 @@
 
 require "optparse"
 require "yaml"
+require "dotenv"
 
 deploy = false
 root_argument = nil
@@ -120,38 +121,40 @@ forbidden = tracked_paths.select do |path|
 end
 fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 
-# Kamal reads the secrets files with Dotenv: an optional `export`, spaces
-# around `=` or `:`, comments, and the last line wins for a duplicate.
-def secret_assignments(text)
-  text.each_line.each_with_object({}) do |line, into|
-    line = line.strip
-    next if line.empty? || line.start_with?("#")
+# Kamal parses every secrets source with Dotenv (kamal/secrets.rb), so use the
+# gem's grammar instead of keeping a second parser: an optional `export`,
+# spaces around `=` or `:`, quoted values, inline comments, and the last
+# assignment wins. An overridden line still runs during the deploy, so the leak
+# check reads every assignment, not only the winner.
+def effective_secrets(path)
+  Dotenv::Parser.new(File.read(path), overwrite: true).call
+end
 
-    line = line.sub(/\Aexport\s+/, "")
-    key, value = line.split(/\s*[=:]\s*/, 2)
-    next unless key&.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
-
-    value = value.to_s
-    if (value.start_with?('"') && value.rindex('"')&.positive?) || (value.start_with?("'") && value.rindex("'")&.positive?)
-      quote = value[0]
-      closing = value.rindex(quote)
-      # A comment marker inside the quotes is part of the value; a `#` after
-      # the closing quote starts a comment (Kamal parses with Dotenv).
-      into[key] = value[1...closing]
-    else
-      value = "" if value.lstrip.start_with?("#")
-      into[key] = value.sub(/\s+#.*\z/, "")
-    end
-  end
+# The last assignment of the key, as written. The emptiness check must not run
+# Dotenv's `$VAR` substitution: at deploy time the file names the variable and
+# the deploy environment provides the value.
+def last_secret_line(path, name)
+  File.read(path).scan(Dotenv::Parser::LINE)
+    .reverse
+    .find { |_export, key, _value| key == name }
+    &.last
 end
 
 def secret_line?(path, name)
-  value = secret_assignments(File.read(path))[name]
-  !value.to_s.strip.empty?
+  raw = last_secret_line(path, name).to_s.strip
+  raw = raw[1..-2] if raw.length >= 2 && raw[0] == raw[-1] && [ '"', "'" ].include?(raw[0])
+  !raw.strip.empty?
 end
 
 def names_secret?(path, name = "RAILS_MASTER_KEY")
   File.file?(path) && secret_line?(path, name)
+end
+
+def secret_leak?(path)
+  File.read(path).scan(Dotenv::Parser::LINE).any? do |_export, key, value|
+    key == "RAILS_MASTER_KEY" &&
+      value.to_s.match?(%r{config/(?:master\.key|credentials/production\.key)})
+  end
 end
 
 # Kamal reads `<secrets_path>-common` and, without a destination,
@@ -203,11 +206,9 @@ if deploy && ENV["RAILS_MASTER_KEY"].to_s.strip.empty?
 end
 [ *secret_sources, secrets_example ].each do |path|
   next unless File.file?(path)
+  next unless secret_leak?(path)
 
-  value = secret_assignments(File.read(path))["RAILS_MASTER_KEY"].to_s
-  if value.match?(%r{config/(?:master\.key|credentials/production\.key)})
-    fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key or a production key")
-  end
+  fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key or a production key")
 end
 
 hook = ".kamal/hooks/pre-deploy"
@@ -350,9 +351,9 @@ end
 
 accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
 available_secrets = if secret_sources.any?
-  secret_sources.map { |path| secret_assignments(File.read(path)) }.reduce({}) { |all, one| all.merge(one) }
+  secret_sources.map { |path| effective_secrets(path) }.reduce({}) { |all, one| all.merge(one) }
 elsif File.file?(secrets_example)
-  secret_assignments(File.read(secrets_example))
+  effective_secrets(secrets_example)
 else
   {}
 end
