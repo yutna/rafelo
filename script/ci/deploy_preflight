@@ -96,20 +96,30 @@ def secret_line?(path, name)
   end
 end
 
-secrets = ".kamal/secrets"
+def names_secret?(path, name = "RAILS_MASTER_KEY")
+  File.file?(path) && secret_line?(path, name)
+end
+
 secrets_example = ".kamal/secrets.example"
-if File.file?(secrets)
-  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must not be tracked; remove it from git and keep it in the deploy secret store") if tracked_paths.include?(".kamal/secrets")
-  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY") unless secret_line?(secrets, "RAILS_MASTER_KEY")
-  unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
-    fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
-  end
-else
-  unless File.file?(secrets_example) && secret_line?(secrets_example, "RAILS_MASTER_KEY")
-    fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
+secret_sources = [ ".kamal/secrets-common", ".kamal/secrets" ].select { |path| File.file?(path) }
+secret_sources.each do |path|
+  if tracked_paths.include?(path)
+    fail_with(errors, "OPS-06/SEC-07: #{path} must not be tracked; remove it from git and keep it in the deploy secret store")
   end
 end
-[ secrets, secrets_example ].each do |path|
+if secret_sources.any? && secret_sources.none? { |path| names_secret?(path) }
+  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY")
+end
+unless names_secret?(secrets_example)
+  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
+end
+if deploy && secret_sources.empty?
+  fail_with(errors, "OPS-06/SEC-07: a deploy needs .kamal/secrets or .kamal/secrets-common; Kamal reads the secret names from them")
+end
+if deploy && ENV["RAILS_MASTER_KEY"].to_s.strip.empty?
+  fail_with(errors, "OPS-06/SEC-07: RAILS_MASTER_KEY must be set for a deploy; Kamal passes the resolved value to this hook")
+end
+[ *secret_sources, secrets_example ].each do |path|
   next unless File.file?(path)
 
   if File.read(path).match?(/^\s*RAILS_MASTER_KEY\s*=.*config\/(?:master\.key|credentials\/production\.key)/)
@@ -256,7 +266,11 @@ if File.file?(".kamal/secrets") || File.file?(".kamal/secrets.example")
   fail_with(errors, "database accessory secrets are missing from .kamal/secrets: #{missing.join(", ")}") if missing.any?
 end
 
-production_key_available = ENV["RAILS_MASTER_KEY"].to_s.strip != "" || File.file?("config/credentials/production.key")
+production_key_available = if deploy
+  ENV["RAILS_MASTER_KEY"].to_s.strip != ""
+else
+  ENV["RAILS_MASTER_KEY"].to_s.strip != "" || File.file?("config/credentials/production.key")
+end
 if production_key_available
   production_credentials = "config/credentials/production.yml.enc"
   if !File.file?(production_credentials)
