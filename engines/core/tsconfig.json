@@ -9,7 +9,8 @@
   },
   "include": [
     "app/frontend/**/*",
-    "app/frontend/**/*.json"
+    "app/frontend/**/*.json",
+    "spec/dummy_engine/app/frontend/**/*"
   ],
   "references": []
 }

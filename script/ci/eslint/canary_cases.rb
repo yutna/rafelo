@@ -29,6 +29,8 @@ module Rafelo
         unit_test: existing_path(root, "app/frontend/components/page_heading.test.tsx"),
         core_domain: existing_path(root, "engines/core/app/frontend/domain/money.ts"),
         core_domain_test: existing_path(root, "engines/core/app/frontend/domain/money.test.ts"),
+        dummy_schema: existing_path(root,
+                                   "engines/core/spec/dummy_engine/app/frontend/pages/dummy/widgets.schema.ts"),
         use_ui_state: existing_path(root, "engines/core/app/frontend/lib/use_ui_state.ts"),
         icon_map: existing_path(root, "engines/design_system/app/frontend/icon.tsx"),
         home_page: existing_path(root, "app/frontend/pages/home/index.tsx")
@@ -67,7 +69,9 @@ module Rafelo
         { name: "Tailwind classes", fixture: "tailwind/bad.tsx", path: path[:engine_page],
           rules: [ "better-tailwindcss/no-unknown-classes" ] },
         { name: "skipped tests", fixture: "skip/bad.tsx", path: path[:engine_test],
-          rules: [ "rafelo/skip-needs-issue" ], count: 16 }
+          rules: [ "rafelo/skip-needs-issue" ], count: 16 },
+        { name: "dummy engine schema", fixture: "urls/bad.tsx", path: path[:dummy_schema],
+          rules: [ "no-restricted-syntax" ] }
       ]
     end
 
@@ -183,6 +187,13 @@ module Rafelo
           imports: { names: [ "react", "@inertiajs/react" ], groups: [ "@engines/*" ] },
           syntax: { include: [ "TemplateLiteral", "ExportDefaultDeclaration" ] },
           forbid_elements: :on
+        },
+        {
+          path: path[:dummy_schema],
+          imports: { names: [ "react" ], groups: [ "../*" ] },
+          properties: :on,
+          syntax: { include: [ "Intl", "TemplateLiteral", "property.name='glob'" ] },
+          prefer_readonly: :on
         }
       ]
     end

@@ -65,7 +65,10 @@ app_references = packages.keys.map { |name| { "path" => "../../engines/#{name}" 
 
 packages.each do |name, dependencies|
   references = dependencies.map { |dep| { "path" => "../#{dep}" } }
-  config = project("../../", name, include: [ "app/frontend/**/*", "app/frontend/**/*.json" ], references: references)
+  include = [ "app/frontend/**/*", "app/frontend/**/*.json" ]
+  # The test-only dummy engine is part of core's TypeScript project (TS-01).
+  include << "spec/dummy_engine/app/frontend/**/*" if name == "core"
+  config = project("../../", name, include: include, references: references)
   write_or_check(File.join(root, "engines", name, "tsconfig.json"), "#{JSON.pretty_generate(config)}\n", check, errors)
 end
 
