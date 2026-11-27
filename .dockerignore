@@ -11,9 +11,9 @@
 /.env*
 !/.env.ci.production
 
-# Ignore all default key files.
-/config/master.key
-/config/credentials/*.key
+# Ignore all default key files. A backup of a key is the key (SEC-07).
+/config/master.key*
+/config/credentials/*.key*
 !/config/credentials/dummy.key
 
 # Ignore all logfiles and tempfiles.

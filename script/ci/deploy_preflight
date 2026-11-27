@@ -84,8 +84,16 @@ tracked_paths = tracked.lines(chomp: true)
 
 forbidden = tracked_paths.select do |path|
   env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
-  key_file = path.start_with?("config/credentials/") && path.end_with?(".key") && path != "config/credentials/dummy.key"
-  env_file || key_file || path == "config/master.key" || path == ".kamal/secrets"
+  # A backup or a sibling of a secrets file is a secrets file; a backup of a
+  # key is the key (SEC-07).
+  kamal_secret = path.match?(%r{\A\.kamal/secrets(?:[.-]|\z)}) &&
+    path != ".kamal/secrets.example" &&
+    path != ".kamal/secrets" &&
+    path != ".kamal/secrets-common"
+  master_key = path.start_with?("config/master.key")
+  credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key(?:\.|\z)}) &&
+    path != "config/credentials/dummy.key"
+  env_file || kamal_secret || master_key || credentials_key
 end
 fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 

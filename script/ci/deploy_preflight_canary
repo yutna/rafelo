@@ -300,6 +300,37 @@ git -C "$tmp" add -f config/credentials/production.key
 expect_fail_with "tracked production key" "OPS-06/SEC-07"
 
 reset
+cat > "$tmp/.kamal/secrets-common" <<'SECRETS'
+RAILS_MASTER_KEY=real
+POSTGRES_PASSWORD=real
+SECRETS
+git -C "$tmp" add -f .kamal/secrets-common
+expect_fail_with "tracked .kamal/secrets-common" "OPS-06/SEC-07: .kamal/secrets-common must not be tracked"
+
+reset
+cp "$tmp/.kamal/secrets.example" "$tmp/.kamal/secrets.bak"
+git -C "$tmp" add -f .kamal/secrets.bak
+expect_fail_with "tracked .kamal/secrets.bak" "OPS-06/SEC-07"
+
+reset
+echo "dummy" > "$tmp/config/master.key.bak"
+git -C "$tmp" add -f config/master.key.bak
+expect_fail_with "tracked config/master.key.bak" "OPS-06/SEC-07"
+
+reset
+mkdir -p "$tmp/config/credentials"
+echo "dummy" > "$tmp/config/credentials/production.key.bak"
+git -C "$tmp" add -f config/credentials/production.key.bak
+expect_fail_with "tracked production key backup" "OPS-06/SEC-07"
+
+reset
+cat > "$tmp/.kamal/secrets-common" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass "an untracked .kamal/secrets-common with the key"
+
+reset
 echo "EXTRA_KEY=1" >> "$tmp/.env.ci.production"
 expect_fail ".env.ci.production key missing from env.clear"
 
@@ -432,4 +463,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 35 cases"
+echo "deploy_preflight_canary: checked 40 cases"

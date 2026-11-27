@@ -49,17 +49,20 @@ Thumbs.db
 /public/vite-dev
 /public/vite-test
 
-# Ignore key files for decrypting credentials and more.
-/config/*.key
-/config/credentials/*.key
+# Ignore key files for decrypting credentials and more. Backups of a key are
+# the key: the preflight and the image must reject them too (SEC-07).
+/config/*.key*
+/config/credentials/*.key*
 !/config/credentials/dummy.key
 
 # Ignore logs outside log/.
 *.log
 logs/
 
-# Deployment secrets are provided by the password manager or ENV.
-/.kamal/secrets
+# Deployment secrets are provided by the password manager or ENV. Every
+# variant is ignored, including .kamal/secrets-common and backups (SEC-07).
+/.kamal/secrets*
+!/.kamal/secrets.example
 
 # Playwright artifacts
 /test-results/
