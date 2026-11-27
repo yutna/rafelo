@@ -13,12 +13,15 @@ module RuboCop
 
           add_offense(node)
         end
+        alias on_csend on_send
 
         private
 
         def env_read?(node)
-          return false unless %w[[] fetch].include?(Matching.method_name(node))
+          return false unless node.send_type? || node.csend_type?
 
+          # Every ENV access is a configuration read: [], fetch, key?, to_h,
+          # slice, []= and the rest (BE-08, TS-07).
           Matching.receiver_names(node) == [ "ENV" ]
         end
 

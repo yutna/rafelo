@@ -53,7 +53,7 @@ def stdin_run(cop, path, source)
 end
 
 env_bad, env_bad_status = stdin_run("Rafelo/EnvOnlyInConfig", "app/models/env_canary.rb",
-                                    "ENV[\"SECRET_KEY\"]\nENV.fetch(\"SECRET_KEY\")\nRails.application.credentials\nRails.application.credentials.dig(:database, :password)\n")
+                                    "ENV[\"SECRET_KEY\"]\nENV.fetch(\"SECRET_KEY\")\nENV.key?(\"SECRET_KEY\")\nENV.to_h\nENV.slice(\"SECRET_KEY\")\nENV[\"SECRET_KEY\"] = \"x\"\nRails.application.credentials\nRails.application.credentials.dig(:database, :password)\n")
 unless env_bad_status.exitstatus == 1 && env_bad.include?("Rafelo/EnvOnlyInConfig")
   warn "cops_canary: EnvOnlyInConfig did not report the app fixture"
   warn env_bad
@@ -61,7 +61,7 @@ unless env_bad_status.exitstatus == 1 && env_bad.include?("Rafelo/EnvOnlyInConfi
 end
 
 env_legal, env_legal_status = stdin_run("Rafelo/EnvOnlyInConfig", "config/initializers/env_canary.rb",
-                                        "ENV.fetch(\"SECRET_KEY\")\n")
+                                        "ENV.fetch(\"SECRET_KEY\")\nENV.key?(\"SECRET_KEY\")\nENV.to_h\nENV.slice(\"SECRET_KEY\")\n")
 unless env_legal_status.exitstatus.zero?
   warn "cops_canary: EnvOnlyInConfig flagged config/"
   warn env_legal
