@@ -29,7 +29,7 @@ module Rafelo
           rate_limit(to:, within:, only: actions, by:, name:, prepend: true,
                      with: lambda {
                        AuditRecorder.record(controller: self, event: "rate_limit", outcome: "failure", target: limit_name)
-                       render_error("request.throttled")
+                       render_throttled
                      })
 
           self.throttle_limits = throttle_limits.merge(

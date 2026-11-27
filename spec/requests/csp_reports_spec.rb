@@ -128,8 +128,30 @@ RSpec.describe "CSP reports", type: :request do
     expect(response).to have_http_status(:bad_request)
   end
 
-  it "throttles reports per IP" do
-    limits = Rafelo::Core::CspReportsController.throttle_limits.fetch(:create)
-    expect(limits).to include(hash_including(name: "csp_reports/ip", to: 60))
+  it "answers 204 under the limit and 429 on the 61st report from one IP" do
+    Rails.cache.clear
+    payload = {
+      "csp-report" => {
+        "document-uri" => "https://app.test/en",
+        "violated-directive" => "script-src",
+        "blocked-uri" => "inline",
+        "source-file" => "https://app.test/app.js",
+        "line-number" => 1
+      }
+    }.to_json
+
+    post "/core/csp_reports", params: payload, headers: report_headers
+    expect(response).to have_http_status(:no_content)
+
+    59.times do
+      post "/core/csp_reports", params: payload, headers: report_headers
+      expect(response).to have_http_status(:no_content)
+    end
+
+    post "/core/csp_reports", params: payload, headers: report_headers
+
+    expect(response).to have_http_status(:too_many_requests)
+    expect(response.body).to be_empty
+    expect(response.headers["Cache-Control"]).to include("no-store")
   end
 end

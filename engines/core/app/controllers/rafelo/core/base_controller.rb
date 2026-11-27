@@ -50,6 +50,12 @@ module Rafelo
         end
       end
 
+      # The throttle handler answers a page request with the error page; a
+      # machine endpoint overrides this with its own status and body.
+      def render_throttled
+        render_error("request.throttled")
+      end
+
       # Every write ends in a 303: success, shape failure, upstream 422 or a
       # conflict. Only unexpected failures render the error page (BE-13).
       def redirect_after_write(path, notice: nil, alert: nil, errors: nil)
