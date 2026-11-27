@@ -36,7 +36,7 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   FileUtils.mkdir_p(File.join(dir, "engines", "design_system", "app", "frontend"))
   File.write(File.join(dir, "app", "frontend", "styles", "application.css"), "body { margin: 0; }\n")
   File.write(File.join(dir, "engines", "design_system", "app", "frontend", "theme.css"),
-             ".button { @apply rounded; }\n")
+             "/* @apply is allowed here */\n.button { @apply rounded; }\n")
   git(dir, "add", "-A")
   cases += 1
   output, status = run(script, dir)
@@ -50,14 +50,29 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "init", "-q")
   FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
   File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
-             ".button { @apply rounded; }\n")
+             ".button { margin: 0; }\n/* use @apply here */\n.button { @apply rounded; }\n")
   git(dir, "add", "-A")
   cases += 1
   output, status = run(script, dir)
-  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:1") &&
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:3") &&
+         !output.include?("app/frontend/styles/application.css:2:") &&
          output.include?("apply-outside-design-system")
     failures += 1
-    warn "apply_check_canary: outside design_system: #{status.exitstatus}: #{output}"
+    warn "apply_check_canary: comment and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             "/* use @apply here */\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.success? && output.include?("checked 1 CSS files; findings=0")
+    failures += 1
+    warn "apply_check_canary: comment only: #{status.exitstatus}: #{output}"
   end
 end
 
