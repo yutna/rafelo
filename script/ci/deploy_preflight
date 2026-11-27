@@ -112,7 +112,7 @@ forbidden = tracked_paths.select do |path|
   env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
   # A backup or a sibling of a secrets file is a secrets file; a backup of a
   # key is the key (SEC-07).
-  kamal_secret = path.match?(%r{\A\.kamal/secrets(?:[.-]|\z)}) &&
+  kamal_secret = path.start_with?(".kamal/secrets") &&
     path != ".kamal/secrets.example" &&
     path != ".kamal/secrets" &&
     path != ".kamal/secrets-common"
@@ -136,7 +136,8 @@ end
 
 secrets_example = ".kamal/secrets.example"
 secret_sources = [ ".kamal/secrets-common", ".kamal/secrets" ].select { |path| File.file?(path) }
-secret_sources.each do |path|
+# A tracked source is a secret even when it is deleted from the worktree.
+[ ".kamal/secrets-common", ".kamal/secrets" ].each do |path|
   if tracked_paths.include?(path)
     fail_with(errors, "OPS-06/SEC-07: #{path} must not be tracked; remove it from git and keep it in the deploy secret store")
   end
