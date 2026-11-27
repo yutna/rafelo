@@ -22,10 +22,13 @@ abort "apply_check: no CSS files found under #{root}; checked 0" if files.empty?
 # A CSS comment is not an at-rule: `/* use @apply here */` outside
 # design_system is prose. Strings stay in the output so a `/*` inside
 # `content` never opens a comment, and newlines are kept so line numbers match
-# the file (FE-06).
+# the file (FE-06). An unquoted url() is one token: `url(a/*b)` holds data, not
+# a comment, so a later @apply must still be seen.
 def without_comments(source)
   code = +""
   state = :code
+  quote = nil
+  quote_return = :code
   index = 0
   while index < source.length
     char = source[index]
@@ -37,7 +40,14 @@ def without_comments(source)
         index += 2
         next
       elsif char == '"' || char == "'"
-        state = char == '"' ? :double_quote : :single_quote
+        quote = char
+        quote_return = :code
+        state = :string
+      elsif url_token?(source, index)
+        code << source[index, 4]
+        state = :url
+        index += 4
+        next
       end
       code << char
     when :comment
@@ -47,20 +57,38 @@ def without_comments(source)
         next
       end
       code << "\n" if char == "\n"
-    when :double_quote, :single_quote
+    when :url
+      if char == '"' || char == "'"
+        quote = char
+        quote_return = :url
+        state = :string
+      elsif char == "\\"
+        code << char << following.to_s
+        index += 2
+        next
+      elsif char == ")"
+        state = :code
+      end
+      code << char
+    when :string
       code << char
       if char == "\\"
-        code << following if following
+        code << following.to_s if following
         index += 2
         next
       end
-      if (state == :double_quote && char == '"') || (state == :single_quote && char == "'")
-        state = :code
-      end
+      state = quote_return if char == quote
     end
     index += 1
   end
   code
+end
+
+def url_token?(source, index)
+  return false unless source[index, 4].to_s.casecmp("url(").zero?
+  return true if index.zero?
+
+  source[index - 1] !~ /[A-Za-z0-9_-]/
 end
 
 findings = 0

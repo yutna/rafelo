@@ -76,6 +76,39 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
+# A `/*` inside an unquoted url() is data, not a comment: a real @apply after
+# it must still be reported (FE-06).
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: url(a/*b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+# The same inside a quoted url().
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: url(\"a/*b\"); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: quoted url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
 if failures.positive?
   warn "apply_check_canary: checked #{cases} cases; failures=#{failures}"
   exit 1
