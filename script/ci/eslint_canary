@@ -3,6 +3,7 @@
 
 require "json"
 require "open3"
+require "fileutils"
 require "tmpdir"
 
 require_relative "eslint/canary_cases"
@@ -39,7 +40,17 @@ end
 cases.each do |test|
   checks += 1
   content = File.read(File.join(FIXTURES, test[:fixture]))
-  output, error, status = lint(eslint, root, test[:path], content)
+  absolute = File.join(root, test[:path])
+  begin
+    if test[:write]
+      FileUtils.mkdir_p(File.dirname(absolute))
+      File.write(absolute, content)
+    end
+
+    output, error, status = lint(eslint, root, test[:path], content)
+  ensure
+    FileUtils.rm_f(absolute) if test[:write]
+  end
   if status.exitstatus != 1
     failures += 1
     warn "eslint_canary: #{test[:name]} exited #{status.exitstatus}, expected 1: #{error.lines.last}"
