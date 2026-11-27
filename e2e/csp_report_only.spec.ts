@@ -35,15 +35,35 @@ test("the smoke server runs under CSP Report-Only", async ({ page }) => {
   expect(response?.headers()["content-security-policy"]).toBeUndefined();
 });
 
-test("no page sends a CSP report and no violation fires", async ({ page }) => {
-  const reports = watchCsp(page);
-
+async function signIn(page: Page) {
   await page.goto("/en/sign_in");
-  await page.goto("/en/component_catalog");
-  await page.waitForTimeout(500);
+  await page.getByTestId("signin.email").fill("ada@example.test");
+  await page.getByTestId("signin.password").fill("secret");
+  await Promise.all([page.waitForURL(/\/en\/?$/), page.getByTestId("signin.submit").click()]);
+}
 
-  expect(reports).toEqual([]);
-  expect(await violations(page)).toEqual([]);
+test("no signed-in page sends a CSP report and no violation fires", async ({ page }) => {
+  const reports = watchCsp(page);
+  if (process.env.E2E_SESSION_COOKIE) {
+    await page.setExtraHTTPHeaders({ Cookie: process.env.E2E_SESSION_COOKIE });
+  } else {
+    await signIn(page);
+  }
+
+  for (const path of [
+    "/en",
+    "/en/example_orders/orders",
+    "/en/example_orders/orders/order-1",
+    "/en/example_orders/orders/order-1/edit",
+    "/en/component_catalog",
+  ]) {
+    await page.goto(path);
+    await expect(page.getByTestId("app.main")).toBeVisible();
+    await page.waitForTimeout(500);
+
+    expect(reports, path).toEqual([]);
+    expect(await violations(page), path).toEqual([]);
+  }
 });
 
 test("a deliberate inline script is reported (canary)", async ({ page }) => {
