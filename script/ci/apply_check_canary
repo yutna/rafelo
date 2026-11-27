@@ -4,12 +4,29 @@
 require "fileutils"
 require "open3"
 require "tmpdir"
+require "timeout"
 
 root = File.expand_path("../..", __dir__)
 script = File.join(root, "script", "ci", "apply_check")
 
 def run(script, root)
   Open3.capture2e(script, "--root", root)
+end
+
+# A stuck guard must not outlive the canary; kill it on timeout.
+def run_with_timeout(script, root, seconds)
+  output = +""
+  Open3.popen2e(script, "--root", root) do |stdin, stdout, wait|
+    stdin.close
+    begin
+      Timeout.timeout(seconds) { output << stdout.read }
+    rescue Timeout::Error
+      Process.kill("TERM", wait.pid)
+      wait.value
+      return [ output, nil ]
+    end
+    [ output, wait.value ]
+  end
 end
 
 def git(dir, *args)
@@ -205,6 +222,26 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
          !output.include?("app/frontend/styles/application.css:1:")
     failures += 1
     warn "apply_check_canary: CRLF url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+# A long escape-heavy identifier is one scan, not one scan per escape
+# (TS-07, lint performance).
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  escapes = 8_000
+  File.binwrite(File.join(dir, "app", "frontend", "styles", "application.css"),
+                ".\\61 " + "\\61 " * (escapes - 1) + "x { color: red; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run_with_timeout(script, dir, 30)
+  if status.nil?
+    failures += 1
+    warn "apply_check_canary: long identifier timed out"
+  elsif !status.success? || !output.include?("checked 1 CSS files; findings=0")
+    failures += 1
+    warn "apply_check_canary: long identifier: #{status.exitstatus}: #{output}"
   end
 end
 

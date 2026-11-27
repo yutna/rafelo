@@ -110,6 +110,9 @@ def url_token_length(source, index)
     else
       break
     end
+    # Only an identifier that can still become `url` needs the rest of the
+    # scan; this keeps an escape-heavy selector linear (TS-07).
+    return nil unless "url".start_with?(decoded.downcase)
   end
   return nil unless source[cursor] == "("
   return nil unless decoded.casecmp("url").zero?
