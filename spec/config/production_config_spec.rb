@@ -17,6 +17,7 @@ RSpec.describe "Production configuration" do
     page = request.get("/en", "HTTP_HOST" => "example.com", "HTTPS" => "on")
     puts({
       hosts: app.config.hosts,
+      require_master_key: app.config.require_master_key,
       runtime_role: app.config.x.database.runtime_role,
       force_ssl: app.config.force_ssl,
       assume_ssl: app.config.assume_ssl,
@@ -59,6 +60,7 @@ RSpec.describe "Production configuration" do
 
     expect(config["force_ssl"]).to be(true)
     expect(config["assume_ssl"]).to be(true)
+    expect(config["require_master_key"]).to be(true)
     expect(config["hosts"]).to eq([ "example.com" ])
     expect(config["runtime_role"]).to eq("acme_runtime")
     expect(config["excluded"]).to be(true)
@@ -135,6 +137,10 @@ RSpec.describe "Production configuration" do
     expect(config["hosts"]).to eq([ "app.example.test" ])
   end
 
+  # The exhaustive code check is Rafelo/EnvOnlyInConfig (enabled in
+  # .rubocop.yml and canaried by script/ci/cops_canary): ENV and credentials
+  # reads outside config/ fail the lint. The config files themselves are its
+  # Exclude list, so this spec pins the three former production fallbacks.
   it "reads production secrets only from credentials, never the old ENV fallbacks" do
     expect(File.read(Rails.root.join("config/initializers/active_record_encryption.rb"))).not_to include("ENV[")
     expect(File.read(Rails.root.join("config/database.yml"))).not_to include('ENV["DB_PASSWORD"].presence')
