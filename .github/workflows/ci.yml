@@ -230,7 +230,7 @@ jobs:
       - name: Prepare ESLint and Prettier caches
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         env:
-          LINT_HASH: ${{ hashFiles('package-lock.json', 'package.json', 'eslint.config.mjs', 'script/ci/eslint/rafelo.mjs', '.prettierrc.json', '.prettierignore', 'app/frontend/styles/application.css', 'engines/design_system/app/frontend/theme.css', 'tsconfig*.json', 'engines/*/tsconfig.json') }}
+          LINT_HASH: ${{ hashFiles('package-lock.json', 'package.json', 'eslint.config.mjs', 'script/ci/eslint/rafelo.mjs', '.prettierrc.json', '.prettierignore', 'app/frontend/styles/application.css', 'engines/design_system/app/frontend/theme.css', 'tsconfig*.json', 'engines/*/tsconfig.json', 'app/frontend/tsconfig.json') }}
         with:
           path: |
             tmp/cache/eslint/root
