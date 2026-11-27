@@ -39,6 +39,7 @@ RSpec.describe "Production configuration" do
       health: request.get("/up", "HTTP_HOST" => "example.com", "HTTPS" => "on").status,
       csp: page.headers["Content-Security-Policy"],
       csp_report_only: page.headers["Content-Security-Policy-Report-Only"],
+      csp_report_only_setting: app.config.x.csp.report_only,
       devtools: InertiaRails::Devtools.enabled?,
       database_password: app.config.database_configuration.dig("production", "primary", "password"),
       migration_database_password: app.config.database_configuration.dig("production", "migration", "password"),
@@ -140,10 +141,17 @@ RSpec.describe "Production configuration" do
     enforced = production_config
     expect(enforced["csp"]).to be_present
     expect(enforced["csp_report_only"]).to be_nil
+    expect(enforced["csp_report_only_setting"]).to be(false)
 
     report_only = production_config("CSP_REPORT_ONLY" => "true")
     expect(report_only["csp"]).to be_nil
     expect(report_only["csp_report_only"]).to be_present
+    expect(report_only["csp_report_only_setting"]).to be(true)
+  end
+
+  it "refuses a malformed CSP_REPORT_ONLY instead of guessing" do
+    expect { production_config("CSP_REPORT_ONLY" => "sometimes") }
+      .to raise_error(/production boot failed: .*CSP_REPORT_ONLY must be true or false/m)
   end
 
   it "reads RAILS_HOST when RAILS_HOSTS is absent" do

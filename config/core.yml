@@ -7,6 +7,8 @@ default: &default
     role: <%= ENV.fetch("KAMAL_ROLE", "web") %>
   database:
     runtime_role: <%= runtime_role %>
+  csp:
+    report_only: <%= ENV.fetch("CSP_REPORT_ONLY", "false") %>
 
 development:
   <<: *default
