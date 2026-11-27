@@ -109,18 +109,6 @@ tracked = IO.popen(%w[git ls-files], err: File::NULL, &:read)
 abort "deploy_preflight: git ls-files failed" unless $?.success?
 tracked_paths = tracked.lines(chomp: true)
 
-forbidden = tracked_paths.select do |path|
-  env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
-  # A backup or a sibling of a secrets file is a secrets file; a backup of a
-  # key is the key (SEC-07).
-  kamal_secret = path.start_with?(".kamal/secrets") && path != ".kamal/secrets.example"
-  master_key = path.start_with?("config/master.key")
-  credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key}) &&
-    path != "config/credentials/dummy.key"
-  env_file || kamal_secret || master_key || credentials_key
-end
-fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
-
 # Kamal parses every secrets source with Dotenv (kamal/secrets.rb), so use the
 # gem's grammar instead of keeping a second parser: an optional `export`,
 # spaces around `=` or `:`, quoted values, inline comments, and the last
@@ -201,12 +189,28 @@ def deploy_secrets_path(errors, destination)
   if resolved.length > 1
     errors << "OPS-06/SEC-07: profiles must use one secrets_path; found #{profiles.map { |path, value| "#{path}=#{value}" }.join(", ")}"
   end
-  resolved.first || ".kamal/secrets"
+  resolved.empty? ? [ ".kamal/secrets" ] : resolved
 end
 
 destination = ENV["KAMAL_DESTINATION"].to_s.strip
-secrets_path = deploy_secrets_path(errors, destination)
+resolved_secrets_paths = deploy_secrets_path(errors, destination)
+secrets_path = resolved_secrets_paths.first || ".kamal/secrets"
 secrets_example = ".kamal/secrets.example"
+
+# A file under a resolved secrets_path is a secret, including a backup and a
+# destination sibling; only `<secrets_path>.example` is safe to track. The
+# default `.kamal/secrets*` convention stays rejected under a custom path too
+# (SEC-07).
+forbidden = tracked_paths.select do |path|
+  env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
+  kamal_secret = path.start_with?(".kamal/secrets") && path != ".kamal/secrets.example"
+  custom_secret = resolved_secrets_paths.any? { |prefix| path.start_with?(prefix) && path != "#{prefix}.example" }
+  master_key = path.start_with?("config/master.key")
+  credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key}) &&
+    path != "config/credentials/dummy.key"
+  env_file || kamal_secret || custom_secret || master_key || credentials_key
+end
+fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 secret_paths = [
   "#{secrets_path}-common",
   destination.empty? ? secrets_path : "#{secrets_path}.#{destination}"

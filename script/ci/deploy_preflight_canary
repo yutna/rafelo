@@ -534,6 +534,43 @@ expect_pass "a custom secrets_path on both profiles"
 
 reset
 edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -f .kamal/app-secrets.example
+expect_pass "a tracked custom secrets example"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets.production" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -f .kamal/app-secrets.production
+expect_fail_with "a tracked custom destination secrets file" "tracked secret files"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cp "$tmp/.kamal/secrets.example" "$tmp/.kamal/app-secrets.bak"
+git -C "$tmp" add -f .kamal/app-secrets.bak
+expect_fail_with "a tracked custom secrets backup" "tracked secret files"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -f .kamal/app-secrets
+expect_fail_with_destination "a tracked custom base secrets file with a destination" "production" "tracked secret files"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
 expect_fail_with "a custom secrets_path only on the single-host profile" "profiles must use one secrets_path"
 
 reset
@@ -833,4 +870,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 76 cases"
+echo "deploy_preflight_canary: checked 80 cases"
