@@ -199,7 +199,6 @@ export default [
   {
     ignores: [
       "spec/enforcement/fixtures/**",
-      "engines/core/spec/dummy_engine/**",
       "node_modules/**",
       "public/**",
       "tmp/**",
