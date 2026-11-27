@@ -19,6 +19,50 @@ abort "apply_check: git ls-files failed; checked 0" unless status.success?
 files = output.lines.map(&:strip).reject(&:empty?)
 abort "apply_check: no CSS files found under #{root}; checked 0" if files.empty?
 
+# A CSS comment is not an at-rule: `/* use @apply here */` outside
+# design_system is prose. Strings stay in the output so a `/*` inside
+# `content` never opens a comment, and newlines are kept so line numbers match
+# the file (FE-06).
+def without_comments(source)
+  code = +""
+  state = :code
+  index = 0
+  while index < source.length
+    char = source[index]
+    following = source[index + 1]
+    case state
+    when :code
+      if char == "/" && following == "*"
+        state = :comment
+        index += 2
+        next
+      elsif char == '"' || char == "'"
+        state = char == '"' ? :double_quote : :single_quote
+      end
+      code << char
+    when :comment
+      if char == "*" && following == "/"
+        state = :code
+        index += 2
+        next
+      end
+      code << "\n" if char == "\n"
+    when :double_quote, :single_quote
+      code << char
+      if char == "\\"
+        code << following if following
+        index += 2
+        next
+      end
+      if (state == :double_quote && char == '"') || (state == :single_quote && char == "'")
+        state = :code
+      end
+    end
+    index += 1
+  end
+  code
+end
+
 findings = 0
 files.each do |path|
   next if path.start_with?("engines/design_system/")
@@ -26,7 +70,7 @@ files.each do |path|
   absolute = File.join(root, path)
   next unless File.file?(absolute)
 
-  File.readlines(absolute, chomp: true).each_with_index do |line, index|
+  without_comments(File.read(absolute)).lines(chomp: true).each_with_index do |line, index|
     next unless line.match?(/@apply\b/)
 
     puts "#{path}:#{index + 1}: apply-outside-design-system: @apply is allowed only in engines/design_system/ (FE-06)"
