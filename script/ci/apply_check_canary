@@ -211,6 +211,36 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
+# `/*/` overlaps its own `*/`, so the opener cannot close and the rest is code.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: myurl(a/*/b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: overlapping comment close: #{status.exitstatus}: #{output}"
+  end
+end
+
+# A top-level `/*/` is not a comment either.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             "/*/\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: top-level overlapping close: #{status.exitstatus}: #{output}"
+  end
+end
+
 # A /* inside a string is not a comment, so a later @apply is reported.
 Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "init", "-q")
