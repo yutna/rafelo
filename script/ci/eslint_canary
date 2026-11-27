@@ -340,11 +340,18 @@ else
 end
 
 node = ENV.fetch("NODE_BIN", "node")
-[ [ "check_config legal", [], 0 ],
-  [ "check_config project", [ "--root", File.join(FIXTURES, "check_config", "project") ], 1 ] ].each do |name, args, expected|
+check_config_fixtures = File.join(FIXTURES, "check_config")
+[ [ "check_config legal", [], 0, nil ],
+  [ "check_config project", [ "--root", File.join(check_config_fixtures, "project") ], 1, nil ],
+  [ "check_config scoped engine", [ "--root", File.join(check_config_fixtures, "scoped") ], 1,
+    "engines/aaa/app/frontend/pages/one.tsx" ],
+  [ "check_config scoped test", [ "--root", File.join(check_config_fixtures, "scoped_test") ], 1,
+    "gamma.test.tsx" ] ].each do |name, args, expected, mention|
   checks += 1
   output, status = Open3.capture2e(node, File.join(root, "script", "ci", "eslint", "check_config.mjs"), *args, chdir: root)
-  next if status.exitstatus == expected && (expected.zero? || output.include?("parserOptions.project"))
+  next if status.exitstatus == expected &&
+          (expected.zero? || output.include?("parserOptions.project")) &&
+          (mention.nil? || output.include?(mention))
 
   failures += 1
   warn "eslint_canary: #{name} exited #{status.exitstatus}, expected #{expected}: #{output.lines.last}"
