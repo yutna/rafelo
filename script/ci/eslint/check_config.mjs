@@ -113,7 +113,7 @@ if (configPath) {
 }
 if (!configPath) fail(`no ESLint configuration under ${root}; checked 0`);
 
-const scopes = filePath ? [ [ resolve(filePath) ] ] : configScopes();
+const scopes = filePath ? [[resolve(filePath)]] : configScopes();
 if (scopes.length === 0) fail(`no TypeScript file under ${root}; checked 0`);
 const missing = scopes.flat().find((file) => !existsSync(file));
 if (missing) fail(`file does not exist: ${missing}; checked 0`);
@@ -129,7 +129,7 @@ for (const scope of scopes) {
   for (const file of scope.slice(0, SCOPE_ATTEMPTS)) {
     const result = spawnSync(
       eslint,
-      [ ...eslintArgs, "--config", configPath, "--print-config", file ],
+      [...eslintArgs, "--config", configPath, "--print-config", file],
       { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
     );
     if (result.error) fail(`cannot run ESLint: ${result.error.message}; checked 0`);
