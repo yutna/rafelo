@@ -159,9 +159,20 @@ In front of publicly addressed load balancers, add the balancer's addresses to
 checks both profiles: `deploy_timeout`, `boot.limit`, `asset_path`, the app's
 only secret, every `.env.ci.production` key in `env.clear`, the non-root final
 image stage, no tracked secret file, the pinned PostgreSQL accessory, and the
-multi-host job/S3/no-host-volume shape. When a production key is available it
-also compares the production and dummy credential key paths, printing paths
-and never values; CI skips that comparison because it never holds the key.
+multi-host job/S3/no-host-volume shape. A tracked secret file is any `.env*`
+except `.env.ci.production`, `config/master.key*`, `config/credentials/*.key*`
+except the dummy key, `.kamal/secrets*` except `.kamal/secrets.example`, and
+any path under a resolved `secrets_path` except `<secrets_path>.example`.
+Each profile resolves its own `secrets_path` (missing means `.kamal/secrets`,
+and `config/deploy.<destination>.yml` overlays the base under
+`KAMAL_DESTINATION`); the profiles must agree. The sources are
+`<secrets_path>-common` plus `<secrets_path>` without a destination or
+`<secrets_path>.<destination>` with one, parsed with Dotenv as Kamal does: a
+`RAILS_MASTER_KEY` that reads the master key or the production key in any
+assignment fails, and the last assignment must be non-empty. When a production
+key is available it also compares the production and dummy credential key
+paths, printing paths and never values; CI skips that comparison because it
+never holds the key.
 
 ## Health checks and data
 
