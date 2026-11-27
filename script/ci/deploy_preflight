@@ -78,6 +78,20 @@ def flatten_paths(value, prefix = [])
   end
 end
 
+def flatten_values(value, prefix = [], into = {})
+  return into unless value.is_a?(Hash)
+
+  value.each do |key, child|
+    path = prefix + [ key.to_s ]
+    if child.is_a?(Hash)
+      flatten_values(child, path, into)
+    else
+      into[path.join(".")] = child
+    end
+  end
+  into
+end
+
 tracked = IO.popen(%w[git ls-files], err: File::NULL, &:read)
 abort "deploy_preflight: git ls-files failed" unless $?.success?
 tracked_paths = tracked.lines(chomp: true)
@@ -303,6 +317,7 @@ if production_key_available
         raise_if_missing_key: true
       )
       production_paths = flatten_paths(production.config)
+      production_values = flatten_values(production.config)
       dummy_paths = flatten_paths(dummy.config)
       if production_paths.empty?
         # A fresh template app has the key but no production secrets yet; CI
@@ -312,10 +327,29 @@ if production_key_available
         else
           puts "deploy_preflight: production credentials are empty; path comparison skipped (not a deploy)"
         end
-      elsif production_paths.sort != dummy_paths.sort
-        missing = dummy_paths - production_paths
-        extra = production_paths - dummy_paths
-        fail_with(errors, "production credentials differ from dummy paths; missing=#{missing.join(", ")} extra=#{extra.join(", ")}")
+      else
+        if deploy
+          # A deploy must never run on the committed dummy secrets (BE-08,
+          # SEC-07): the dummy key and dummy values are public.
+          dummy_key = File.file?("config/credentials/dummy.key") ? File.read("config/credentials/dummy.key").strip : ""
+          if !dummy_key.empty? && ENV["RAILS_MASTER_KEY"].to_s.strip == dummy_key
+            fail_with(errors, "OPS-06/SEC-07: a deploy must not run on config/credentials/dummy.key; use the production key")
+          end
+          blank = production_values.select { |_path, value| value.nil? || value.to_s.strip.empty? }.keys
+          if blank.any?
+            fail_with(errors, "OPS-06/SEC-07: production credentials have blank values: #{blank.join(", ")}; fill them before deploying")
+          end
+          dummy_values = flatten_values(dummy.config)
+          reused = production_values.select { |path, value| dummy_values.key?(path) && dummy_values[path] == value }.keys
+          if reused.any?
+            fail_with(errors, "OPS-06/SEC-07: production credentials reuse the dummy values for: #{reused.join(", ")}; generate real values")
+          end
+        end
+        if production_paths.sort != dummy_paths.sort
+          missing = dummy_paths - production_paths
+          extra = production_paths - dummy_paths
+          fail_with(errors, "production credentials differ from dummy paths; missing=#{missing.join(", ")} extra=#{extra.join(", ")}")
+        end
       end
     rescue StandardError => error
       fail_with(errors, "production credentials could not be read: #{error.message}")
