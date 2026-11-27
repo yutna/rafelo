@@ -15,27 +15,28 @@ OptionParser.new do |parser|
 end.parse!
 
 root = File.expand_path(root)
-abort "enforcement_canaries: root does not exist: #{root}" unless Dir.exist?(root)
+abort "enforcement_canaries: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
 
 REQUIRED_CHECKS = %w[affected pins actions_pinned workflow_policy skips test_selectors frontend_boundary page_props].freeze
-REQUIRED_CANARIES = %w[design_system_api_canary].freeze
 
 config_path = File.join(root, "config", "ci.rb")
-abort "enforcement_canaries: config/ci.rb is missing" unless File.file?(config_path)
+abort "enforcement_canaries: config/ci.rb is missing; checked 0" unless File.file?(config_path)
 
 config_ci = File.read(config_path)
 step_scripts = config_ci.lines.filter_map do |line|
   line[/^\s*step\s+.*?"script\/ci\/([^"]+)"/, 1]&.split&.first
 end.uniq
-abort "enforcement_canaries: config/ci.rb has no script/ci steps" if step_scripts.empty?
+abort "enforcement_canaries: config/ci.rb has no script/ci steps; checked 0" if step_scripts.empty?
 step_scripts.each do |name|
   path = File.join(root, "script", "ci", name)
   abort "enforcement_canaries: config/ci.rb names missing script/ci/#{name}" unless File.file?(path)
 end
 
-missing_canaries = REQUIRED_CANARIES - step_scripts
-unless missing_canaries.empty?
-  abort "enforcement_canaries: config/ci.rb does not run #{missing_canaries.join(', ')}"
+canary_scripts = Dir[File.join(root, "script", "ci", "*_canary")]
+                 .map { |path| File.basename(path) }.sort
+missing_wiring = canary_scripts - step_scripts
+unless missing_wiring.empty?
+  abort "enforcement_canaries: canary script not wired into config/ci.rb: #{missing_wiring.join(', ')}"
 end
 
 # Rafelo cops: discovered from the cops directory.
@@ -57,9 +58,19 @@ cop_names.each do |cop|
   end
 end
 
-# dependency-cruiser rules: discovered from .dependency-cruiser.cjs.
+# dependency-cruiser rules: discovered from .dependency-cruiser.cjs. The
+# hand-written rules are proven by graph_canaries, which lists the rules it
+# exercises; comparing the two makes a new rule without a case fail here.
 depcruise_rules = File.read(File.join(root, ".dependency-cruiser.cjs"))
                    .scan(/^\s+name: "([^"]+)"/).flatten.sort
+graph_canaries = File.join(root, "script", "ci", "graph_canaries")
+listing, listing_status = Open3.capture2e(RbConfig.ruby, graph_canaries, "--list", chdir: root)
+abort "enforcement_canaries: graph_canaries --list failed: #{listing.strip}" unless listing_status.success?
+proven_graph_rules = listing.lines.map(&:strip).reject(&:empty?)
+missing_proof = depcruise_rules - proven_graph_rules
+abort "enforcement_canaries: no canary for #{missing_proof.join(', ')}" if missing_proof.any?
+stale_proof = proven_graph_rules - depcruise_rules
+abort "enforcement_canaries: graph canary names a missing rule #{stale_proof.join(', ')}" if stale_proof.any?
 
 # ESLint: discovered by printing the config at the real paths the shared canary
 # table names: the local plugin rules (rafelo/*) and the restriction rules.
@@ -69,6 +80,8 @@ abort "enforcement_canaries: eslint is not installed at #{eslint}" unless File.e
 eslint_paths = Rafelo::ESLintCanary.print_config(root).map { |test| test[:path] }.uniq
 eslint_rules = Rafelo::ESLint.enforcement_rule_names(root, eslint_paths)
 abort "enforcement_canaries: the local ESLint plugin exports no rules" if eslint_rules.empty?
+missing_active = Rafelo::ESLint::RESTRICTIONS - eslint_rules
+abort "enforcement_canaries: spec ESLint rule is not enabled: #{missing_active.join(', ')}" if missing_active.any?
 
 canaries = [
   {
@@ -304,7 +317,7 @@ canaries = [
     check: "graph_canaries",
     name: "dependency-cruise rules canary",
     script: "script/ci/graph_canaries",
-    rules: depcruise_rules
+    rules: proven_graph_rules
   },
   {
     check: "eslint",
@@ -322,13 +335,13 @@ covered = canaries.flat_map { |canary| Array(canary[:rules]) }.uniq
 missing = (cop_names + depcruise_rules + eslint_rules).reject { |name| covered.include?(name) }
 abort "enforcement_canaries: no canary for #{missing.join(', ')}" if missing.any?
 
-wired = canaries.map { |canary| canary[:script] }.uniq
-missing_wiring = wired.reject { |script| config_ci.include?(script) }
+wired = canaries.map { |canary| File.basename(canary[:script]) }.uniq
+missing_wiring = wired - step_scripts
 abort "enforcement_canaries: canary script not wired into config/ci.rb: #{missing_wiring.join(', ')}" if missing_wiring.any?
 
 warn "enforcement_canaries: checked #{cop_names.length} Rafelo cops: #{cop_names.join(', ')}"
 warn "enforcement_canaries: checked #{depcruise_rules.length} dependency-cruise rules: #{depcruise_rules.join(', ')}"
-warn "enforcement_canaries: checked #{eslint_rules.length} local ESLint rules: #{eslint_rules.join(', ')}"
+warn "enforcement_canaries: checked #{eslint_rules.length} ESLint rules: #{eslint_rules.join(', ')}"
 warn "enforcement_canaries: checked #{wired.length} canary scripts"
 
 def command(root, canary, args, fixture_root)

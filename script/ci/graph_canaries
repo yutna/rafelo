@@ -6,13 +6,41 @@ require "open3"
 require "optparse"
 
 root = Dir.pwd
+list = false
 OptionParser.new do |parser|
-  parser.banner = "Usage: script/ci/graph_canaries [--root DIR]"
+  parser.banner = "Usage: script/ci/graph_canaries [--root DIR] [--list]"
   parser.on("--root DIR") { |value| root = value }
+  parser.on("--list") { list = true }
 end.parse!
 
 root = File.expand_path(root)
-abort "graph_canaries: root does not exist: #{root}" unless Dir.exist?(root)
+abort "graph_canaries: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
+
+# Every hand-written rule in .dependency-cruiser.cjs has a case below. The list
+# is compared with the file so a new rule cannot be added without a canary
+# (TS-07); script/ci/enforcement_canaries reads it with --list.
+PROVEN_RULES = %w[
+  components-stay-presentational
+  domain-is-framework-free
+  kernel-internals-stay-inside
+  no-circular
+  nothing-depends-on-example-engines
+  only-resolver-picks-layouts
+  pages-render-screens
+].freeze
+
+config_path = File.join(root, ".dependency-cruiser.cjs")
+abort "graph_canaries: .dependency-cruiser.cjs is missing; checked 0" unless File.file?(config_path)
+hand_written_rules = File.read(config_path).scan(/^\s+name: "([^"]+)"/).flatten.sort
+unproven = hand_written_rules - PROVEN_RULES
+abort "graph_canaries: no canary for #{unproven.join(', ')}" if unproven.any?
+stale = PROVEN_RULES - hand_written_rules
+abort "graph_canaries: canary names a missing rule #{stale.join(', ')}" if stale.any?
+
+if list
+  puts PROVEN_RULES
+  exit 0
+end
 
 CANARY_ENGINES = %w[
   canary_alpha canary_beta canary_declared canary_kernel canary_undeclared

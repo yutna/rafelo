@@ -8,9 +8,15 @@ require "open3"
 # through `--print-config` here, so the two cannot drift (TS-07).
 module Rafelo
   module ESLint
+    # The restriction rules the spec names and the canaries prove. The list is
+    # the requirement: removing one from eslint.config.mjs fails the meta-check
+    # instead of silently dropping its canary (TS-07).
     RESTRICTIONS = %w[
       no-restricted-imports no-restricted-properties no-restricted-syntax
       react/forbid-elements @typescript-eslint/prefer-readonly
+      react/no-danger unicorn/filename-case perfectionist/sort-imports
+      better-tailwindcss/no-unknown-classes
+      @eslint-community/eslint-comments/require-description
     ].freeze
 
     module_function

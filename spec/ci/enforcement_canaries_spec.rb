@@ -89,15 +89,31 @@ RSpec.describe "enforcement_canaries" do
         "forbidden: [\n    {\n      name: \"fake-rule\",\n      severity: \"error\",\n      from: {},\n      to: {}\n    },"
       ))
       output, status = run_meta(directory, script)
-      expect(status.exitstatus).to eq(0), output
-      expect(output).to include("fake-rule")
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("no canary for fake-rule")
+      FileUtils.cp(File.join(root, ".dependency-cruiser.cjs"), config)
+
+      ci_config = File.join(directory, "config", "ci.rb")
+      File.write(ci_config, File.read(ci_config).sub(
+        /^\s*step .*?"script\/ci\/apply_check_canary"\n/, ""
+      ))
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("canary script not wired into config/ci.rb: apply_check_canary")
+      FileUtils.cp(File.join(root, "config", "ci.rb"), ci_config)
+
+      eslint_config = File.join(directory, "eslint.config.mjs")
+      File.write(eslint_config, File.read(eslint_config).sub(%(      "react/no-danger": "error",\n), ""))
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("spec ESLint rule is not enabled: react/no-danger")
+      FileUtils.cp(File.join(root, "eslint.config.mjs"), eslint_config)
 
       plugin = File.join(directory, "script", "ci", "eslint", "rafelo.mjs")
       File.write(plugin, File.read(plugin).sub(
         '"skip-needs-issue": skipNeedsIssue }',
         '"skip-needs-issue": skipNeedsIssue, "fake-rule": skipNeedsIssue }'
       ))
-      eslint_config = File.join(directory, "eslint.config.mjs")
       File.write(eslint_config, File.read(eslint_config).sub(
         %("rafelo/skip-needs-issue": "error",),
         %("rafelo/skip-needs-issue": "error",\n      "rafelo/fake-rule": "error",)
@@ -105,6 +121,12 @@ RSpec.describe "enforcement_canaries" do
       output, status = run_meta(directory, script)
       expect(status.exitstatus).to eq(1), output
       expect(output).to include("no canary for rafelo/fake-rule")
+    end
+
+    Dir.mktmpdir("rafelo-meta-empty-") do |directory|
+      output, status = run_meta(directory, script)
+      expect(status.exitstatus).to eq(1), output
+      expect(output).to include("config/ci.rb is missing; checked 0")
     end
   end
 end
