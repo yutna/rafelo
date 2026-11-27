@@ -132,11 +132,16 @@ def secret_assignments(text)
     next unless key&.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
 
     value = value.to_s
-    if value.length >= 2 && ((value.start_with?('"') && value.end_with?('"')) || (value.start_with?("'") && value.end_with?("'")))
-      value = value[1..-2]
+    if (value.start_with?('"') && value.rindex('"')&.positive?) || (value.start_with?("'") && value.rindex("'")&.positive?)
+      quote = value[0]
+      closing = value.rindex(quote)
+      # A comment marker inside the quotes is part of the value; a `#` after
+      # the closing quote starts a comment (Kamal parses with Dotenv).
+      into[key] = value[1...closing]
+    else
+      value = "" if value.lstrip.start_with?("#")
+      into[key] = value.sub(/\s+#.*\z/, "")
     end
-    value = "" if value.lstrip.start_with?("#")
-    into[key] = value.sub(/\s+#.*\z/, "")
   end
 end
 
