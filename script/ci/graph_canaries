@@ -16,18 +16,23 @@ end.parse!
 root = File.expand_path(root)
 abort "graph_canaries: root does not exist: #{root}; checked 0" unless Dir.exist?(root)
 
-# Every hand-written rule in .dependency-cruiser.cjs has a case below. The list
-# is compared with the file so a new rule cannot be added without a canary
-# (TS-07); script/ci/enforcement_canaries reads it with --list.
-PROVEN_RULES = %w[
-  components-stay-presentational
-  domain-is-framework-free
+# Every hand-written rule in .dependency-cruiser.cjs has a case below. The
+# proven list is derived from those cases, so deleting a case removes its rule
+# from --list and script/ci/enforcement_canaries fails on the missing canary
+# (TS-07). The three combined cases below cover their rule in one depcruise
+# run; FRONTEND_CASES covers one rule per run.
+COMBINED_CASES = %w[
   kernel-internals-stay-inside
   no-circular
   nothing-depends-on-example-engines
-  only-resolver-picks-layouts
-  pages-render-screens
 ].freeze
+FRONTEND_CASES = {
+  "components-stay-presentational" => "engines/canary_alpha/app/frontend/components/bad_component.tsx",
+  "pages-render-screens" => "engines/canary_alpha/app/frontend/pages/bad_page.tsx",
+  "only-resolver-picks-layouts" => "engines/canary_alpha/app/frontend/pages/bad_layout_page.tsx",
+  "domain-is-framework-free" => "engines/canary_alpha/app/frontend/domain/bad_domain.ts"
+}.freeze
+PROVEN_RULES = (COMBINED_CASES + FRONTEND_CASES.keys).sort.freeze
 
 config_path = File.join(root, ".dependency-cruiser.cjs")
 abort "graph_canaries: .dependency-cruiser.cjs is missing; checked 0" unless File.file?(config_path)
@@ -313,12 +318,7 @@ write(root, "engines/canary_alpha/app/frontend/domain/bad_domain.ts", <<~TS)
 
   export const badDomain = useState;
 TS
-{
-  "components-stay-presentational" => "engines/canary_alpha/app/frontend/components/bad_component.tsx",
-  "pages-render-screens" => "engines/canary_alpha/app/frontend/pages/bad_page.tsx",
-  "only-resolver-picks-layouts" => "engines/canary_alpha/app/frontend/pages/bad_layout_page.tsx",
-  "domain-is-framework-free" => "engines/canary_alpha/app/frontend/domain/bad_domain.ts"
-}.each do |rule, path|
+FRONTEND_CASES.each do |rule, path|
   output, status = run(root, depcruise, "--config", ".dependency-cruiser.cjs", "--output-type", "err", path)
   unless !status.success? && output.include?(rule)
     warn "graph_canaries: expected #{rule} to fail"
