@@ -289,6 +289,56 @@ SECRETS
 expect_fail_with "secrets example with a whitespace-only RAILS_MASTER_KEY" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
 
 reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+export RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+export POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass "a secrets example with export"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY = $RAILS_MASTER_KEY
+POSTGRES_PASSWORD = $POSTGRES_PASSWORD
+SECRETS
+expect_pass "a secrets example with spaces around ="
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY: $RAILS_MASTER_KEY
+POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+SECRETS
+expect_pass "a secrets example with a colon"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=value
+RAILS_MASTER_KEY=
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "a duplicate RAILS_MASTER_KEY whose last line is empty" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+export RAILS_MASTER_KEY=$(cat config/master.key)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an exported RAILS_MASTER_KEY reading config/master.key" "never config/master.key"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY: $(cat config/master.key)
+POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "a colon RAILS_MASTER_KEY reading config/master.key" "never config/master.key"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY= # comment only
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an inline comment as the RAILS_MASTER_KEY value" "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY"
+
+reset
 cat > "$tmp/.kamal/secrets" <<'SECRETS'
 RAILS_MASTER_KEY=
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
@@ -569,4 +619,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 52 cases"
+echo "deploy_preflight_canary: checked 59 cases"

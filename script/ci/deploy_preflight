@@ -123,11 +123,29 @@ forbidden = tracked_paths.select do |path|
 end
 fail_with(errors, "OPS-06/SEC-07: tracked secret files: #{forbidden.join(", ")}; remove them from git and rotate any exposed value") if forbidden.any?
 
-def secret_line?(path, name)
-  File.readlines(path, chomp: true).any? do |line|
-    key, value = line.split("=", 2)
-    key == name && !value.to_s.strip.empty?
+# Kamal reads the secrets files with Dotenv: an optional `export`, spaces
+# around `=` or `:`, comments, and the last line wins for a duplicate.
+def secret_assignments(text)
+  text.each_line.each_with_object({}) do |line, into|
+    line = line.strip
+    next if line.empty? || line.start_with?("#")
+
+    line = line.sub(/\Aexport\s+/, "")
+    key, value = line.split(/\s*[=:]\s*/, 2)
+    next unless key&.match?(/\A[A-Za-z_][A-Za-z0-9_]*\z/)
+
+    value = value.to_s
+    if value.length >= 2 && ((value.start_with?('"') && value.end_with?('"')) || (value.start_with?("'") && value.end_with?("'")))
+      value = value[1..-2]
+    end
+    value = "" if value.lstrip.start_with?("#")
+    into[key] = value.sub(/\s+#.*\z/, "")
   end
+end
+
+def secret_line?(path, name)
+  value = secret_assignments(File.read(path))[name]
+  !value.to_s.strip.empty?
 end
 
 def names_secret?(path, name = "RAILS_MASTER_KEY")
@@ -157,7 +175,8 @@ end
 [ *secret_sources, secrets_example ].each do |path|
   next unless File.file?(path)
 
-  if File.read(path).match?(/^\s*RAILS_MASTER_KEY\s*=.*config\/(?:master\.key|credentials\/production\.key)/)
+  value = secret_assignments(File.read(path))["RAILS_MASTER_KEY"].to_s
+  if value.match?(%r{config/(?:master\.key|credentials/production\.key)})
     fail_with(errors, "#{path} must read RAILS_MASTER_KEY from the deploy environment or a password manager, never config/master.key or a production key")
   end
 end
@@ -303,7 +322,7 @@ end
 if File.file?(".kamal/secrets") || File.file?(".kamal/secrets.example")
   secrets_text = File.file?(".kamal/secrets") ? File.read(".kamal/secrets") : File.read(".kamal/secrets.example")
   accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
-  missing = accessory_secrets - secrets_text.scan(/^([A-Za-z_][A-Za-z0-9_]*)=/).flatten
+  missing = accessory_secrets - secret_assignments(secrets_text).keys
   fail_with(errors, "database accessory secrets are missing from .kamal/secrets: #{missing.join(", ")}") if missing.any?
 end
 
