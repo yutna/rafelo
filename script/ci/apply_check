@@ -30,12 +30,17 @@ def without_comments(source)
   quote = nil
   quote_return = :code
   index = 0
+  # Tailwind keeps scanning after a `/*` that never closes; only a comment
+  # with a `*/` after the opener is prose. One rindex keeps the lookahead
+  # linear, and the closer must start after the opener ends (`/*/` does not
+  # close itself).
+  last_comment_close = source.rindex("*/")
   while index < source.length
     char = source[index]
     following = source[index + 1]
     case state
     when :code
-      if char == "/" && following == "*"
+      if char == "/" && following == "*" && last_comment_close && index + 1 < last_comment_close
         state = :comment
         index += 2
         next
@@ -44,11 +49,17 @@ def without_comments(source)
         quote_return = :code
         state = :string
       else
-        length = url_token_length(source, index)
+        length, scanned = url_token_length(source, index)
         if length
           code << source[index, length]
           state = :url
           index += length
+          next
+        elsif scanned.positive?
+          # Not a url, but the identifier was scanned; skip it so a run of
+          # line continuations is not rescanned at every backslash (TS-07).
+          code << source[index, scanned]
+          index += scanned
           next
         end
       end
@@ -87,12 +98,15 @@ def without_comments(source)
   code
 end
 
-# Length of the `url(` token at index, including the `(`. CSS escapes in the
-# name are decoded first (`u\72l(` is `url(`), and the token starts at an
-# identifier boundary so `myurl(` is another function.
+# [url token length, bytes scanned] at index. The length includes the `(` when
+# the identifier is `url(`; it is nil for another identifier. The scanned count
+# is at least 1 for an identifier, even when it is not a url, so the caller can
+# advance past it and a run of line continuations costs one scan (TS-07). CSS
+# escapes in the name are decoded first (`u\72l(` is `url(`), and the token
+# starts at an identifier boundary so `myurl(` is another function.
 def url_token_length(source, index)
-  return nil if index.positive? && source[index - 1] =~ /[A-Za-z0-9_-]/
-  return nil unless source[index] =~ /[A-Za-z_\\-]/
+  return [ nil, 0 ] if index.positive? && source[index - 1] =~ /[A-Za-z0-9_-]/
+  return [ nil, 0 ] unless source[index] =~ /[A-Za-z_\\-]/
 
   cursor = index
   decoded = +""
@@ -100,7 +114,7 @@ def url_token_length(source, index)
     char = source[cursor]
     if char == "\\"
       escaped, length = css_escape(source, cursor)
-      return nil if length.zero?
+      return [ nil, cursor - index ] if length.zero?
 
       decoded << escaped
       cursor += length
@@ -110,14 +124,12 @@ def url_token_length(source, index)
     else
       break
     end
-    # Only an identifier that can still become `url` needs the rest of the
-    # scan; this keeps an escape-heavy selector linear (TS-07).
-    return nil unless "url".start_with?(decoded.downcase)
+    return [ nil, cursor - index ] unless "url".start_with?(decoded.downcase)
   end
-  return nil unless source[cursor] == "("
-  return nil unless decoded.casecmp("url").zero?
+  return [ nil, cursor - index ] unless source[cursor] == "("
+  return [ nil, cursor - index ] unless decoded.casecmp("url").zero?
 
-  cursor - index + 1
+  [ cursor - index + 1, cursor - index + 1 ]
 end
 
 # [decoded text, bytes consumed] for the CSS escape at index.
@@ -139,7 +151,7 @@ def css_escape(source, index)
     valid = value.positive? && value <= 0x10FFFF && !(0xD800..0xDFFF).cover?(value)
     decoded = valid ? [ value ].pack("U") : "\uFFFD"
     [ decoded, cursor - index ]
-  elsif following == "\n" || following == "\r"
+  elsif following == "\n" || following == "\r" || following == "\f"
     cursor = index + 2
     cursor += 1 if following == "\r" && source[cursor] == "\n"
     [ "", cursor - index ]

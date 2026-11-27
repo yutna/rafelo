@@ -142,10 +142,12 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
-# One whitespace after a hex escape belongs to the escape; a space and a CRLF
-# both terminate it, and the name continues with `l`.
+# One whitespace after a hex escape belongs to the escape; a space, a CRLF,
+# and a form feed (preprocessed to a newline by CSS) all terminate it, and the
+# name continues with `l`.
 [ [ "escaped url space", ".x { background: u\\72 l(a/*b); }\n.y { @apply flex; }\n", 2 ],
-  [ "escaped url CRLF", ".x { background: u\\72\r\nl(a/*b); }\r\n.y { @apply flex; }\r\n", 3 ] ].each do |name, css, line|
+  [ "escaped url CRLF", ".x { background: u\\72\r\nl(a/*b); }\r\n.y { @apply flex; }\r\n", 3 ],
+  [ "escaped url form feed", ".x { background: u\\" + "\f" + "rl(a/*b); }\n.y { @apply flex; }\n", 2 ] ].each do |name, css, line|
   Dir.mktmpdir("rafelo-apply-") do |dir|
     git(dir, "init", "-q")
     FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
@@ -177,8 +179,8 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
-# `myurl(` is another function, so a /* inside it still opens a comment and
-# swallows the @apply; no finding is correct here.
+# `myurl(` is another function, but an unclosed /* is not a comment to
+# Tailwind, so a real @apply after it must still be reported.
 Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "init", "-q")
   FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
@@ -187,9 +189,55 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   git(dir, "add", "-A")
   cases += 1
   output, status = run(script, dir)
-  unless status.success? && output.include?("checked 1 CSS files; findings=0")
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
     failures += 1
-    warn "apply_check_canary: myurl comment: #{status.exitstatus}: #{output}"
+    warn "apply_check_canary: myurl unclosed comment: #{status.exitstatus}: #{output}"
+  end
+end
+
+# The same for a top-level /* with no closing */.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             "/* unclosed\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: top-level unclosed comment: #{status.exitstatus}: #{output}"
+  end
+end
+
+# `/*/` overlaps its own `*/`, so the opener cannot close and the rest is code.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: myurl(a/*/b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: overlapping comment close: #{status.exitstatus}: #{output}"
+  end
+end
+
+# A top-level `/*/` is not a comment either.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             "/*/\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2")
+    failures += 1
+    warn "apply_check_canary: top-level overlapping close: #{status.exitstatus}: #{output}"
   end
 end
 
@@ -242,6 +290,26 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   elsif !status.success? || !output.include?("checked 1 CSS files; findings=0")
     failures += 1
     warn "apply_check_canary: long identifier: #{status.exitstatus}: #{output}"
+  end
+end
+
+# A long run of line continuations is one scan too: the identifier decodes to
+# nothing, so the "not a url prefix" early return never fires (TS-07).
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  continuations = 16_000
+  File.binwrite(File.join(dir, "app", "frontend", "styles", "application.css"),
+                "." + ("\\\n" * continuations) + "x { color: red; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run_with_timeout(script, dir, 30)
+  if status.nil?
+    failures += 1
+    warn "apply_check_canary: line continuations timed out"
+  elsif !status.success? || !output.include?("checked 1 CSS files; findings=0")
+    failures += 1
+    warn "apply_check_canary: line continuations: #{status.exitstatus}: #{output}"
   end
 end
 
