@@ -139,7 +139,7 @@ def css_escape(source, index)
     valid = value.positive? && value <= 0x10FFFF && !(0xD800..0xDFFF).cover?(value)
     decoded = valid ? [ value ].pack("U") : "\uFFFD"
     [ decoded, cursor - index ]
-  elsif following == "\n" || following == "\r"
+  elsif following == "\n" || following == "\r" || following == "\f"
     cursor = index + 2
     cursor += 1 if following == "\r" && source[cursor] == "\n"
     [ "", cursor - index ]

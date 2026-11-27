@@ -142,10 +142,12 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
-# One whitespace after a hex escape belongs to the escape; a space and a CRLF
-# both terminate it, and the name continues with `l`.
+# One whitespace after a hex escape belongs to the escape; a space, a CRLF,
+# and a form feed (preprocessed to a newline by CSS) all terminate it, and the
+# name continues with `l`.
 [ [ "escaped url space", ".x { background: u\\72 l(a/*b); }\n.y { @apply flex; }\n", 2 ],
-  [ "escaped url CRLF", ".x { background: u\\72\r\nl(a/*b); }\r\n.y { @apply flex; }\r\n", 3 ] ].each do |name, css, line|
+  [ "escaped url CRLF", ".x { background: u\\72\r\nl(a/*b); }\r\n.y { @apply flex; }\r\n", 3 ],
+  [ "escaped url form feed", ".x { background: u\\" + "\f" + "rl(a/*b); }\n.y { @apply flex; }\n", 2 ] ].each do |name, css, line|
   Dir.mktmpdir("rafelo-apply-") do |dir|
     git(dir, "init", "-q")
     FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
