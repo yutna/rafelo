@@ -117,7 +117,7 @@ forbidden = tracked_paths.select do |path|
     path != ".kamal/secrets" &&
     path != ".kamal/secrets-common"
   master_key = path.start_with?("config/master.key")
-  credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key(?:\.|\z)}) &&
+  credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key}) &&
     path != "config/credentials/dummy.key"
   env_file || kamal_secret || master_key || credentials_key
 end
