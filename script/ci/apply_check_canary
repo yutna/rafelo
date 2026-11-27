@@ -109,6 +109,86 @@ Dir.mktmpdir("rafelo-apply-") do |dir|
   end
 end
 
+# A CSS escape in the function name still decodes to url(): `u\72l(` is url(.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: u\\72l(a/*b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: escaped url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+# url( is ASCII case-insensitive.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: URL(a/*b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: uppercase url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+# `myurl(` is another function, so a /* inside it still opens a comment and
+# swallows the @apply; no finding is correct here.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { background: myurl(a/*b); }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.success? && output.include?("checked 1 CSS files; findings=0")
+    failures += 1
+    warn "apply_check_canary: myurl comment: #{status.exitstatus}: #{output}"
+  end
+end
+
+# A /* inside a string is not a comment, so a later @apply is reported.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.write(File.join(dir, "app", "frontend", "styles", "application.css"),
+             ".x { content: \"/*\"; }\n.y { @apply flex; }\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: string then at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
+# CRLF keeps the line number of the real @apply.
+Dir.mktmpdir("rafelo-apply-") do |dir|
+  git(dir, "init", "-q")
+  FileUtils.mkdir_p(File.join(dir, "app", "frontend", "styles"))
+  File.binwrite(File.join(dir, "app", "frontend", "styles", "application.css"),
+                ".x { background: url(a/*b); }\r\n.y { @apply flex; }\r\n")
+  git(dir, "add", "-A")
+  cases += 1
+  output, status = run(script, dir)
+  unless status.exitstatus == 1 && output.include?("app/frontend/styles/application.css:2") &&
+         !output.include?("app/frontend/styles/application.css:1:")
+    failures += 1
+    warn "apply_check_canary: CRLF url and at-rule: #{status.exitstatus}: #{output}"
+  end
+end
+
 if failures.positive?
   warn "apply_check_canary: checked #{cases} cases; failures=#{failures}"
   exit 1

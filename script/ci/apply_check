@@ -43,11 +43,14 @@ def without_comments(source)
         quote = char
         quote_return = :code
         state = :string
-      elsif url_token?(source, index)
-        code << source[index, 4]
-        state = :url
-        index += 4
-        next
+      else
+        length = url_token_length(source, index)
+        if length
+          code << source[index, length]
+          state = :url
+          index += length
+          next
+        end
       end
       code << char
     when :comment
@@ -84,11 +87,60 @@ def without_comments(source)
   code
 end
 
-def url_token?(source, index)
-  return false unless source[index, 4].to_s.casecmp("url(").zero?
-  return true if index.zero?
+# Length of the `url(` token at index, including the `(`. CSS escapes in the
+# name are decoded first (`u\72l(` is `url(`), and the token starts at an
+# identifier boundary so `myurl(` is another function.
+def url_token_length(source, index)
+  return nil if index.positive? && source[index - 1] =~ /[A-Za-z0-9_-]/
+  return nil unless source[index] =~ /[A-Za-z_\\-]/
 
-  source[index - 1] !~ /[A-Za-z0-9_-]/
+  cursor = index
+  decoded = +""
+  while cursor < source.length
+    char = source[cursor]
+    if char == "\\"
+      escaped, length = css_escape(source, cursor)
+      return nil if length.zero?
+
+      decoded << escaped
+      cursor += length
+    elsif char =~ /[A-Za-z0-9_-]/
+      decoded << char
+      cursor += 1
+    else
+      break
+    end
+  end
+  return nil unless source[cursor] == "("
+  return nil unless decoded.casecmp("url").zero?
+
+  cursor - index + 1
+end
+
+# [decoded text, bytes consumed] for the CSS escape at index.
+def css_escape(source, index)
+  following = source[index + 1]
+  return [ nil, 0 ] if following.nil?
+
+  if following =~ /[0-9A-Fa-f]/
+    cursor = index + 1
+    hex = +""
+    while cursor < source.length && hex.length < 6 && source[cursor] =~ /[0-9A-Fa-f]/
+      hex << source[cursor]
+      cursor += 1
+    end
+    cursor += 1 if cursor < source.length && source[cursor] =~ /\s/
+    value = hex.to_i(16)
+    valid = value.positive? && value <= 0x10FFFF && !(0xD800..0xDFFF).cover?(value)
+    decoded = valid ? [ value ].pack("U") : "\uFFFD"
+    [ decoded, cursor - index ]
+  elsif following == "\n" || following == "\r"
+    cursor = index + 2
+    cursor += 1 if following == "\r" && source[cursor] == "\n"
+    [ "", cursor - index ]
+  else
+    [ following, 2 ]
+  end
 end
 
 findings = 0
