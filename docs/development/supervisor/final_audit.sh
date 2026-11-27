@@ -37,8 +37,9 @@ open_versions="$(timeout 30 gh api "repos/$repository/milestones?state=open&per_
 test -z "${open_versions// /}" || fail "version milestones are still open: $open_versions"
 unblocked="$(timeout 60 gh issue list -R "$repository" --state open --limit 1000 --json number,labels \
   --jq '.[] | select((.labels | map(.name) | index("blocked")) | not) | .number')" || fail "could not list open issues"
-leftover="$(printf '%s\n' "$unblocked" | grep -vxE '611|' | tr '\n' ' ' || true)"
-test -z "${leftover// /}" || fail "open issues that are not blocked remain: $leftover"
+# The round-3 plan is the issues open at the restart, numbered below #1098 (#1202).
+leftover="$(printf '%s\n' "$unblocked" | awk '/^[0-9]+$/ && $1 < 1098 && $1 != 611' | tr '\n' ' ')"
+test -z "${leftover// /}" || fail "round-3 plan issues that are not blocked remain: $leftover"
 
 open_gates="$(timeout 30 gh issue list -R "$repository" --state open --limit 100 --search 'audit: feature gate in:title' --json number --jq length)"
 test "$open_gates" = "0" || fail "an audit gate issue is still open"
