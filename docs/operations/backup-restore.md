@@ -58,6 +58,11 @@ retention beside the deploy profile at adoption. The drill below verifies it.
 
 ## Restore procedure
 
+The application image's `psql` is Debian trixie's 17.x client; it loads
+`structure.sql` against the 18.6 server at boot. The backup and restore
+commands below run pgBackRest 18 on the backup host, not `pg_dump` or
+`pg_restore` from the application image.
+
 1. Choose the recovery point. It must be after the base backup's consistent
    point and before the incident's first bad write.
 2. Restore the base backup and replay WAL into a **scratch** database, never
