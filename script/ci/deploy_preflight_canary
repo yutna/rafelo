@@ -231,6 +231,18 @@ edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
 expect_fail "missing deploy_timeout"
 
 reset
+edit_yaml "$tmp/config/deploy.yml" 'config["servers"]["web"] = "192.168.0.1"'
+expect_fail "a scalar servers role"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["servers"]["web"] = { "cmd" => "x" }'
+expect_fail "a servers role hash without hosts"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["env"]["secret"] = "RAILS_MASTER_KEY"'
+expect_fail "a scalar env.secret"
+
+reset
 edit_yaml "$tmp/config/deploy.multi.yml" 'config["boot"]["limit"] = 2'
 expect_fail "multi-host without boot.limit: 1"
 
@@ -499,4 +511,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 43 cases"
+echo "deploy_preflight_canary: checked 46 cases"
