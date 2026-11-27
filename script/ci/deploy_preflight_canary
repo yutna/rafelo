@@ -197,6 +197,15 @@ expect_fail_with_deploy() {
   fi
 }
 
+expect_pass_with_deploy() {
+  local name="$1"
+  if ! RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >/dev/null 2>&1; then
+    echo "deploy_preflight_canary: $name failed" >&2
+    RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script/ci/deploy_preflight" "$tmp" --deploy >&2 || true
+    exit 1
+  fi
+}
+
 expect_fail_with_deploy_env() {
   local name="$1" expected="$2" output
   if output=$(env -u RAILS_MASTER_KEY "$root/script/ci/deploy_preflight" "$tmp" --deploy 2>&1); then
@@ -451,6 +460,19 @@ SECRETS
     ' "$tmp/config/credentials/production.yml.enc" "$tmp/config/credentials/production.key" "$content"
 }
 
+non_dummy_credentials_yaml() {
+  BUNDLE_GEMFILE="$root/Gemfile" bundle exec ruby -ractive_support \
+    -ractive_support/encrypted_configuration -ryaml -e '
+      config = ActiveSupport::EncryptedConfiguration.new(
+        config_path: ARGV[0], key_path: ARGV[1], env_key: "RAILS_MASTER_KEY", raise_if_missing_key: true
+      )
+      walk = lambda do |h|
+        h.transform_values { |child| child.is_a?(Hash) ? walk.call(child) : "fixture-#{child}" }
+      end
+      print walk.call(config.config).to_yaml
+    ' "$root/config/credentials/dummy.yml.enc" "$root/config/credentials/dummy.key"
+}
+
 dummy_credentials_yaml() {
   BUNDLE_GEMFILE="$root/Gemfile" bundle exec ruby -ractive_support \
     -ractive_support/encrypted_configuration -ryaml -e '
@@ -497,6 +519,10 @@ YAML
 expect_fail_with_deploy "a blank production credential" "blank values: database.password"
 
 reset
+write_production_credentials "$(non_dummy_credentials_yaml)"
+expect_pass_with_deploy "complete non-dummy production credentials at deploy"
+
+reset
 rm -f "$tmp/.github/workflows/audits.yml"
 expect_fail_with "missing daily advisory workflow" "daily advisory workflow"
 
@@ -511,4 +537,4 @@ expect_fail_with_deploy_env "a deploy without RAILS_MASTER_KEY in the environmen
 reset
 expect_fail_with_deploy_key "a deploy without a Kamal secrets source" "a deploy needs .kamal/secrets or .kamal/secrets-common"
 
-echo "deploy_preflight_canary: checked 46 cases"
+echo "deploy_preflight_canary: checked 47 cases"
