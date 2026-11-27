@@ -101,6 +101,37 @@ security), plus:
   round 3 only regressions round 2 caused; then each remaining S2 becomes its
   own "audit carry-over" issue, priority: high, in the next milestone (never
   Backlog). S3 goes to Backlog.
+- Finding admission (owner decision 2026-11-28, #1250). These rules decide
+  what a finding is and how hard it counts; they never relax the S1 and S2
+  rules above.
+  - Every finding states a failure scenario: the actor, the input or action,
+    the wrong result, and who is hurt (an adopter's app in production, an
+    adopter's developer or AI agent, or this repository's CI). A finding with
+    no reachable scenario is a note in the gate issue, not an issue.
+  - Severity follows the scenario. S1: a production security hole, data loss,
+    a leaked secret, or a guard that lets a rule violation merge unnoticed in
+    normal use. S2: a MUST rule not met in a way an adopter or their agent
+    will hit in normal use, or a guard that wrongly blocks valid work. S3:
+    everything else, including hardening, wording, and inputs only a
+    deliberate attempt would produce.
+  - The threat model depends on the surface. Production runtime code (SEC,
+    BE, OPS rules) keeps the full adversarial model: an attacker crafts any
+    input. CI guards, canaries, and preflights catch mistakes and shortcuts
+    by an honest developer or AI agent: ordinary syntax, ordinary encodings,
+    the tool's documented configuration. An input crafted only to slip past a
+    guard (escape sequences, unusual whitespace or delimiters, Unicode
+    tricks) is S3 at most, unless a rule in 09 names that evasion.
+  - Fix the class, not the instance. A finding about input handling names the
+    input class it belongs to, and the fix covers the class with a canary per
+    class, not only the reported string. When a hand-written parser or
+    matcher draws a second finding of the same class, the next pull request
+    replaces it with the tool's own parser, its AST, or a library already in
+    the stack (a new dependency follows WF-06).
+  - Loop detection. When the same component draws findings in three
+    consecutive fix rounds (or in two gates in a row), stop patching: the next
+    pull request redesigns that component from its rule, and the gate issue
+    records why. Count findings per component in the gate issue so the loop
+    is visible.
 - Then the release PR sets VERSION, merge, close the milestone, confirm the
   release, start the next milestone.
 

@@ -971,3 +971,48 @@ state.
 
 **Spec feedback.** None new; BE-18 already aborts a stream whose deadline
 passes. Related IDs: BE-05, BE-16, BE-18.
+
+## 2026-11-28 — round 3 — issues #1202 and #1250 (non-converging gates)
+
+**What happened.**
+- Round 3 was meant to clear the Backlog. In about 27 hours it closed 13 of
+  the 124 issues open at the restart, while the gates filed 26 new S3
+  findings.
+- In v0.45.0, `apply_check` was patched about eight times, each time for a
+  neighbouring CSS edge case: an escaped `url()`, a CRLF after a hex escape,
+  a form feed, an overlapping `*/`.
+- In v0.46.0, five low-priority issues produced thirteen S2 findings in
+  `deploy_preflight`.
+
+**Root cause.** Four factors worked together.
+- The gate audit had no admission rule. The protocol did not define S1, S2
+  or S3, did not ask for a failure scenario, and did not state whom a guard
+  defends against. Every edge case an auditor could imagine became work.
+- The findings clustered in hand-written parsers for small languages: CSS
+  comments, CODEOWNERS globs, dotenv-style secrets files. Their input space is
+  unbounded, so an unbounded audit never runs out of cases.
+- Each fix patched the reported string instead of the input class, so the
+  next audit found the neighbouring case. The selector check stopped drawing
+  findings only once it switched to the TypeScript AST (#1139).
+- The work is recursive: guards check code, canaries check guards, and audits
+  check canaries. Every layer is a new surface for findings.
+
+**What changed.**
+- #1203 scoped round 3 to the issues open at the restart.
+- #1250 added finding admission to protocol section 5:
+  - every finding states a failure scenario;
+  - severity follows impact;
+  - the threat model depends on the surface;
+  - fixes cover the input class;
+  - a second same-class finding replaces a hand-written parser;
+  - three rounds of findings on one component force a redesign.
+- Production runtime code keeps the full adversarial threat model. Only CI
+  tooling is judged against honest mistakes and shortcuts.
+
+**What "good enough" means here.** Quality is the absence of failures that
+someone will actually hit, weighted by harm. It is not the absence of
+findings. The S1/S2 rules are unchanged, and pre-existing S1/S2 gaps are
+still fixed.
+
+**Spec feedback.** None. Finding admission is a process rule, so it lives in
+the protocol, not in the specification.
