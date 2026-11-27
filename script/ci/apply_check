@@ -30,12 +30,15 @@ def without_comments(source)
   quote = nil
   quote_return = :code
   index = 0
+  # Tailwind keeps scanning after a `/*` that never closes; only a comment
+  # with a `*/` after it is prose. One rindex keeps the lookahead linear.
+  last_comment_close = source.rindex("*/")
   while index < source.length
     char = source[index]
     following = source[index + 1]
     case state
     when :code
-      if char == "/" && following == "*"
+      if char == "/" && following == "*" && last_comment_close && index < last_comment_close
         state = :comment
         index += 2
         next
