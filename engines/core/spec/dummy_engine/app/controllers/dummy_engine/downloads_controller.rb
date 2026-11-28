@@ -44,6 +44,15 @@ module DummyEngine
       )
     end
 
+    def empty
+      authorize :home, :show?
+      send_download(
+        filename: "empty.txt",
+        type: "text/plain",
+        source: ->(&_block) {}
+      )
+    end
+
     def streamed
       authorize :home, :show?
       send_download(

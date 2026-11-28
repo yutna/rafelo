@@ -45,6 +45,18 @@ RSpec.describe "Downloads", type: :request do
     expect(response.body.lines.last).to eq("chunk-19\n")
   end
 
+  it "ends a zero-byte download cleanly instead of waiting for the deadline" do
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    get "/en/dummy/download_empty", headers: auth_headers
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("")
+    expect(response.headers["Content-Disposition"]).to include("empty.txt")
+    expect(elapsed).to be < 5
+    expect(audit_rows("download", "success").count).to eq(1)
+  end
+
   it "answers a 403 raised inside a download source without a second audit row" do
     get "/en/dummy/download_forbidden", headers: auth_headers
 

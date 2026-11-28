@@ -16,6 +16,11 @@ module Rafelo
       # (BE-05, BE-16, BE-18).
       DOWNLOAD_STALLED = :rafelo_download_stalled
 
+      # A source that finishes without a chunk is a legitimate empty file: the
+      # producer's :done arrives before any :chunk, and the stream must end
+      # without waiting for the deadline (BE-18).
+      DOWNLOAD_EMPTY = :rafelo_download_empty
+
       def send_download(filename:, source:, type: nil, max_bytes: nil, event: "download")
         authorize_download!
         permit = DownloadLimiter.acquire
@@ -45,21 +50,21 @@ module Rafelo
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         send_stream(filename: sanitized_filename(filename), type: type) do |stream|
-          if first
+          unless first == DOWNLOAD_EMPTY
             written += first.bytesize
             raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if written > limit
 
             stream.write(first)
-          end
-          loop do
-            kind, value = dequeue(queue, deadline)
-            break if kind == :done
-            raise value if kind == :error
+            loop do
+              kind, value = dequeue(queue, deadline)
+              break if kind == :done
+              raise value if kind == :error
 
-            written += value.bytesize
-            raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if written > limit
+              written += value.bytesize
+              raise ApplicationError.new("unexpected", "Download exceeded #{limit} bytes") if written > limit
 
-            stream.write(value)
+              stream.write(value)
+            end
           end
         end
         AuditRecorder.record(controller: self, event: event, outcome: "success", target: filename)
@@ -83,7 +88,7 @@ module Rafelo
         loop do
           kind, value = dequeue(queue, deadline)
           return value if kind == :chunk
-          return nil if kind == :done
+          return DOWNLOAD_EMPTY if kind == :done
           raise value if kind == :error
         end
       end
