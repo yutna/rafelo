@@ -499,7 +499,9 @@ end
   missing encryption key fails boot instead of the first sign-in. The one
   exception is a setting whose default is the safe value, stated next to its
   key in typed configuration: `csp.report_only` defaults to `false`, so an
-  environment that never sets it enforces the policy (SEC-05). A value that
+  environment that never sets it enforces the policy (SEC-05). An app-owned
+  `config/core.yml` written before the key existed therefore boots enforced:
+  the key is optional and a missing one takes the default. A value that
   is present but malformed still raises.
 - **The image build boots production.** The Rails Dockerfile runs
   `SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile`, which loads the

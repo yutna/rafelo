@@ -151,7 +151,7 @@ RSpec.describe "Production configuration" do
 
   it "refuses a malformed CSP_REPORT_ONLY instead of guessing" do
     expect { production_config("CSP_REPORT_ONLY" => "sometimes") }
-      .to raise_error(/production boot failed: .*CSP_REPORT_ONLY must be true or false/m)
+      .to raise_error(/production boot failed: .*config\/core\.yml csp\.report_only .*must be true or false/m)
   end
 
   it "reads RAILS_HOST when RAILS_HOSTS is absent" do
