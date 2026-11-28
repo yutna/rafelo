@@ -49,7 +49,7 @@ module DummyEngine
       send_download(
         filename: "empty.txt",
         type: "text/plain",
-        source: ->(&_block) {}
+        source: ->(&_block) { }
       )
     end
 
