@@ -11,6 +11,13 @@ module DummyEngine
       )
     end
 
+    def unguarded
+      send_download(
+        filename: "report.txt",
+        source: ->(&block) { block.call("hello") }
+      )
+    end
+
     def failure
       authorize :home, :show?
       send_download(

@@ -81,7 +81,7 @@ module Rafelo
       def authorize_download!
         return if pundit_policy_authorized?
 
-        raise ApplicationError.new("unexpected", "authorize before send_download")
+        raise Pundit::NotAuthorizedError, "authorize before send_download"
       end
 
       def wait_for_first_chunk(queue, deadline)

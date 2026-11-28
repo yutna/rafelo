@@ -28,6 +28,16 @@ RSpec.describe "Dummy engine", type: :request do
     expect(JSON.parse(response.body).dig("props", "data", "code")).to eq("auth.forbidden")
   end
 
+  it "reaches the upstream after skip_authorization then gateway" do
+    stub_upstream(:get, "/invoices/1", fixture: "invoices/show.json", base_url: "http://localhost:4000")
+
+    get "/en/dummy/widgets/via_gateway", headers: auth_headers
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to eq("upstream reached")
+    expect(a_request(:get, "http://localhost:4000/invoices/1")).to have_been_made.once
+  end
+
   it "carries translated flash at the page level, never in props" do
     get "/en/dummy/flash", headers: auth_headers
     expect(response).to have_http_status(:see_other)

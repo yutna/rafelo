@@ -2,6 +2,7 @@
 
 require_relative "../app/models/dummy_engine/dummy_widgets_props"
 require_relative "../app/models/dummy_engine/dummy_widget_form"
+require_relative "../app/gateways/dummy_engine/invoices_gateway"
 require_relative "../app/controllers/dummy_engine/widgets_controller"
 require_relative "../app/controllers/dummy_engine/downloads_controller"
 require_relative "../app/controllers/dummy_engine/exports_controller"
@@ -20,6 +21,7 @@ module DummyEngine
       get "whoami", to: "widgets#whoami"
       get "expired", to: "widgets#expired"
       get "download", to: "downloads#show"
+      get "download_unguarded", to: "downloads#unguarded"
       get "download_failure", to: "downloads#failure"
       get "download_overflow", to: "downloads#overflow"
       get "download_forbidden", to: "downloads#forbidden"
@@ -34,6 +36,7 @@ module DummyEngine
       get "widgets/not_found", to: "widgets#not_found"
       get "widgets/parameter_missing", to: ->(_env) { raise ActionController::ParameterMissing, :widget }
       get "widgets/upstream_forbidden", to: "widgets#upstream_forbidden"
+      get "widgets/via_gateway", to: "widgets#via_gateway"
       post "widgets/upstream", to: "widgets#upstream"
       post "widgets/crash", to: "widgets#crash"
     end

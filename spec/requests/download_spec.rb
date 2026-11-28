@@ -22,6 +22,15 @@ RSpec.describe "Downloads", type: :request do
     expect(audit_rows("download", "success").count).to eq(1)
   end
 
+  it "answers 403 before the first byte when the action forgot authorize" do
+    get "/en/dummy/download_unguarded", headers: auth_headers
+
+    expect(response).to have_http_status(:forbidden)
+    expect(response.headers["Content-Disposition"]).to be_nil
+    expect(response.body).to include("auth.forbidden")
+    expect(audit_rows("download", "failure").count).to eq(1)
+  end
+
   it "answers the error page before the first byte when the upstream fails" do
     get "/en/dummy/download_failure", headers: auth_headers
 
