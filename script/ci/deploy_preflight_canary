@@ -163,6 +163,20 @@ expect_pass() {
   fi
 }
 
+expect_pass_with_output() {
+  local name="$1" expected="$2" output
+  if ! output=$("$root/script/ci/deploy_preflight" "$tmp" 2>&1); then
+    echo "deploy_preflight_canary: $name failed" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not print $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
 expect_fail() {
   local name="$1"
   if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
@@ -274,6 +288,73 @@ expect_fail_with_deploy_key() {
 
 reset
 expect_pass "valid profiles"
+
+reset
+expect_pass_with_output "valid profiles print the inspected count" "checked="
+
+# A documented Kamal secrets line may use command substitution; the preflight
+# reads key names only, so the command never runs (SEC-07, OPS-06).
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+RAILS_MASTER_KEY=$(touch marker)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_pass "a command substitution in the example"
+if [ -e "$tmp/marker" ]; then
+  echo "deploy_preflight_canary: a command substitution in the example executed" >&2
+  exit 1
+fi
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$(touch marker)
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+expect_pass "a command substitution in a secrets source"
+if [ -e "$tmp/marker" ]; then
+  echo "deploy_preflight_canary: a command substitution in a source executed" >&2
+  exit 1
+fi
+
+# Kamal resolves the path with File, so `./` and `..` spellings name one file.
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = "./.kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = "./.kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_fail_with "a tracked custom secrets file under ./" "tracked secret files"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/../.kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/../.kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_fail_with "a tracked custom secrets file under .." "tracked secret files"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = "./.kamal/secrets"'
+expect_pass "a ./-spelled secrets_path matches the default"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets-common" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+printf 'RAILS_MASTER_KEY=\n' > "$tmp/.kamal/app-secrets"
+expect_fail_with "the last source names an empty RAILS_MASTER_KEY" "must name RAILS_MASTER_KEY"
+
+reset
+printf 'secrets_path: [unclosed\n' > "$tmp/config/deploy.production.yml"
+expect_fail_with_destination "a malformed destination overlay" "production" "is not valid YAML"
 
 reset
 edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
@@ -870,4 +951,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 80 cases"
+echo "deploy_preflight_canary: checked 88 cases"
