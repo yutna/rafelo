@@ -56,7 +56,10 @@ check("kernel engine runs current", "pull_request", [ "engines/core/app/models/t
 check("guard configuration runs current", "pull_request", [ "script/ci/cops/rafelo/matching.rb" ], true, false)
 check("dependency lock runs current", "pull_request", [ "Gemfile.lock" ], true, false)
 check("VERSION runs both", "pull_request", [ "VERSION" ], true, true)
-check("merge group follows the same rule", "merge_group", [ "bin/kernel_update" ], true, false)
+check("the updater wrapper runs both", "pull_request", [ "bin/kernel_update" ], true, true)
+check("the updater script runs both", "pull_request", [ "script/ci/kernel_update" ], true, true)
+check("another bin script runs current only", "pull_request", [ "bin/check" ], true, false)
+check("merge group follows the same rule", "merge_group", [ "bin/kernel_update" ], true, true)
 check("push to main is left to the pull request", "push", [ "VERSION" ], false, false)
 check("an unreadable change set fails closed", "pull_request", nil, true, true)
 
