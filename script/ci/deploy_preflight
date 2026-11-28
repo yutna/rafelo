@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "pathname"
 require "yaml"
 require "dotenv"
 
@@ -110,22 +111,26 @@ abort "deploy_preflight: git ls-files failed" unless $?.success?
 tracked_paths = tracked.lines(chomp: true)
 
 # Kamal parses every secrets source with Dotenv (kamal/secrets.rb), so use the
-# gem's grammar instead of keeping a second parser: an optional `export`,
-# spaces around `=` or `:`, quoted values, inline comments, and the last
-# assignment wins. An overridden line still runs during the deploy, so the leak
-# check reads every assignment, not only the winner.
-def effective_secrets(path)
-  Dotenv::Parser.new(File.read(path), overwrite: true).call
+# gem's grammar instead of keeping a second parser. Only key names are read:
+# a value is never evaluated, so `$(...)` in a secrets file (a documented Kamal
+# pattern) never runs and no secret leaves the file. An overridden line still
+# runs during the deploy, so the leak check reads every assignment, not only
+# the winner.
+def secret_keys(path)
+  File.read(path).scan(Dotenv::Parser::LINE).map { |_export, key, _value| key }
 end
 
-# The last assignment of the key, as written. The emptiness check must not run
-# Dotenv's `$VAR` substitution: at deploy time the file names the variable and
-# the deploy environment provides the value.
-def last_secret_line(path, name)
+# The last assignment of the key, as written, and whether it has one at all.
+# The emptiness check must not run Dotenv's `$VAR` substitution: at deploy time
+# the file names the variable and the deploy environment provides the value.
+def last_secret_assignment(path, name)
   File.read(path).scan(Dotenv::Parser::LINE)
     .reverse
     .find { |_export, key, _value| key == name }
-    &.last
+end
+
+def last_secret_line(path, name)
+  last_secret_assignment(path, name)&.last
 end
 
 def secret_line?(path, name)
@@ -135,7 +140,7 @@ def secret_line?(path, name)
 end
 
 def names_secret?(path, name = "RAILS_MASTER_KEY")
-  File.file?(path) && secret_line?(path, name)
+  File.file?(path) && !last_secret_assignment(path, name).nil? && secret_line?(path, name)
 end
 
 def secret_leak?(path)
@@ -143,6 +148,21 @@ def secret_leak?(path)
     key == "RAILS_MASTER_KEY" &&
       value.to_s.match?(%r{config/(?:master\.key|credentials/production\.key)})
   end
+end
+
+# Kamal resolves `secrets_path` with File, so `./.kamal/secrets` and
+# `.kamal/secrets` name one file. Normalize once and use the same value for the
+# tracked-file checks, the profile comparison, and the source paths. A path
+# inside the repository becomes repo-relative so it can match `git ls-files`.
+def normalized_path(value)
+  path = Pathname.new(value.to_s).cleanpath
+  if path.absolute?
+    relative = path.relative_path_from(Pathname.new(Dir.pwd))
+    return relative.to_s unless relative.to_s.start_with?("..")
+  end
+  path.to_s
+rescue ArgumentError
+  path.to_s
 end
 
 # Kamal merges `config/deploy.<destination>.yml` over the file given with -c
@@ -155,12 +175,13 @@ def deep_merge(base, overlay)
   end
 end
 
-def profile_config(path, destination)
+def profile_config(path, destination, errors)
   return {} unless File.file?(path)
 
   begin
     config = YAML.safe_load_file(path, aliases: true)
-  rescue StandardError
+  rescue Psych::SyntaxError
+    # read_yaml reports the base file's error; the overlay has no second reader.
     return {}
   end
   return {} unless config.is_a?(Hash)
@@ -170,21 +191,22 @@ def profile_config(path, destination)
 
   begin
     overlay = YAML.safe_load_file(overlay_path, aliases: true)
-  rescue StandardError
-    overlay = nil
+  rescue Psych::SyntaxError => error
+    errors << "#{overlay_path} is not valid YAML: #{error.message}"
+    return config
   end
   overlay.is_a?(Hash) ? deep_merge(config, overlay) : config
 end
 
-def profile_secrets_path(path, destination)
-  value = profile_config(path, destination)["secrets_path"]
-  value.is_a?(String) && !value.strip.empty? ? value : ".kamal/secrets"
+def profile_secrets_path(path, destination, errors)
+  value = profile_config(path, destination, errors)["secrets_path"]
+  value.is_a?(String) && !value.strip.empty? ? normalized_path(value) : ".kamal/secrets"
 end
 
 def deploy_secrets_path(errors, destination)
   profiles = [ "config/deploy.yml", "config/deploy.multi.yml" ]
     .select { |path| File.file?(path) }
-    .to_h { |path| [ path, profile_secrets_path(path, destination) ] }
+    .to_h { |path| [ path, profile_secrets_path(path, destination, errors) ] }
   resolved = profiles.values.uniq
   if resolved.length > 1
     errors << "OPS-06/SEC-07: profiles must use one secrets_path; found #{profiles.map { |path, value| "#{path}=#{value}" }.join(", ")}"
@@ -222,8 +244,12 @@ secret_paths.each do |path|
     fail_with(errors, "OPS-06/SEC-07: #{path} must not be tracked; remove it from git and keep it in the deploy secret store")
   end
 end
-if secret_sources.any? && secret_sources.none? { |path| names_secret?(path) }
-  fail_with(errors, "OPS-06/SEC-07: .kamal/secrets must name RAILS_MASTER_KEY")
+# Kamal merges the sources in order with overwrite: the last source that names
+# the key supplies the deployed value, so that assignment must be non-empty.
+effective_source = secret_sources.reverse.find { |path| last_secret_assignment(path, "RAILS_MASTER_KEY") }
+if secret_sources.any? && (effective_source.nil? || !secret_line?(effective_source, "RAILS_MASTER_KEY"))
+  named = effective_source || secret_sources.last
+  fail_with(errors, "OPS-06/SEC-07: #{named} must name RAILS_MASTER_KEY with a non-empty value; Kamal reads the last source that names it")
 end
 if secrets_path == ".kamal/secrets" && !names_secret?(secrets_example)
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
@@ -381,13 +407,13 @@ end
 
 accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
 available_secrets = if secret_sources.any?
-  secret_sources.map { |path| effective_secrets(path) }.reduce({}) { |all, one| all.merge(one) }
+  secret_sources.flat_map { |path| secret_keys(path) }.uniq
 elsif File.file?(secrets_example)
-  effective_secrets(secrets_example)
+  secret_keys(secrets_example)
 else
-  {}
+  []
 end
-missing = accessory_secrets - available_secrets.keys
+missing = accessory_secrets - available_secrets
 fail_with(errors, "database accessory secrets are missing from the secrets sources: #{missing.join(", ")}") if missing.any?
 
 production_key_available = if deploy
@@ -463,8 +489,8 @@ end
 
 if errors.any?
   errors.each { |error| warn "deploy_preflight: #{error}" }
-  warn "deploy_preflight: errors=#{errors.length}"
+  warn "deploy_preflight: checked=#{tracked_paths.length} tracked_paths profiles=#{profiles.length} errors=#{errors.length}"
   exit 1
 end
 
-puts "deploy_preflight: profiles, secrets, storage, database, and image safe"
+puts "deploy_preflight: checked=#{tracked_paths.length} tracked_paths profiles=#{profiles.length}; secrets, storage, database, and image safe"
