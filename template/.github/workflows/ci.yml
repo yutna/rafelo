@@ -829,7 +829,7 @@ jobs:
           for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:8080/up >/dev/null 2>&1; then
               echo "production image booted and answered /up (Thruster + Puma)"
-              if ! docker logs acme-boot 2>&1 | grep -Fq "rafelo:audit:partitions:"; then
+              if ! docker logs acme-boot 2>&1 | grep -F "rafelo:audit:partitions:" >/dev/null; then
                 echo "entrypoint did not run rafelo:audit:partitions" >&2
                 docker logs acme-boot >&2 || true
                 exit 1

@@ -75,7 +75,8 @@ RSpec.describe "Production image workflow" do
         expect(boot).not_to include("./bin/rails server -b")
         expect(boot).to match(/^\s+(?:rafelo|acme)-ci\s*$/)
         expect(boot).to include("-e HTTP_PORT=8080")
-        expect(boot).to include("rafelo:audit:partitions:")
+        expect(boot).to include('grep -F "rafelo:audit:partitions:" >/dev/null')
+        expect(boot).not_to include("grep -Fq")
         expect(boot).to include("http://127.0.0.1:8080/up")
         expect(step("Remove the boot container").fetch("if")).to eq("always()")
       end
