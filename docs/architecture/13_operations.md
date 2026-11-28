@@ -320,7 +320,11 @@ flowchart LR
   executes, and requires the last source that names the key to have a
   non-empty value, because Kamal's merge lets the last source win. It
   prints the number of tracked paths it inspected. The
-  `.kamal/secrets.example` check applies when the resolved path is the default.
+  `.kamal/secrets.example` check applies when the resolved path is the default
+  and is lenient: Kamal never reads the example, so a documentation-only bare
+  `export KEY` line is allowed, while the example must still show
+  `RAILS_MASTER_KEY` with a value. A format error never echoes the line, only
+  the path and the rule, because a comment on that line can hold a secret.
   Canaries (TS-07): a
   build-stage `USER` with none in the final stage, `USER root` after a
   non-root user, `USER 00`, an `ARG UID=0`, a tracked `.env.local`, a tracked
@@ -337,7 +341,9 @@ flowchart LR
   malformed destination overlay and a list overlay, a command substitution in
   the example and in a source, an overridden dangerous `RAILS_MASTER_KEY`
   line, a quoted `RAILS_MASTER_KEY`, an empty last source, an export-only key,
-  an export-only accessory key, a CR-only file, an empty root, and the
+  an export-only accessory key, a CR-only file, an empty root, an `_old`
+  backup beside a custom path, a lenient example and an example without a
+  value, a format error that never echoes the line, and the
   inspected count on success and on failure.
 - **The image is built on pull requests.** A CI job builds the production
   image without pushing it, after `rafelo:module` has created a throwaway module,

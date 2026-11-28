@@ -464,6 +464,55 @@ expect_fail_with_root "a tracked custom secret behind a symlinked root" "$link" 
 rm -f "$link"
 
 reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+# Show the export form for the registry password.
+export KAMAL_REGISTRY_PASSWORD
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_pass "an example with a bare export of another key"
+
+reset
+cat > "$tmp/.kamal/secrets.example" <<'SECRETS'
+export RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_fail_with "an example with only a bare RAILS_MASTER_KEY export" "must name RAILS_MASTER_KEY"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+edit_yaml "$tmp/config/deploy.multi.yml" 'config["secrets_path"] = ".kamal/app-secrets"'
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+mv "$tmp/.kamal/app-secrets" "$tmp/.kamal/app-secrets_old"
+git -C "$tmp" add -A
+expect_fail_with "a tracked custom secrets backup with an _old suffix" "tracked secret files"
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+export GITHUB_TOKEN # ghp_do_not_print_me
+SECRETS
+if output=$("$root/script/ci/deploy_preflight" "$tmp" 2>&1); then
+  echo "deploy_preflight_canary: a bare export with a comment passed" >&2
+  exit 1
+fi
+if [[ "$output" != *"is not a valid secrets file"* ]]; then
+  echo "deploy_preflight_canary: a bare export error did not name the file" >&2
+  echo "$output" >&2
+  exit 1
+fi
+if [[ "$output" == *"ghp_do_not_print_me"* ]]; then
+  echo "deploy_preflight_canary: a format error echoed the secrets line" >&2
+  exit 1
+fi
+
+reset
 edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
 expect_fail "missing deploy_timeout"
 
@@ -1058,4 +1107,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 98 cases"
+echo "deploy_preflight_canary: checked 102 cases"

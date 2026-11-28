@@ -178,7 +178,9 @@ assignment fails, and the last source that names it must have a non-empty
 value, because the last source wins. When a production
 key is available it also compares the production and dummy credential key
 paths, printing paths and never values; CI skips that comparison because it
-never holds the key.
+never holds the key. `.kamal/secrets.example` is checked leniently: it must
+show `RAILS_MASTER_KEY` with a value, and a documentation-only `export` line in
+it is allowed. A format error names the path and the rule, never the line.
 
 ## Health checks and data
 
