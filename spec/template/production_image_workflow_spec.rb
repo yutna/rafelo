@@ -31,7 +31,7 @@ RSpec.describe "Production image workflow" do
           config/environments/production\.rb
           config/database\.yml
           config/storage\.yml
-          config/initializers/active_record_encryption\.rb
+          config/initializers/.*\.rb
           config/puma\.rb
           config/routes\.rb
           bin/docker-entrypoint

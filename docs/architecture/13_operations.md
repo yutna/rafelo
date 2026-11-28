@@ -354,7 +354,7 @@ flowchart LR
   and the Vite build), any gemspec, `.env.ci.production`, the dummy
   credentials, `bin/docker-entrypoint`, `config/application.rb`,
   `config/environments/production.rb`, `config/database.yml`,
-  `config/storage.yml`, `config/initializers/active_record_encryption.rb`,
+  `config/storage.yml`, `config/initializers/**`,
   `config/puma.rb`, `config/routes.rb`, or `.github/workflows/ci.yml`, and
   nightly. After creating the runtime and migration roles with
   `script/ops/database_roles.sql`, it boots the image through its default
