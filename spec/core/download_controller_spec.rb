@@ -3,16 +3,18 @@ require "rails_helper"
 RSpec.describe Rafelo::Core::DownloadController do
   # A deadline the example controls, so a stalled producer or consumer never
   # depends on a sleep racing a real clock (TS-01, TS-10).
-  class FakeDeadline
-    attr_accessor :remaining
+  def fake_deadline(remaining = 1.0)
+    Class.new do
+      attr_accessor :remaining
 
-    def initialize(remaining = 1.0)
-      @remaining = remaining
-    end
+      def initialize(remaining)
+        @remaining = remaining
+      end
 
-    def expire!
-      @remaining = 0.0
-    end
+      def expire!
+        @remaining = 0.0
+      end
+    end.new(remaining)
   end
 
   let(:permit) { Object.new }
@@ -32,7 +34,7 @@ RSpec.describe Rafelo::Core::DownloadController do
   after { Rafelo::Core::Current.reset }
 
   it "stops the producer at the deadline and releases the source when the consumer stalls" do
-    deadline = FakeDeadline.new
+    deadline = fake_deadline
     controller = build_controller(deadline)
     released = Queue.new
     stream = Class.new do
@@ -59,7 +61,7 @@ RSpec.describe Rafelo::Core::DownloadController do
   end
 
   it "fails the consumer as upstream.timeout when no chunk arrives before the deadline" do
-    controller = build_controller(FakeDeadline.new(0.0))
+    controller = build_controller(fake_deadline(0.0))
     allow(controller).to receive(:send_stream)
     source = ->(&_block) { }
 
@@ -71,7 +73,7 @@ RSpec.describe Rafelo::Core::DownloadController do
   end
 
   it "ends a source with no chunks as a zero-byte success" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     stream = double("stream", write: nil)
     allow(controller).to receive(:send_stream).and_yield(stream)
 
@@ -86,28 +88,28 @@ RSpec.describe Rafelo::Core::DownloadController do
   end
 
   it "hands an error over when the queue has room" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     queue = SizedQueue.new(1)
     error = RuntimeError.new("boom")
 
-    controller.send(:deliver_error, queue, FakeDeadline.new, error)
+    controller.send(:deliver_error, queue, fake_deadline, error)
 
     expect(queue.pop).to eq([ :error, error ])
   end
 
   it "gives up on the handoff when the queue is full and the deadline passed" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     queue = SizedQueue.new(1)
     queue.push(:first)
 
-    controller.send(:deliver_error, queue, FakeDeadline.new(0.0), RuntimeError.new("boom"))
+    controller.send(:deliver_error, queue, fake_deadline(0.0), RuntimeError.new("boom"))
 
     expect(queue.size).to eq(1)
     expect(queue.pop).to eq(:first)
   end
 
   it "waits for room and then hands the error over" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     queue = SizedQueue.new(1)
     queue.push(:first)
     taken = Queue.new
@@ -118,24 +120,24 @@ RSpec.describe Rafelo::Core::DownloadController do
     taken.pop(timeout: 2)
     error = RuntimeError.new("boom")
 
-    controller.send(:deliver_error, queue, FakeDeadline.new, error)
+    controller.send(:deliver_error, queue, fake_deadline, error)
 
     expect(consumer.value).to eq([ :error, error ])
   end
 
   it "gives up when the queue stays full for the whole wait" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     queue = double("queue")
     allow(queue).to receive(:push).and_raise(ThreadError)
 
-    result = controller.send(:deliver_error, queue, FakeDeadline.new(1.0), RuntimeError.new("boom"))
+    result = controller.send(:deliver_error, queue, fake_deadline(1.0), RuntimeError.new("boom"))
 
     expect(result).to be_nil
     expect(queue).to have_received(:push).twice
   end
 
   it "hands a producer error over a queue the consumer has not drained yet" do
-    controller = build_controller(FakeDeadline.new)
+    controller = build_controller(fake_deadline)
     queue = SizedQueue.new(1)
     allow(SizedQueue).to receive(:new).with(8).and_return(queue)
     writes = []
