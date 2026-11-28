@@ -914,6 +914,20 @@ jobs:
             -e ACME_DATABASE_ROLE=migration \
             rafelo-ci ./bin/rails db:prepare
 
+      - name: Create the runtime and migration roles
+        # The production boot must use the runtime role, not the superuser that
+        # prepares the database (OPS-06, OPS-08, BE-21). The same script runs on
+        # a single-host deploy; the passwords are the throwaway values.
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$PWD/script/ops/database_roles.sql:/tmp/database_roles.sql:ro" \
+            -e PGPASSWORD=postgres \
+            rafelo-ci psql -h 127.0.0.1 -U postgres -d rafelo_boot \
+              -v ON_ERROR_STOP=1 \
+              -v runtime_password=postgres -v migration_password=postgres \
+              -f /tmp/database_roles.sql
+
       - name: Boot the production image and check /up
         # A production-image build is not a boot: C5 changes the server gem, and
         # C3/C4 change the production boot. Start the image's own production
@@ -933,8 +947,9 @@ jobs:
             -e ACTIVE_STORAGE_SERVICE=local \
             -e DB_HOST=127.0.0.1 -e DB_PORT=5432 \
             -e DB_NAME=rafelo_boot \
-            -e DB_USER=postgres -e DB_PASSWORD=postgres \
-            -e DB_MIGRATION_USER=postgres -e DB_MIGRATION_PASSWORD=postgres \
+            -e DB_USER=acme_runtime -e DB_PASSWORD=postgres \
+            -e DB_MIGRATION_USER=acme_migrator -e DB_MIGRATION_PASSWORD=postgres \
+            -e SOLID_QUEUE_IN_PUMA=true \
             -e HTTP_PORT=8080 \
             rafelo-ci
           for _ in $(seq 1 90); do
@@ -945,7 +960,16 @@ jobs:
                 docker logs rafelo-boot >&2 || true
                 exit 1
               fi
-              exit 0
+              for _ in $(seq 1 30); do
+                if docker logs rafelo-boot 2>&1 | grep -F "SolidQueue-" >/dev/null; then
+                  echo "Solid Queue supervisor started"
+                  exit 0
+                fi
+                sleep 1
+              done
+              echo "Solid Queue did not start" >&2
+              docker logs rafelo-boot >&2 || true
+              exit 1
             fi
             if ! docker inspect -f '{{.State.Running}}' rafelo-boot 2>/dev/null | grep -q true; then
               break
