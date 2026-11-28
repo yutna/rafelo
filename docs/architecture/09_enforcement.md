@@ -1211,8 +1211,9 @@ application template, `lib/generators/`, `bin/kernel_update`, `engines/core/`,
 `engines/design_system/`, the guard configurations, `Gemfile`, `Gemfile.lock`,
 `package.json`, `package-lock.json`), on the release pull request, and nightly.
 Updating N-1 to N runs on the release pull request (the one that changes
-`VERSION`) and nightly, never on other pull requests. A nightly failure opens
-an issue like every scheduled job.
+`VERSION`), on a pull request that changes the updater (`bin/kernel_update` or
+`script/ci/kernel_update`), and nightly, never on other pull requests. A
+nightly failure opens an issue like every scheduled job.
 
 ## Guard files
 

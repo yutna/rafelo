@@ -7,9 +7,10 @@
 # update:  adopt release N-1, update it to this release, and run its gate.
 #
 # The pull request events run current when the change set touches an adoption
-# input, and both when VERSION changes (the release pull request). The nightly
-# and manual runs always run both. A push to main is skipped because the pull
-# request or the nightly run already proved it.
+# input, and both when VERSION or the updater changes (the release pull request
+# or a pull request that changes the updater). The nightly and manual runs
+# always run both. A push to main is skipped because the pull request or the
+# nightly run already proved it.
 
 require "open3"
 require "optparse"
@@ -60,6 +61,14 @@ ADOPTION_INPUTS = %w[
   config/ratchets.yml
 ].freeze
 
+# The updater itself. A change here can break the N-1 update proof even though
+# the app's template inputs stay the same, so the pull request runs both
+# proofs.
+UPDATE_INPUTS = %w[
+  bin/kernel_update
+  script/ci/kernel_update
+].freeze
+
 def adoption_input?(path)
   ADOPTION_INPUTS.any? do |entry|
     entry.end_with?("/") ? path.start_with?(entry) : path == entry
@@ -96,10 +105,13 @@ when "pull_request", "merge_group"
     reason = "#{event}: cannot read the change set; run both"
   else
     version_changed = changes.include?("VERSION")
-    update = version_changed
-    current = version_changed || changes.any? { |path| adoption_input?(path) }
+    updater_changed = changes.any? { |path| UPDATE_INPUTS.include?(path) }
+    update = version_changed || updater_changed
+    current = version_changed || updater_changed || changes.any? { |path| adoption_input?(path) }
     reason = if version_changed
       "#{event}: VERSION changed"
+    elsif updater_changed
+      "#{event}: kernel updater changed"
     elsif current
       "#{event}: adoption input changed"
     else
