@@ -5,6 +5,7 @@ require_relative "../../../app/models/rafelo/core/locales"
 require_relative "../../../app/models/rafelo/core/upstream_config"
 require_relative "../../../app/models/rafelo/core/budgets"
 require_relative "../../../app/models/rafelo/core/flags"
+require_relative "csp"
 
 module Rafelo
   module Core
@@ -35,10 +36,7 @@ module Rafelo
         app.config.x.sessions.touch_interval_seconds = 5 * 60
         app.config.x.downloads.max_concurrent = 2
         app.config.x.downloads.max_bytes = 52_428_800
-        report_only = core_config.dig(:csp, :report_only)
-        unless report_only == true || report_only == false
-          raise "CSP_REPORT_ONLY must be true or false"
-        end
+        report_only = Rafelo::Core::Csp.report_only(core_config[:csp])
         app.config.x.csp = ActiveSupport::OrderedOptions.new
         app.config.x.csp.report_only = report_only
       end
