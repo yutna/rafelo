@@ -745,7 +745,9 @@ jobs:
           set -euo pipefail
           key="$(bundle exec ruby -rsecurerandom -e 'puts SecureRandom.hex(16)')"
           echo "::add-mask::$key"
+          umask 077
           printf '%s' "$key" > /tmp/acme-production.key
+          chmod 0600 /tmp/acme-production.key
           bundle exec ruby -ractive_support -ractive_support/encrypted_configuration -rsecurerandom -ryaml -e '
             config = ActiveSupport::EncryptedConfiguration.new(
               config_path: "/tmp/acme-production.yml.enc",
