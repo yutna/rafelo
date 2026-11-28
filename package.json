@@ -45,8 +45,8 @@
     "pages:check": "ruby script/ci/page_props",
     "api:generate": "tsx --tsconfig tsconfig.tooling.json script/contracts/design_system_api.mts",
     "api:check": "tsx --tsconfig tsconfig.tooling.json script/contracts/design_system_api.mts --check",
-    "e2e": "playwright test",
-    "e2e:update": "playwright test --update-snapshots",
+    "e2e": "script/ci/e2e",
+    "e2e:update": "script/ci/e2e --update-snapshots",
     "permissions:generate": "ruby script/contracts/permissions",
     "permissions:check": "ruby script/contracts/permissions --check"
   },
