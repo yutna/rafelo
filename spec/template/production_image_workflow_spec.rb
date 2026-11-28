@@ -21,24 +21,50 @@ RSpec.describe "Production image workflow" do
         steps.map { |candidate| candidate["name"] }
       end
 
-      it "runs on a change to every production-boot input" do
+      it "matches the production-boot inputs and nothing else" do
         trigger = jobs.fetch("production-image-needed").fetch("steps")
           .find { |candidate| candidate["name"] == "Decide whether the production image build runs" }
           .fetch("run")
+        pattern = trigger[/grep -Eq '([^']+)'/, 1]
+
+        expect(pattern).not_to be_nil
+        expect(pattern).to start_with("^(")
+        expect(pattern).to end_with(")$")
+        image_input = Regexp.new(pattern)
 
         %w[
-          config/application\.rb
-          config/environments/production\.rb
-          config/database\.yml
-          config/storage\.yml
-          config/initializers/.*\.rb
-          config/puma\.rb
-          config/routes\.rb
+          Dockerfile
+          .dockerignore
+          Gemfile
+          Gemfile.lock
+          package.json
+          package-lock.json
+          vendor/thing.gemspec
+          .env.ci.production
+          config/credentials/dummy.key
+          config/credentials/dummy.yml.enc
+          config/application.rb
+          config/environments/production.rb
+          config/database.yml
+          config/storage.yml
+          config/initializers/any_initializer.rb
+          config/puma.rb
+          config/routes.rb
           bin/docker-entrypoint
-          package(-lock)?\.json
-          \.github/workflows/ci\.yml
+          .github/workflows/ci.yml
         ].each do |input|
-          expect(trigger).to include(input)
+          expect(image_input).to match(input)
+        end
+
+        %w[
+          docs/readme.md
+          bin/check
+          app/models/user.rb
+          config/initializers.rb
+          config/routes.rb.bak
+          prefix/Dockerfile
+        ].each do |input|
+          expect(image_input).not_to match(input)
         end
       end
 
