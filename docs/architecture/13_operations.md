@@ -356,10 +356,12 @@ flowchart LR
   `config/environments/production.rb`, `config/database.yml`,
   `config/storage.yml`, `config/initializers/active_record_encryption.rb`,
   `config/puma.rb`, `config/routes.rb`, or `.github/workflows/ci.yml`, and
-  nightly. It boots the image through its default
-  `./bin/thrust ./bin/rails server`, so the entrypoint's `db:prepare` and
-  partition task run before `/up` answers. Otherwise the image build that
-  BE-08 and SEC-12 rely on would first run at deploy.
+  nightly. After creating the runtime and migration roles with
+  `script/ops/database_roles.sql`, it boots the image through its default
+  `./bin/thrust ./bin/rails server` as the runtime role, with the Solid Queue
+  plugin, so the entrypoint's `db:prepare` and partition task run before
+  `/up` answers and the queue supervisor starts. Otherwise the image build
+  that BE-08 and SEC-12 rely on would first run at deploy.
   Engines are path gems, so the `Dockerfile` copies every engine's gemspec and
   the files those gemspecs load (such as `lib/acme/<engine>/version.rb`)
   before `bundle install`; Rails' generated `Dockerfile` copies only the
