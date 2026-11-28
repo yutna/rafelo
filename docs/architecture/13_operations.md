@@ -352,10 +352,14 @@ flowchart LR
   on pull requests that change the `Dockerfile`, `.dockerignore`, `Gemfile`,
   `Gemfile.lock`, `package.json`, `package-lock.json` (the image runs `npm ci`
   and the Vite build), any gemspec, `.env.ci.production`, the dummy
-  credentials, or the configuration the image's production boot reads
-  (`config/application.rb`, `config/environments/production.rb`,
-  `config/database.yml`, `config/storage.yml`), and nightly. Otherwise
-  the image build that BE-08 and SEC-12 rely on would first run at deploy.
+  credentials, `bin/docker-entrypoint`, `config/application.rb`,
+  `config/environments/production.rb`, `config/database.yml`,
+  `config/storage.yml`, `config/initializers/active_record_encryption.rb`,
+  `config/puma.rb`, `config/routes.rb`, or `.github/workflows/ci.yml`, and
+  nightly. It boots the image through its default
+  `./bin/thrust ./bin/rails server`, so the entrypoint's `db:prepare` and
+  partition task run before `/up` answers. Otherwise the image build that
+  BE-08 and SEC-12 rely on would first run at deploy.
   Engines are path gems, so the `Dockerfile` copies every engine's gemspec and
   the files those gemspecs load (such as `lib/acme/<engine>/version.rb`)
   before `bundle install`; Rails' generated `Dockerfile` copies only the

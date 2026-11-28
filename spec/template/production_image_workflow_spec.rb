@@ -32,6 +32,9 @@ RSpec.describe "Production image workflow" do
           config/database\.yml
           config/storage\.yml
           config/initializers/active_record_encryption\.rb
+          config/puma\.rb
+          config/routes\.rb
+          bin/docker-entrypoint
           package(-lock)?\.json
           \.github/workflows/ci\.yml
         ].each do |input|
