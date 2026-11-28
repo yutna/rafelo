@@ -29,7 +29,11 @@ RSpec.describe "bin/kernel_update" do
         "engines/core/tmp/scratch.rb" => "scratch\n",
         "engines/core/node_modules/pkg/index.js" => "ignored\n",
         "engines/core/public/vite/app.js" => "built\n",
-        "engines/core/log/development.log" => "log\n"
+        "engines/core/log/development.log" => "log\n",
+        "engines/core/.DS_Store" => "junk\n",
+        "engines/core/app/.idea/workspace.xml" => "junk\n",
+        "engines/core/app/models/._real.rb" => "junk\n",
+        "engines/core/.rspec_status" => "junk\n"
       })
 
       release = KernelUpdate::Release.new(version: "0.2.0", source: root, workspace: root)
@@ -39,6 +43,10 @@ RSpec.describe "bin/kernel_update" do
       expect(release.shipped?("engines/core/node_modules/pkg/index.js")).to be(false)
       expect(release.shipped?("engines/core/public/vite/app.js")).to be(false)
       expect(release.shipped?("engines/core/log/development.log")).to be(false)
+      expect(release.shipped?("engines/core/.DS_Store")).to be(false)
+      expect(release.shipped?("engines/core/app/.idea/workspace.xml")).to be(false)
+      expect(release.shipped?("engines/core/app/models/._real.rb")).to be(false)
+      expect(release.shipped?("engines/core/.rspec_status")).to be(false)
     end
   end
 
