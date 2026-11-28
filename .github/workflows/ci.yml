@@ -916,8 +916,11 @@ jobs:
 
       - name: Boot the production image and check /up
         # A production-image build is not a boot: C5 changes the server gem, and
-        # C3/C4 change the production boot. Start the image's Rails server (Puma)
-        # and wait for the health endpoint (OPS-06).
+        # C3/C4 change the production boot. Start the image's own production
+        # command (Thruster in front of Puma) so the entrypoint sees
+        # `./bin/rails server` and runs its db:prepare and partition steps, then
+        # wait for the health endpoint (OPS-06). HTTP_PORT moves Thruster off
+        # the privileged port 80 for the runner.
         run: |
           set -euo pipefail
           key="$(cat /tmp/rafelo-production.key)"
@@ -932,10 +935,16 @@ jobs:
             -e DB_NAME=rafelo_boot \
             -e DB_USER=postgres -e DB_PASSWORD=postgres \
             -e DB_MIGRATION_USER=postgres -e DB_MIGRATION_PASSWORD=postgres \
-            rafelo-ci ./bin/rails server -b 0.0.0.0 -p 8080
+            -e HTTP_PORT=8080 \
+            rafelo-ci
           for _ in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:8080/up >/dev/null 2>&1; then
-              echo "production image booted and answered /up (Puma)"
+              echo "production image booted and answered /up (Thruster + Puma)"
+              if ! docker logs rafelo-boot 2>&1 | grep -Fq "rafelo:audit:partitions:"; then
+                echo "entrypoint did not run rafelo:audit:partitions" >&2
+                docker logs rafelo-boot >&2 || true
+                exit 1
+              fi
               exit 0
             fi
             if ! docker inspect -f '{{.State.Running}}' rafelo-boot 2>/dev/null | grep -q true; then
