@@ -124,9 +124,26 @@ end
 
 def parse_secrets(path, errors)
   SecretsParser.new(File.read(path), overwrite: true).call
-rescue Dotenv::FormatError => error
-  errors << "#{path} is not a valid secrets file: #{error.message}"
+rescue Dotenv::FormatError
+  # Never interpolate the gem's message: it contains the offending line, and a
+  # comment on that line can hold a secret (SEC-07, OPS-01).
+  errors << "#{path} is not a valid secrets file: a bare export line needs an assignment of the same key"
   nil
+end
+
+# The example is documentation, not a deploy input: Kamal never reads it, so a
+# bare `export KEY` documentation line in it must not fail CI. It has to show
+# RAILS_MASTER_KEY with a non-empty value, and its key names are the accessory
+# fallback when no real source exists.
+def example_assignments(path)
+  File.read(path).gsub(/\r\n?/, "\n").scan(Dotenv::Parser::LINE)
+    .map { |_export, key, value| [ key, value ] }
+end
+
+def example_names_master_key?(path)
+  raw = example_assignments(path).reverse.find { |key, _value| key == "RAILS_MASTER_KEY" }&.last.to_s.strip
+  raw = raw[1..-2] if raw.length >= 2 && raw[0] == raw[-1] && [ '"', "'" ].include?(raw[0])
+  !raw.strip.empty?
 end
 
 def secret_leak?(path)
@@ -225,10 +242,7 @@ secrets_example = ".kamal/secrets.example"
 forbidden = tracked_paths.select do |path|
   env_file = path.match?(%r{\A(?:\.env|.*/\.env)}) && path != ".env.ci.production"
   kamal_secret = path.start_with?(".kamal/secrets") && path != ".kamal/secrets.example"
-  custom_secret = resolved_secrets_paths.any? do |prefix|
-    (path == prefix || path.start_with?("#{prefix}/", "#{prefix}.", "#{prefix}-")) &&
-      path != "#{prefix}.example"
-  end
+  custom_secret = resolved_secrets_paths.any? { |prefix| path.start_with?(prefix) && path != "#{prefix}.example" }
   master_key = path.start_with?("config/master.key")
   credentials_key = path.match?(%r{\Aconfig/credentials/.*\.key}) &&
     path != "config/credentials/dummy.key"
@@ -247,9 +261,11 @@ secret_paths.each do |path|
   end
 end
 secret_data = secret_sources.to_h { |path| [ path, parse_secrets(path, errors) ] }
-example_data =
+example_keys =
   if File.file?(secrets_example) && (secrets_path == ".kamal/secrets" || secret_sources.empty?)
-    parse_secrets(secrets_example, errors)
+    example_assignments(secrets_example).map(&:first)
+  else
+    []
   end
 # Kamal merges the sources in order with overwrite: the last source that names
 # the key supplies the deployed value, so its value must be non-empty.
@@ -259,7 +275,7 @@ if secret_sources.any? && effective_value.to_s.strip.empty?
   named = effective_source || secret_sources.last
   fail_with(errors, "OPS-06/SEC-07: #{named} must name RAILS_MASTER_KEY with a non-empty value; Kamal reads the last source that names it")
 end
-if secrets_path == ".kamal/secrets" && (example_data.nil? || example_data["RAILS_MASTER_KEY"].to_s.strip.empty?)
+if secrets_path == ".kamal/secrets" && !(File.file?(secrets_example) && example_names_master_key?(secrets_example))
   fail_with(errors, "OPS-06/SEC-07: .kamal/secrets.example must name RAILS_MASTER_KEY")
 end
 if deploy && secret_sources.empty?
@@ -416,8 +432,8 @@ end
 accessory_secrets = Array(single.dig("accessories", "db", "env", "secret"))
 available_secrets = if secret_sources.any?
   secret_data.values.compact.flat_map(&:keys).uniq
-elsif example_data
-  example_data.keys
+elsif File.file?(secrets_example)
+  example_keys
 else
   []
 end
