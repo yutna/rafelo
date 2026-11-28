@@ -24,6 +24,7 @@ module DummyEngine
       get "download_overflow", to: "downloads#overflow"
       get "download_forbidden", to: "downloads#forbidden"
       get "download_many", to: "downloads#many_chunks"
+      get "download_empty", to: "downloads#empty"
       get "download_streamed", to: "downloads#streamed"
       get "export/:id", to: "exports#show"
       post "widgets", to: "widgets#create"
