@@ -177,6 +177,33 @@ expect_pass_with_output() {
   fi
 }
 
+expect_pass_with_root_output() {
+  local name="$1" dir="$2" expected="$3" output
+  if ! output=$("$root/script/ci/deploy_preflight" --root "$dir" 2>&1); then
+    echo "deploy_preflight_canary: $name failed" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not print $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
+expect_fail_with_root() {
+  local name="$1" dir="$2" expected="$3" output
+  if output=$("$root/script/ci/deploy_preflight" --root "$dir" 2>&1); then
+    echo "deploy_preflight_canary: $name passed" >&2
+    exit 1
+  fi
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "deploy_preflight_canary: $name did not name $expected" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+}
+
 expect_fail() {
   local name="$1"
   if "$root/script/ci/deploy_preflight" "$tmp" >/dev/null 2>&1; then
@@ -290,7 +317,36 @@ reset
 expect_pass "valid profiles"
 
 reset
-expect_pass_with_output "valid profiles print the inspected count" "checked="
+expect_pass_with_output "valid profiles print the inspected count" "checked=8 tracked_paths"
+
+reset
+expect_pass_with_root_output "the --root option with the inspected count" "$tmp" "checked=8 tracked_paths"
+
+reset
+edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
+if output=$("$root/script/ci/deploy_preflight" --root "$tmp" 2>&1); then
+  echo "deploy_preflight_canary: a failing fixture passed" >&2
+  exit 1
+fi
+if [[ "$output" != *"checked=8 tracked_paths"* || "$output" != *"errors="* ]]; then
+  echo "deploy_preflight_canary: the failure line does not print the inspected count" >&2
+  echo "$output" >&2
+  exit 1
+fi
+
+empty_root="$(mktemp -d)"
+git init -q "$empty_root"
+if output=$("$root/script/ci/deploy_preflight" --root "$empty_root" 2>&1); then
+  echo "deploy_preflight_canary: an empty root passed" >&2
+  rm -rf "$empty_root"
+  exit 1
+fi
+rm -rf "$empty_root"
+if [[ "$output" != *"checked=0 tracked_paths"* ]]; then
+  echo "deploy_preflight_canary: an empty root did not print checked=0" >&2
+  echo "$output" >&2
+  exit 1
+fi
 
 # A documented Kamal secrets line may use command substitution; the preflight
 # reads key names only, so the command never runs (SEC-07, OPS-06).
@@ -355,6 +411,57 @@ expect_fail_with "the last source names an empty RAILS_MASTER_KEY" "must name RA
 reset
 printf 'secrets_path: [unclosed\n' > "$tmp/config/deploy.production.yml"
 expect_fail_with_destination "a malformed destination overlay" "production" "is not valid YAML"
+
+reset
+printf 'secrets_path: *prod\n' > "$tmp/config/deploy.production.yml"
+expect_fail_with_destination "an overlay with an undefined alias" "production" "is not valid YAML"
+
+reset
+printf -- '- secrets_path: .kamal/app-secrets\n' > "$tmp/config/deploy.production.yml"
+expect_fail_with_destination "a list overlay" "production" "must be a mapping"
+
+# Dotenv treats `export KEY` with no value as a no-op when the key already
+# exists in the file, and as a format error when it does not (OPS-06).
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=last
+export RAILS_MASTER_KEY
+POSTGRES_PASSWORD=last
+SECRETS
+expect_pass "an export with no value after an assignment"
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+export RAILS_MASTER_KEY
+POSTGRES_PASSWORD=last
+SECRETS
+expect_fail_with "an export-only RAILS_MASTER_KEY" "is not a valid secrets file"
+
+reset
+cat > "$tmp/.kamal/secrets" <<'SECRETS'
+RAILS_MASTER_KEY=last
+export POSTGRES_PASSWORD
+SECRETS
+expect_fail_with "an export-only accessory secret" "is not a valid secrets file"
+
+reset
+printf 'RAILS_MASTER_KEY=$RAILS_MASTER_KEY\rPOSTGRES_PASSWORD=$POSTGRES_PASSWORD\r' > "$tmp/.kamal/secrets"
+expect_pass "a CR-only secrets file"
+
+# A checkout reached through a symlink must still normalize to the physical
+# repo, or a tracked secret under an absolute logical path is hidden (SEC-07).
+reset
+link="$tmp-link"
+ln -sfn "$tmp" "$link"
+edit_yaml "$tmp/config/deploy.yml" "config[\"secrets_path\"] = \"$link/.kamal/app-secrets\""
+edit_yaml "$tmp/config/deploy.multi.yml" "config[\"secrets_path\"] = \"$link/.kamal/app-secrets\""
+cat > "$tmp/.kamal/app-secrets" <<'SECRETS'
+RAILS_MASTER_KEY=$RAILS_MASTER_KEY
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+SECRETS
+git -C "$tmp" add -A
+expect_fail_with_root "a tracked custom secret behind a symlinked root" "$link" "tracked secret files"
+rm -f "$link"
 
 reset
 edit_yaml "$tmp/config/deploy.yml" 'config.delete("deploy_timeout")'
@@ -951,4 +1058,4 @@ if KAMAL_DESTINATION=production RAILS_MASTER_KEY="$PRODUCTION_KEY" "$root/script
   exit 1
 fi
 
-echo "deploy_preflight_canary: checked 88 cases"
+echo "deploy_preflight_canary: checked 98 cases"
