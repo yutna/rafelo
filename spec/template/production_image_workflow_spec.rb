@@ -88,7 +88,9 @@ RSpec.describe "Production image workflow" do
         expect(boot).to include('grep -F "rafelo:audit:partitions:" >/dev/null')
         expect(boot).to include('grep -F "SolidQueue-" >/dev/null')
         expect(boot).not_to include("grep -Fq")
-        expect(boot).to include("http://127.0.0.1:8080/up")
+        expect(boot).to include(
+          "curl -fsS --connect-timeout 2 --max-time 5 http://127.0.0.1:8080/up"
+        )
         expect(step("Remove the boot container").fetch("if")).to eq("always()")
       end
 
