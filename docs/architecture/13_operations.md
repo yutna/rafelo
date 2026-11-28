@@ -306,34 +306,39 @@ flowchart LR
   skips the comparison, or skips only the empty template state and says so.
   It resolves `secrets_path` per profile, with the
   `config/deploy.<destination>.yml` overlay applied under `KAMAL_DESTINATION`
-  (a malformed overlay is reported): a profile without the key uses
-  `.kamal/secrets`, the profiles must agree after normalizing `./` and `..`,
-  and the sources are `<secrets_path>-common` plus `<secrets_path>` or
-  `<secrets_path>.<destination>` (OPS-06). It reads them with Dotenv's grammar,
-  the gem Kamal uses, so quotes, comments, and `export` behave as at deploy,
-  but only the key names: a value is never evaluated, so a `$(...)` command
-  substitution never runs. It rejects a `RAILS_MASTER_KEY` that reads
+  (a malformed overlay, including an unknown alias or a non-mapping, is
+  reported): a profile without the key uses
+  `.kamal/secrets`, the profiles must agree after normalizing `./`, `..` and
+  symlinks, and the sources are `<secrets_path>-common` plus `<secrets_path>` or
+  `<secrets_path>.<destination>` (OPS-06). It parses them with the Dotenv
+  parser, the gem Kamal uses, with its substitutions disabled: quotes,
+  comments, `export`, CR/CRLF and a malformed `export` behave as at deploy, but
+  no `$VAR` or `$(...)` is evaluated, so a command substitution never runs. It
+  rejects a `RAILS_MASTER_KEY` that reads
   `config/master.key` or `config/credentials/production.key` in any assignment,
   because a later line does not hide the earlier one that Dotenv still
   executes, and requires the last source that names the key to have a
-  non-empty assignment, because Kamal's merge lets the last source win. It
-  prints the number of tracked paths and profiles it inspected. The
+  non-empty value, because Kamal's merge lets the last source win. It
+  prints the number of tracked paths it inspected. The
   `.kamal/secrets.example` check applies when the resolved path is the default.
   Canaries (TS-07): a
   build-stage `USER` with none in the final stage, `USER root` after a
   non-root user, `USER 00`, an `ARG UID=0`, a tracked `.env.local`, a tracked
   `config/credentials/production.key`, a tracked `.kamal/secrets.bak`, a
   tracked custom secrets-path sibling, a `./` and a `..` spelling of a tracked
-  custom path, a custom `.bak`, a custom base with a
+  custom path, a tracked secret behind a symlinked root, a custom `.bak`, a
+  custom base with a
   destination set, a `.env.ci.production` key missing
   from `env.clear`, a second app `env.secret`, a `config/deploy.yml` naming
   `SECRET_KEY_BASE`, one naming `SECRET_KEY_BASE_DUMMY`, the generated
   `asset_path: /rails/public/assets`, two hosts without `boot: limit: 1`, and
   a `config/deploy.yml` without `deploy_timeout`, both `secrets_path` omission
   directions, an explicit differing `secrets_path`, a destination overlay, a
-  malformed destination overlay, a command substitution in the example and in
-  a source, an overridden dangerous `RAILS_MASTER_KEY` line, a quoted
-  `RAILS_MASTER_KEY`, and an empty last source.
+  malformed destination overlay and a list overlay, a command substitution in
+  the example and in a source, an overridden dangerous `RAILS_MASTER_KEY`
+  line, a quoted `RAILS_MASTER_KEY`, an empty last source, an export-only key,
+  an export-only accessory key, a CR-only file, an empty root, and the
+  inspected count on success and on failure.
 - **The image is built on pull requests.** A CI job builds the production
   image without pushing it, after `rafelo:module` has created a throwaway module,
   with `BUNDLE_FROZEN=false` because the new engine changes `Gemfile.lock`
