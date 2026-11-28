@@ -152,7 +152,7 @@ module KernelUpdate
         []
       end
 
-      files.reject { |path| KernelUpdate.untouched?(path) || !shipped?(path) }.sort
+      files.reject { |path| KernelUpdate.untouched?(path) || KernelUpdate.junk?(path) || !shipped?(path) }.sort
     end
 
     def shipped?(relative)
@@ -239,7 +239,7 @@ module KernelUpdate
           []
         end
 
-        files.reject { |file| excluded?(entry, file.delete_prefix("#{source}/")) }
+        files.reject { |file| KernelUpdate.junk?(file) || excluded?(entry, file.delete_prefix("#{source}/")) }
           .map { |file| destination + file.delete_prefix(source) }
           .reject { |file| KernelUpdate.untouched?(file) }
       end.to_set
@@ -766,6 +766,19 @@ module KernelUpdate
   end
 
   module_function
+
+  # A local --source tree can hold editor and OS junk that the GitHub tarball
+  # never had. FNM_DOTMATCH is still needed for the dotfiles a payload ships
+  # (#1059), so reject the known junk rather than hiding every dotfile.
+  JUNK_SEGMENTS = %w[.git .idea .vscode .bundle .byebug_history .irb_history .pry_history .rspec_status].freeze
+  JUNK_PATTERNS = %w[.DS_Store ._* Thumbs.db desktop.ini ehthumbs.db].freeze
+
+  def junk?(relative)
+    segments = relative.split("/")
+    return true if (segments & JUNK_SEGMENTS).any?
+
+    JUNK_PATTERNS.any? { |pattern| File.fnmatch?(pattern, segments.last.to_s, File::FNM_DOTMATCH) }
+  end
 
   def untouched?(relative)
     return true if relative.match?(%r{\Aengines/[^/]+/AGENTS\.md\z})
